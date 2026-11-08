@@ -24,7 +24,7 @@ Checkstyle examines `core/src/main` and `core/src/test` only. It does not examin
 2. The core compiles for Java 8. `[javac] options.release = 8`
 3. The core has no Stonecutter comments (`//?`). `[cs] noStonecutter`
 4. The core does not write to `System.out` or `System.err`. Use `Platform.info` and `Platform.warn`. `[cs] noConsole`
-5. The name of each mixin handler starts with `blockpainter$`. `@Shadow` and `@Accessor` members keep the target name. `[lint]`
+5. The name of each mixin handler starts with `worldpainter$`. `@Shadow` and `@Accessor` members keep the target name. `[lint]`
 6. A mixin handler has no game logic. It sends plain values to `ModernHooks` or `LegacyHooks`, and the core makes the decision. `[review]`
 7. Config types are immutable. A `with*` method gives a new object. `[review]`
 

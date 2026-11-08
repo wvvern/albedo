@@ -66,7 +66,7 @@ def frame(src, caption, out):
     brand_font = font(["Inter-Medium.ttf", "segoeui.ttf", "DejaVuSans.ttf"], 22)
     ty = PAD + h + (CAPTION_H + PAD) // 2 - 4
     d.text((PAD + 4, ty), caption, font=title_font, fill=TEXT, anchor="lm")
-    brand = "Block Painter"
+    brand = "World Painter"
     bx = PAD + w - 4 - d.textlength(brand, font=brand_font)
     d.text((bx, ty), brand, font=brand_font, fill=MUTED, anchor="lm")
     s, gap = 12, 6

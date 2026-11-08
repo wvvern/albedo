@@ -13,7 +13,7 @@ param(
     [string]$Task,
     [string]$Harness,
     [string]$CommandLine,
-    [string]$Log = "$env:TEMP\blockpainter-hidden.log",
+    [string]$Log = "$env:TEMP\worldpainter-hidden.log",
     # Optional. Adds a renderer mod to the dev run (-Pcompat, see modern/gradle/shared.gradle), for example sodium.
     [string]$Compat = ""
 )
@@ -38,7 +38,7 @@ public static class HiddenDesktop {
 }
 "@
 
-$desktopName = "BlockPainterHarness"
+$desktopName = "WorldPainterHarness"
 # GENERIC_ALL. If the desktop exists, CreateDesktop returns it.
 $desktop = [HiddenDesktop]::CreateDesktop($desktopName, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }

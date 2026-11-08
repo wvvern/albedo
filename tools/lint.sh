@@ -12,7 +12,7 @@ while IFS= read -r -d '' f; do
     if [ -n "$(tail -c1 "$f")" ]; then echo "$f: error: add a newline at the end of the file"; fail=1; fi
 done < <(git grep -zlI -e '')
 
-# Mixin handler names start with blockpainter$, also in inactive Stonecutter branches.
+# Mixin handler names start with worldpainter$, also in inactive Stonecutter branches.
 # After an injector annotation, skip the rest of it (paren depth, string literals removed), other annotations,
 # blank lines and Stonecutter markers. The next line is the handler header.
 # Limits: the handler name must be on the header line, and the annotation must not share a line with the header.
@@ -28,7 +28,7 @@ git ls-files -z -- '*Mixin.java' | xargs -0 awk '
     p && t ~ /^@/ { d = n; next }
     p && (t ~ /^$/ || t ~ /^(\*\/)?\/\/\?/ || t ~ /^\*\/$/) { next }
     p {
-        if (s !~ /blockpainter\$[A-Za-z0-9_]*[ \t]*\(/) { print FILENAME ":" FNR ": error: a handler name must start with blockpainter$"; bad = 1 }
+        if (s !~ /worldpainter\$[A-Za-z0-9_]*[ \t]*\(/) { print FILENAME ":" FNR ": error: a handler name must start with worldpainter$"; bad = 1 }
         p = 0
     }
     END { exit bad }' || fail=1

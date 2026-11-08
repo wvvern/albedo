@@ -52,7 +52,7 @@ if (loader in ['fabric', 'neoforge']) {
             displayName.set("Client:${loader}:${stonecutter.current.version}")
             // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
             if (project.hasProperty('harness')) {
-                property('blockpainter.harness', new File(project.property('harness') as String).absolutePath)
+                property('worldpainter.harness', new File(project.property('harness') as String).absolutePath)
                 programArgs('--width', '1600', '--height', '900')
             }
         }
@@ -78,7 +78,7 @@ if (loader in ['fabric', 'neoforge'] && project.hasProperty('compat')) {
             if (modVersion == null) logger.info("No ${mod} build for ${loader} ${project.minecraft_version}")
             else add(runtime, "maven.modrinth:${mod}:${modVersion}")
         }
-        // Most players use Sodium with Fabric API, so the test does too. Block Painter itself does not need it.
+        // Most players use Sodium with Fabric API, so the test does too. World Painter itself does not need it.
         if (loader == 'fabric' && 'sodium' in mods) add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}")
     }
 }
