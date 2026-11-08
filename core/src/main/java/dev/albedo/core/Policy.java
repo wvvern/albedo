@@ -53,6 +53,17 @@ public final class Policy {
         return a;
     }
 
+    /**
+     * The look of a tile of {@code sheet}, where a group of the sheet in the same category covers the tiles that no
+     * group names, so that a group made for the whole sheet keeps its effect.
+     */
+    public Appearance appearanceFor(TextureKey tile, TextureKey sheet) {
+        if (profile == null || tile.category() != sheet.category()) return appearanceFor(tile);
+        CategorySettings s = profile.get(tile.category());
+        if (s.ruleFor(tile.id()) == null && s.ruleFor(sheet.id()) != null) return appearanceFor(sheet);
+        return appearanceFor(tile);
+    }
+
     private Appearance resolve(TextureKey key) {
         Category c = key.category();
         if (c == Category.COLORMAPS) {

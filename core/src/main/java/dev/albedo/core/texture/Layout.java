@@ -37,6 +37,8 @@ public final class Layout {
     private final int rows;
     private final List<Tile> tiles;
     private final List<TextureKey> catalogKeys;
+    /** True when the tiles, which do not overlap, fill the whole grid. */
+    private final boolean covered;
 
     Layout(TextureKey key, int cols, int rows, List<Tile> tiles) {
         this.key = key;
@@ -45,12 +47,18 @@ public final class Layout {
         if (tiles.isEmpty()) {
             this.tiles = Collections.emptyList();
             this.catalogKeys = Collections.singletonList(key);
+            this.covered = false;
             return;
         }
         this.tiles = Collections.unmodifiableList(new ArrayList<Tile>(tiles));
         List<TextureKey> keys = new ArrayList<TextureKey>();
-        for (Tile t : tiles) keys.add(t.key);
+        int cells = 0;
+        for (Tile t : tiles) {
+            keys.add(t.key);
+            cells += t.w * t.h;
+        }
         this.catalogKeys = Collections.unmodifiableList(keys);
+        this.covered = cells == cols * rows;
     }
 
     /** The tiles of a known sheet, or a layout without tiles. */
@@ -66,13 +74,15 @@ public final class Layout {
     /** The keys that the texture list shows: the tiles, or the texture itself when it has no tiles. */
     public List<TextureKey> catalogKeys() { return catalogKeys; }
 
-    /** The look of the texture, then the look of each tile in order. */
+    /**
+     * The look of the texture, then the look of each tile in order, where the texture has no look of its own when its
+     * tiles cover it.
+     */
     public List<Appearance> looks(Policy policy) {
-        Appearance own = policy.appearanceFor(key);
-        if (tiles.isEmpty()) return Collections.singletonList(own);
+        if (tiles.isEmpty()) return Collections.singletonList(policy.appearanceFor(key));
         List<Appearance> out = new ArrayList<Appearance>(tiles.size() + 1);
-        out.add(own);
-        for (Tile t : tiles) out.add(policy.appearanceFor(t.key));
+        out.add(covered ? Appearance.ORIGINAL : policy.appearanceFor(key));
+        for (Tile t : tiles) out.add(policy.appearanceFor(t.key, key));
         return Collections.unmodifiableList(out);
     }
 
@@ -83,10 +93,15 @@ public final class Layout {
      */
     public boolean paint(List<Appearance> looks, PixelBuffer img, PixelTransformer.TextureSource textures) {
         if (tiles.isEmpty()) return PixelTransformer.apply(looks.get(0), img, textures);
+        boolean sheetChanges = !looks.get(0).isOriginal();
+        // A tile keeps its original pixels when neither the texture look nor its own look changes them.
         PixelBuffer.Heap[] parts = new PixelBuffer.Heap[tiles.size()];
-        for (int i = 0; i < parts.length; i++) parts[i] = copy(img, tiles.get(i));
+        for (int i = 0; i < parts.length; i++) {
+            if (sheetChanges || !looks.get(i + 1).isOriginal()) parts[i] = copy(img, tiles.get(i));
+        }
         boolean changed = PixelTransformer.apply(looks.get(0), img, textures);
         for (int i = 0; i < parts.length; i++) {
+            if (parts[i] == null) continue;
             boolean tileChanged = PixelTransformer.apply(looks.get(i + 1), parts[i], textures);
             if (changed || tileChanged) paste(parts[i], img, tiles.get(i));
             changed |= tileChanged;

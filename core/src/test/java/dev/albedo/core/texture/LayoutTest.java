@@ -187,6 +187,28 @@ class LayoutTest {
     }
 
     @Test
+    void aGroupForTheWholeSheetCoversTheTilesThatNoGroupNames() {
+        Layout layout = sheet(PARTICLES);
+        PixelBuffer.Heap img = cells(128, 128);
+        Policy policy = particles(Appearance.solid(WHITE), group("flame", Appearance.solid(0xFF00FF00)), group("particles", Appearance.solid(RED)));
+        layout.paint(layout.looks(policy), img, null);
+        assertEquals(0xFF00FF00, at(img, 0, 3), "the group of the tile wins");
+        assertEquals(RED, at(img, 1, 3), "lava takes the group of the sheet");
+        assertEquals(RED, at(img, 0, 1), "so do the cells outside the tiles");
+        assertEquals(cellColor(1, 2), at(img, 1, 2), "the fishing hook is in another category");
+    }
+
+    @Test
+    void aSheetThatItsTilesCoverHasNoLookOfItsOwn() {
+        Layout layout = sheet(EXPLOSION);
+        Config c = Config.defaults();
+        CategorySettings red = new CategorySettings(Appearance.solid(RED), false, Collections.<Rule>emptyList());
+        Policy mobs = Policy.of(c.withProfile(c.activeProfile().with(Category.ENTITIES, red)));
+        assertEquals(Appearance.ORIGINAL, layout.looks(mobs).get(0));
+        assertFalse(layout.paint(layout.looks(mobs), cells(128, 128), null), "the Entities look does not reach the explosion");
+    }
+
+    @Test
     void withTheModOffNothingChanges() {
         Layout layout = sheet(PARTICLES);
         PixelBuffer.Heap img = cells(128, 128);

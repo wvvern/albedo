@@ -18,7 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
@@ -138,15 +137,18 @@ public final class Harness {
         if (args.length < 4) throw new IllegalArgumentException("group <category> <name> <color or mode> <pattern>...");
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
-        Appearance look = args[2].startsWith("#") ? Appearance.solid(Colors.parse(args[2])) : Appearance.of(Appearance.Mode.byKey(args[2]));
-        Rule group = new Rule(args[1], Arrays.asList(args).subList(3, args.length), look, false);
+        Rule group = new Rule(args[1], Arrays.asList(args).subList(3, args.length), look(args[2]), false);
         CategorySettings settings = profile.get(category);
-        List<Rule> rules = new ArrayList<Rule>(settings.rules());
+        List<Rule> rules = settings.rules();
         int index = 0;
         while (index < rules.size() && !rules.get(index).name().equals(group.name())) index++;
-        if (index < rules.size()) rules.set(index, group);
-        else rules.add(group);
-        return profile.with(category, settings.withRules(rules));
+        return profile.with(category, index < rules.size() ? settings.withRule(index, group) : settings.withRuleAt(index, group));
+    }
+
+    /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */
+    private static Appearance look(String text) {
+        for (Appearance.Mode m : Appearance.Mode.values()) if (m.key().equals(text)) return Appearance.of(m);
+        return Appearance.solid(Colors.parse(text));
     }
 
     private void takeCommandFile() {

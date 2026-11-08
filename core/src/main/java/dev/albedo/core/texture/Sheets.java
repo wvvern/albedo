@@ -48,8 +48,8 @@ final class Sheets {
         b.cell("drip_fall", 112);
         b.cell("drip_hang", 113);
         b.cell("drip_land", 114);
-        b.cells("effect_", 128, 8); // potion effects of mobs
-        b.cells("spell_", 144, 8); // witch and splash potions
+        b.cells("effect_", 128, 8); // potion effects of mobs and splash potions
+        b.cells("spell_", 144, 8); // witch and instant potions
         b.cells("spark_", 160, 8); // firework sparks
         for (int i = 0; i < 26; i++) b.cell("sga_" + (char) ('a' + i), 225 + i); // enchanting table glyphs
         return b.build("minecraft:textures/particle/particles.png");
