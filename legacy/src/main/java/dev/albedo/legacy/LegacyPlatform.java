@@ -6,6 +6,8 @@ import dev.albedo.core.Platform;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.MathHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
@@ -36,20 +38,36 @@ final class LegacyPlatform implements Platform {
 
     @Override
     public void reloadResources() {
-        Minecraft mc = Minecraft.getMinecraft();
-        mc.refreshResources();
-        rebuildChunks();
+        final Minecraft mc = Minecraft.getMinecraft();
+        long start = System.nanoTime();
+        // refreshResources also rebuilds the chunks.
+        ReloadScreen.run(new Runnable() {
+            @Override
+            public void run() {
+                mc.refreshResources();
+            }
+        });
+        info("Reloaded all resources in " + (System.nanoTime() - start) / 1000000 + " ms");
     }
 
+    /**
+     * Marks all chunks in render distance for a new mesh. The old meshes stay on screen until the new ones are ready.
+     * loadRenderers is not used: with some mods (tests: Patcher, Essential and OptiFine L5 together) the chunks then
+     * stayed empty until the player moved.
+     */
     @Override
     public void rebuildChunks() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.renderGlobal != null) mc.renderGlobal.loadRenderers();
+        Entity view = mc.getRenderViewEntity();
+        if (mc.renderGlobal == null || view == null) return;
+        int r = (mc.gameSettings.renderDistanceChunks + 1) * 16;
+        int x = MathHelper.floor_double(view.posX), z = MathHelper.floor_double(view.posZ);
+        mc.renderGlobal.markBlockRangeForRenderUpdate(x - r, 0, z - r, x + r, 255, z + r);
     }
 
     @Override
     public boolean shadingInModels() {
-        return true; // FaceBakery bakes the darker block sides into the model quads
+        return false; // the models keep the face shade, and LegacyHooks.addQuad removes it from the chunk mesh
     }
 
     @Override

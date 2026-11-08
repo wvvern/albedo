@@ -8,32 +8,40 @@ import org.spongepowered.asm.lib.tree.MethodInsnNode;
 import org.spongepowered.asm.lib.tree.MethodNode;
 
 /**
- * The work of OptiFineRenderMixin. It finds the tint calls and the face brightness by their target and descriptor,
- * not by the name of the calling method, because each OptiFine version has different method names. It only sends an
- * int or float result through a LegacyHooks method with the same type, so the stack and the frames do not change.
+ * The work of OptiFineRenderMixin. It finds the calls by their target and descriptor, not by the name of the calling
+ * method, because each OptiFine version has different method names. Each change keeps the stack and the frames:
+ * <ul>
+ *   <li>the int result of a tint call and the float result of FaceBakery.getFaceBrightness (the fluid renderer reads
+ *       it each frame) go through a LegacyHooks method with the same type;</li>
+ *   <li>WorldRenderer.addVertexData(int[]) in BlockModelRenderer becomes the static LegacyHooks.addQuad(WorldRenderer,
+ *       int[]), which takes the same stack.</li>
+ * </ul>
  */
 final class OptiFineRenderPatch {
     private static final String HOOKS = "dev/albedo/legacy/LegacyHooks";
+    private static final String WORLD_RENDERER = "net/minecraft/client/renderer/WorldRenderer";
     private static final String COLOR_MULTIPLIER_DESC = "(Lnet/minecraft/world/IBlockAccess;Lnet/minecraft/util/BlockPos;I)I";
     private static final String FACE_BRIGHTNESS_DESC = "(Lnet/minecraft/util/EnumFacing;)F";
 
     private OptiFineRenderPatch() {}
 
     static void apply(ClassNode target) {
-        boolean faceBakery = target.name.endsWith("/FaceBakery");
         boolean fluid = target.name.endsWith("/BlockFluidRenderer");
         int count = 0;
         for (MethodNode method : target.methods) {
-            boolean faceBrightness = faceBakery && FACE_BRIGHTNESS_DESC.equals(method.desc)
-                    && (method.name.equals("func_178412_b") || method.name.equals("getFaceBrightness"));
             for (AbstractInsnNode insn : method.instructions.toArray()) {
-                if (faceBrightness && insn.getOpcode() == Opcodes.FRETURN) {
-                    method.instructions.insertBefore(insn, hook("faceBrightness", "(F)F"));
+                if (!(insn instanceof MethodInsnNode)) continue;
+                MethodInsnNode call = (MethodInsnNode) insn;
+                if (!fluid && isAddVertexData(call)) {
+                    method.instructions.set(call, hook("addQuad", "(L" + WORLD_RENDERER + ";[I)V"));
                     count++;
-                } else if (!faceBakery && insn instanceof MethodInsnNode) {
-                    String name = tintHook((MethodInsnNode) insn, fluid);
+                } else if (fluid && isFaceBrightness(call)) {
+                    method.instructions.insert(call, hook("faceBrightness", "(F)F"));
+                    count++;
+                } else {
+                    String name = tintHook(call, fluid);
                     if (name == null) continue;
-                    method.instructions.insert(insn, hook(name, "(I)I"));
+                    method.instructions.insert(call, hook(name, "(I)I"));
                     count++;
                 }
             }
@@ -45,6 +53,16 @@ final class OptiFineRenderPatch {
 
     private static MethodInsnNode hook(String name, String desc) {
         return new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, name, desc, false);
+    }
+
+    private static boolean isAddVertexData(MethodInsnNode call) {
+        return call.getOpcode() == Opcodes.INVOKEVIRTUAL && call.owner.equals(WORLD_RENDERER) && call.desc.equals("([I)V")
+                && (call.name.equals("func_178981_a") || call.name.equals("addVertexData"));
+    }
+
+    private static boolean isFaceBrightness(MethodInsnNode call) {
+        return call.getOpcode() == Opcodes.INVOKESTATIC && call.owner.endsWith("/FaceBakery") && call.desc.equals(FACE_BRIGHTNESS_DESC)
+                && (call.name.equals("func_178412_b") || call.name.equals("getFaceBrightness"));
     }
 
     /** @return the LegacyHooks method for the int result of this call, or null */

@@ -47,8 +47,12 @@ class TextureStoreTest {
     }
 
     private static void record(TextureStore store, String id, FakeUpload upload, Policy policy) {
-        TextureKey key = TextureClassifier.classify("minecraft:block/" + id);
-        store.record(key, image(), upload, policy.appearanceFor(key));
+        recordNamed(store, "minecraft:block/" + id, upload, policy);
+    }
+
+    private static void recordNamed(TextureStore store, String name, FakeUpload upload, Policy policy) {
+        TextureKey key = TextureClassifier.classify(name);
+        store.record(name, key, image(), upload, policy.appearanceFor(key));
     }
 
     @Test
@@ -89,6 +93,31 @@ class TextureStoreTest {
     }
 
     @Test
+    void aNullUploadKeepsTheTextureThatIsThere() {
+        TextureStore store = new TextureStore();
+        FakeUpload stone = new FakeUpload();
+        record(store, "stone", stone, Policy.DISABLED);
+        record(store, "stone", null, Policy.DISABLED);
+        assertEquals(1, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(1, stone.uploads.size());
+        assertTrue(store.complete());
+    }
+
+    @Test
+    void texturesWithOneKeyAreAllRepainted() {
+        // OptiFine connected textures of a block get the key of the block.
+        TextureStore store = new TextureStore();
+        FakeUpload vanilla = new FakeUpload(), tile = new FakeUpload();
+        recordNamed(store, "minecraft:blocks/bookshelf", vanilla, Policy.DISABLED);
+        recordNamed(store, "minecraft:optifine/ctm/default/12", tile, Policy.DISABLED);
+        assertEquals(TextureClassifier.classify("minecraft:blocks/bookshelf"), TextureClassifier.classify("minecraft:optifine/ctm/default/12"));
+        assertEquals(2, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(1, vanilla.uploads.size());
+        assertEquals(1, tile.uploads.size());
+        assertEquals(1, store.catalog(Category.BLOCKS).size());
+    }
+
+    @Test
     void overBudgetTheStoreIsIncomplete() {
         TextureStore store = new TextureStore(8);
         record(store, "stone", new FakeUpload(), Policy.DISABLED);
@@ -103,7 +132,8 @@ class TextureStoreTest {
         TextureStore store = new TextureStore();
         int[] game = {GREEN, GREEN};
         TextureKey key = TextureClassifier.classify("minecraft:textures/colormap/grass.png");
-        store.record(key, new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game), Appearance.ORIGINAL);
+        store.record("minecraft:textures/colormap/grass.png", key, new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
+                Appearance.ORIGINAL);
         Config c = Config.defaults();
         assertEquals(1, store.repaint(Policy.of(c), null, false).repainted);
         assertArrayEquals(new int[]{0xFFFFFFFF, 0xFFFFFFFF}, game, "quake-white removes biome tint");

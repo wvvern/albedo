@@ -14,8 +14,12 @@ Before you start:
 2. Put an OptiFine 1.8.9 jar (for example HD U M5) in legacy\build\optifine\. Get it from optifine.net.
 3. Run "./gradlew build" in legacy/.
 
-The game runs offline (no login). The game folder is legacy\build\optifine\game.
-Screenshots go to <OutDir>\<variant>\. The harness log is in %TEMP%\albedo-harness\optifine-1.8.9-<variant>\.
+The game runs offline (no login). The game folder is legacy\build\optifine\game, or legacy\build\optifine\game-mods
+with -Mods. Screenshots go to <OutDir>\<variant>\. The harness log is in %TEMP%\albedo-harness\optifine-1.8.9-<variant>\.
+
+-Mods <folder> adds all jars in the folder (for example a copy of the mods of a player) to each variant. If the folder
+has its own OptiFine jar, use the variant "none" so that the script does not add a second one. -Forge <jar> uses a
+different Forge universal jar.
 
 Variants (OptiFine settings, see Set-Variant):
   none        no OptiFine
@@ -29,12 +33,16 @@ Variants (OptiFine settings, see Set-Variant):
 ./tools/optifine.ps1                                   # all variants
 ./tools/optifine.ps1 -Variants none,quake -OutDir build\compat-optifine
 ./tools/optifine.ps1 -Variants quake -DumpClasses   # the transformed classes go to legacy\build\optifine\game\CLASSLOADER_TEMP
+./tools/optifine.ps1 -Variants none -Mods C:\temp\player-mods -Shots repaint-legacy.txt -OutDir build\repaint-mods
 #>
 param(
     [string[]]$Variants = @("none", "default", "quake", "quake-ao", "quake-fancy"),
     [string]$Shots = "shots.txt",
     [string]$OutDir = "build\compat-optifine",
     [string]$Java = "",
+    [string]$Mods = "",
+    # Optional. A Forge 1.8.9 universal jar to use in place of the installed one (some mods need 11.15.1.2318).
+    [string]$Forge = "",
     [switch]$DumpClasses,
     [int]$TimeoutSeconds = 600
 )
@@ -42,7 +50,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $legacy = Join-Path $root "legacy"
 $work = Join-Path $legacy "build\optifine"
-$game = Join-Path $work "game"
+$game = Join-Path $work $(if ($Mods) { "game-mods" } else { "game" })
 $mc = Join-Path $env:APPDATA ".minecraft"
 $gradleCache = Join-Path $env:USERPROFILE ".gradle\caches"
 
@@ -67,8 +75,9 @@ function Find-Library([string]$coordinate) {
 }
 
 function Get-ClassPath {
-    $forge = Get-ChildItem (Join-Path $mc "libraries\net\minecraftforge\forge") -Recurse -Filter "forge-1.8.9-*.jar" |
-        Sort-Object Name -Descending | Select-Object -First 1
+    $forge = if ($Forge) { Get-Item $Forge } else {
+        Get-ChildItem (Join-Path $mc "libraries\net\minecraftforge\forge") -Recurse -Filter "forge-1.8.9-*.jar" |
+            Sort-Object Name -Descending | Select-Object -First 1 }
     if (-not $forge) { throw "Forge 1.8.9 is not installed in $mc" }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead($forge.FullName)
@@ -109,6 +118,7 @@ function Set-Variant([string]$variant) {
         if (-not $of) { throw "Put an OptiFine 1.8.9 jar in $work" }
         Copy-Item $of.FullName (Join-Path $game "mods")
     }
+    if ($Mods) { Get-ChildItem $Mods -Filter *.jar | Copy-Item -Destination (Join-Path $game "mods") }
     $options = @{ narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false"; fullscreen = "false"; guiScale = "0";
                   fancyGraphics = "true"; ao = "2" }
     $of = @{}
@@ -171,6 +181,9 @@ foreach ($variant in $Variants) {
     New-Item -ItemType Directory -Force $out | Out-Null
     $pngs = Get-ChildItem $harness -Filter *.png
     $pngs | Copy-Item -Destination $out -Force
+    # Essential saves screenshots later on its own thread, so the harness can move an empty file. Use the late copy.
+    Get-ChildItem (Join-Path $harness "screenshots") -Filter *.png -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 0 } |
+        Copy-Item -Destination $out -Force
     Copy-Item $log, $harnessLog $out -ErrorAction SilentlyContinue
     Write-Host "[$variant] $($pngs.Count) screenshots -> $out"
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$variant] $($_.Line)" } }

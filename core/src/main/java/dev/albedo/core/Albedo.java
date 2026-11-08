@@ -94,7 +94,8 @@ public final class Albedo {
 
     /**
      * Keeps the original of a freshly loaded texture, then transforms it in place. The {@code upload} puts other
-     * pixels into the same texture later, when a settings change repaints it.
+     * pixels into the same texture later, when a settings change repaints it. A null {@code upload} only transforms
+     * the image, for a copy that must not replace the kept texture (for example the placeholder of a downloaded skin).
      *
      * @param location "minecraft:textures/block/stone.png" or a sprite name with its folder ("minecraft:block/stone")
      * @return true if the image was changed
@@ -105,7 +106,7 @@ public final class Albedo {
         TextureKey key = TextureClassifier.classify(location);
         try {
             Appearance a = sc.policy.appearanceFor(key);
-            sc.store.record(key, image, upload, a);
+            sc.store.record(location, key, image, upload, a);
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;

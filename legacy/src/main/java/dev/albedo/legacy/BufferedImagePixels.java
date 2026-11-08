@@ -36,6 +36,20 @@ final class BufferedImagePixels implements PixelBuffer {
         return out;
     }
 
+    /** A new ARGB image with the pixels of {@code pixels}, for a repaint. */
+    static BufferedImage toImage(PixelBuffer pixels) {
+        int w = pixels.width(), h = pixels.height();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        if (pixels instanceof PixelBuffer.Heap) {
+            out.setRGB(0, 0, w, h, ((PixelBuffer.Heap) pixels).argb(), 0, w);
+        } else {
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) out.setRGB(x, y, pixels.getArgb(x, y));
+            }
+        }
+        return out;
+    }
+
     @Override public int width() { return image.getWidth(); }
     @Override public int height() { return image.getHeight(); }
     @Override public int getArgb(int x, int y) { return image.getRGB(x, y); }
