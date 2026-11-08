@@ -24,7 +24,7 @@ Block Painter uses ports and adapters. The core contains almost all of the code 
 | NativeImagePixels           |   | BufferedImagePixels         |
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
-| 15 mixins + 1 accessor      |   | 14 mixins                   |
+| 15 mixins + 1 accessor      |   | 15 mixins, MixinPlugin      |
 +-----------------------------+   | BlockPainterForge (@Mod)    |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -64,6 +64,8 @@ The adapters change data at stable points, not in the renderers. The core proces
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
+OptiFine on 1.8.9 changes `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`, and each OptiFine version uses different method names. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with OptiFine. `OptiFineRenderMixin` has no members. Its plugin step (`OptiFineRenderPatch`) finds the calls to `Block.colorMultiplier`, `CustomColors.getColorMultiplier` and `CustomColors.getFluidColor`, and the return of `getFaceBrightness`, by target and descriptor, and sends each result through `LegacyHooks`. The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace. `tools/optifine.ps1` runs the release jar with OptiFine in a production Forge client for tests.
+
 The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API. Keys use the Minecraft key name (for example `key.keyboard.f6`), because the key codes are different in each era. The eras use LWJGL 2 on 1.8.9, GLFW on 1.21.x and SDL on 26.x.
 
 ## Builds
@@ -101,7 +103,8 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 
 ## Known gaps
 
-- Sodium, Embeddium and OptiFine replace block meshing, so the block tint hook does not run. The mod still removes biome grass and foliage tint. Fixed tints stay (birch and spruce leaves, lily pads, swamp grass). A fix needs one optional mixin for each renderer.
+- Sodium and Embeddium replace block meshing, so the block tint hook does not run. The mod still removes biome grass and foliage tint. Fixed tints stay (birch and spruce leaves, lily pads, swamp grass). A fix needs one optional mixin for each renderer.
+- 1.8.9 with OptiFine: the project tests only OptiFine HD U M6 pre2 (with `tools/optifine.ps1`). OptiFine shaders are not tested.
 - Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
 - The game downloads player skins and does not load them as resources. Thus the `players` category changes only the default skins.
 - `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible. To hide it, add a group with `"mode": "hidden"`.
