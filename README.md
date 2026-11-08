@@ -152,7 +152,8 @@ MIT. See [LICENSE](LICENSE).
 
 ## Known limits
 
-- Sodium and Embeddium: all features operate. Tests used Sodium 0.8.13 to 0.9.3 and Embeddium 1.0.15. A different version of these mods can stop the block tint change.
+- Sodium and Embeddium: all features operate. Tests used Sodium 0.8.13 to 0.9.3 on Fabric and Embeddium 1.0.15. A different version of these mods can stop the block tint change.
+- Iris: with shaders off, all features operate. With a shader pack, the textures, block tint, foliage and weather change, and a settings change does not reload resources. Many shader packs draw their own sky, clouds, light, shadows and water color. With these packs, the sky color, clouds, fullbright, shading and entity shadows settings have no effect. Tests used Iris 1.11.7 on Fabric 26.3 and Iris 1.10.8 on Fabric 1.21.11, with Complementary Reimagined r5.9.3.
 - 1.8.9 with OptiFine: all features operate. Tests used OptiFine HD U M6 pre2 and HD U L5. Shaders are not tested.
 - 1.8.9: a settings change repaints the changed textures and, for tint and shading, rebuilds the chunks. This takes less than 0.1 s. With OptiFine shaders, with a texture type from a different mod, or with more than 128 MB of textures, the mod reloads all resources. On a slow computer this can take 20 s. A progress bar shows during the reload.
 - On 1.21.2 and later, you can only hide clouds.
