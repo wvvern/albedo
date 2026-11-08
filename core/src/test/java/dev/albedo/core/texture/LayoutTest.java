@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LayoutTest {
     static final String PARTICLES = "minecraft:textures/particle/particles.png";
+    private static final String PAINTINGS = "minecraft:textures/painting/paintings_kristoffer_zetterstrand.png";
+    private static final String EXPLOSION = "minecraft:textures/entity/explosion.png";
     private static final int WHITE = 0xFFFFFFFF;
     private static final int RED = 0xFFFF0000;
 
@@ -67,19 +69,49 @@ class LayoutTest {
 
     @Test
     void sheetTilesFitTheGridWithoutOverlap() {
-        Layout layout = sheet(PARTICLES);
-        Set<String> ids = new HashSet<String>();
-        boolean[][] used = new boolean[16][16];
-        for (Layout.Tile t : layout.tiles()) {
-            assertTrue(ids.add(t.key().category() + "/" + t.key().id()), "unique id " + t.key());
-            int[] b = layout.bounds(t, 16, 16);
-            for (int y = b[1]; y < b[3]; y++) {
-                for (int x = b[0]; x < b[2]; x++) {
-                    assertFalse(used[y][x], "overlap at " + x + "," + y + " of " + t.key());
-                    used[y][x] = true;
+        for (String location : new String[]{PARTICLES, PAINTINGS, EXPLOSION}) {
+            Layout layout = sheet(location);
+            Set<String> ids = new HashSet<String>();
+            boolean[][] used = new boolean[16][16];
+            for (Layout.Tile t : layout.tiles()) {
+                assertTrue(ids.add(t.key().category() + "/" + t.key().id()), "unique id " + t.key());
+                int[] b = layout.bounds(t, 16, 16);
+                for (int y = b[1]; y < b[3]; y++) {
+                    for (int x = b[0]; x < b[2]; x++) {
+                        assertFalse(used[y][x], "overlap at " + x + "," + y + " of " + t.key());
+                        used[y][x] = true;
+                    }
                 }
             }
         }
+    }
+
+    @Test
+    void paintingTilesHaveTheNamesOfLaterVersions() {
+        Layout layout = sheet(PAINTINGS);
+        assertEquals(Category.DECORATIONS, layout.key().category());
+        // The file names in textures/painting/ of 1.21.1 that 1.8.9 has.
+        List<String> later = Arrays.asList("alban", "aztec", "aztec2", "back", "bomb", "burning_skull", "bust", "courbet", "creebet",
+                "donkey_kong", "fighters", "graham", "kebab", "match", "pigscene", "plant", "pointer", "pool", "sea", "skeleton",
+                "skull_and_roses", "stage", "sunset", "void", "wanderer", "wasteland", "wither");
+        Set<String> ids = new HashSet<String>();
+        for (Layout.Tile t : layout.tiles()) {
+            assertEquals(Category.DECORATIONS, t.key().category());
+            ids.add(t.key().id().substring("minecraft:".length()));
+        }
+        assertEquals(new HashSet<String>(later), ids);
+        assertArrayEquals(new int[]{12, 4, 16, 7}, layout.bounds(tile(layout, "skeleton"), 16, 16));
+        assertArrayEquals(new int[]{12, 0, 13, 1}, layout.bounds(tile(layout, "back"), 16, 16));
+    }
+
+    @Test
+    void explosionFramesAreParticles() {
+        Layout layout = sheet(EXPLOSION);
+        assertEquals(Category.ENTITIES, layout.key().category());
+        assertEquals(16, layout.tiles().size());
+        Layout.Tile frame = tile(layout, "explosion_5");
+        assertEquals(Category.PARTICLES, frame.key().category(), "later versions have the explosion in the particle atlas");
+        assertArrayEquals(new int[]{32, 32, 64, 64}, layout.bounds(frame, 128, 128));
     }
 
     @Test

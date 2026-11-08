@@ -74,7 +74,7 @@ To add textures to a group, type a name. The input shows matching textures of th
 
 A pattern without `:` ignores the namespace: `stone` matches `minecraft:stone`.
 
-On 1.8.9, all particles are in one texture. The mod divides it into one texture for each particle, with the names of later versions (for example `flame`, `generic_0` or `sga_a`). Thus a group pattern is the same on all versions. The fishing hook is in the same texture, and it is in the Entities category, as on later versions.
+On 1.8.9, all particles are in one texture, and all paintings are in one texture. The mod divides these textures into one texture for each particle or painting, with the names of later versions (for example `flame`, `generic_0`, `sga_a` or `kebab`). Thus a group pattern is the same on all versions. As on later versions, the fishing hook is in the Entities category, and the frames of the explosion (`explosion_0` to `explosion_15`) are in the Particles category.
 
 If a block is in two groups, the higher group in the list wins. Each category has a scope:
 
