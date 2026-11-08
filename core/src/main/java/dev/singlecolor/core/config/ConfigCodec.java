@@ -6,9 +6,11 @@ import dev.singlecolor.core.Colors;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Converts {@link Config} to and from JSON. Example:
@@ -16,11 +18,12 @@ import java.util.Map;
  * {
  *   "enabled": true,
  *   "activeProfile": "quake-white",
- *   "keys": { "toggle": "F6", "cycleProfile": "F7" },
+ *   "keys": { "toggle": "F6", "cycleProfile": "F7", "settings": "F9" },
  *   "profiles": {
  *     "quake-white": {
+ *       "fullbright": true, "shading": true, "foliage": false,
  *       "blocks": { "mode": "solid", "color": "#FFFFFF", "removeTint": true,
- *                   "rules": [ { "match": ["*glass*"], "mode": "solid", "color": "#80FFFFFF" } ] },
+ *                   "groups": [ { "name": "Ground", "match": ["dirt", "grass_block*", "gravel"], "color": "#7A5C3A" } ] },
  *       "sky":    { "mode": "solid", "color": "#FFFFFF" }
  *     }
  *   }
@@ -34,11 +37,10 @@ public final class ConfigCodec {
 
     public static Config decode(String json) {
         Map<String, Object> root = asMap(Json.parse(json), "root");
-        boolean enabled = bool(root, "enabled", true);
-        String active = str(root, "activeProfile", "");
         Map<String, Object> keys = root.containsKey("keys") ? asMap(root.get("keys"), "keys") : Collections.<String, Object>emptyMap();
-        String toggle = str(keys, "toggle", "F6");
-        String cycle = str(keys, "cycleProfile", "F7");
+        Config.KeyBinds d = Config.KeyBinds.DEFAULT;
+        Config.KeyBinds binds = new Config.KeyBinds(str(keys, "toggle", d.toggle), str(keys, "cycleProfile", d.cycleProfile),
+                str(keys, "settings", d.settings));
 
         Map<String, Profile> profiles = new LinkedHashMap<String, Profile>();
         Object rawProfiles = root.get("profiles");
@@ -48,39 +50,46 @@ public final class ConfigCodec {
             }
         }
         if (profiles.isEmpty()) profiles.putAll(Presets.all());
-        return new Config(enabled, active, toggle, cycle, profiles);
+        return new Config(bool(root, "enabled", true), str(root, "activeProfile", ""), binds, profiles);
     }
 
     static Profile decodeProfile(String name, Map<String, Object> map) {
         Map<Category, CategorySettings> cats = new EnumMap<Category, CategorySettings>(Category.class);
+        Set<Toggle> on = EnumSet.noneOf(Toggle.class);
+        for (Toggle t : Toggle.values()) if (bool(map, t.key, t.defaultOn)) on.add(t);
         for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (Toggle.byKey(e.getKey()) != null) continue;
             Category c = Category.byKey(e.getKey());
-            if (c == null) throw new IllegalArgumentException("profile '" + name + "': unknown category '" + e.getKey() + "'");
+            if (c == null) throw new IllegalArgumentException("profile '" + name + "': unknown setting '" + e.getKey() + "'");
             cats.put(c, decodeCategory(name + "." + e.getKey(), asMap(e.getValue(), e.getKey())));
         }
-        return new Profile(name, cats);
+        return new Profile(name, cats, on);
     }
+
+    private static final String[] LOOK_KEYS = {"mode", "color", "texture", "alpha"};
 
     static CategorySettings decodeCategory(String where, Map<String, Object> map) {
         Appearance appearance = decodeAppearance(where, map, Appearance.ORIGINAL);
-        boolean removeTint = bool(map, "removeTint", false);
         List<Rule> rules = new ArrayList<Rule>();
-        Object raw = map.get("rules");
+        Object raw = map.get("groups");
         if (raw != null) {
-            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".rules must be a list");
+            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".groups must be a list");
             int k = 0;
             for (Object o : (List<?>) raw) {
-                Map<String, Object> rm = asMap(o, where + ".rules[" + k + "]");
+                String at = where + ".groups[" + k++ + "]";
+                Map<String, Object> rm = asMap(o, at);
                 Object match = rm.get("match");
                 List<String> patterns = new ArrayList<String>();
                 if (match instanceof String) patterns.add((String) match);
                 else if (match instanceof List) for (Object p : (List<?>) match) patterns.add(String.valueOf(p));
-                else throw new IllegalArgumentException(where + ".rules[" + k + "] needs \"match\": \"pattern\" or [\"p1\", \"p2\"]");
-                rules.add(new Rule(patterns, decodeAppearance(where + ".rules[" + k + "]", rm, appearance)));
-                k++;
+                else throw new IllegalArgumentException(at + " needs \"match\": \"pattern\" or [\"p1\", \"p2\"]");
+                boolean global = true;
+                for (String key : LOOK_KEYS) if (rm.containsKey(key)) global = false;
+                Rule r = new Rule(str(rm, "name", ""), patterns, decodeAppearance(at, rm, appearance), false);
+                rules.add(global ? r.withGlobalLook() : r);
             }
         }
-        return new CategorySettings(appearance, removeTint, rules);
+        return new CategorySettings(appearance, bool(map, "removeTint", false), bool(map, "onlyGroups", false), rules);
     }
 
     /** Unspecified fields inherit from {@code parent} (category defaults for rules). */
@@ -103,8 +112,9 @@ public final class ConfigCodec {
         root.put("enabled", config.enabled());
         root.put("activeProfile", config.activeProfileName());
         Map<String, Object> keys = new LinkedHashMap<String, Object>();
-        keys.put("toggle", config.toggleKey());
-        keys.put("cycleProfile", config.cycleKey());
+        keys.put("toggle", config.keys().toggle);
+        keys.put("cycleProfile", config.keys().cycleProfile);
+        keys.put("settings", config.keys().settings);
         root.put("keys", keys);
         Map<String, Object> profiles = new LinkedHashMap<String, Object>();
         for (Profile p : config.profiles().values()) profiles.put(p.name(), encodeProfile(p));
@@ -114,21 +124,30 @@ public final class ConfigCodec {
 
     static Map<String, Object> encodeProfile(Profile p) {
         Map<String, Object> out = new LinkedHashMap<String, Object>();
+        for (Toggle t : Toggle.values()) if (p.is(t) != t.defaultOn) out.put(t.key, p.is(t));
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
             CategorySettings cs = e.getValue();
             Map<String, Object> m = new LinkedHashMap<String, Object>();
             encodeAppearance(m, cs.appearance(), null);
             if (cs.removeTint()) m.put("removeTint", true);
+            if (cs.onlyGroups()) m.put("onlyGroups", true);
             if (!cs.rules().isEmpty()) {
                 List<Object> rules = new ArrayList<Object>();
                 for (Rule r : cs.rules()) {
                     Map<String, Object> rm = new LinkedHashMap<String, Object>();
-                    List<String> pats = r.patternStrings();
+                    if (!r.name().isEmpty()) rm.put("name", r.name());
+                    List<String> pats = r.patterns();
                     rm.put("match", pats.size() == 1 ? (Object) pats.get(0) : new ArrayList<Object>(pats));
-                    encodeAppearance(rm, r.appearance(), cs.appearance());
+                    if (!r.usesGlobalLook()) {
+                        encodeAppearance(rm, r.appearance(), cs.appearance());
+                        // No look field means "global look", so an own look equal to the global one is written out.
+                        if (!rm.containsKey("mode") && !rm.containsKey("color") && !rm.containsKey("texture") && !rm.containsKey("alpha")) {
+                            rm.put("mode", r.appearance().mode().key());
+                        }
+                    }
                     rules.add(rm);
                 }
-                m.put("rules", rules);
+                m.put("groups", rules);
             }
             out.put(e.getKey().key(), m);
         }
@@ -138,8 +157,8 @@ public final class ConfigCodec {
     /** Writes only what differs from {@code parent} (or everything relevant when parent is null). */
     private static void encodeAppearance(Map<String, Object> m, Appearance a, Appearance parent) {
         if (parent == null || a.mode() != parent.mode()) m.put("mode", a.mode().key());
-        boolean colorMatters = a.mode() == Appearance.Mode.SOLID;
-        if (colorMatters && (parent == null || a.color() != parent.color())) m.put("color", Colors.format(a.color()));
+        boolean colorUsed = a.mode() == Appearance.Mode.SOLID || a.mode() == Appearance.Mode.TEXTURE;
+        if (colorUsed && (parent == null || a.color() != parent.color())) m.put("color", Colors.format(a.color()));
         if (a.texture() != null && (parent == null || !a.texture().equals(parent.texture()))) m.put("texture", a.texture());
         if (a.alpha() != Appearance.Alpha.KEEP && (parent == null || a.alpha() != parent.alpha())) m.put("alpha", a.alpha().key());
     }
@@ -164,9 +183,5 @@ public final class ConfigCodec {
         if (o == null) return def;
         if (!(o instanceof String)) throw new IllegalArgumentException("'" + key + "' must be a string");
         return (String) o;
-    }
-
-    static Map<Category, CategorySettings> emptyCategories() {
-        return new EnumMap<Category, CategorySettings>(Category.class);
     }
 }

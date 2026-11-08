@@ -48,7 +48,14 @@ if (loader in ['fabric', 'neoforge']) {
             appendProjectPathToDisplayName.set(false)
             ideConfigFolder.set(loader == 'fabric' ? 'Fabric' : 'NeoForge')
         }
-        getByName('client').displayName.set("Client:${loader}:${stonecutter.current.version}")
+        getByName('client') {
+            displayName.set("Client:${loader}:${stonecutter.current.version}")
+            // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
+            if (project.hasProperty('harness')) {
+                property('singlecolor.harness', new File(project.property('harness') as String).absolutePath)
+                programArgs('--width', '1600', '--height', '900')
+            }
+        }
         named('server') { displayName.set("Server:${loader}:${stonecutter.current.version}") }
     }
 }

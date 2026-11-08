@@ -27,7 +27,7 @@ public final class NativeImagePixels implements PixelBuffer {
         //? if >=1.21.2 {
         return image.getPixel(x, y);
         //?} else {
-        /*return Colors.abgrToArgb(image.getPixelRGBA(x, y));
+        /*return Colors.swapRedBlue(image.getPixelRGBA(x, y));
         *///?}
     }
 
@@ -36,7 +36,7 @@ public final class NativeImagePixels implements PixelBuffer {
         //? if >=1.21.2 {
         image.setPixel(x, y, argb);
         //?} else {
-        /*image.setPixelRGBA(x, y, Colors.argbToAbgr(argb));
+        /*image.setPixelRGBA(x, y, Colors.swapRedBlue(argb));
         *///?}
     }
 }

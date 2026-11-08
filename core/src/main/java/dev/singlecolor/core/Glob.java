@@ -8,11 +8,9 @@ import java.util.regex.Pattern;
  * {@code *} matches any run of characters, {@code ?} one character. A pattern without a ':' matches any namespace.
  */
 public final class Glob {
-    private final String source;
     private final Pattern pattern;
 
-    private Glob(String source, Pattern pattern) {
-        this.source = source;
+    private Glob(Pattern pattern) {
         this.pattern = pattern;
     }
 
@@ -26,15 +24,10 @@ public final class Glob {
             else if (c == '?') re.append('.');
             else re.append(Pattern.quote(String.valueOf(c)));
         }
-        return new Glob(glob, Pattern.compile(re.toString()));
+        return new Glob(Pattern.compile(re.toString()));
     }
 
     public boolean matches(String id) {
         return pattern.matcher(id.toLowerCase(Locale.ROOT)).matches();
-    }
-
-    @Override
-    public String toString() {
-        return source;
     }
 }

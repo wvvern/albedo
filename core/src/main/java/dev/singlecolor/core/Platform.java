@@ -1,5 +1,7 @@
 package dev.singlecolor.core;
 
+import dev.singlecolor.core.dev.Harness;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -8,7 +10,7 @@ import java.io.IOException;
  * never has to change when Minecraft does.
  */
 public interface Platform {
-    /** e.g. "Fabric 1.21.1"; for logs and the about message. */
+    /** e.g. "Fabric 1.21.1"; for logs. */
     String describe();
 
     /** The game's config directory (the core puts its own folder inside). */
@@ -21,12 +23,20 @@ public interface Platform {
     /** Reload resource packs/textures and rebuild chunks. Called on the client thread. */
     void reloadResources();
 
-    /** Show a short message to the player (chat or action bar). Called on the client thread. */
+    /** Show a short message to the player (action bar). Called on the client thread. */
     void showMessage(String message);
 
-    /** Whether the key is held right now. Adapters pick the code family they use (GLFW or LWJGL 2). */
+    /** Whether the key is held right now. */
     boolean isKeyDown(Keys.Key key);
 
     /** Decode a PNG from disk into ARGB pixels, using whatever image class this version ships. */
     PixelBuffer readImage(File png) throws IOException;
+
+    /** Show the settings screen (wrapping {@link dev.singlecolor.core.ui.SettingsEditor}). */
+    void openSettings();
+
+    String clipboard();
+
+    /** The development test harness host; only used when {@code -Dsinglecolor.harness=<dir>} is set. */
+    Harness.Host harnessHost();
 }

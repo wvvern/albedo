@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /** Built-in profiles written to the config file on first launch. */
 public final class Presets {
@@ -13,29 +14,30 @@ public final class Presets {
 
     public static Map<String, Profile> all() {
         Map<String, Profile> m = new LinkedHashMap<String, Profile>();
-        add(m, quake(true));
-        add(m, quake(false));
-        add(m, minimal());
+        for (Profile p : new Profile[]{quake(true), quake(false), minimal()}) m.put(p.name(), p);
         return m;
     }
 
-    private static void add(Map<String, Profile> m, Profile p) {
-        m.put(p.name(), p);
-    }
-
-    /** Everything static is one flat color; anything that moves keeps its texture. */
+    /** Everything static is one flat color, evenly lit, without plants; anything that moves keeps its texture. */
     static Profile quake(boolean white) {
         int block = white ? 0xFFFFFFFF : 0xFF141414;
         int fluid = white ? 0xFFD0D0D0 : 0xFF0A0A0A;
         int sky = white ? 0xFFFFFFFF : 0xFF000000;
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        c.put(Category.BLOCKS, flat(block, true));
+        // Solid leaves: through their holes you'd otherwise see darker back faces, which is exactly the noise to remove.
+        Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
+                new Appearance(Appearance.Mode.SOLID, block, null, Appearance.Alpha.OPAQUE), false);
+        c.put(Category.BLOCKS, new CategorySettings(Appearance.solid(block), true, Collections.singletonList(solidLeaves)));
         c.put(Category.BLOCK_ENTITIES, flat(block, false));
         c.put(Category.FLUIDS, flat(fluid, true));
         c.put(Category.SKY, flat(sky, false));
         c.put(Category.CLOUDS, hidden());
         c.put(Category.WEATHER, hidden());
-        return new Profile(white ? "quake-white" : "quake-black", c);
+        // Shading stays on: with everything one color, it's what keeps block shapes readable.
+        Set<Toggle> on = Profile.defaultToggles();
+        on.add(Toggle.FULLBRIGHT);
+        on.remove(Toggle.FOLIAGE);
+        return new Profile(white ? "quake-white" : "quake-black", c, on);
     }
 
     /** Each block becomes its own average color: detail gone, still readable. */
@@ -46,7 +48,7 @@ public final class Presets {
         c.put(Category.BLOCK_ENTITIES, avg);
         c.put(Category.FLUIDS, avg);
         c.put(Category.CLOUDS, hidden());
-        return new Profile("minimal", c);
+        return new Profile("minimal", c, Profile.defaultToggles());
     }
 
     private static CategorySettings flat(int color, boolean removeTint) {

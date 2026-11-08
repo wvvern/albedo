@@ -119,4 +119,9 @@ tasks.register<JavaExec>("runClientDev") {
         "-Dfabric.dli.env=client",
         "-Dfabric.dli.main=net.minecraft.launchwrapper.Launch",
     )
+    // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
+    if (project.hasProperty("harness")) {
+        systemProperty("singlecolor.harness", File(project.property("harness") as String).absolutePath)
+        args("--width", "1600", "--height", "900")
+    }
 }

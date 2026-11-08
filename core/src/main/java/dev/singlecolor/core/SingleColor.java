@@ -3,7 +3,7 @@ package dev.singlecolor.core;
 import dev.singlecolor.core.config.Appearance;
 import dev.singlecolor.core.config.Config;
 import dev.singlecolor.core.config.ConfigCodec;
-import dev.singlecolor.core.config.Presets;
+import dev.singlecolor.core.dev.Harness;
 import dev.singlecolor.core.texture.PixelTransformer;
 import dev.singlecolor.core.texture.TextureClassifier;
 import dev.singlecolor.core.texture.TextureKey;
@@ -16,18 +16,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The single entry point adapters talk to. Holds the current config/policy, watches the config file, handles the
- * toggle keys and transforms textures. Adapters call:
- * <ul>
- *   <li>{@link #init(Platform)} once at client start;</li>
- *   <li>{@link #processTexture} whenever a texture image is loaded;</li>
- *   <li>{@link #policy()} from render hooks (tint, sky);</li>
- *   <li>{@link #clientTick(boolean)} every client tick.</li>
- * </ul>
+ * keys and transforms textures. Adapters call {@link #init} once, {@link #processTexture} for every loaded texture,
+ * {@link #currentPolicy()} from render hooks and {@link #clientTick} every client tick.
  */
 public final class SingleColor {
     public static final String MOD_ID = "singlecolor";
@@ -40,20 +39,24 @@ public final class SingleColor {
     private final Platform platform;
     private final File dir;
     private final File configFile;
+    private final Harness harness;
     private volatile Config config;
     private volatile Policy policy = Policy.DISABLED;
     private final Map<String, PixelBuffer> userTextures = new ConcurrentHashMap<String, PixelBuffer>();
+    /** Every texture seen since start, with its original average color: what the settings screen lists. */
+    private final Map<TextureKey, Integer> catalog = new ConcurrentHashMap<TextureKey, Integer>();
     private final PixelTransformer.TextureSource textureSource;
 
     private long lastModified;
     private int ticks;
-    private boolean toggleWasDown;
-    private boolean cycleWasDown;
+    private volatile int transformedSinceSummary;
+    private final boolean[] keyWasDown = new boolean[3];
 
     private SingleColor(Platform platform) {
         this.platform = platform;
         this.dir = new File(platform.configDir(), MOD_ID);
         this.configFile = new File(dir, "config.json");
+        this.harness = Harness.fromSystemProperty(platform);
         this.textureSource = new PixelTransformer.TextureSource() {
             @Override
             public PixelBuffer load(String name) {
@@ -74,7 +77,7 @@ public final class SingleColor {
         return instance;
     }
 
-    /** May be null before init (e.g. textures loaded very early); callers then leave things untouched. */
+    /** May be null before init. */
     public static SingleColor get() {
         return instance;
     }
@@ -85,30 +88,28 @@ public final class SingleColor {
         return sc == null ? Policy.DISABLED : sc.policy;
     }
 
-    public Policy policy() { return policy; }
-
     public Config config() { return config; }
+
+    public Platform platform() { return platform; }
 
     // ---------------------------------------------------------------- textures
 
     /**
-     * Transforms a freshly loaded texture in place.
+     * Records and transforms a freshly loaded texture in place.
      *
-     * @param namespace resource namespace ("minecraft")
-     * @param path      either "textures/block/stone.png" or an atlas sprite name such as "block/stone"
+     * @param location "minecraft:textures/block/stone.png" or a sprite name with its folder ("minecraft:block/stone")
      * @return true if the image was changed
      */
-    public static boolean processTexture(String namespace, String path, PixelBuffer image) {
+    public static boolean processTexture(String location, PixelBuffer image) {
         SingleColor sc = instance;
         if (sc == null) return false;
-        Policy p = sc.policy;
-        if (!p.enabled()) return false;
-        TextureKey key = TextureClassifier.classify(namespace, path);
-        Appearance a = p.appearanceFor(key);
+        TextureKey key = TextureClassifier.classify(location);
+        sc.catalog.put(key, PixelTransformer.average(image));
+        Appearance a = sc.policy.appearanceFor(key);
         if (a.isOriginal()) return false;
         try {
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
-            if (changed) sc.countTransformed(key.category());
+            if (changed) sc.transformedSinceSummary++;
             return changed;
         } catch (RuntimeException e) {
             sc.platform.warn("Could not transform " + key, e);
@@ -116,49 +117,37 @@ public final class SingleColor {
         }
     }
 
-    /** Same as {@link #processTexture(String, String, PixelBuffer)} for "namespace:path" strings. */
-    public static boolean processTexture(String location, PixelBuffer image) {
-        int colon = location.indexOf(':');
-        return colon < 0 ? processTexture("minecraft", location, image)
-                : processTexture(location.substring(0, colon), location.substring(colon + 1), image);
+    /** Ids seen in a category, sorted, each with its original average color. */
+    public Map<String, Integer> catalog(Category category) {
+        Map<String, Integer> out = new TreeMap<String, Integer>();
+        for (Map.Entry<TextureKey, Integer> e : catalog.entrySet()) {
+            if (e.getKey().category() == category) out.put(e.getKey().id(), e.getValue());
+        }
+        return out;
     }
 
-    // Per-category counts since the last summary; logged once loading settles so users can see what was changed.
-    private final Map<Category, java.util.concurrent.atomic.AtomicInteger> transformed =
-            new ConcurrentHashMap<Category, java.util.concurrent.atomic.AtomicInteger>();
-    private volatile boolean pendingSummary;
-
-    private void countTransformed(Category c) {
-        java.util.concurrent.atomic.AtomicInteger n = transformed.get(c);
-        if (n == null) {
-            transformed.putIfAbsent(c, new java.util.concurrent.atomic.AtomicInteger());
-            n = transformed.get(c);
-        }
-        n.incrementAndGet();
-        pendingSummary = true;
+    /** PNG names in the user textures folder, for the TEXTURE mode picker. */
+    public List<String> userTextureNames() {
+        File[] files = new File(dir, "textures").listFiles();
+        if (files == null) return Collections.emptyList();
+        List<String> names = new ArrayList<String>();
+        for (File f : files) if (f.isFile() && f.getName().toLowerCase().endsWith(".png")) names.add(f.getName());
+        Collections.sort(names);
+        return names;
     }
 
-    private void logSummary() {
-        if (!pendingSummary) return;
-        pendingSummary = false;
-        StringBuilder sb = new StringBuilder();
-        int total = 0;
-        for (Category c : Category.values()) {
-            java.util.concurrent.atomic.AtomicInteger n = transformed.remove(c);
-            if (n == null) continue;
-            total += n.get();
-            sb.append(sb.length() == 0 ? "" : ", ").append(c.key()).append(' ').append(n.get());
-        }
-        platform.info("Flattened " + total + " textures (" + sb + ") with profile '" + config.activeProfileName() + "'");
+    public File texturesFolder() {
+        return new File(dir, "textures");
     }
 
     private PixelBuffer userTexture(String name) {
         PixelBuffer cached = userTextures.get(name);
         if (cached != null) return cached;
-        File f = new File(new File(dir, "textures"), name);
+        File folder = texturesFolder();
+        File f = new File(folder, name);
         try {
-            if (!f.getCanonicalPath().startsWith(new File(dir, "textures").getCanonicalPath())) return null;
-            PixelBuffer img = PixelBuffer.Heap.copyOf(platform.readImage(f));
+            if (!f.getCanonicalPath().startsWith(folder.getCanonicalPath() + File.separator)) return null;
+            PixelBuffer img = platform.readImage(f);
             userTextures.put(name, img);
             return img;
         } catch (IOException e) {
@@ -167,47 +156,52 @@ public final class SingleColor {
         }
     }
 
-    // ---------------------------------------------------------------- tick: keys + file watching
+    // ---------------------------------------------------------------- tick: keys, file watching, harness
 
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
     public void clientTick(boolean screenOpen) {
-        boolean toggleDown = !screenOpen && isDown(config.toggleKey());
-        boolean cycleDown = !screenOpen && isDown(config.cycleKey());
-        if (toggleDown && !toggleWasDown) toggle();
-        if (cycleDown && !cycleWasDown) cycleProfile();
-        toggleWasDown = toggleDown;
-        cycleWasDown = cycleDown;
+        Config.KeyBinds keys = config.keys();
+        if (pressed(0, keys.toggle, screenOpen)) apply(config.withEnabled(!config.enabled()));
+        if (pressed(1, keys.cycleProfile, screenOpen)) apply(config.withActiveProfile(config.profileNameAt(1)).withEnabled(true));
+        if (pressed(2, keys.settings, screenOpen)) platform.openSettings();
 
-        if (ticks % WATCH_INTERVAL_TICKS == 0) logSummary();
-        if (++ticks % WATCH_INTERVAL_TICKS == 0 && configFile.lastModified() != lastModified) {
-            Config before = config;
-            if (load()) {
-                platform.showMessage(NAME + ": config reloaded");
-                if (before.enabled() || config.enabled()) platform.reloadResources();
+        if (++ticks % WATCH_INTERVAL_TICKS == 0) {
+            if (transformedSinceSummary > 0) {
+                platform.info("Flattened " + transformedSinceSummary + " textures with profile '" + config.activeProfileName() + "'");
+                transformedSinceSummary = 0;
+            }
+            if (configFile.lastModified() != lastModified) {
+                Config before = config;
+                if (load()) {
+                    platform.showMessage(NAME + ": config reloaded");
+                    if (!before.sameRendering(config)) platform.reloadResources();
+                }
             }
         }
+        if (harness != null) harness.tick();
     }
 
-    private boolean isDown(String keyName) {
+    private boolean pressed(int slot, String keyName, boolean screenOpen) {
         Keys.Key key = Keys.byName(keyName);
-        return key != null && platform.isKeyDown(key);
+        boolean down = !screenOpen && key != null && platform.isKeyDown(key);
+        boolean edge = down && !keyWasDown[slot];
+        keyWasDown[slot] = down;
+        return edge;
     }
 
-    public void toggle() {
-        apply(config.withEnabled(!config.enabled()));
-        platform.showMessage(NAME + ": " + (config.enabled() ? "on (" + config.activeProfileName() + ")" : "off"));
-    }
-
-    public void cycleProfile() {
-        apply(config.withActiveProfile(config.nextProfileName()).withEnabled(true));
-        platform.showMessage(NAME + ": profile " + config.activeProfileName());
-    }
-
-    /** Swap config, persist it, and reload textures. */
+    /**
+     * Swap config, persist it, tell the player what changed, and reload resources if textures, shading or foliage
+     * changed (they're baked into textures and chunk meshes). Sky color and fullbright apply immediately.
+     */
     public void apply(Config next) {
+        Config before = config;
+        if (next.equals(before)) return;
         setConfig(next);
         save();
-        platform.reloadResources();
+        if (before.enabled() != next.enabled() || !before.activeProfileName().equals(next.activeProfileName())) {
+            platform.showMessage(NAME + ": " + (next.enabled() ? next.activeProfileName() : "off"));
+        }
+        if (!before.sameRendering(next)) platform.reloadResources();
     }
 
     // ---------------------------------------------------------------- persistence
@@ -219,13 +213,12 @@ public final class SingleColor {
     }
 
     private void loadOrCreate() {
+        if (configFile.isFile() && load()) return;
+        setConfig(Config.defaults());
         if (!configFile.isFile()) {
-            setConfig(new Config(true, "quake-white", "F6", "F7", Presets.all()));
             save();
-            new File(dir, "textures").mkdirs();
-            return;
+            texturesFolder().mkdirs();
         }
-        if (!load()) setConfig(new Config(true, "quake-white", "F6", "F7", Presets.all()));
     }
 
     /** @return false (keeping the old config) if the file is invalid */

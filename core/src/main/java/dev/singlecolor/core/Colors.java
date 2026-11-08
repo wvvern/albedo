@@ -71,13 +71,8 @@ public final class Colors {
         return String.format("#%08X", argb);
     }
 
-    /** Converts 0xAARRGGBB to the 0xAABBGGRR layout used by some image classes. */
-    public static int argbToAbgr(int argb) {
-        return (argb & 0xFF00FF00) | ((argb & 0xFF) << 16) | ((argb >> 16) & 0xFF);
-    }
-
-    /** Inverse of {@link #argbToAbgr}; the swap is symmetric. */
-    public static int abgrToArgb(int abgr) {
-        return argbToAbgr(abgr);
+    /** Converts between 0xAARRGGBB and the 0xAABBGGRR layout some image classes use (the swap is its own inverse). */
+    public static int swapRedBlue(int color) {
+        return (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
     }
 }

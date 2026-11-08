@@ -3,7 +3,9 @@ package dev.singlecolor.legacy;
 import dev.singlecolor.core.Keys;
 import dev.singlecolor.core.PixelBuffer;
 import dev.singlecolor.core.Platform;
+import dev.singlecolor.core.dev.Harness;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
@@ -55,5 +57,21 @@ final class LegacyPlatform implements Platform {
         BufferedImage image = ImageIO.read(png);
         if (image == null) throw new IOException("Not an image: " + png);
         return PixelBuffer.Heap.copyOf(new BufferedImagePixels(BufferedImagePixels.toArgb(image)));
+    }
+
+    @Override
+    public void openSettings() {
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.displayGuiScreen(new GuiSettings(mc.currentScreen));
+    }
+
+    @Override
+    public String clipboard() {
+        return GuiScreen.getClipboardString();
+    }
+
+    @Override
+    public Harness.Host harnessHost() {
+        return new LegacyHarnessHost();
     }
 }

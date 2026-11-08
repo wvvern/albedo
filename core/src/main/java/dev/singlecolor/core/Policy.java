@@ -4,13 +4,14 @@ import dev.singlecolor.core.config.Appearance;
 import dev.singlecolor.core.config.CategorySettings;
 import dev.singlecolor.core.config.Config;
 import dev.singlecolor.core.config.Profile;
-import dev.singlecolor.core.config.Rule;
+import dev.singlecolor.core.config.Toggle;
+import dev.singlecolor.core.texture.Foliage;
 import dev.singlecolor.core.texture.TextureKey;
 
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Every rendering decision, answered from one immutable config snapshot. Thread-safe: texture loading runs on
+ * Every rendering decision, answered from one immutable profile snapshot. Thread-safe: texture loading runs on
  * worker threads on modern versions. A new Policy is built whenever the config changes.
  */
 public final class Policy {
@@ -25,6 +26,11 @@ public final class Policy {
 
     public static Policy of(Config config) {
         return config.enabled() ? new Policy(config.activeProfile()) : DISABLED;
+    }
+
+    /** For previews of a profile that isn't active. */
+    public static Policy of(Profile profile) {
+        return new Policy(profile);
     }
 
     public boolean enabled() {
@@ -42,19 +48,21 @@ public final class Policy {
 
     private Appearance resolve(TextureKey key) {
         Category c = key.category();
-        CategorySettings s = profile.get(c);
-        Rule rule = s.ruleFor(key.id());
-        if (rule != null) return rule.appearance();
-
-        if (c == Category.COLORMAPS && !profile.configured().containsKey(Category.COLORMAPS)) {
-            // Biome colormaps tint grass/leaves; flattening them is the version-independent half of tint removal.
-            return profile.get(Category.BLOCKS).removeTint() ? Appearance.solid(0xFFFFFFFF) : Appearance.ORIGINAL;
+        if (c == Category.COLORMAPS) {
+            // Biome colormaps tint grass/leaves; flattening them is the renderer-independent half of tint removal.
+            return removeTint(Category.BLOCKS) ? Appearance.solid(0xFFFFFFFF) : Appearance.ORIGINAL;
         }
-        if (c == Category.SKY && s.appearance().mode() == Appearance.Mode.SOLID && !key.id().contains("end_sky")) {
+        CategorySettings s = profile.get(c);
+        if (s.ruleFor(key.id()) != null) return s.appearanceFor(key.id());
+        if (c == Category.BLOCKS && !profile.is(Toggle.FOLIAGE) && Foliage.matches(key.id())) {
+            // Invisible plants: zero alpha is skipped by cutout rendering on every version.
+            return Appearance.of(Appearance.Mode.HIDDEN);
+        }
+        if (c == Category.SKY && overridesSky() && !key.id().contains("end_sky")) {
             // A flat sky has no sun, moon or stars; the End's sky texture takes the flat color instead.
             return Appearance.of(Appearance.Mode.HIDDEN);
         }
-        return s.appearance();
+        return s.appearanceFor(key.id());
     }
 
     /** Should biome / hard-coded tints for this category be replaced by white? */
@@ -67,13 +75,22 @@ public final class Policy {
         return profile != null && profile.get(Category.SKY).appearance().mode() == Appearance.Mode.SOLID;
     }
 
-    /** The flat sky color as 0xAARRGGBB; only meaningful when {@link #overridesSky()}. */
+    /** The flat sky color as opaque 0xAARRGGBB; only meaningful when {@link #overridesSky()}. */
     public int skyColor() {
         return profile == null ? 0 : profile.get(Category.SKY).appearance().color() | 0xFF000000;
     }
 
-    /** Whether the category changes anything (adapters can skip hooks cheaply). */
-    public boolean affects(Category c) {
-        return profile != null && profile.get(c).isActive();
+    public boolean fullbright() {
+        return profile != null && profile.is(Toggle.FULLBRIGHT);
+    }
+
+    /** False when ambient occlusion and per-face shading should be switched off. */
+    public boolean shading() {
+        return profile == null || profile.is(Toggle.SHADING);
+    }
+
+    /** False when entities should cast no shadows. */
+    public boolean shadows() {
+        return profile == null || profile.is(Toggle.SHADOWS);
     }
 }

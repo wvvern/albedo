@@ -5,14 +5,18 @@
   "refmap": "mixins.${modid}.refmap.json",
   "compatibilityLevel": "JAVA_8",
   "client": [
+    "AmbientOcclusionMixin",
     "BiomeColorHelperMixin",
+    "FaceShadeMixin",
     "BlockModelRendererMixin",
     "ColorizerFoliageMixin",
     "ColorizerGrassMixin",
     "EntityRendererMixin",
     "ForgeBlockInfoMixin",
+    "FullbrightMixin",
     "MinecraftMixin",
     "RenderGlobalMixin",
+    "ShadowMixin",
     "SimpleTextureMixin",
     "TextureAtlasSpriteMixin"
   ]

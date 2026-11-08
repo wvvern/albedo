@@ -15,8 +15,14 @@ configurations {
 
 def commonNode = ":common:${stonecutter.current.project}"
 
+repositories {
+    maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }
+}
+
 dependencies {
     add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
+    // Optional: only the "Configure" button in Mod Menu uses it; the mod runs without Mod Menu.
+    add(project.unobfuscated ? 'compileOnly' : 'modCompileOnly', "com.terraformersmc:modmenu:$project.modmenu_version") { transitive = false }
     common(commonNamed(commonNode)) { transitive false }
     shadowBundle project(path: commonNode, configuration: 'transformProductionFabric')
 }

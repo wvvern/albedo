@@ -1,0 +1,83 @@
+# Test scene for 1.8.9 (superflat: grass at y=3, player stands at y=4). Run by tools/screenshots.ps1.
+wait 200
+world SingleColorTest
+waitworld
+wait 100
+hud off
+run time set 6000
+run weather clear
+run kill @e[type=!Player]
+run fill -9 4 -12 9 14 3 air
+run fill -9 3 -12 9 3 3 grass
+run setblock -6 4 -6 minecraft:stone
+run setblock -5 4 -6 minecraft:planks
+run setblock -4 4 -6 minecraft:brick_block
+run setblock -3 4 -6 minecraft:diamond_ore
+run setblock -2 4 -6 minecraft:gold_block
+run setblock -1 4 -6 minecraft:bookshelf
+run setblock 0 4 -6 minecraft:glowstone
+run setblock 1 4 -6 minecraft:wool 14
+run setblock 2 4 -6 minecraft:sand
+run setblock 3 4 -6 minecraft:crafting_table
+run setblock 4 4 -6 minecraft:packed_ice
+run setblock 5 4 -6 minecraft:glass
+run setblock 6 4 -6 minecraft:chest
+run setblock -6 5 -6 minecraft:leaves 4
+run setblock -5 5 -6 minecraft:leaves 6
+run setblock -4 5 -6 minecraft:leaves 5
+run setblock -3 5 -6 minecraft:grass
+run setblock -2 5 -6 minecraft:log
+run setblock -1 5 -6 minecraft:cobblestone
+run setblock 1 5 -6 minecraft:tnt
+run setblock 2 5 -6 minecraft:pumpkin
+run setblock 3 5 -6 minecraft:melon_block
+run setblock 4 5 -6 minecraft:emerald_block
+run setblock 5 5 -6 minecraft:lapis_block
+run setblock 6 5 -6 minecraft:mossy_cobblestone
+run setblock 0 5 -6 minecraft:torch
+run fill -6 3 -4 -4 3 -3 minecraft:water
+run fill 4 3 -4 6 3 -3 minecraft:lava
+run setblock -2 4 -2 minecraft:tallgrass 1
+run setblock 2 4 -2 minecraft:red_flower
+run summon Pig -3 4 -1 {NoAI:1,Rotation:[0f,0f]}
+run summon Sheep -1 4 -1 {NoAI:1,Color:14,Rotation:[0f,0f]}
+run summon Villager 1 4 -1 {NoAI:1,Rotation:[0f,0f]}
+run summon Cow 3 4 -1 {NoAI:1,Rotation:[0f,0f]}
+run tp @p 0.5 4 4.5 180 12
+wait 60
+mod off
+wait 160
+screenshot 01-vanilla
+profile quake-white
+wait 200
+screenshot 02-quake-white
+shading off
+wait 200
+screenshot 03-quake-white-no-shading
+shading on
+shadows off
+wait 200
+screenshot 04-quake-white-no-shadows
+shadows on
+profile quake-black
+wait 200
+screenshot 05-quake-black
+profile minimal
+wait 200
+screenshot 06-minimal
+run time set 18000
+mod off
+wait 160
+screenshot 07-night-vanilla
+profile quake-black
+wait 200
+screenshot 08-night-quake-black-fullbright
+run time set 6000
+profile quake-white
+wait 200
+settings open
+wait 40
+screenshot 09-settings
+settings close
+wait 10
+quit

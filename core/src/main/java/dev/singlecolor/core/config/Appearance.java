@@ -13,7 +13,7 @@ public final class Appearance {
         AVERAGE,
         /** Desaturate, keeping detail. */
         GRAYSCALE,
-        /** Replace with a user image (stretched to fit), from the config's textures folder. */
+        /** Replace with a user image (stretched to fit) from the config's textures folder; falls back to the color. */
         TEXTURE,
         /** Fully transparent: the thing disappears (useful for clouds, weather, particles). */
         HIDDEN;
@@ -48,8 +48,6 @@ public final class Appearance {
     private final Alpha alpha;
 
     public Appearance(Mode mode, int color, String texture, Alpha alpha) {
-        if (mode == Mode.TEXTURE && (texture == null || texture.isEmpty()))
-            throw new IllegalArgumentException("mode 'texture' needs a \"texture\" file name");
         this.mode = mode;
         this.color = color;
         this.texture = texture;
@@ -71,6 +69,11 @@ public final class Appearance {
 
     public boolean isOriginal() { return mode == Mode.ORIGINAL; }
 
+    public Appearance withMode(Mode m) { return new Appearance(m, color, texture, alpha); }
+    public Appearance withColor(int c) { return new Appearance(mode, c, texture, alpha); }
+    public Appearance withTexture(String t) { return new Appearance(mode, color, t, alpha); }
+    public Appearance withAlpha(Alpha a) { return new Appearance(mode, color, texture, a); }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Appearance)) return false;
@@ -82,10 +85,5 @@ public final class Appearance {
     @Override
     public int hashCode() {
         return ((mode.hashCode() * 31 + color) * 31 + alpha.hashCode()) * 31 + (texture == null ? 0 : texture.hashCode());
-    }
-
-    @Override
-    public String toString() {
-        return "Appearance{" + mode.key() + ", #" + Integer.toHexString(color) + ", " + texture + ", " + alpha.key() + "}";
     }
 }

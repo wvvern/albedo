@@ -10,18 +10,28 @@ small enough to port in an afternoon. The design is **ports and adapters** (hexa
                 │  TextureClassifier path → Category + id   (handles 1.8 "blocks/" and 1.13+ "block/")           │
                 │  AtlasPaths        restores folders that modern atlases strip from sprite names               │
                 │  PixelTransformer  solid / average / grayscale / texture / hidden, on a PixelBuffer            │
-                │  SingleColor       facade: init, processTexture, policy, tick (keys + config file watching)   │
-                │  Platform (port)   what the core needs from the game: dirs, logging, reload, keys, images     │
+                │  SingleColor       facade: init, processTexture, texture catalog, tick (keys, config watching) │
+                │  ui/               the whole settings screen: an immediate-mode toolkit + SettingsEditor      │
+                │  dev/Harness       file-driven test harness for hidden-desktop screenshots (dev only)         │
+                │  Platform (port)   dirs, logging, reload, keys, images, open settings; Canvas (drawing port) │
                 └──────────────────────────────────────────────▲──────────────────────────────────────────────┘
                                                                │ calls only these
           ┌────────────────────────────────────────────────────┴──────────────────────────────────────┐
   modern/common (Mojang names, Stonecutter)                                   legacy/ (MCP names)
-  ModernPlatform, NativeImagePixels, ModernHooks                              LegacyPlatform, BufferedImagePixels,
-  + ~12 one-line mixins                                                       LegacyHooks + 10 one-line mixins
+  ModernPlatform, NativeImagePixels, ModernHooks,                             LegacyPlatform, BufferedImagePixels,
+  SettingsScreen (Canvas over GuiGraphics), harness host                      LegacyHooks, GuiSettings, harness host
+  + ~13 one-line mixins                                                       + 11 one-line mixins
           │                    │                                                       │
   fabric/ entrypoint     neoforge/ entrypoint                                 Forge @Mod class
-  (5 lines)              (5 lines)
+  + Mod Menu button      + mod list "Config" button
 ```
+
+**The settings screen is in the core too.** It is an immediate-mode UI (`core/ui`): every frame the editor calls
+widget methods that draw themselves through a five-method `Canvas` port (`fill`, `text`, `textWidth`, size) and
+report clicks, drags and typing queued by the adapter. Each version's screen class is ~100 lines of forwarding,
+so the UI looks and behaves identically on 1.8.9 and 26.3, and new widgets never touch version code. The list of
+textures it offers for per-texture overrides is the catalog the core records while processing textures, so it
+needs no registry access and includes modded textures.
 
 ## Why these choices
 
@@ -38,6 +48,10 @@ new render API), the adapters intercept data at the few points that have survive
 | Stand-alone textures | single loader for `textures/**.png` | `TextureContents.load` / `SimpleTexture` | `SimpleTexture.loadTexture` |
 | Biome colormaps | `init(int[])` unchanged since 1.13 | `GrassColor` / `FoliageColor` / `DryFoliageColor` | `ColorizerGrass` / `ColorizerFoliage` |
 | Block tint call site | one per renderer | `ModelBlockRenderer` | `BlockModelRenderer` + Forge `BlockInfo` |
+| Fullbright | the lightmap reads one brightness option | gamma read in `LightTexture` / 26.x `LightmapRenderStateExtractor` | gamma read in `EntityRenderer.updateLightmap` |
+| Shading off: smooth lighting | one switch read while meshing | `Minecraft.useAmbientOcclusion` / 26.x `ModelBlockRenderer` constructor | `Minecraft.isAmbientOcclusionEnabled` |
+| Shading off: face shade | one per-face brightness lookup | `ClientLevel.getShade` / 26.x `CardinalLighting.byFace` | `FaceBakery.getFaceBrightness` (baked into models) |
+| Foliage off | no hook at all: plant textures get zero alpha, which cutout rendering skips | core `Foliage` + texture hooks | same |
 | Water tint | every loader funnels here | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
 | Sky / fog / clear color | one sky pass, one fog color | `LevelRenderer` sky pass + `FogRenderer` | `RenderGlobal.renderSky` + `EntityRenderer.updateFogColor` |
 | Tick | always exists | `Minecraft.tick` | `Minecraft.runTick` |
@@ -84,15 +98,20 @@ Version differences inside `modern/` look like this, and are confined to the mix
 
 ## Known gaps / next steps
 
-- **Visuals in a loaded world have not been checked yet.** The automated check covers startup (hooks apply,
-  textures are rewritten); sky, fog, tint, and cloud results inside a world still need a manual look.
 - **Sodium / Embeddium / OptiFine:** they replace chunk meshing, so the call-site tint hook doesn't run. The colormap
   hook still removes biome grass/foliage tints, but hard-coded tints (birch/spruce leaves, lily pads, swamp grass)
   stay. Fix: one optional compat mixin per renderer.
 - **Clouds on 1.21.2+** support `hidden` and `original` only; recoloring needs a hook on the cloud color.
 - **Player skins** are downloaded rather than loaded as resources, so the `players` category only affects the
   default skins for now.
-- **Lighting:** no flat-lighting option yet (ambient occlusion and face shading still shade the flat color). A
-  natural next feature for the `Policy`.
-- **In-game settings screen:** today it's the JSON file plus hot reload. A screen would be per-version UI code,
-  ideally behind a small `ConfigScreen` port.
+- **Foliage** is matched by texture name (`core/texture/Foliage`), so a modded plant with an unusual name stays
+  visible; add a rule with `"mode": "hidden"` for it.
+
+## Testing
+
+- `./gradlew :core:test` covers the config model and codec, classification, pixel transforms, and the settings
+  screen itself: a fake `Canvas` records where labels are drawn, so tests click real labels and check the saved
+  config, and a fuzz test clicks across the whole screen at five GUI sizes.
+- `tools/screenshots.ps1` runs every version on a hidden desktop through the harness (`core/dev/Harness`) and
+  captures the same scene for each profile into `docs/screenshots/<target>/`, so a visual regression on any
+  version is one script away.

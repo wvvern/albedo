@@ -1,0 +1,87 @@
+# Test scene for 1.21+ (superflat: grass at y=-61, player stands at y=-60). Run by tools/screenshots.ps1.
+# Let the first resource load finish before opening a world.
+wait 200
+world SingleColorTest
+waitworld
+wait 100
+hud off
+run time set 6000
+run weather clear
+run kill @e[type=!player]
+run fill -9 -60 -12 9 -50 3 air
+run fill -9 -61 -12 9 -61 3 grass_block
+# Two rows of varied blocks 7.5 blocks in front of the camera
+run setblock -6 -60 -6 stone
+run setblock -5 -60 -6 oak_planks
+run setblock -4 -60 -6 bricks
+run setblock -3 -60 -6 diamond_ore
+run setblock -2 -60 -6 gold_block
+run setblock -1 -60 -6 bookshelf
+run setblock 0 -60 -6 glowstone
+run setblock 1 -60 -6 red_wool
+run setblock 2 -60 -6 sand
+run setblock 3 -60 -6 crafting_table
+run setblock 4 -60 -6 packed_ice
+run setblock 5 -60 -6 glass
+run setblock 6 -60 -6 chest
+run setblock -6 -59 -6 oak_leaves[persistent=true]
+run setblock -5 -59 -6 birch_leaves[persistent=true]
+run setblock -4 -59 -6 spruce_leaves[persistent=true]
+run setblock -3 -59 -6 grass_block
+run setblock -2 -59 -6 oak_log
+run setblock -1 -59 -6 cobblestone
+run setblock 1 -59 -6 tnt
+run setblock 2 -59 -6 pumpkin
+run setblock 3 -59 -6 melon
+run setblock 4 -59 -6 emerald_block
+run setblock 5 -59 -6 lapis_block
+run setblock 6 -59 -6 mossy_cobblestone
+run setblock 0 -59 -6 torch
+# Water and lava pits, plants
+run fill -6 -61 -4 -4 -61 -3 water
+run fill 4 -61 -4 6 -61 -3 lava
+run setblock -2 -60 -2 short_grass
+run setblock 2 -60 -2 poppy
+# Mobs facing the camera
+run summon pig -3 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
+run summon sheep -1 -60 -1 {NoAI:1b,Color:14,Rotation:[0f,0f]}
+run summon villager 1 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
+run summon cow 3 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
+run tp @p 0.5 -60 4.5 180 12
+wait 60
+mod off
+wait 160
+screenshot 01-vanilla
+profile quake-white
+wait 200
+screenshot 02-quake-white
+shading off
+wait 200
+screenshot 03-quake-white-no-shading
+shading on
+shadows off
+wait 200
+screenshot 04-quake-white-no-shadows
+shadows on
+profile quake-black
+wait 200
+screenshot 05-quake-black
+profile minimal
+wait 200
+screenshot 06-minimal
+run time set 18000
+mod off
+wait 160
+screenshot 07-night-vanilla
+profile quake-black
+wait 200
+screenshot 08-night-quake-black-fullbright
+run time set 6000
+profile quake-white
+wait 200
+settings open
+wait 40
+screenshot 09-settings
+settings close
+wait 10
+quit

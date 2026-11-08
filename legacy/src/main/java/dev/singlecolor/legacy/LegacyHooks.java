@@ -27,7 +27,7 @@ public final class LegacyHooks {
      */
     public static BufferedImage processImage(String location, BufferedImage image) {
         bootstrap();
-        if (image == null || !SingleColor.currentPolicy().enabled()) return image;
+        if (image == null) return null;
         BufferedImage argb = BufferedImagePixels.toArgb(image);
         return SingleColor.processTexture(location, new BufferedImagePixels(argb)) ? argb : image;
     }
@@ -43,6 +43,19 @@ public final class LegacyHooks {
     public static void flattenColormap(int[] pixels) {
         bootstrap();
         if (pixels != null && SingleColor.currentPolicy().removeTint(Category.BLOCKS)) Arrays.fill(pixels, 0xFFFFFFFF);
+    }
+
+    /** Far above the slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
+    public static float gamma(float setting) {
+        return SingleColor.currentPolicy().fullbright() ? 16f : setting;
+    }
+
+    public static boolean shading() {
+        return SingleColor.currentPolicy().shading();
+    }
+
+    public static boolean shadows() {
+        return SingleColor.currentPolicy().shadows();
     }
 
     public static boolean overridesSky() {

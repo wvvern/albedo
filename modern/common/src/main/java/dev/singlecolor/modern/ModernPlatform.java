@@ -5,7 +5,9 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.singlecolor.core.Keys;
 import dev.singlecolor.core.PixelBuffer;
 import dev.singlecolor.core.Platform;
+import dev.singlecolor.core.dev.Harness;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,13 +28,8 @@ final class ModernPlatform implements Platform {
 
     @Override
     public String describe() {
-        return loaderName() + " " + MINECRAFT;
-    }
-
-    private static String loaderName() {
-        if (classExists("net.neoforged.fml.loading.FMLLoader")) return "NeoForge";
-        if (classExists("net.fabricmc.loader.api.FabricLoader")) return "Fabric";
-        return "unknown loader";
+        String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge" : "Fabric";
+        return loader + " " + MINECRAFT;
     }
 
     private static boolean classExists(String name) {
@@ -82,22 +79,12 @@ final class ModernPlatform implements Platform {
             keyCodes.put(key.minecraftName, code);
         }
         if (code < 0) return false;
-        Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {
         return InputConstants.isKeyDown(code);
         //?} elif >=1.21.9 {
-        /*return InputConstants.isKeyDown(mc.getWindow(), code);
+        /*return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), code);
         *///?} else {
-        /*return InputConstants.isKeyDown(mc.getWindow().getWindow(), code);
-        *///?}
-    }
-
-    static boolean screenOpen() {
-        Minecraft mc = Minecraft.getInstance();
-        //? if >=26.1 {
-        return mc.gui.screen() != null;
-        //?} else {
-        /*return mc.screen != null;
+        /*return InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), code);
         *///?}
     }
 
@@ -107,5 +94,36 @@ final class ModernPlatform implements Platform {
             if (!NativeImagePixels.supports(image)) throw new IOException(png + " must be an RGBA PNG");
             return PixelBuffer.Heap.copyOf(new NativeImagePixels(image));
         }
+    }
+
+    @Override
+    public void openSettings() {
+        setScreen(new SettingsScreen(currentScreen()));
+    }
+
+    @Override
+    public String clipboard() {
+        return Minecraft.getInstance().keyboardHandler.getClipboard();
+    }
+
+    @Override
+    public Harness.Host harnessHost() {
+        return new ModernHarnessHost();
+    }
+
+    static Screen currentScreen() {
+        //? if >=26.1 {
+        return Minecraft.getInstance().gui.screen();
+        //?} else {
+        /*return Minecraft.getInstance().screen;
+        *///?}
+    }
+
+    static void setScreen(Screen screen) {
+        //? if >=26.1 {
+        Minecraft.getInstance().gui.setScreen(screen);
+        //?} else {
+        /*Minecraft.getInstance().setScreen(screen);
+        *///?}
     }
 }

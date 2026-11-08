@@ -8,7 +8,8 @@
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["dev.singlecolor.fabric.SingleColorFabric"]
+    "client": ["dev.singlecolor.fabric.SingleColorFabric"],
+    "modmenu": ["dev.singlecolor.fabric.ModMenuIntegration"]
   },
   "mixins": ["singlecolor.mixins.json"],
   "depends": {

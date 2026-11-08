@@ -8,6 +8,8 @@ import dev.singlecolor.core.config.Appearance;
 import dev.singlecolor.core.texture.AtlasPaths;
 import dev.singlecolor.core.texture.TextureClassifier;
 import dev.singlecolor.modern.mixin.SpriteContentsAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
 
@@ -18,6 +20,9 @@ import java.util.Arrays;
  * so the per-version surface is as small as possible.
  */
 public final class ModernHooks {
+    /** Far above the slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
+    private static final Double FULLBRIGHT_GAMMA = 16.0;
+
     private ModernHooks() {}
 
     public static void bootstrap() {
@@ -26,21 +31,19 @@ public final class ModernHooks {
 
     public static void clientTick() {
         SingleColor sc = SingleColor.get();
-        if (sc != null) sc.clientTick(ModernPlatform.screenOpen());
+        if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
     /** Atlas sprites, before mipmaps are generated. */
     public static void processSprite(String atlas, SpriteContents sprite) {
         bootstrap();
-        if (!SingleColor.currentPolicy().enabled()) return;
         NativeImage image = ((SpriteContentsAccessor) sprite).singlecolor$originalImage();
         processImage(AtlasPaths.spriteLocation(atlas, String.valueOf(sprite.name())), image);
     }
 
     /** Stand-alone textures (entities, environment, ...). */
     public static void processImage(String location, NativeImage image) {
-        if (!NativeImagePixels.supports(image)) return;
-        SingleColor.processTexture(location, new NativeImagePixels(image));
+        if (NativeImagePixels.supports(image)) SingleColor.processTexture(location, new NativeImagePixels(image));
     }
 
     public static int blockTint(int original) {
@@ -57,6 +60,10 @@ public final class ModernHooks {
         if (pixels != null && SingleColor.currentPolicy().removeTint(Category.BLOCKS)) Arrays.fill(pixels, 0xFFFFFFFF);
     }
 
+    public static boolean shading() {
+        return SingleColor.currentPolicy().shading();
+    }
+
     public static boolean overridesSky() {
         return SingleColor.currentPolicy().overridesSky();
     }
@@ -66,6 +73,14 @@ public final class ModernHooks {
         if (!p.overridesSky() || color == null) return;
         int c = p.skyColor();
         color.set(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, color.w);
+    }
+
+    public static Object gamma(OptionInstance<?> option, Object value) {
+        return SingleColor.currentPolicy().fullbright() && option == Minecraft.getInstance().options.gamma() ? FULLBRIGHT_GAMMA : value;
+    }
+
+    public static Object entityShadows(OptionInstance<?> option, Object value) {
+        return !SingleColor.currentPolicy().shadows() && option == Minecraft.getInstance().options.entityShadows() ? Boolean.FALSE : value;
     }
 
     public static boolean cloudsHidden() {
