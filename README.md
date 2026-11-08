@@ -53,22 +53,24 @@ You can change the keys in the config file.
 
 ### Settings screen
 
-- **Profile bar:** select, copy, rename or delete a profile.
-- **Export and Import:** Export saves the profile to `config/blockpainter/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number.
+- **Profile bar:** select, copy, rename or delete a profile. To rename, type the name and push Enter or Save. Esc or Cancel keeps the old name.
+- **Delete:** a profile or group delete needs two clicks. The first click makes the button red. Click it again in 3 seconds to delete. Esc or a click on a different control cancels.
+- **Tooltips:** keep the pointer on a control to see what it does.
+- **Export and Import:** Export saves the profile to `config/blockpainter/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number. The result shows in a message box for some seconds. A click closes it.
 - **Categories (left list):** each category has a color square that shows its current color.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
 - **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
-- **Textures tab:** all loaded textures of the category. Click a texture to put it in a group.
-- **Groups tab:** a group is a named set of blocks with its own look.
+- **Textures tab:** all loaded textures of the category. Type in the search field to find a texture. Click a texture to put it in a group.
+- **Groups tab:** a group is a named set of blocks with its own look. Use the arrows to move a group up or down.
 
 To add blocks to a group, type a block name. The input shows matching textures, with whole blocks first (for example, `grass_block*` covers all faces). Push Up or Down to select a texture. Push Enter to add it. Push Tab to complete the name. A `*` matches any text. Each block shows as a chip with a remove button.
 
-If a block is in two groups, the first group in the list wins. Each category has a scope:
+If a block is in two groups, the higher group in the list wins. Each category has a scope:
 
 - **Everything:** the category look applies to all blocks, and groups change their blocks. A group set to Vanilla keeps its blocks unchanged.
 - **Only groups:** only blocks in groups change. A group set to Global uses the category look.
 
-Apply saves and shows the result. Done or Esc saves and closes the screen. Fullbright, shadows and sky color change immediately. Texture, shading and foliage changes reload resources.
+The footer shows "Changes not saved" when there are changes. Apply saves and shows the result. Done or Esc saves and closes the screen. Discard closes the screen and does not save. Fullbright, shadows and sky color change immediately. Texture, shading and foliage changes reload resources.
 
 ## Config file
 

@@ -10,6 +10,9 @@ import java.util.Map;
  * A tiny immediate-mode GUI toolkit. Widgets are plain method calls made while drawing each frame; each call draws
  * the widget and returns what the user did to it since the last frame. Input events are queued by the adapter between
  * frames. Keeping all of this in the core means the screen looks and behaves the same on every Minecraft version.
+ *
+ * <p>Layout rules shared by all widgets: controls are {@link #H} pixels high, text is vertically centered in them,
+ * labels that do not fit are shortened with "..." and the full text shows in the tooltip.
  */
 final class Ui {
     // Theme
@@ -20,12 +23,22 @@ final class Ui {
     static final int CARD_HOVER = 0xFF2A303A;
     static final int BORDER = 0xFF323944;
     static final int TEXT = 0xFFE9ECF1;
-    static final int MUTED = 0xFF8B94A5;
-    static final int FAINT = 0xFF5D6575;
+    static final int MUTED = 0xFF9AA3B3;
+    static final int FAINT = 0xFF6A7282;
     static final int ACCENT = 0xFF4D8EFF;
     static final int ACCENT_HOVER = 0xFF6FA3FF;
     static final int DANGER = 0xFFE5636B;
+    static final int WARN = 0xFFE8B04B;
+    static final int TOOLTIP = 0xFA0B0D10;
     static final int LINE = 9;
+    /** Height of buttons, fields and segmented controls. */
+    static final int H = 14;
+    /** Time in ms a pointer must rest on a widget before its tooltip shows. 0 in tests. */
+    int tipDelay = 400;
+    /** Least space around a label inside a segment. */
+    private static final int SEG_PAD = 6;
+    /** Time in ms a delete button stays armed after the first click. */
+    private static final int CONFIRM_MS = 3000;
 
     enum Style { NORMAL, PRIMARY, DANGER, GHOST }
 
@@ -47,6 +60,13 @@ final class Ui {
     private String drag;
     private String focus;
     private String hint;
+    private boolean hintNow;
+    private String shownHint;
+    private long hintSince;
+    private String armed;
+    private long armedAt;
+    /** Height used by the last {@link #segmented} call (it wraps into rows when the labels do not fit). */
+    int lastHeight;
     private final List<KeyPress> keys = new ArrayList<KeyPress>();
     private final StringBuilder typed = new StringBuilder();
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
@@ -87,26 +107,39 @@ final class Ui {
 
     // ---------------------------------------------------------------- frame
 
+    /** True when the left button went down since the last frame (before any widget takes the press). */
+    boolean clicked() { return clickedFrame; }
+
+    private boolean clickedFrame;
+
     void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
+        clickedFrame = pressed;
+        if (mouseX != mx || mouseY != my) hintSince = System.currentTimeMillis();
         mx = mouseX;
         my = mouseY;
         hint = null;
+        hintNow = false;
+        if (armed != null && System.currentTimeMillis() - armedAt > CONFIRM_MS) armed = null;
     }
 
-    /** A press nobody claimed clears focus; unclaimed typing is dropped. */
+    /** A press nobody claimed clears focus and disarms delete buttons; unclaimed typing is dropped. Draws the tooltip. */
     void end() {
         endOverlay();
-        if (pressed) focus = null;
+        if (pressed) {
+            focus = null;
+            armed = null;
+        }
         pressed = false;
         wheel = 0;
         typed.setLength(0);
         keys.clear();
+        tooltip();
     }
 
-    String hint() { return hint; }
-
     boolean isFocused(String id) { return id.equals(focus); }
+
+    boolean hasFocus() { return focus != null; }
 
     void clearFocus() { focus = null; }
 
@@ -119,6 +152,13 @@ final class Ui {
             }
         }
         return false;
+    }
+
+    /** Esc first disarms an armed delete button. */
+    boolean disarm() {
+        if (armed == null) return false;
+        armed = null;
+        return true;
     }
 
     boolean hover(int x, int y, int w, int h) {
@@ -159,11 +199,37 @@ final class Ui {
         pressed = false;
         drag = id;
         if (!id.equals(focus)) focus = null;
+        if (!id.equals(armed)) armed = null;
         return true;
     }
 
-    private void tip(int x, int y, int w, int h, String text) {
+    /** Sets the tooltip for this frame when the pointer is on the rectangle. */
+    void tip(int x, int y, int w, int h, String text) {
         if (text != null && hover(x, y, w, h)) hint = text;
+    }
+
+    /** A tooltip near the pointer, after the pointer rests for {@link #tipDelay} ms; wrapped and kept on screen. */
+    private void tooltip() {
+        if (hint == null) {
+            shownHint = null;
+            return;
+        }
+        if (!hint.equals(shownHint)) {
+            shownHint = hint;
+            hintSince = System.currentTimeMillis();
+        }
+        if (!hintNow && System.currentTimeMillis() - hintSince < tipDelay) return;
+        int maxW = Math.min(170, c.width() - 8);
+        List<String> lines = wrap(hint, maxW);
+        int tw = 0;
+        for (String l : lines) tw = Math.max(tw, width(l));
+        int bw = tw + 8, bh = lines.size() * (LINE + 1) + 5;
+        int x = Math.max(2, Math.min(mx + 6, c.width() - bw - 2));
+        int y = my + 12;
+        if (y + bh > c.height() - 2) y = Math.max(2, my - bh - 4);
+        round(x, y, bw, bh, BORDER);
+        round(x + 1, y + 1, bw - 2, bh - 2, TOOLTIP);
+        for (int i = 0; i < lines.size(); i++) text(lines.get(i), x + 4, y + 3 + i * (LINE + 1), TEXT);
     }
 
     // ---------------------------------------------------------------- drawing helpers
@@ -194,17 +260,26 @@ final class Ui {
         c.text(s, cx - c.textWidth(s) / 2, y, color);
     }
 
+    /** Draws the text only when all of it fits in {@code w}; secondary text is left out, not cut. */
+    boolean textFit(String s, int x, int y, int w, int color) {
+        if (w <= 0 || width(s) > w) return false;
+        text(s, x, y, color);
+        return true;
+    }
+
     int width(String s) { return c.textWidth(s); }
 
-    /** Draws text wrapped at word boundaries within {@code w}; returns the height used. */
-    int paragraph(String s, int x, int y, int w, int color) {
-        int lineY = y;
+    /** The width of a button that shows all of {@code label}. */
+    int buttonWidth(String label) { return width(label) + 12; }
+
+    /** Splits text into lines at word boundaries; a word longer than {@code w} is shortened. */
+    List<String> wrap(String s, int w) {
+        List<String> lines = new ArrayList<String>();
         StringBuilder line = new StringBuilder();
         for (String word : s.split(" ")) {
             String next = line.length() == 0 ? word : line + " " + word;
             if (width(next) > w && line.length() > 0) {
-                text(ellipsize(line.toString(), w), x, lineY, color);
-                lineY += LINE + 1;
+                lines.add(ellipsize(line.toString(), w));
                 line.setLength(0);
                 line.append(word);
             } else {
@@ -212,8 +287,20 @@ final class Ui {
                 line.append(next);
             }
         }
-        if (line.length() > 0) text(ellipsize(line.toString(), w), x, lineY, color);
-        return lineY + LINE - y;
+        if (line.length() > 0) lines.add(ellipsize(line.toString(), w));
+        return lines;
+    }
+
+    /** The height {@link #paragraph} would use. */
+    int paragraphHeight(String s, int w) {
+        return wrap(s, w).size() * (LINE + 1) - 1;
+    }
+
+    /** Draws text wrapped at word boundaries within {@code w}; returns the height used. */
+    int paragraph(String s, int x, int y, int w, int color) {
+        List<String> lines = wrap(s, w);
+        for (int i = 0; i < lines.size(); i++) text(lines.get(i), x, y + i * (LINE + 1), color);
+        return lines.size() * (LINE + 1) - 1;
     }
 
     String ellipsize(String s, int max) {
@@ -259,11 +346,39 @@ final class Ui {
             default: bg = hovered ? CARD_HOVER : CARD;
         }
         if (bg != 0) round(x, y, w, h, bg);
-        int fg = !enabled ? FAINT : style == Style.DANGER ? DANGER : TEXT;
-        textCentered(ellipsize(label, w - 4), x + w / 2, y + (h - LINE) / 2 + 1, fg);
-        tip(x, y, w, h, tipText);
+        int fg = !enabled ? FAINT : style == Style.DANGER ? DANGER : style == Style.PRIMARY ? 0xFFFFFFFF : TEXT;
+        String shown = ellipsize(label, w - 4);
+        textCentered(shown, x + w / 2, y + (h - LINE) / 2 + 1, fg);
+        tip(x, y, w, h, !shown.equals(label) && tipText == null ? label : tipText);
         return enabled && press(id, x, y, w, h);
     }
+
+    /**
+     * A delete button that needs two clicks: the first arms it (it turns red and says so), the second within a few
+     * seconds returns true. A click anywhere else or Esc disarms it.
+     */
+    boolean confirmButton(String id, int x, int y, int w, int h, String label, String tipText, String confirmTip) {
+        if (!id.equals(armed)) {
+            if (button(id, x, y, w, h, label, Style.DANGER, true, tipText)) {
+                armed = id;
+                armedAt = System.currentTimeMillis();
+            }
+            return false;
+        }
+        round(x, y, w, h, hover(x, y, w, h) ? 0xFFF07C83 : DANGER);
+        textCentered(ellipsize(label, w - 4), x + w / 2, y + (h - LINE) / 2 + 1, 0xFFFFFFFF);
+        if (hover(x, y, w, h)) {
+            hint = confirmTip;
+            hintNow = true;
+        }
+        if (press(id, x, y, w, h)) {
+            armed = null;
+            return true;
+        }
+        return false;
+    }
+
+    boolean isArmed(String id) { return id.equals(armed); }
 
     /**
      * A removable tag: swatch, label and an x. Returns its width; {@code removed[0]} is set when the x was clicked.
@@ -301,28 +416,82 @@ final class Ui {
     /** A label with a switch at the right edge; the whole row is clickable. */
     boolean toggleRow(String id, int x, int y, int w, String label, boolean on, String tipText) {
         int h = 12;
-        if (hover(x, y, w, h)) round(x, y, w, h, CARD);
-        text(label, x + 4, y + 2, TEXT);
+        if (hover(x, y, w, h)) round(x, y, w, h, CARD_HOVER);
+        text(ellipsize(label, w - 30), x + 4, y + 2, TEXT);
         boolean flipped = toggle(id + ".switch", x + w - 22, y + 1, on, tipText) != on;
         tip(x, y, w, h, tipText);
         return (flipped || press(id, x, y, w, h)) != on;
     }
 
-    /** Equal-width segments; returns the selected index. */
-    int segmented(String id, int x, int y, int w, int h, String[] labels, int selected, String[] tips) {
-        round(x, y, w, h, CARD);
-        int n = labels.length;
-        int result = selected;
+    /**
+     * Page tabs: labels in a row with an accent line under the selected one, on a full-width rule. They look
+     * different from {@link #segmented} on purpose: tabs change the page, segmented controls change a value.
+     */
+    int tabs(String id, int x, int y, int w, String[] labels, int selected, String[] tips) {
+        int n = labels.length, total = 0;
+        for (String l : labels) total += width(l);
+        int gap = Math.max(8, Math.min(14, (w - total) / Math.max(1, n)));
+        boolean fits = total + gap * n <= w;
+        fill(x, y + H - 1, w, 1, BORDER);
+        int result = selected, tx = x;
         for (int i = 0; i < n; i++) {
-            int sx = x + w * i / n, sw = x + w * (i + 1) / n - sx;
-            boolean hovered = hover(sx, y, sw, h);
-            if (i == selected) round(sx + 1, y + 1, sw - 2, h - 2, ACCENT);
-            else if (hovered) round(sx + 1, y + 1, sw - 2, h - 2, CARD_HOVER);
-            textCentered(ellipsize(labels[i], sw - 2), sx + sw / 2, y + (h - LINE) / 2 + 1, i == selected ? 0xFFFFFFFF : hovered ? TEXT : MUTED);
-            tip(sx, y, sw, h, tips[i]);
-            if (press(id + "." + i, sx, y, sw, h)) result = i;
+            int tw = fits ? width(labels[i]) + gap : (x + w * (i + 1) / n) - tx;
+            boolean hovered = hover(tx, y, tw, H);
+            String shown = ellipsize(labels[i], tw - 4);
+            int fg = i == selected ? TEXT : hovered ? TEXT : MUTED;
+            text(shown, tx + (fits ? 0 : (tw - width(shown)) / 2), y + 2, fg);
+            int lw = fits ? width(labels[i]) : tw - 4;
+            int lx = fits ? tx : tx + 2;
+            if (i == selected) fill(lx, y + H - 2, lw, 2, ACCENT);
+            else if (hovered) fill(lx, y + H - 1, lw, 1, FAINT);
+            tip(tx, y, tw, H, tips[i]);
+            if (press(id + "." + i, tx, y, tw, H)) result = i;
+            tx += tw;
         }
         return result;
+    }
+
+    /**
+     * Segments sized to their labels, sharing the spare width equally; returns the selected index. When the labels
+     * do not fit in one row the control wraps into rows of equal count; {@link #lastHeight} holds the height used.
+     */
+    int segmented(String id, int x, int y, int w, int h, String[] labels, int selected, String[] tips) {
+        int n = labels.length, rows = 1;
+        while (rows < n && !rowsFit(labels, rows, w)) rows++;
+        int per = (n + rows - 1) / rows;
+        lastHeight = rows * h + (rows - 1) * 2;
+        int result = selected;
+        for (int r = 0; r < rows; r++) {
+            int from = r * per, to = Math.min(n, from + per), ry = y + r * (h + 2);
+            int need = 0;
+            for (int i = from; i < to; i++) need += width(labels[i]) + SEG_PAD;
+            int spare = Math.max(0, w - need), sx = x;
+            round(x, ry, w, h, CARD);
+            for (int i = from; i < to; i++) {
+                int k = i - from, count = to - from;
+                int sw = width(labels[i]) + SEG_PAD + spare * (k + 1) / count - spare * k / count;
+                if (i == to - 1) sw = x + w - sx;
+                boolean hovered = hover(sx, ry, sw, h);
+                if (i == selected) round(sx + 1, ry + 1, sw - 2, h - 2, ACCENT);
+                else if (hovered) round(sx + 1, ry + 1, sw - 2, h - 2, CARD_HOVER);
+                String shown = ellipsize(labels[i], sw - 2);
+                textCentered(shown, sx + sw / 2, ry + (h - LINE) / 2 + 1, i == selected ? 0xFFFFFFFF : hovered ? TEXT : MUTED);
+                tip(sx, ry, sw, h, tips[i]);
+                if (press(id + "." + i, sx, ry, sw, h)) result = i;
+                sx += sw;
+            }
+        }
+        return result;
+    }
+
+    private boolean rowsFit(String[] labels, int rows, int w) {
+        int per = (labels.length + rows - 1) / rows;
+        for (int from = 0; from < labels.length; from += per) {
+            int need = 0;
+            for (int i = from; i < Math.min(labels.length, from + per); i++) need += width(labels[i]) + SEG_PAD;
+            if (need > w) return false;
+        }
+        return true;
     }
 
     /**
@@ -339,7 +508,8 @@ final class Ui {
     /** Single-line text input. Returns true when the text changed this frame. */
     boolean textField(String id, TextField field, int x, int y, int w, int h, String placeholder, String tipText) {
         boolean focused = id.equals(focus);
-        round(x, y, w, h, focused ? ACCENT : BORDER);
+        boolean hovered = hover(x, y, w, h);
+        round(x, y, w, h, focused ? ACCENT : hovered ? FAINT : BORDER);
         round(x + 1, y + 1, w - 2, h - 2, focused ? PANEL : CARD);
         tip(x, y, w, h, tipText);
         if (press(id, x, y, w, h)) {
@@ -401,7 +571,7 @@ final class Ui {
             fill(trackX, y, 2, h, CARD);
             int thumb = Math.max(8, h * visible / rows);
             int ty = y + (h - thumb) * Math.max(0, Math.min(first, max)) / max;
-            fill(trackX, ty, 2, thumb, MUTED);
+            fill(trackX, ty, 2, thumb, (id + ".bar").equals(drag) ? TEXT : MUTED);
         }
         first = Math.max(0, Math.min(first, max));
         scrolls.put(id, first);

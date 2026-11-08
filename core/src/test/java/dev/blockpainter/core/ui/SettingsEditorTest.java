@@ -75,7 +75,7 @@ class SettingsEditorTest {
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
         click(editor, canvas, "Only groups");
-        assertNotNull(canvas.find("Change it first"), "explains why: " + canvas.texts.keySet());
+        assertNotNull(canvas.find("it first."), "explains why: " + canvas.texts.keySet());
         click(editor, canvas, "Done");
         assertFalse(sc.config().activeProfile().get(Category.BLOCKS).onlyGroups());
     }
@@ -166,15 +166,109 @@ class SettingsEditorTest {
     }
 
     @Test
+    void deletingAProfileNeedsASecondClickAndEscCancelsIt() {
+        sc.apply(Config.defaults());
+        int before = sc.config().profiles().size();
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Delete");
+        assertNotNull(canvas.find("Click again"), "says what the next click does: " + canvas.texts.keySet());
+        editor.keyPressed(UiKey.ESCAPE, false);
+        render(editor, canvas);
+        assertFalse(editor.isClosed(), "Esc first cancels the pending delete");
+        click(editor, canvas, "Done");
+        assertEquals(before, sc.config().profiles().size(), "one click only arms the button");
+
+        editor = new SettingsEditor(sc);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Delete");
+        click(editor, canvas, "Delete");
+        click(editor, canvas, "Done");
+        assertEquals(before - 1, sc.config().profiles().size());
+    }
+
+    @Test
+    void deletingAGroupNeedsASecondClick() {
+        sc.apply(Config.defaults());
+        int before = sc.config().activeProfile().get(Category.BLOCKS).rules().size();
+        assertTrue(before > 0, "the default profile has a group");
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Groups");
+        click(editor, canvas, "x");
+        click(editor, canvas, "Groups");     // a click somewhere else disarms it
+        click(editor, canvas, "x");
+        click(editor, canvas, "Done");
+        assertEquals(before, sc.config().activeProfile().get(Category.BLOCKS).rules().size());
+
+        editor = new SettingsEditor(sc);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Groups");
+        click(editor, canvas, "x");
+        click(editor, canvas, "x");
+        click(editor, canvas, "Done");
+        assertEquals(before - 1, sc.config().activeProfile().get(Category.BLOCKS).rules().size());
+    }
+
+    @Test
+    void renameSavesWithSaveAndCancelKeepsTheName() {
+        sc.apply(Config.defaults());
+        String name = sc.config().activeProfileName();
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Rename");
+        type(editor, canvas, "mine");          // the old name is selected, so typing replaces it
+        click(editor, canvas, "Cancel");
+        assertNotNull(canvas.find(name), "Cancel keeps the name: " + canvas.texts.keySet());
+        click(editor, canvas, "Rename");
+        type(editor, canvas, "mine");
+        click(editor, canvas, "Save");
+        click(editor, canvas, "Done");
+        assertEquals("mine", sc.config().activeProfileName());
+    }
+
+    @Test
+    void smallWindowStillShowsEveryPageEntryAndWholeStyleNames() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(320, 200);
+        editor.render(canvas, 0, 0);
+        for (String label : new String[]{"World", "Weather", "Vanilla", "Average", "Image", "Hide", "Done", "Apply"}) {
+            assertNotNull(canvas.texts.get(label), "drawn whole: " + label + " in " + canvas.texts.keySet());
+        }
+    }
+
+    @Test
+    void tooltipShowsInFullNearThePointer() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        editor.ui.tipDelay = 0;
+        RecordingCanvas canvas = new RecordingCanvas(320, 200);
+        editor.render(canvas, 0, 0);
+        int[] at = canvas.find("Export");
+        canvas.texts.clear();
+        editor.render(canvas, at[0], at[1]);
+        assertNotNull(canvas.find("Save this profile"), "tooltip: " + canvas.texts.keySet());
+        assertNotNull(canvas.find("clipboard"), "wrapped, not cut: " + canvas.texts.keySet());
+    }
+
+    @Test
     void clickingEverywhereAtEverySizeNeverFailsOrDrawsOutside() {
-        int[][] sizes = {{320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
+        int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         for (int[] size : sizes) {
             sc.apply(Config.defaults());
             SettingsEditor editor = new SettingsEditor(sc);
+            editor.ui.tipDelay = 0;
             RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
             for (int y = 0; y < size[1]; y += 9) {
                 for (int x = 0; x < size[0]; x += 13) {
-                    if (editor.isClosed()) editor = new SettingsEditor(sc);
+                    if (editor.isClosed()) {
+                        editor = new SettingsEditor(sc);
+                        editor.ui.tipDelay = 0;
+                    }
                     editor.mousePressed(x, y, 0);
                     editor.render(canvas, x, y);
                     editor.mouseReleased(x, y, 0);
