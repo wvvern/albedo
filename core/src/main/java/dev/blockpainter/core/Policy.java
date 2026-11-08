@@ -38,6 +38,12 @@ public final class Policy {
         return profile != null;
     }
 
+    /** Whether both policies give every texture the same look. */
+    public boolean sameTextures(Policy other) {
+        if (profile == null || other.profile == null) return profile == other.profile;
+        return profile.configured().equals(other.profile.configured()) && profile.is(Toggle.FOLIAGE) == other.profile.is(Toggle.FOLIAGE);
+    }
+
     public Appearance appearanceFor(TextureKey key) {
         if (profile == null) return Appearance.ORIGINAL;
         Appearance cached = cache.get(key);

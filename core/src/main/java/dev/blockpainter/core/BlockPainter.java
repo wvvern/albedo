@@ -8,6 +8,7 @@ import dev.blockpainter.core.dev.Harness;
 import dev.blockpainter.core.texture.PixelTransformer;
 import dev.blockpainter.core.texture.TextureClassifier;
 import dev.blockpainter.core.texture.TextureKey;
+import dev.blockpainter.core.texture.TextureStore;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,11 +16,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -42,8 +41,8 @@ public final class BlockPainter {
     private volatile Config config;
     private volatile Policy policy = Policy.DISABLED;
     private final Map<String, PixelBuffer> userTextures = new ConcurrentHashMap<String, PixelBuffer>();
-    /** Every texture seen since start, with its original average color: what the settings screen lists. */
-    private final Map<TextureKey, Integer> catalog = new ConcurrentHashMap<TextureKey, Integer>();
+    /** Every loaded texture with its original: what a settings change repaints and the settings screen lists. */
+    private final TextureStore store = new TextureStore();
     private final PixelTransformer.TextureSource textureSource;
 
     private long lastModified;
@@ -94,23 +93,19 @@ public final class BlockPainter {
     // ---------------------------------------------------------------- textures
 
     /**
-     * Records and transforms a freshly loaded texture in place.
+     * Keeps the original of a freshly loaded texture, then transforms it in place. The {@code upload} puts other
+     * pixels into the same texture later, when a settings change repaints it.
      *
      * @param location "minecraft:textures/block/stone.png" or a sprite name with its folder ("minecraft:block/stone")
      * @return true if the image was changed
      */
-    public static boolean processTexture(String location, PixelBuffer image) {
+    public static boolean processTexture(String location, PixelBuffer image, TextureStore.Upload upload) {
         BlockPainter sc = instance;
-        if (sc == null) return false;
+        if (sc == null || sc.store.repainting()) return false;
         TextureKey key = TextureClassifier.classify(location);
         try {
-            if (key.category().hasGroups() && key.category() != Category.COLORMAPS && key.category() != Category.OTHER) {
-                // Only what the settings screen can list is recorded; the average is its preview color.
-                Integer average = PixelTransformer.average(image);
-                if (!average.equals(sc.catalog.put(key, average))) sc.catalogVersion.incrementAndGet();
-            }
             Appearance a = sc.policy.appearanceFor(key);
-            if (a.isOriginal()) return false;
+            sc.store.record(key, image, upload, a);
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
@@ -120,28 +115,21 @@ public final class BlockPainter {
         }
     }
 
-    // Sorted per-category views of the catalog, rebuilt only when a texture was added or its color changed.
-    private final AtomicInteger catalogVersion = new AtomicInteger();
-    private final Map<Category, Map<String, Integer>> catalogViews = new EnumMap<Category, Map<String, Integer>>(Category.class);
-    private int catalogViewsVersion = -1;
+    /**
+     * A biome colormap ({@code minecraft:textures/colormap/grass.png}) as the game keeps it: an ARGB array that it
+     * reads by reference. Changed in place, now and on each repaint.
+     */
+    public static void processColormap(String location, int[] pixels) {
+        if (pixels != null && pixels.length == COLORMAP_SIZE * COLORMAP_SIZE) {
+            processTexture(location, new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels), TextureStore.intoArray(pixels));
+        }
+    }
+
+    private static final int COLORMAP_SIZE = 256;
 
     /** Ids seen in a category, sorted, each with its original average color. Read-only; client thread. */
     public Map<String, Integer> catalog(Category category) {
-        int version = catalogVersion.get();
-        if (version != catalogViewsVersion) {
-            catalogViews.clear();
-            catalogViewsVersion = version;
-        }
-        Map<String, Integer> view = catalogViews.get(category);
-        if (view == null) {
-            Map<String, Integer> out = new TreeMap<String, Integer>();
-            for (Map.Entry<TextureKey, Integer> e : catalog.entrySet()) {
-                if (e.getKey().category() == category) out.put(e.getKey().id(), e.getValue());
-            }
-            view = Collections.unmodifiableMap(out);
-            catalogViews.put(category, view);
-        }
-        return view;
+        return store.catalog(category);
     }
 
     private volatile List<String> textureNames = Collections.emptyList();
@@ -152,10 +140,11 @@ public final class BlockPainter {
         return textureNames;
     }
 
-    /** Re-reads the textures folder when it changed; dropping cached images makes edited PNGs apply on next reload. */
+    /** Re-reads the textures folder when it changed, and repaints the textures that use an image from it. */
     private void watchTexturesFolder() {
         File folder = texturesFolder();
         if (folder.lastModified() == texturesModified) return;
+        boolean first = texturesModified == -1;
         texturesModified = folder.lastModified();
         File[] files = folder.listFiles();
         List<String> names = new ArrayList<String>();
@@ -165,6 +154,7 @@ public final class BlockPainter {
         Collections.sort(names);
         textureNames = Collections.unmodifiableList(names);
         userTextures.clear();
+        if (!first) refresh(policy, true);
     }
 
     public File texturesFolder() {
@@ -203,10 +193,10 @@ public final class BlockPainter {
                 platform.info("Changed " + transformed + " textures with profile '" + config.activeProfileName() + "'");
             }
             if (configFile.lastModified() != lastModified) {
-                Config before = config;
+                Policy before = policy;
                 if (load()) {
                     platform.showMessage(NAME + ": config reloaded");
-                    if (!before.sameRendering(config)) platform.reloadResources();
+                    refresh(before, false);
                 }
             }
         }
@@ -221,19 +211,45 @@ public final class BlockPainter {
         return edge;
     }
 
-    /**
-     * Swap config, persist it, tell the player what changed, and reload resources if textures, shading or foliage
-     * changed (they're baked into textures and chunk meshes). Sky color and fullbright apply immediately.
-     */
+    /** Swap config, persist it, tell the player what changed, and show the change in the world. */
     public void apply(Config next) {
         Config before = config;
         if (next.equals(before)) return;
+        Policy old = policy;
         setConfig(next);
         save();
         if (before.enabled() != next.enabled() || !before.activeProfileName().equals(next.activeProfileName())) {
             platform.showMessage(NAME + ": " + (next.enabled() ? next.activeProfileName() : "off"));
         }
-        if (!before.sameRendering(next)) platform.reloadResources();
+        refresh(old, false);
+    }
+
+    /**
+     * Shows the current policy in the world. Sky, fog, fullbright and shadows are read each frame. Textures are
+     * repainted one by one. Tints and shading live in the chunk meshes, so a change to them rebuilds the chunks. Only
+     * what the repaint cannot reach makes a full resource reload.
+     */
+    private void refresh(Policy old, boolean userImagesChanged) {
+        Policy now = policy;
+        boolean shading = old.shading() != now.shading();
+        if ((shading && platform.shadingInModels()) || (!store.complete() && !old.sameTextures(now))) {
+            platform.reloadResources();
+            return;
+        }
+        long start = System.nanoTime();
+        TextureStore.Result r = store.repaint(now, textureSource, userImagesChanged);
+        if (r.failed > 0) {
+            platform.warn(r.failed + " textures cannot be repainted. Resources reload instead.", null);
+            platform.reloadResources();
+            return;
+        }
+        boolean meshes = shading || old.removeTint(Category.BLOCKS) != now.removeTint(Category.BLOCKS)
+                || old.removeTint(Category.FLUIDS) != now.removeTint(Category.FLUIDS);
+        if (meshes) platform.rebuildChunks();
+        if (r.repainted > 0 || meshes) {
+            platform.info("Repainted " + r.repainted + " textures" + (meshes ? " and rebuilt chunks" : "") + " in "
+                    + (System.nanoTime() - start) / 1000000 + " ms");
+        }
     }
 
     // ---------------------------------------------------------------- persistence

@@ -38,7 +38,18 @@ final class LegacyPlatform implements Platform {
     public void reloadResources() {
         Minecraft mc = Minecraft.getMinecraft();
         mc.refreshResources();
-        if (mc.renderGlobal != null) mc.renderGlobal.loadRenderers(); // rebuild chunks so tints update
+        rebuildChunks();
+    }
+
+    @Override
+    public void rebuildChunks() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.renderGlobal != null) mc.renderGlobal.loadRenderers();
+    }
+
+    @Override
+    public boolean shadingInModels() {
+        return true; // FaceBakery bakes the darker block sides into the model quads
     }
 
     @Override

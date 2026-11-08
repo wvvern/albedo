@@ -20,8 +20,14 @@ public interface Platform {
 
     void warn(String message, Throwable error);
 
-    /** Reload resource packs/textures and rebuild chunks. Called on the client thread. */
+    /** Reload all resources and rebuild chunks: the slow path, for what a repaint cannot reach. Client thread. */
     void reloadResources();
+
+    /** Rebuild the chunk meshes, which hold block tints and lighting. Client thread. */
+    void rebuildChunks();
+
+    /** True when face shading is baked into the block models (1.8.9), so a shading change needs a full reload. */
+    boolean shadingInModels();
 
     /** Show a short message to the player (action bar). Called on the client thread. */
     void showMessage(String message);

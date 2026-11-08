@@ -3,10 +3,10 @@ package dev.blockpainter.legacy;
 import dev.blockpainter.core.Category;
 import dev.blockpainter.core.Policy;
 import dev.blockpainter.core.BlockPainter;
+import dev.blockpainter.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
 
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
 
 /** What the 1.8.9 mixins call: thin translations from 1.8.9 types to the core. */
 public final class LegacyHooks {
@@ -29,8 +29,16 @@ public final class LegacyHooks {
         bootstrap();
         if (image == null) return null;
         BufferedImage argb = BufferedImagePixels.toArgb(image);
-        return BlockPainter.processTexture(location, new BufferedImagePixels(argb)) ? argb : image;
+        return BlockPainter.processTexture(location, new BufferedImagePixels(argb), NO_REPAINT) ? argb : image;
     }
+
+    /** Until each texture kind has its own upload, a repaint falls back to a resource reload. */
+    private static final TextureStore.Upload NO_REPAINT = new TextureStore.Upload() {
+        @Override
+        public boolean upload(dev.blockpainter.core.PixelBuffer pixels) {
+            throw new UnsupportedOperationException("no repaint yet");
+        }
+    };
 
     public static int blockTint(int original) {
         return BlockPainter.currentPolicy().removeTint(Category.BLOCKS) ? 0xFFFFFF : original;
@@ -53,9 +61,10 @@ public final class LegacyHooks {
         return shading() ? original : 1.0f;
     }
 
-    public static void flattenColormap(int[] pixels) {
+    /** Biome colormaps ("grass", "foliage"). The game keeps the array, so a repaint changes it in place. */
+    public static void colormap(String name, int[] pixels) {
         bootstrap();
-        if (pixels != null && BlockPainter.currentPolicy().removeTint(Category.BLOCKS)) Arrays.fill(pixels, 0xFFFFFFFF);
+        BlockPainter.processColormap("minecraft:textures/colormap/" + name + ".png", pixels);
     }
 
     public static float gamma(float setting) {

@@ -153,13 +153,14 @@ class CoreTest {
         assertEquals("fresh", c.freeProfileName("fresh"));
         assertEquals(c.profiles().size() - 1, c.withoutProfile("minimal").profiles().size());
 
-        // Only texture changes need a resource reload; lighting doesn't.
-        assertTrue(c.sameRendering(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false))));
-        assertTrue(c.sameRendering(c.withProfile(c.activeProfile().with(Toggle.SHADOWS, false))));
-        assertFalse(c.sameRendering(c.withEnabled(false)));
-        assertFalse(c.sameRendering(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks))));
-        assertFalse(c.sameRendering(c.withProfile(c.activeProfile().with(Toggle.SHADING, false))));
-        assertFalse(c.sameRendering(c.withProfile(c.activeProfile().with(Toggle.FOLIAGE, true))));
+        // Lighting and shadows do not change textures; looks, foliage and the on/off switch do.
+        Policy p = Policy.of(c);
+        assertTrue(p.sameTextures(Policy.of(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)))));
+        assertTrue(p.sameTextures(Policy.of(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)))));
+        assertFalse(p.sameTextures(Policy.of(c.withEnabled(false))));
+        assertFalse(p.sameTextures(Policy.of(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)))));
+        assertFalse(p.sameTextures(Policy.of(c.withProfile(c.activeProfile().with(Toggle.FOLIAGE, true)))));
+        assertTrue(Policy.DISABLED.sameTextures(Policy.of(c.withEnabled(false))));
     }
 
     @Test

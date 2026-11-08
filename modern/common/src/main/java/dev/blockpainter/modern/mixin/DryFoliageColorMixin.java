@@ -13,6 +13,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class DryFoliageColorMixin {
     @Inject(method = "init", at = @At("HEAD"), require = 0)
     private static void blockpainter$flatten(int[] pixels, CallbackInfo ci) {
-        ModernHooks.flattenColormap(pixels);
+        ModernHooks.colormap("dry_foliage", pixels);
     }
 }

@@ -32,11 +32,26 @@ public interface PixelBuffer {
         }
 
         public static Heap copyOf(PixelBuffer src) {
+            if (src instanceof Heap) return ((Heap) src).copy();
             Heap heap = new Heap(src.width(), src.height());
-            for (int y = 0; y < src.height(); y++)
-                for (int x = 0; x < src.width(); x++)
-                    heap.setArgb(x, y, src.getArgb(x, y));
+            for (int y = 0; y < src.height(); y++) {
+                for (int x = 0; x < src.width(); x++) heap.setArgb(x, y, src.getArgb(x, y));
+            }
             return heap;
+        }
+
+        public Heap copy() {
+            return new Heap(width, height, pixels.clone());
+        }
+
+        /** Writes the pixels into {@code target}, which has the same length. */
+        public void copyInto(int[] target) {
+            System.arraycopy(pixels, 0, target, 0, pixels.length);
+        }
+
+        /** The pixels, row by row from the top, as 0xAARRGGBB. Read-only use: this is the live array. */
+        public int[] argb() {
+            return pixels;
         }
 
         @Override public int width() { return width; }

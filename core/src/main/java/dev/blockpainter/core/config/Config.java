@@ -116,12 +116,6 @@ public final class Config {
         for (int i = 2; ; i++) if (!profiles.containsKey(base + "-" + i)) return base + "-" + i;
     }
 
-    /** Whether switching from this config to {@code other} keeps textures and chunk meshes (no resource reload needed). */
-    public boolean sameRendering(Config other) {
-        if (enabled != other.enabled) return false;
-        return !enabled || activeProfile().sameRendering(other.activeProfile());
-    }
-
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Config)) return false;

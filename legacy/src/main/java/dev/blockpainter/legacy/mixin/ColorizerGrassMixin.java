@@ -12,6 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ColorizerGrassMixin {
     @Inject(method = "setGrassBiomeColorizer", at = @At("HEAD"))
     private static void blockpainter$flatten(int[] pixels, CallbackInfo ci) {
-        LegacyHooks.flattenColormap(pixels);
+        LegacyHooks.colormap("grass", pixels);
     }
 }

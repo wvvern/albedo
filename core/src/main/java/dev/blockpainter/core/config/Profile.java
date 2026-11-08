@@ -59,13 +59,6 @@ public final class Profile {
 
     public Profile renamed(String newName) { return new Profile(newName, categories, on); }
 
-    /** Same textures and chunk meshes, so switching between the two needs no resource reload. */
-    public boolean sameRendering(Profile other) {
-        if (!categories.equals(other.categories)) return false;
-        for (Toggle t : Toggle.values()) if (t.needsReload && is(t) != other.is(t)) return false;
-        return true;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Profile)) return false;

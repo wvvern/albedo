@@ -4,13 +4,12 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.blockpainter.core.Category;
 import dev.blockpainter.core.BlockPainter;
 import dev.blockpainter.core.texture.AtlasPaths;
+import dev.blockpainter.core.texture.TextureStore;
 import dev.blockpainter.modern.mixin.SpriteContentsAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
-
-import java.util.Arrays;
 
 /**
  * What the mixins call. Each method is a thin translation from Minecraft types to the core; mixins stay one-liners
@@ -37,8 +36,16 @@ public final class ModernHooks {
 
     /** Stand-alone textures (entities, environment, ...). */
     public static void processImage(String location, NativeImage image) {
-        if (NativeImagePixels.supports(image)) BlockPainter.processTexture(location, new NativeImagePixels(image));
+        if (NativeImagePixels.supports(image)) BlockPainter.processTexture(location, new NativeImagePixels(image), NO_REPAINT);
     }
+
+    /** Until each texture kind has its own upload, a repaint falls back to a resource reload. */
+    private static final TextureStore.Upload NO_REPAINT = new TextureStore.Upload() {
+        @Override
+        public boolean upload(dev.blockpainter.core.PixelBuffer pixels) {
+            throw new UnsupportedOperationException("no repaint yet");
+        }
+    };
 
     public static int blockTint(int original) {
         return BlockPainter.currentPolicy().removeTint(Category.BLOCKS) ? -1 : original;
@@ -58,10 +65,13 @@ public final class ModernHooks {
         return BlockPainter.currentPolicy().removeTint(Category.FLUIDS);
     }
 
-    /** Biome colormaps (grass/foliage); renderer-independent, so it also reaches Sodium-style renderers. */
-    public static void flattenColormap(int[] pixels) {
+    /**
+     * Biome colormaps ("grass", "foliage", "dry_foliage"); renderer-independent, so they also reach Sodium-style
+     * renderers. The game keeps the array, so a repaint changes it in place.
+     */
+    public static void colormap(String name, int[] pixels) {
         bootstrap();
-        if (pixels != null && BlockPainter.currentPolicy().removeTint(Category.BLOCKS)) Arrays.fill(pixels, 0xFFFFFFFF);
+        BlockPainter.processColormap("minecraft:textures/colormap/" + name + ".png", pixels);
     }
 
     public static boolean shading() {

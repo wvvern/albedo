@@ -57,6 +57,20 @@ final class ModernPlatform implements Platform {
     }
 
     @Override
+    public void rebuildChunks() {
+        //? if >=26.1 {
+        Minecraft.getInstance().reloadResourcePacks();
+        //?} else {
+        /*Minecraft.getInstance().levelRenderer.allChanged();
+        *///?}
+    }
+
+    @Override
+    public boolean shadingInModels() {
+        return false;
+    }
+
+    @Override
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {

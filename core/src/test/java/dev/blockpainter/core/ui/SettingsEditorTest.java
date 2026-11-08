@@ -18,9 +18,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,11 +36,53 @@ class SettingsEditorTest {
     @BeforeAll
     static void init() {
         sc = BlockPainter.init(new FakePlatform(dir.toFile()));
-        BlockPainter.processTexture("minecraft:block/oak_leaves", new PixelBuffer.Heap(1, 1, new int[]{0xFF2E7D32}));
+        load("minecraft:block/oak_leaves", 0xFF2E7D32);
         for (String id : new String[]{"stone", "dirt", "gravel", "grass_block_top", "grass_block_side", "grass_block_snow",
             "grass_block_side_overlay", "dirt_path_top", "dirt_path_side"}) {
-            BlockPainter.processTexture("minecraft:block/" + id, new PixelBuffer.Heap(1, 1, new int[]{0xFF7F7F7F}));
+            load("minecraft:block/" + id, 0xFF7F7F7F);
         }
+    }
+
+    private static void load(String location, int argb) {
+        BlockPainter.processTexture(location, new PixelBuffer.Heap(1, 1, new int[]{argb}), pixels -> {
+            ((FakePlatform) sc.platform()).uploads++;
+            return true;
+        });
+    }
+
+    @Test
+    void settingsChangesRepaintInsteadOfReloading() {
+        FakePlatform p = (FakePlatform) sc.platform();
+        sc.apply(Config.defaults());
+        p.reset();
+        Config c = sc.config();
+
+        // Fullbright and the sky color are read each frame: nothing to repaint.
+        sc.apply(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)));
+        assertEquals(0, p.uploads + p.reloads + p.rebuilds);
+
+        // A new group repaints its blocks only.
+        c = sc.config();
+        Rule ground = new Rule("Ground", Collections.singletonList("dirt"), Appearance.solid(0xFFFF0000), false);
+        CategorySettings blocks = c.activeProfile().get(Category.BLOCKS);
+        List<Rule> groups = new ArrayList<Rule>(blocks.rules());
+        groups.add(0, ground);
+        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks.withRules(groups))));
+        assertEquals(1, p.uploads);
+
+        // Shading and tints are in the chunk meshes: rebuild them, never reload.
+        c = sc.config();
+        sc.apply(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)));
+        c = sc.config();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, c.activeProfile().get(Category.BLOCKS).withRemoveTint(false))));
+        assertEquals(2, p.rebuilds);
+
+        // Off and on again: all textures repaint.
+        p.reset();
+        sc.apply(sc.config().withEnabled(false));
+        assertEquals(10, p.uploads);
+        assertEquals(0, p.reloads);
+        sc.apply(Config.defaults());
     }
 
     @Test
@@ -342,7 +386,13 @@ class SettingsEditorTest {
         @Override public File configDir() { return dir; }
         @Override public void info(String message) {}
         @Override public void warn(String message, Throwable error) {}
-        @Override public void reloadResources() {}
+        int reloads, rebuilds, uploads;
+
+        void reset() { reloads = rebuilds = uploads = 0; }
+
+        @Override public void reloadResources() { reloads++; }
+        @Override public void rebuildChunks() { rebuilds++; }
+        @Override public boolean shadingInModels() { return false; }
         @Override public void showMessage(String message) {}
         @Override public boolean isKeyDown(Keys.Key key) { return false; }
         @Override public PixelBuffer readImage(File png) { return null; }
