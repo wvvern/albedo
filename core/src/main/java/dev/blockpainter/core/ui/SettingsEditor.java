@@ -703,8 +703,9 @@ public final class SettingsEditor {
     }
 
     /**
-     * Matches for what's typed: whole blocks first ("grass_block*" covers its top, sides and overlay), then single
-     * textures; names starting with the text before names containing it. A typed pattern with * is offered as is.
+     * Matches for what's typed: the exact name first, then whole blocks ("grass_block*" covers its top, sides and
+     * overlay), then single textures; names starting with the text before names containing it. A typed pattern with *
+     * is offered as is.
      */
     private List<Suggestion> suggestions(String typed, Map<String, Integer> catalog, CategorySettings cs, int index) {
         String q = typed.trim().toLowerCase(Locale.ROOT);
@@ -741,10 +742,12 @@ public final class SettingsEditor {
             if (e.getValue().size() > 1 && wholeBlock(e.getKey())) candidates.add(e.getKey() + "*");
         }
         candidates.addAll(singles);
+        // The exact name comes first, so that "dirt" + Enter adds dirt, not dirt_path*.
         List<String> starts = new ArrayList<String>(), contains = new ArrayList<String>();
         for (String c : candidates) {
             if (self.patterns().contains(c)) continue;
-            (c.startsWith(q) ? starts : contains).add(c);
+            if (c.equals(q) || c.equals(q + "*")) starts.add(0, c);
+            else (c.startsWith(q) ? starts : contains).add(c);
         }
         for (String c : starts) if (out.size() < MAX_SUGGESTIONS) out.add(suggestionFor(c, catalog, cs, self));
         for (String c : contains) if (out.size() < MAX_SUGGESTIONS) out.add(suggestionFor(c, catalog, cs, self));

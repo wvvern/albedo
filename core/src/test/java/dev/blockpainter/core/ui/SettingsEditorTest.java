@@ -36,7 +36,7 @@ class SettingsEditorTest {
         sc = BlockPainter.init(new FakePlatform(dir.toFile()));
         BlockPainter.processTexture("minecraft:block/oak_leaves", new PixelBuffer.Heap(1, 1, new int[]{0xFF2E7D32}));
         for (String id : new String[]{"stone", "dirt", "gravel", "grass_block_top", "grass_block_side", "grass_block_snow",
-            "grass_block_side_overlay"}) {
+            "grass_block_side_overlay", "dirt_path_top", "dirt_path_side"}) {
             BlockPainter.processTexture("minecraft:block/" + id, new PixelBuffer.Heap(1, 1, new int[]{0xFF7F7F7F}));
         }
     }
