@@ -1,7 +1,7 @@
 [
   {
     "modid": "${modid}",
-    "name": "Single Color",
+    "name": "Plainview",
     "description": "Flatten blocks, sky, fluids and more to a single color or texture so moving things stand out.",
     "version": "${version}",
     "mcversion": "${mcversion}",

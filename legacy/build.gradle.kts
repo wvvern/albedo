@@ -121,7 +121,7 @@ tasks.register<JavaExec>("runClientDev") {
     )
     // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
     if (project.hasProperty("harness")) {
-        systemProperty("singlecolor.harness", File(project.property("harness") as String).absolutePath)
+        systemProperty("plainview.harness", File(project.property("harness") as String).absolutePath)
         args("--width", "1600", "--height", "900")
     }
 }

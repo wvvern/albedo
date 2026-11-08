@@ -10,7 +10,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Dir,
     [Parameter(Mandatory = $true)][string]$Task,
     [Parameter(Mandatory = $true)][string]$Harness,
-    [string]$Log = "$env:TEMP\singlecolor-hidden.log"
+    [string]$Log = "$env:TEMP\plainview-hidden.log"
 )
 
 Add-Type @"
@@ -33,7 +33,7 @@ public static class HiddenDesktop {
 }
 "@
 
-$desktopName = "SingleColorHarness"
+$desktopName = "PlainviewHarness"
 # GENERIC_ALL; returns the existing desktop if it is already there.
 $desktop = [HiddenDesktop]::CreateDesktop($desktopName, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }

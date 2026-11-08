@@ -10,7 +10,7 @@ small enough to port in an afternoon. The design is **ports and adapters** (hexa
                 │  TextureClassifier path → Category + id   (handles 1.8 "blocks/" and 1.13+ "block/")           │
                 │  AtlasPaths        restores folders that modern atlases strip from sprite names               │
                 │  PixelTransformer  solid / average / grayscale / texture / hidden, on a PixelBuffer            │
-                │  SingleColor       facade: init, processTexture, texture catalog, tick (keys, config watching) │
+                │  Plainview         facade: init, processTexture, texture catalog, tick (keys, config watching) │
                 │  ui/               the whole settings screen: an immediate-mode toolkit + SettingsEditor      │
                 │  dev/Harness       file-driven test harness for hidden-desktop screenshots (dev only)         │
                 │  Platform (port)   dirs, logging, reload, keys, images, open settings; Canvas (drawing port) │
@@ -94,7 +94,7 @@ Version differences inside `modern/` look like this, and are confined to the mix
    Fix them with a `//? if` branch. The condition boundaries between the built nodes (`>=1.21.2`, `>=1.21.4`,
    `>=1.21.6`, `>=1.21.9`, `>=26.1`) are best guesses and only verified at the built nodes, so check them when you
    add a version in between.
-3. `./gradlew :fabric:<v>:runClient`. The log should show `Single Color ready` and a `Flattened N textures` line.
+3. `./gradlew :fabric:<v>:runClient`. The log should show `Plainview ready` and a `Flattened N textures` line.
 
 ## Known gaps / next steps
 

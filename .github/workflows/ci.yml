@@ -45,7 +45,7 @@ jobs:
             ${TAG:+-Pmod_version=${TAG#v}} \
             ${{ matrix.mc == '26.3' && ':core:test' || '' }} \
             :fabric:$MC:releaseJar :neoforge:$MC:releaseJar
-          mkdir -p ../dist && cp {fabric,neoforge}/versions/$MC/build/libs/singlecolor-*+$MC.jar ../dist/
+          mkdir -p ../dist && cp {fabric,neoforge}/versions/$MC/build/libs/plainview-*+$MC.jar ../dist/
         env:
           MC: ${{ matrix.mc }}
       - uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: jars-1.8.9
-          path: legacy/build/libs/singlecolor-*.jar
+          path: legacy/build/libs/plainview-*.jar
           if-no-files-found: error
 
   release:
@@ -114,7 +114,7 @@ jobs:
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: dist/singlecolor-${{ matrix.loader }}-*.jar
+          files: dist/plainview-${{ matrix.loader }}-*.jar
           name: ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target }}
           version: ${{ env.TAG }}+${{ matrix.loader }}-${{ matrix.target }}
           loaders: ${{ matrix.loader }}

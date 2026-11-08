@@ -11,7 +11,7 @@ Flatten blocks, sky, fluids and more to a single color or texture so moving thin
 '''
 
 [[mixins]]
-config = "singlecolor.mixins.json"
+config = "plainview.mixins.json"
 
 [[dependencies.${mod_id}]]
 modId = "neoforge"

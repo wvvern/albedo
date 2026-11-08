@@ -4,7 +4,7 @@ Takes the README screenshots for each target on a hidden desktop: builds a test 
 captures vanilla, every built-in profile, night with and without fullbright, and the settings screen.
 
 .DESCRIPTION
-For each target the game runs with the test harness (see core/src/main/java/dev/singlecolor/core/dev/Harness.java),
+For each target the game runs with the test harness (see core/src/main/java/dev/plainview/core/dev/Harness.java),
 sound muted, narrator off, no pausing on focus loss. Screenshots land in docs/screenshots/<target>/.
 
 .EXAMPLE
@@ -40,13 +40,13 @@ foreach ($target in $Targets) {
         $dir = Join-Path $root "modern"; $task = ":${loader}:${version}:runClient"
         $runDir = Join-Path $dir "$loader\versions\$version\run"; $scene = "scene-modern.txt"
     }
-    $harness = Join-Path $env:TEMP "singlecolor-harness\$target"
+    $harness = Join-Path $env:TEMP "plainview-harness\$target"
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
     Set-Options $runDir
     # Start from the default config and a fresh world every time, so screenshots are reproducible.
-    Remove-Item -Force (Join-Path $runDir "config\singlecolor\config.json") -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force (Join-Path $runDir "saves\SingleColorTest") -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path $runDir "config\plainview\config.json") -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force (Join-Path $runDir "saves\PlainviewTest") -ErrorAction SilentlyContinue
     Copy-Item (Join-Path $PSScriptRoot "harness\$scene") (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
