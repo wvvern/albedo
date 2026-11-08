@@ -122,6 +122,15 @@ Chunk rebuild: `LevelRenderer.allChanged` on 1.21.x, `LevelExtractor.allChanged`
 
 One tool chain cannot support both 1.8.9 Forge and 26.x, so there are two builds. Both use `core/src`.
 
+You need JDK 21 and JDK 25. If JDK 8 is missing, Gradle gets it for 1.8.9.
+
+```bash
+cd modern && ./gradlew collectJars   # Fabric and NeoForge jars -> modern/build/libs/
+cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
+```
+
+To start a dev client, run `./gradlew :fabric:26.3:runClient` in `modern/` (any loader or version) or `./gradlew runClientDev` in `legacy/`. For releases, see [RELEASING.md](RELEASING.md).
+
 In `modern/`, Stonecutter comments mark the version differences. They are only in mixin and adapter files:
 
 ```java
