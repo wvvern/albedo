@@ -6,6 +6,8 @@ wait 100
 hud off
 run time set 6000
 run weather clear
+run gamerule doMobSpawning false
+run achievement give achievement.openInventory
 run kill @e[type=!Player]
 # A new world can spawn the player far from 0,0. Move there first so that the scene chunks are loaded.
 run tp @p 0.5 4 4.5 180 12
