@@ -1,13 +1,13 @@
 package dev.blockpainter.core.ui;
 
+import dev.blockpainter.core.BlockPainter;
 import dev.blockpainter.core.Category;
 import dev.blockpainter.core.Keys;
 import dev.blockpainter.core.PixelBuffer;
 import dev.blockpainter.core.Platform;
-import dev.blockpainter.core.BlockPainter;
 import dev.blockpainter.core.config.Appearance;
-import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.CategorySettings;
+import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.Profile;
 import dev.blockpainter.core.config.Rule;
 import dev.blockpainter.core.config.Toggle;

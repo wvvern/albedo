@@ -1,7 +1,7 @@
 package dev.blockpainter.core.dev;
 
-import dev.blockpainter.core.Platform;
 import dev.blockpainter.core.BlockPainter;
+import dev.blockpainter.core.Platform;
 import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.Toggle;
 

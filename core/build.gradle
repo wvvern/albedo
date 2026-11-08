@@ -2,6 +2,7 @@
 // Platform builds compile these sources directly; this project exists to run the unit tests.
 plugins {
     id 'java-library'
+    id 'checkstyle'
 }
 
 repositories { mavenCentral() }
@@ -23,3 +24,10 @@ dependencies {
 }
 
 test { useJUnitPlatform() }
+
+// Lint rules: docs/CODING_STANDARDS.md. `./gradlew :core:check` runs them with the tests.
+checkstyle {
+    toolVersion = '10.21.4'
+    configDirectory = layout.projectDirectory.dir('config/checkstyle')
+    maxWarnings = 0
+}

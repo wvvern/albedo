@@ -44,8 +44,10 @@ class CoreTest {
     void atlasRestoresStrippedFolders() {
         assertEquals("minecraft:particle/flame", AtlasPaths.spriteLocation("minecraft:textures/atlas/particles.png", "minecraft:flame"));
         assertEquals("minecraft:block/stone", AtlasPaths.spriteLocation("minecraft:textures/atlas/blocks.png", "minecraft:block/stone"));
-        assertEquals(Category.SKY, TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:celestials", "minecraft:moon/full_moon")).category());
-        assertEquals(Category.BLOCK_ENTITIES, TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:paintings", "minecraft:kebab")).category());
+        assertEquals(Category.SKY,
+                TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:celestials", "minecraft:moon/full_moon")).category());
+        assertEquals(Category.BLOCK_ENTITIES,
+                TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:paintings", "minecraft:kebab")).category());
     }
 
     @Test

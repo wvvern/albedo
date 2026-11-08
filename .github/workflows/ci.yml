@@ -43,7 +43,7 @@ jobs:
         run: |
           ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64 \
             ${TAG:+-Pmod_version=${TAG#v}} \
-            ${{ matrix.mc == '26.3' && ':core:test' || '' }} \
+            ${{ matrix.mc == '26.3' && ':core:check' || '' }} \
             :fabric:$MC:releaseJar :neoforge:$MC:releaseJar
           mkdir -p ../dist && cp {fabric,neoforge}/versions/$MC/build/libs/block-painter-*+$MC.jar ../dist/
         env:
@@ -75,9 +75,16 @@ jobs:
           path: legacy/build/libs/block-painter-*.jar
           if-no-files-found: error
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tools/lint.sh
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [modern, legacy]
+    needs: [modern, legacy, lint]
     runs-on: ubuntu-latest
     permissions:
       contents: write

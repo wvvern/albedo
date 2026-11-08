@@ -141,7 +141,8 @@ public final class ConfigCodec {
         try {
             Appearance.Mode mode = map.containsKey("mode") ? Appearance.Mode.byKey(str(map, "mode", "")) : parent.mode();
             if (!category.supportedModes().contains(mode)) {
-                throw new IllegalArgumentException("this category cannot use mode '" + mode.key() + "'. Use one of " + keys(category.supportedModes()));
+                throw new IllegalArgumentException("this category cannot use mode '" + mode.key() + "'. Use one of "
+                        + keys(category.supportedModes()));
             }
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
             String texture = map.containsKey("texture") ? str(map, "texture", "") : parent.texture();

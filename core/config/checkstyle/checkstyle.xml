@@ -1,0 +1,144 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    Lint rules for core/ (plain Java 8). The rules and their reasons are in docs/CODING_STANDARDS.md.
+    Run: cd modern && ./gradlew :core:check
+    Not used:
+    - LeftCurly: its eol option also needs a line break after '{', so it rejects one-line bodies ({ return name; }).
+    - NeedBraces: it rejects one-line brace-less statements inside for and else-if, which the core uses.
+    - Indentation: it misfires on one-line case bodies and one-line method bodies.
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- Lets @SuppressWarnings("checkstyle:<check>") turn off one check for one element. -->
+    <module name="SuppressWarningsFilter"/>
+
+    <!-- Text and files -->
+    <module name="FileTabCharacter"/>
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
+    <module name="RegexpSingleline">
+        <property name="id" value="trailingSpace"/>
+        <property name="format" value="\s+$"/>
+        <property name="message" value="Remove the spaces at the end of the line."/>
+    </module>
+    <module name="RegexpSingleline">
+        <property name="id" value="asciiOnly"/>
+        <property name="format" value="[^\x00-\x7F]"/>
+        <property name="message" value="Use only ASCII characters."/>
+    </module>
+    <module name="RegexpSingleline">
+        <property name="id" value="noStonecutter"/>
+        <property name="format" value="//\?"/>
+        <property name="message" value="Do not use Stonecutter comments in core. Put version differences in a modern/ adapter."/>
+    </module>
+    <module name="LineLength">
+        <property name="max" value="150"/>
+        <property name="ignorePattern" value="^(package|import) |https?://"/>
+    </module>
+
+    <module name="TreeWalker">
+        <module name="SuppressWarningsHolder"/>
+
+        <!-- Files and imports -->
+        <module name="OuterTypeFilename"/>
+        <module name="OneTopLevelClass"/>
+        <module name="AvoidStarImport">
+            <property name="allowStaticMemberImports" value="true"/>
+        </module>
+        <module name="RedundantImport"/>
+        <module name="UnusedImports"/>
+        <module name="IllegalImport">
+            <!-- Ports and adapters: the core reaches the game only through Platform and Canvas. -->
+            <property name="illegalPkgs" value="sun, com.sun, java.awt, javax.imageio, javax.swing, net.minecraft, com.mojang, net.fabricmc, net.neoforged, net.minecraftforge, cpw.mods, org.spongepowered, com.llamalad7, org.lwjgl, dev.blockpainter.modern, dev.blockpainter.legacy, dev.blockpainter.fabric, dev.blockpainter.neoforge"/>
+        </module>
+        <module name="RegexpSinglelineJava">
+            <!-- IllegalImport does not see fully qualified names. This check also matches text in string literals. -->
+            <property name="id" value="noGameOrDesktopTypes"/>
+            <property name="format" value="\b(java\.awt|javax\.swing|javax\.imageio|net\.minecraft|com\.mojang|org\.lwjgl|org\.spongepowered)\."/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message" value="Do not use game, LWJGL or desktop UI types in core. Use the Platform and Canvas ports."/>
+        </module>
+        <module name="CustomImportOrder">
+            <property name="customImportOrderRules" value="THIRD_PARTY_PACKAGE###STANDARD_JAVA_PACKAGE###STATIC"/>
+            <property name="standardPackageRegExp" value="^(java|javax)\."/>
+            <property name="sortImportsInGroupAlphabetically" value="true"/>
+            <property name="separateLineBetweenGroups" value="true"/>
+        </module>
+
+        <!-- Names (Checkstyle defaults: UpperCamel types, lowerCamel members, UPPER_SNAKE constants) -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        <module name="TypeName"/>
+        <module name="MethodName"/>
+        <module name="MemberName"/>
+        <module name="StaticVariableName"/>
+        <module name="ConstantName"/>
+        <module name="ParameterName"/>
+        <module name="LambdaParameterName"/>
+        <module name="LocalVariableName"/>
+        <module name="LocalFinalVariableName"/>
+        <module name="ClassTypeParameterName"/>
+        <module name="MethodTypeParameterName"/>
+        <module name="InterfaceTypeParameterName"/>
+
+        <!-- Braces: only a '{' alone on its line is an error. Array initializer rows are not alone on the line. -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="braceOnOwnLine"/>
+            <property name="format" value="^\s*\{\s*$"/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message" value="Put { at the end of the previous line."/>
+        </module>
+
+        <!-- Whitespace. Empty bodies {} are allowed. -->
+        <module name="WhitespaceAround">
+            <property name="allowEmptyConstructors" value="true"/>
+            <property name="allowEmptyMethods" value="true"/>
+            <property name="allowEmptyTypes" value="true"/>
+            <property name="allowEmptyLoops" value="true"/>
+            <property name="allowEmptyLambdas" value="true"/>
+        </module>
+        <module name="WhitespaceAfter"/>
+        <module name="NoWhitespaceBefore"/>
+        <module name="NoWhitespaceAfter"/>
+        <module name="GenericWhitespace"/>
+        <module name="MethodParamPad"/>
+        <module name="ParenPad"/>
+        <module name="TypecastParenPad"/>
+
+        <!-- Modifiers and class design -->
+        <module name="ModifierOrder"/>
+        <module name="RedundantModifier"/>
+        <module name="FinalClass"/>
+        <module name="HideUtilityClassConstructor"/>
+        <module name="ArrayTypeStyle"/>
+        <module name="UpperEll"/>
+
+        <!-- Coding problems -->
+        <module name="EmptyStatement"/>
+        <module name="EqualsHashCode"/>
+        <module name="StringLiteralEquality"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="FallThrough"/>
+        <module name="EmptyCatchBlock">
+            <property name="exceptionVariableName" value="^ignored$"/>
+        </module>
+        <module name="TodoComment">
+            <property name="format" value="\b(TODO|FIXME)\b"/>
+        </module>
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="noConsole"/>
+            <property name="format" value="System\.(out|err)\b|\.printStackTrace\("/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message" value="Do not write to the console. Use Platform.info or Platform.warn."/>
+        </module>
+    </module>
+</module>
