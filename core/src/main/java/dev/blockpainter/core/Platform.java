@@ -37,6 +37,8 @@ public interface Platform {
 
     String clipboard();
 
+    void setClipboard(String text);
+
     /** The development test harness host; only used when {@code -Dblockpainter.harness=<dir>} is set. */
     Harness.Host harnessHost();
 }

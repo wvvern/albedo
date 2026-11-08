@@ -71,6 +71,11 @@ final class LegacyPlatform implements Platform {
     }
 
     @Override
+    public void setClipboard(String text) {
+        GuiScreen.setClipboardString(text);
+    }
+
+    @Override
     public Harness.Host harnessHost() {
         return new LegacyHarnessHost();
     }

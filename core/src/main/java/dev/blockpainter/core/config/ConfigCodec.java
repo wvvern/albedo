@@ -39,8 +39,44 @@ public final class ConfigCodec {
     private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
     private static final List<String> CATEGORY_KEYS = plus(LOOK_KEYS, "removeTint", "onlyGroups", "groups");
     private static final List<String> GROUP_KEYS = plus(LOOK_KEYS, "name", "match");
+    /** The first key of a profile file; its value is the file format version. */
+    private static final String PROFILE_FILE = "blockpainterProfile";
+    private static final int PROFILE_FILE_VERSION = 1;
+    private static final List<String> PROFILE_FILE_KEYS = Arrays.asList(PROFILE_FILE, "name", "profile");
 
     private ConfigCodec() {}
+
+    // ---------------------------------------------------------------- profile files
+
+    /**
+     * One profile as a file to share: {@code {"blockpainterProfile": 1, "name": "my-profile", "profile": {...}}}.
+     * The "profile" object has the same keys as a profile in the config file.
+     */
+    public static String encodeProfileFile(Profile p) {
+        Map<String, Object> root = new LinkedHashMap<String, Object>();
+        root.put(PROFILE_FILE, PROFILE_FILE_VERSION);
+        root.put("name", p.name());
+        root.put("profile", encodeProfile(p));
+        return Json.write(root);
+    }
+
+    /** Reads a profile file. The name is normalized; the caller makes it unique. Errors name the bad key. */
+    public static Profile decodeProfileFile(String json) {
+        Object parsed = Json.parse(json);
+        if (!(parsed instanceof Map) || !((Map<?, ?>) parsed).containsKey(PROFILE_FILE)) {
+            throw new IllegalArgumentException("this is not a Block Painter profile (no \"" + PROFILE_FILE + "\" key)");
+        }
+        Map<String, Object> root = object(parsed, "profile file", PROFILE_FILE_KEYS);
+        Object version = root.get(PROFILE_FILE);
+        if (!(version instanceof Number) || ((Number) version).doubleValue() != PROFILE_FILE_VERSION) {
+            throw new IllegalArgumentException("profile file version " + version + " is not supported. Use version "
+                    + PROFILE_FILE_VERSION);
+        }
+        String name = Config.normalizeName(str(root, "name", ""));
+        if (name.isEmpty()) throw new IllegalArgumentException("the profile file has no \"name\"");
+        Object profile = root.get("profile");
+        return decodeProfile(name, profile == null ? Collections.<String, Object>emptyMap() : object(profile, "profile", null));
+    }
 
     // ---------------------------------------------------------------- decode
 

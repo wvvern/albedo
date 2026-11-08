@@ -9,12 +9,15 @@ import dev.blockpainter.core.BlockPainter;
 import dev.blockpainter.core.config.Appearance;
 import dev.blockpainter.core.config.CategorySettings;
 import dev.blockpainter.core.config.Config;
+import dev.blockpainter.core.config.ConfigCodec;
 import dev.blockpainter.core.config.Profile;
 import dev.blockpainter.core.config.Rule;
 import dev.blockpainter.core.config.Toggle;
 import dev.blockpainter.core.texture.PixelTransformer;
 import dev.blockpainter.core.texture.TextureKey;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,6 +67,10 @@ public final class SettingsEditor {
     private int group = -1;
     /** Shown under the scope switch when a switch was refused. */
     private String notice;
+    /** The result of the last export or import, shown in the footer. */
+    private String status;
+    private int statusColor;
+    private String statusTooltip;
     private int suggestion;
     private final TextField hex = new TextField(9, new TextField.Filter() {
         @Override
@@ -883,9 +890,51 @@ public final class SettingsEditor {
         if (ui.button("apply", x + w - 2 * bw - 4, y, bw, 14, "Apply", Ui.Style.NORMAL, dirty, "Save and show the result")) apply();
         if (ui.button("cancel", x + w - 3 * bw - 8, y, bw, 14, dirty ? "Discard" : "Close", Ui.Style.NORMAL, true,
                 dirty ? "Close and do not save" : "Close")) closed = true;
-        String hint = ui.hint() != null ? ui.hint()
+        if (ui.button("export", x, y, bw, 14, "Export", Ui.Style.NORMAL, true,
+                "Save this profile to a file and copy it to the clipboard")) {
+            exportProfile();
+        }
+        if (ui.button("import", x + bw + 4, y, bw, 14, "Import", Ui.Style.NORMAL, true,
+                "Add the profile that is on the clipboard")) {
+            importProfile();
+        }
+        int tx = x + 2 * (bw + 4) + 4;
+        // The status stays visible over the tooltip of the button that made it.
+        boolean showStatus = status != null && (ui.hint() == null || ui.hint().equals(statusTooltip));
+        String hint = showStatus ? status : ui.hint() != null ? ui.hint()
                 : k.toggle + " on/off   " + k.cycleProfile + " next profile   " + k.settings + " this screen";
-        ui.text(ui.ellipsize(hint, w - 3 * (bw + 4) - 8), x, y + 4, ui.hint() != null ? Ui.TEXT : Ui.FAINT);
+        int color = showStatus ? statusColor : ui.hint() != null ? Ui.TEXT : Ui.FAINT;
+        ui.text(ui.ellipsize(hint, x + w - 3 * (bw + 4) - 4 - tx), tx, y + 4, color);
+    }
+
+    private void exportProfile() {
+        try {
+            File file = sc.exportProfile(profile());
+            setStatus("Saved to profiles/" + file.getName() + " and copied to the clipboard", Ui.MUTED);
+        } catch (IOException e) {
+            sc.platform().warn("Cannot export the profile", e);
+            setStatus("Cannot save the file: " + e.getMessage(), Ui.DANGER);
+        }
+    }
+
+    private void importProfile() {
+        String text = sc.platform().clipboard();
+        if (text == null || text.trim().isEmpty()) {
+            setStatus("The clipboard is empty. Copy the text of a profile file, then push Import", Ui.DANGER);
+            return;
+        }
+        try {
+            setDraft(draft.withImportedProfile(ConfigCodec.decodeProfileFile(text)));
+            setStatus("Added profile " + draft.activeProfileName() + ". Push Apply or Done to keep it", Ui.MUTED);
+        } catch (IllegalArgumentException e) {
+            setStatus("Cannot import: " + e.getMessage(), Ui.DANGER);
+        }
+    }
+
+    private void setStatus(String text, int color) {
+        status = text;
+        statusColor = color;
+        statusTooltip = ui.hint();
     }
 
     private void apply() {

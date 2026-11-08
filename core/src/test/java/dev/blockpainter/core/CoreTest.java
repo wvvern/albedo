@@ -4,6 +4,7 @@ import dev.blockpainter.core.config.Appearance;
 import dev.blockpainter.core.config.CategorySettings;
 import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.ConfigCodec;
+import dev.blockpainter.core.config.Profile;
 import dev.blockpainter.core.config.Rule;
 import dev.blockpainter.core.config.Toggle;
 import dev.blockpainter.core.texture.AtlasPaths;
@@ -201,6 +202,36 @@ class CoreTest {
         Config c = Config.defaults();
         Config withKeep = c.withProfile(c.activeProfile().with(Category.BLOCKS, opaque));
         assertEquals(withKeep, ConfigCodec.decode(ConfigCodec.encode(withKeep)));
+    }
+
+    @Test
+    void profileFilesRoundTripAndRejectBadInput() {
+        Config c = ConfigCodec.decode("{ \"profiles\": { \"Mine\": { \"shadows\": false, \"blocks\": { \"mode\": \"solid\","
+                + " \"onlyGroups\": true, \"groups\": [ { \"name\": \"Ground\", \"match\": [\"dirt\", \"gravel\"] } ] } } } }");
+        for (Profile p : Config.defaults().withProfile(c.activeProfile()).profiles().values()) {
+            assertEquals(p.renamed(Config.normalizeName(p.name())), ConfigCodec.decodeProfileFile(ConfigCodec.encodeProfileFile(p)));
+        }
+        Profile imported = ConfigCodec.decodeProfileFile(ConfigCodec.encodeProfileFile(c.activeProfile()));
+        assertEquals("mine", imported.name(), "names are normalized");
+        assertTrue(imported.get(Category.BLOCKS).rules().get(0).usesGlobalLook(), "global-look groups stay linked");
+
+        Config twice = Config.defaults().withImportedProfile(imported).withImportedProfile(imported);
+        assertEquals("mine-2", twice.activeProfileName(), "an import never replaces a profile");
+        assertEquals(Config.defaults().profiles().get("quake-white"),
+                Config.defaults().withImportedProfile(Config.defaults().activeProfile()).profiles().get("quake-white"));
+
+        String[][] bad = {
+            {"{ \"enabled\": true }", "not a Block Painter profile"},
+            {"[1]", "not a Block Painter profile"},
+            {"{ \"blockpainterProfile\": 2, \"name\": \"x\" }", "version 2"},
+            {"{ \"blockpainterProfile\": 1 }", "no \"name\""},
+            {"{ \"blockpainterProfile\": 1, \"name\": \"x\", \"extra\": 1 }", "'extra'"},
+            {"{ \"blockpainterProfile\": 1, \"name\": \"x\", \"profile\": { \"sky\": { \"mode\": \"average\" } } }", "x.sky"},
+        };
+        for (String[] b : bad) {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decodeProfileFile(b[0]), b[0]);
+            assertTrue(e.getMessage().contains(b[1]), e.getMessage());
+        }
     }
 
     @Test

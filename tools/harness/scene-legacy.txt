@@ -7,6 +7,9 @@ hud off
 run time set 6000
 run weather clear
 run kill @e[type=!Player]
+# A new world can spawn the player far from 0,0. Move there first so that the scene chunks are loaded.
+run tp @p 0.5 4 4.5 180 12
+wait 60
 run fill -9 4 -12 9 14 3 air
 run fill -9 3 -12 9 3 3 grass
 run setblock -6 4 -6 minecraft:stone

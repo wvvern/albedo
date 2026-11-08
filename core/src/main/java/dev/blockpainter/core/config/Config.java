@@ -89,6 +89,12 @@ public final class Config {
         return new Config(enabled, activeProfile.equals(from) ? to : activeProfile, keys, next);
     }
 
+    /** Adds an imported profile under a free name and selects it. An existing profile is never replaced. */
+    public Config withImportedProfile(Profile p) {
+        String name = freeProfileName(normalizeName(p.name()));
+        return withProfile(p.renamed(name)).withActiveProfile(name);
+    }
+
     /** No-op for the last remaining profile. */
     public Config withoutProfile(String name) {
         if (profiles.size() <= 1) return this;

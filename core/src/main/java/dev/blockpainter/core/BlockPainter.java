@@ -3,6 +3,7 @@ package dev.blockpainter.core;
 import dev.blockpainter.core.config.Appearance;
 import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.ConfigCodec;
+import dev.blockpainter.core.config.Profile;
 import dev.blockpainter.core.dev.Harness;
 import dev.blockpainter.core.texture.PixelTransformer;
 import dev.blockpainter.core.texture.TextureClassifier;
@@ -263,6 +264,16 @@ public final class BlockPainter {
             if (config != null) platform.showMessage(NAME + ": config error - " + e.getMessage());
             return false;
         }
+    }
+
+    /** Writes the profile to {@code profiles/<name>.json} and copies the same text to the clipboard. */
+    public File exportProfile(Profile p) throws IOException {
+        String json = ConfigCodec.encodeProfileFile(p);
+        File out = new File(new File(dir, "profiles"), p.name().replaceAll("[^A-Za-z0-9_.-]", "_") + ".json");
+        Files.createDirectories(out.getParentFile().toPath());
+        Files.write(out.toPath(), json.getBytes(StandardCharsets.UTF_8));
+        platform.setClipboard(json);
+        return out;
     }
 
     private void save() {

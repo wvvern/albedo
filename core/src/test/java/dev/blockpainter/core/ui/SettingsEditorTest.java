@@ -80,6 +80,31 @@ class SettingsEditorTest {
         assertFalse(sc.config().activeProfile().get(Category.BLOCKS).onlyGroups());
     }
 
+    @Test
+    void exportThenImportMakesAnEqualProfileUnderAFreeName() {
+        sc.apply(Config.defaults());
+        FakePlatform platform = (FakePlatform) sc.platform();
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Export");
+        assertTrue(new File(dir.toFile(), "blockpainter/profiles/quake-white.json").isFile());
+        assertTrue(platform.clipboard.contains("\"blockpainterProfile\""), platform.clipboard);
+        click(editor, canvas, "Import");
+        click(editor, canvas, "Done");
+
+        Config c = sc.config();
+        assertEquals("quake-white-2", c.activeProfileName());
+        assertEquals(c.profiles().get("quake-white").renamed("quake-white-2"), c.activeProfile());
+
+        platform.clipboard = "{\"enabled\": true}";
+        editor = new SettingsEditor(sc);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Import");
+        assertNotNull(canvas.find("Cannot import"), "shows the error: " + canvas.texts.keySet());
+        assertEquals(c, sc.config());
+    }
+
     private static void type(SettingsEditor editor, RecordingCanvas canvas, String text) {
         for (char ch : text.toCharArray()) editor.charTyped(ch);
         render(editor, canvas);
@@ -226,7 +251,10 @@ class SettingsEditorTest {
         @Override public boolean isKeyDown(Keys.Key key) { return false; }
         @Override public PixelBuffer readImage(File png) { return null; }
         @Override public void openSettings() {}
-        @Override public String clipboard() { return "#123456"; }
+        String clipboard = "#123456";
+
+        @Override public String clipboard() { return clipboard; }
+        @Override public void setClipboard(String text) { clipboard = text; }
         @Override public Harness.Host harnessHost() { return null; }
     }
 }

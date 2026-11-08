@@ -107,6 +107,11 @@ final class ModernPlatform implements Platform {
     }
 
     @Override
+    public void setClipboard(String text) {
+        Minecraft.getInstance().keyboardHandler.setClipboard(text);
+    }
+
+    @Override
     public Harness.Host harnessHost() {
         return new ModernHarnessHost();
     }

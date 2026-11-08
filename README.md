@@ -54,6 +54,7 @@ You can change the keys in the config file.
 ### Settings screen
 
 - **Profile bar:** select, copy, rename or delete a profile.
+- **Export and Import:** Export saves the profile to `config/blockpainter/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number.
 - **Categories (left list):** each category has a color square that shows its current color.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
 - **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
