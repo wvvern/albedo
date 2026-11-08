@@ -23,9 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Puts repainted pixels back into a loaded texture and its GPU copy, so that a settings change needs no resource
- * reload. Each upload first makes sure that the game still uses the same texture: a reload (a resource pack change
- * or F3+T) replaces sprites and textures, and the load hooks then record new uploads. Runs on the render thread.
+ * Puts repainted pixels back into a loaded texture and its GPU copy on the render thread, so that a settings change
+ * needs no resource reload.
  */
 final class TextureUploads {
     private TextureUploads() {}
@@ -50,7 +49,12 @@ final class TextureUploads {
 
     private static final List<Pending> PENDING = new ArrayList<>();
 
-    /** An atlas sprite. {@code atlasId} is the location of the atlas texture. */
+    /**
+     * Uploads into an atlas sprite only while the game still uses it, because a reload (a resource pack change or F3+T)
+     * replaces sprites and textures and the load hooks then record new uploads.
+     *
+     * @param atlasId the location of the atlas texture
+     */
     static TextureStore.Upload sprite(Object atlasId, SpriteContents contents) {
         return pixels -> {
             if (!(registered(atlasId) instanceof TextureAtlas atlas)) return false;
@@ -69,10 +73,7 @@ final class TextureUploads {
         };
     }
 
-    /**
-     * Puts the repainted sprites into their atlases. Call it after a repaint, also when an upload failed. The pixel
-     * work runs in parallel, the GPU work on this thread.
-     */
+    /** Puts the repainted sprites into their atlases, and must run after each repaint, also when an upload failed. */
     static void flush() {
         try {
             PENDING.parallelStream().forEach(p -> {
@@ -127,8 +128,8 @@ final class TextureUploads {
 
     //? if >=1.21.11 {
     /**
-     * Each mip level of a still sprite as it is in the atlas: the atlas draws the sprite with a border of its edge
-     * pixels (nearest filter, clamp to edge), {@code padding >> level} wide. This gives the same pixels without a draw.
+     * Each mip level of a still sprite as the atlas draws it, with a border of its edge pixels (nearest filter, clamp to
+     * edge) {@code padding >> level} wide, made without a draw.
      */
     private static NativeImage[] padded(SpriteContents contents, int padding) {
         NativeImage[] mips = ((SpriteContentsAccessor) contents).albedo$byMipLevel();
@@ -139,8 +140,8 @@ final class TextureUploads {
             int width = (contents.width() + 2 * padding) >> level, height = (contents.height() + 2 * padding) >> level;
             int spriteWidth = contents.width() >> level, maxY = (contents.height() >> level) - 1;
             NativeImage image = new NativeImage(width, height, false);
-            // Native copies only, 4 bytes for each pixel. Each sprite row, with its first and last pixel repeated to the
-            // sides. Then the rows above and below repeat the first and last of these rows.
+            // Native copies only (4 bytes for each pixel): each sprite row with its edge pixels repeated to the sides,
+            // then the edge rows repeated above and below.
             long sourceRows = source.getPointer(), rows = image.getPointer(), rowBytes = 4L * width;
             for (int y = 0; y <= maxY; y++) {
                 long from = sourceRows + 4L * source.getWidth() * y;
@@ -166,12 +167,12 @@ final class TextureUploads {
     }
 
     /**
-     * An animated sprite keeps each frame in a texture of its own. Makes a new animation state from the new frames in
-     * place of the old one, then draws the first frames. The atlas made the states in the order of its sprites.
+     * Replaces the animation state of each repainted animated sprite, which keeps each frame in a texture of its own,
+     * with one made from the new frames, then draws the first frames.
      */
     private static void replaceAnimations(TextureAtlasAccessor atlas, List<TextureAtlasSprite> sprites) {
         List<SpriteContents.AnimationState> states = new ArrayList<>(atlas.albedo$animationStates());
-        int index = 0;
+        int index = 0; // the atlas made the states in the order of its animated sprites
         for (TextureAtlasSprite sprite : atlas.albedo$sprites()) {
             if (!sprite.contents().isAnimated()) continue;
             if (sprites.contains(sprite)) {
@@ -217,7 +218,7 @@ final class TextureUploads {
     }
     *///?}
 
-    /** The texture registered at {@code location} now, or null. Does not make one, as TextureManager.getTexture does. */
+    /** The texture registered at {@code location} now, or null, without making one as TextureManager.getTexture does. */
     private static AbstractTexture registered(Object location) {
         return ((TextureManagerAccessor) Minecraft.getInstance().getTextureManager()).albedo$byPath().get(location);
     }
@@ -226,7 +227,7 @@ final class TextureUploads {
         //? if >=1.21.11 {
         if (pixels instanceof PixelBuffer.Heap heap && image.format() == NativeImage.Format.RGBA && image.getWidth() == heap.width()
                 && image.getHeight() == heap.height()) {
-            // One native copy. The image keeps each pixel as ABGR.
+            // One native copy, after a swap to ABGR, which is how the image keeps each pixel.
             int[] argb = heap.argb();
             int[] abgr = new int[argb.length];
             for (int i = 0; i < argb.length; i++) {

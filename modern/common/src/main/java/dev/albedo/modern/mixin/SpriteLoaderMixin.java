@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * Every atlas (blocks, items, particles, celestials, paintings...) is stitched here, after all sprites are loaded
- * and before mipmaps exist. The atlas id tells us which folder prefix-less sprite names came from.
+ * Every atlas (blocks, items, particles, celestials, paintings...) is stitched here after all sprites load and before
+ * mipmaps exist, with the atlas id that tells which folder prefix-less sprite names came from.
  */
 @Mixin(SpriteLoader.class)
 public abstract class SpriteLoaderMixin {

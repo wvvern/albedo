@@ -2,13 +2,13 @@ package dev.albedo.core.config;
 
 /** World-wide on/off switches of a profile. */
 public enum Toggle {
-    /** Light everything as if at noon. Read each frame. */
+    /** Light everything as if at noon, which the game reads each frame. */
     FULLBRIGHT("fullbright", false),
-    /** Smooth lighting (ambient occlusion) and darker block sides. Stored in chunk meshes. */
+    /** Smooth lighting (ambient occlusion) and darker block sides, which are stored in chunk meshes. */
     SHADING("shading", true),
-    /** Grass, flowers, ferns, vines and other small plants. Done with textures. */
+    /** Grass, flowers, ferns, vines and other small plants, hidden through their textures. */
     FOLIAGE("foliage", true),
-    /** The round shadows under mobs and players. Read each frame. */
+    /** The round shadows under mobs and players, which the game reads each frame. */
     SHADOWS("shadows", true);
 
     public final String key;

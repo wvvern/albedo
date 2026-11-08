@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The built-in profiles. They come from code, not from the config file, so they cannot change and an update can
- * improve them. A change to one makes a copy (see {@link Config}).
+ * The built-in profiles, which come from code and not from the config file so that they cannot change and an update
+ * can improve them.
  */
 public final class Presets {
     private static final Map<String, Profile> ALL;

@@ -11,9 +11,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Vanilla block tint call sites (grass, leaves, vines...) and the quads that go into the chunk mesh (face shade).
- * Forge's lighting pipeline (on by default) does not use these methods, see ForgeVertexLighterMixin.
- * OptiFine changes these methods, see {@link OptiFineRenderMixin}.
+ * Vanilla block tint call sites (grass, leaves, vines...) and chunk mesh quads (face shade) in methods that Forge's
+ * lighting pipeline (on by default, see ForgeVertexLighterMixin) does not use.
  */
 @Mixin(BlockModelRenderer.class)
 public abstract class BlockModelRendererVanillaMixin {

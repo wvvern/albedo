@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** The whole user configuration. Immutable; edits produce a new instance. */
+/** The whole user configuration, immutable so that each edit produces a new instance. */
 public final class Config {
     /** Key names (see {@link dev.albedo.core.Keys}); "NONE" disables a key. */
     public static final class KeyBinds {
@@ -39,9 +39,8 @@ public final class Config {
     private final Map<String, Profile> profiles;
 
     /**
-     * The built-in profiles always come first and cannot change. A profile with a built-in name that differs from the
-     * built-in one is a change to it: it is kept as a new profile ("quake-white-custom"), which becomes active if the
-     * built-in one was.
+     * A profile with a built-in name that differs from the built-in one is kept as a new profile
+     * ("quake-white-custom"), which becomes active if the built-in one was.
      */
     public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles) {
         Map<String, Profile> all = new LinkedHashMap<String, Profile>(Presets.all());
@@ -103,8 +102,8 @@ public final class Config {
     }
 
     /**
-     * Renames in place, keeping the profile's position and active state. The name is normalized, and a name already
-     * in use gets a number ("quake-white-2"). A blank name and a built-in profile change nothing.
+     * Renames in place, keeping the profile's position and active state, and adds a number to a name already in use
+     * ("quake-white-2").
      */
     public Config withRenamedProfile(String from, String newName) {
         String clean = normalizeName(newName);
@@ -115,7 +114,7 @@ public final class Config {
         return new Config(enabled, activeProfile.equals(from) ? to : activeProfile, keys, next);
     }
 
-    /** Adds an imported profile under a free name and selects it. An existing profile is never replaced. */
+    /** Adds an imported profile under a free name, so it never replaces an existing profile, and selects it. */
     public Config withImportedProfile(Profile p) {
         String name = freeProfileName(normalizeName(p.name()));
         return withProfile(p.renamed(name)).withActiveProfile(name);

@@ -13,13 +13,11 @@ import net.minecraft.client.resources.data.AnimationMetadataSection;
 import java.awt.image.BufferedImage;
 
 /**
- * Puts new pixels into a sprite of the block atlas, as the atlas load does: loadSprite makes the frames from the full
- * animation strip (OptiFine also fixes the color of transparent pixels there), generateMipmaps makes the mip levels,
- * and the current frame goes into the atlas texture at the origin of the sprite. Animated sprites keep their frame and
- * tick counters, so they continue to animate with the new frames.
+ * Puts new pixels into a sprite of the block atlas with the same loadSprite and generateMipmaps calls as the atlas
+ * load, so that OptiFine also fixes the color of transparent pixels.
  */
 public final class SpriteUpload implements TextureStore.Upload {
-    /** The animation state of a sprite. TextureAtlasSpriteMixin implements it. */
+    /** The animation state of a sprite, which TextureAtlasSpriteMixin implements. */
     public interface Animation {
         int albedo$frameCounter();
 
@@ -31,7 +29,10 @@ public final class SpriteUpload implements TextureStore.Upload {
     }
 
     private final TextureAtlasSprite sprite;
-    /** The images that loadSprite got. Index 0 is null (the repaint gives it). Other levels are mip images from a pack. */
+    /**
+     * The images that loadSprite got, where index 0 is null (the repaint gives it) and other levels are mip images
+     * from a pack.
+     */
     private final BufferedImage[] images;
     private final AnimationMetadataSection meta;
 
@@ -89,7 +90,7 @@ public final class SpriteUpload implements TextureStore.Upload {
         ((Animation) sprite).albedo$setCounters(counters[0], counters[1]);
     }
 
-    /** The frame that the atlas shows now. The clock and the compass keep the frame index in the frame counter. */
+    /** The frame that the atlas shows now, where the clock and the compass keep the frame index in the frame counter. */
     private static int[][] currentFrame(TextureAtlasSprite sprite) {
         Animation a = (Animation) sprite;
         AnimationMetadataSection animation = a.albedo$animation();

@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Skips the sky pass entirely when the sky is flat. What remains behind the world is the frame's clear color, which
- * {@link FogMixin} sets to the flat color (fog uses the same color, so the horizon blends seamlessly).
+ * Skips the sky pass when the sky is flat, which leaves behind the world the frame's clear color that {@link FogMixin}
+ * sets to the flat color.
  */
 @Mixin(LevelRenderer.class)
 public abstract class SkyMixin {

@@ -7,12 +7,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Water tint. Vanilla, Fabric API and NeoForge fluid rendering all end up here for water, so one hook covers every
- * loader. The handler takes no target arguments, so the argument types (which moved package in 26.x) don't matter.
- */
+/** Water tint, where vanilla, Fabric API and NeoForge fluid rendering all end up for water. */
 @Mixin(BiomeColors.class)
 public abstract class BiomeColorsMixin {
+    /** Takes no target arguments, so that their types (which moved package in 26.x) do not matter. */
     @Inject(method = "getAverageWaterColor", at = @At("HEAD"), cancellable = true)
     private static void albedo$water(CallbackInfoReturnable<Integer> cir) {
         if (ModernHooks.removeFluidTint()) cir.setReturnValue(0xFFFFFF);

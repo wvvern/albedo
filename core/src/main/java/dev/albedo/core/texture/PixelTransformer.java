@@ -4,9 +4,9 @@ import dev.albedo.core.Colors;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.config.Appearance;
 
-/** Applies an {@link Appearance} to an image in place. Pure function of its inputs. */
+/** Applies an {@link Appearance} to an image in place, as a pure function of its inputs. */
 public final class PixelTransformer {
-    /** Supplies user images for {@link Appearance.Mode#TEXTURE}. May return null when the file is missing. */
+    /** Supplies user images for {@link Appearance.Mode#TEXTURE}, or null when the file is missing. */
     public interface TextureSource {
         PixelBuffer load(String name);
     }
@@ -45,8 +45,8 @@ public final class PixelTransformer {
     }
 
     /**
-     * Fills every pixel with {@code color}. When {@code respectShape} is set, the output alpha follows the source
-     * pixel's alpha per {@code alphaMode} (multiplied by the color's own alpha).
+     * Fills every pixel with {@code color}, and with {@code respectShape} the output alpha follows the source pixel's
+     * alpha per {@code alphaMode} (multiplied by the color's own alpha).
      */
     static void fill(PixelBuffer img, int color, Appearance.Alpha alphaMode, boolean respectShape) {
         int colorAlpha = Colors.alpha(color);
@@ -67,8 +67,8 @@ public final class PixelTransformer {
     }
 
     /**
-     * Alpha-weighted average of the visible pixels; opaque result. Fully transparent images give mid gray.
-     * Large images are sampled on a grid of at most about 64 x 64 pixels, which is plenty for one color.
+     * Opaque alpha-weighted average of the visible pixels (mid gray for a fully transparent image), sampled on a grid
+     * of at most about 64 x 64 pixels.
      */
     public static int average(PixelBuffer img) {
         long r = 0, g = 0, b = 0, w = 0;
@@ -99,8 +99,8 @@ public final class PixelTransformer {
     }
 
     /**
-     * Nearest-neighbour stretch of {@code src} over {@code dst}. Tall animation strips (height a multiple of width)
-     * get the image once per square frame so every frame looks the same.
+     * Nearest-neighbour stretch of {@code src} over {@code dst} that gives tall animation strips (height a multiple of
+     * width) the image once per square frame, so that every frame looks the same.
      */
     static void stretch(PixelBuffer src, PixelBuffer dst, Appearance.Alpha alphaMode) {
         int frameH = dst.height();

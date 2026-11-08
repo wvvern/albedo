@@ -8,14 +8,8 @@ import org.spongepowered.asm.lib.tree.MethodInsnNode;
 import org.spongepowered.asm.lib.tree.MethodNode;
 
 /**
- * The work of OptiFineRenderMixin. It finds the calls by their target and descriptor, not by the name of the calling
- * method, because each OptiFine version has different method names. Each change keeps the stack and the frames:
- * <ul>
- *   <li>the int result of a tint call and the float result of FaceBakery.getFaceBrightness (the fluid renderer reads
- *       it each frame) go through a LegacyHooks method with the same type;</li>
- *   <li>WorldRenderer.addVertexData(int[]) in BlockModelRenderer becomes the static LegacyHooks.addQuad(WorldRenderer,
- *       int[]), which takes the same stack.</li>
- * </ul>
+ * The work of OptiFineRenderMixin, which finds the calls by their target and descriptor, not by the name of the
+ * calling method, because each OptiFine version has different method names.
  */
 final class OptiFineRenderPatch {
     private static final String HOOKS = "dev/albedo/legacy/LegacyHooks";
@@ -25,6 +19,10 @@ final class OptiFineRenderPatch {
 
     private OptiFineRenderPatch() {}
 
+    /**
+     * Sends each found call through a LegacyHooks method that takes the same stack and gives the same type, so that
+     * the frames stay valid.
+     */
     static void apply(ClassNode target) {
         boolean fluid = target.name.endsWith("/BlockFluidRenderer");
         int count = 0;

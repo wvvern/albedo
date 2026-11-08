@@ -6,14 +6,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One category's global look, its ordered groups (first match wins) and switches. Immutable.
- *
- * <p>Two scopes keep the hierarchy unambiguous:
- * <ul>
- *   <li>everything (default): the global look applies to every texture; a group overrides it for its members, and a
- *       group set to {@link Appearance.Mode#ORIGINAL} excludes them (a blacklist);</li>
- *   <li>{@link #onlyGroups()}: only group members change (a whitelist); a group can take the global look.</li>
- * </ul>
+ * One category's immutable global look, switches and ordered groups (first match wins), where a group overrides the
+ * global look for its members and a group set to {@link Appearance.Mode#ORIGINAL} excludes them.
  */
 public final class CategorySettings {
     public static final CategorySettings UNTOUCHED = new CategorySettings(Appearance.ORIGINAL, false, false, Collections.<Rule>emptyList());
@@ -67,8 +61,8 @@ public final class CategorySettings {
     public List<Rule> rules() { return rules; }
 
     /**
-     * Group fields equal to the old global look follow the new one. That is what the JSON already means (a group only
-     * stores fields that differ from its category), so e.g. the "solid leaves" group keeps the blocks color.
+     * Group fields equal to the old global look follow the new one, because in the JSON a group stores only the fields
+     * that differ from its category.
      */
     public CategorySettings withAppearance(Appearance a) {
         List<Rule> next = new ArrayList<Rule>();

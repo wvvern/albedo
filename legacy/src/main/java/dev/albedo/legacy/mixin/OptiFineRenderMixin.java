@@ -5,11 +5,9 @@ import net.minecraft.client.renderer.BlockModelRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 
 /**
- * Block tint, fluid tint, quads into the chunk mesh and fluid face shade with OptiFine (MixinPlugin applies it only
- * with OptiFine). OptiFine replaces the quad methods of BlockModelRenderer and makes FaceBakery.getFaceBrightness
- * static. The names and signatures are different in each OptiFine version, so an injector can fail and stop the game.
- * Thus this mixin has no members: OptiFineRenderPatch finds the calls by their target and sends them through
- * LegacyHooks.
+ * Block tint, fluid tint, chunk mesh quads and fluid face shade with OptiFine, with no members because an injector can
+ * fail and stop the game on OptiFine names and signatures, which differ in each version, so OptiFineRenderPatch
+ * finds the calls by their target.
  */
 @Mixin({BlockModelRenderer.class, BlockFluidRenderer.class})
 public abstract class OptiFineRenderMixin {

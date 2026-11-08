@@ -5,12 +5,8 @@ import dev.albedo.core.Category;
 import java.util.Locale;
 
 /**
- * Decides which {@link Category} a texture belongs to from its resource location alone.
- *
- * <p>This is what keeps the core version-agnostic: every Minecraft version since 1.8 names textures by
- * {@code namespace:textures/<kind>/<name>.png}. Only the folder names changed over time (1.8-1.12 used
- * plural {@code blocks/}/{@code items/}, 1.13+ singular), and both spellings are handled here. Atlas sprite ids
- * ({@code minecraft:block/stone}) and full paths ({@code minecraft:textures/block/stone.png}) are both accepted.
+ * Decides which {@link Category} a texture belongs to from its resource location alone, which works on every version
+ * since 1.8 because only the folder names differ (plural {@code blocks/} and {@code items/} before 1.13).
  */
 public final class TextureClassifier {
     private TextureClassifier() {}
@@ -38,9 +34,8 @@ public final class TextureClassifier {
     }
 
     /**
-     * OptiFine (and MCPatcher before it) keeps its textures in {@code optifine/} and {@code mcpatcher/}. Gives the
-     * vanilla folder for each kind, so that these textures change with the textures they replace. A connected
-     * texture ({@code ctm/}) gets the id of its block: the OptiFine defaults by number, a resource pack by its folder.
+     * Gives the vanilla folder for each kind of OptiFine and MCPatcher texture ({@code optifine/}, {@code mcpatcher/}),
+     * so that these textures change with the textures they replace.
      */
     static String optiFine(String path) {
         String p;
@@ -56,6 +51,7 @@ public final class TextureClassifier {
         return path;
     }
 
+    /** The block id of a connected texture: the OptiFine defaults by number, a resource pack by its folder. */
     private static String ctmBlock(String rest) {
         String[] parts = rest.split("/");
         if (parts.length == 1) return "ctm";

@@ -2,7 +2,7 @@ package dev.albedo.core.config;
 
 import java.util.Locale;
 
-/** How a texture should look. Immutable. */
+/** How a texture should look, as an immutable value. */
 public final class Appearance {
     public enum Mode {
         /** Leave the texture alone. */

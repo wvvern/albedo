@@ -9,9 +9,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Face shade in Forge's block lighting pipeline (on by default without OptiFine). Each vertex color comes from the
- * baked quad; updateColor multiplies it by the tint (and by smooth lighting). VertexLighterSmoothAo does not call the
- * method of VertexLighterFlat, so both classes are targets.
+ * Face shade in Forge's block lighting pipeline (on by default without OptiFine), with both classes as targets because
+ * VertexLighterSmoothAo does not call the method of VertexLighterFlat.
  */
 @Mixin(value = {VertexLighterFlat.class, VertexLighterSmoothAo.class}, remap = false)
 public abstract class ForgeVertexLighterMixin {

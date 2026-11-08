@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 
-/** Fog color doubles as the clear color behind the world. Its computation moved three times since 1.21. */
+/** Sets the flat fog color, which doubles as the clear color behind the world. */
 //? if >=26.1 {
 @Mixin(net.minecraft.client.renderer.fog.FogRenderer.class)
 public abstract class FogMixin {

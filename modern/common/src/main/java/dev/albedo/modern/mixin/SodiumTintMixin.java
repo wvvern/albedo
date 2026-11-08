@@ -8,13 +8,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
- * Block tint in Sodium and Embeddium chunk meshing. They have their own block renderer, so BlockTintMixin does not run,
- * and some tints (birch and spruce leaves, lily pads, swamp grass) do not come from the colormaps. The handlers mark
- * the quad as not tinted, so the renderer skips the color provider.
- * Optional: @Pseudo, so the game starts without these mods. The targets contain no Minecraft types, so remap = false.
- * Each renderer version has only one of the methods (require = 0).
+ * Block tint in Sodium and Embeddium chunk meshing, which have their own block renderer (so BlockTintMixin does not
+ * run) and tints that do not come from the colormaps (birch and spruce leaves, lily pads, swamp grass).
  */
-@Pseudo
+@Pseudo // the game starts without these mods, and each renderer version has only one of the methods (require = 0)
 @Mixin(targets = {
         "net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer",
         "org.embeddedt.embeddium.impl.render.chunk.compile.pipeline.BlockRenderer"

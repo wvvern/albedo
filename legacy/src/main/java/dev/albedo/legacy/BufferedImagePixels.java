@@ -13,8 +13,8 @@ final class BufferedImagePixels implements PixelBuffer {
     }
 
     /**
-     * Palette, gray or alpha-less images would lose our colors on write, so those are copied to plain ARGB first.
-     * Returns the same instance for the 32-bit layouts, which setRGB writes exactly.
+     * Copies palette, gray or alpha-less images to plain ARGB because they would lose our colors on write, and returns
+     * the same instance for the 32-bit layouts, which setRGB writes exactly.
      */
     static BufferedImage toArgb(BufferedImage src) {
         if (src == null) return null;

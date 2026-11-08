@@ -12,8 +12,8 @@ import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
 
 /**
- * What the mixins call. Each method is a thin translation from Minecraft types to the core; mixins stay one-liners
- * so the per-version surface is as small as possible.
+ * What the mixins call, as thin translations from Minecraft types to the core so that the mixins stay one-liners and
+ * the per-version surface stays small.
  */
 public final class ModernHooks {
     private ModernHooks() {}
@@ -27,7 +27,11 @@ public final class ModernHooks {
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
-    /** Atlas sprites, before mipmaps are generated. {@code atlas} is the location of the atlas texture. */
+    /**
+     * Atlas sprites, before mipmaps are generated.
+     *
+     * @param atlas the location of the atlas texture
+     */
     public static void processSprite(Object atlas, SpriteContents sprite) {
         bootstrap();
         NativeImage image = ((SpriteContentsAccessor) sprite).albedo$originalImage();
@@ -71,8 +75,8 @@ public final class ModernHooks {
     }
 
     /**
-     * Biome colormaps ("grass", "foliage", "dry_foliage"); renderer-independent, so they also reach Sodium-style
-     * renderers. The game keeps the array, so a repaint changes it in place.
+     * Biome colormaps ("grass", "foliage", "dry_foliage"), repainted in the array that the game keeps, which also
+     * reaches Sodium-style renderers.
      */
     public static void colormap(String name, int[] pixels) {
         bootstrap();

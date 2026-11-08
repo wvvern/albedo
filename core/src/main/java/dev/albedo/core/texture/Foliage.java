@@ -3,14 +3,11 @@ package dev.albedo.core.texture;
 import java.util.regex.Pattern;
 
 /**
- * Small plants that only add visual noise: grass, ferns, flowers, saplings, vines, sugar cane, sea grass...
- * Hiding them means giving their block textures zero alpha, which cutout rendering skips on every version, so this
- * needs no version-specific code. Leaves are not included: they shape trees and have their own style.
- * Known trade-off: item models of these plants use the same textures, so their items are invisible too while hidden.
- * Names cover 1.8-1.12 ("tallgrass", "flower_*", "double_plant_*") and 1.13+.
+ * Small plants that only add visual noise, hidden through zero alpha in their block textures, which also hides their
+ * items because the item models use the same textures.
  */
 public final class Foliage {
-    /** One pattern over the name after the namespace; ids from the classifier are already lower case. */
+    /** Plant names of 1.8 to 1.12 and of 1.13 and later, without leaves, because leaves shape trees and have their own style. */
     private static final Pattern PLANTS = Pattern.compile("[^:]*:(?:"
             + "short_grass|tall_grass_.*|tallgrass|grass|.*fern.*|double_plant_.*|.*_sapling|sapling_.*|dead_?bush"
             + "|vine|sugar_cane|reeds|.*seagrass.*|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy"

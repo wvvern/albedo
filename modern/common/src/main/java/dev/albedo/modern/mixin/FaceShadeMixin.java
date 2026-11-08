@@ -7,8 +7,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Shading off, part 2: every block face gets full brightness instead of darker sides and bottoms. Chunk meshing,
- * fluids and other renderers that respect the level's face shading (e.g. Sodium) all ask here.
+ * Shading off, part 2: every block face gets full brightness in chunk meshing, fluids and other renderers that respect
+ * the level's face shading (e.g. Sodium).
  */
 //? if >=26.1 {
 @Mixin(net.minecraft.world.level.CardinalLighting.class)

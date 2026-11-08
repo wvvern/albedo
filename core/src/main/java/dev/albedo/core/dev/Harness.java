@@ -15,22 +15,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * Development harness: drives the game from a command file so screenshots can be taken on a hidden desktop with no
- * keyboard, mouse or sound. Enabled only with {@code -Dalbedo.harness=<directory>}; otherwise never created.
- *
- * <p>Write commands, one per line, to {@code <dir>/commands.txt}. The harness takes the file, runs the lines in
- * order and appends progress to {@code <dir>/log.txt}; {@code <dir>/status.txt} holds {@code menu} or {@code world}.
- * <ul>
- *   <li>{@code world <name>}: opens the save, creating a creative superflat world if it doesn't exist</li>
- *   <li>{@code waitworld}: pauses until a world is loaded</li>
- *   <li>{@code run <command>}: a server command with operator rights, e.g. {@code run time set 6000}</li>
- *   <li>{@code mod on|off}, {@code profile <name>}, {@code <toggle> on|off} (fullbright, shading, foliage, shadows):
- *       change the config like a player would</li>
- *   <li>{@code settings open|close}, {@code hud on|off}, {@code reload} (all resources, as F3+T)</li>
- *   <li>{@code ui click <label>|type <text>|key <UiKey>|pointer off}: input for the open settings screen, to show
- *       each page (see {@link SettingsEditor#script}); put a short {@code wait} after each</li>
- *   <li>{@code wait <ticks>}, {@code screenshot <name>}, {@code quit}</li>
- * </ul>
+ * Development harness, created only with {@code -Dalbedo.harness=<directory>}, that runs the lines of
+ * {@code <dir>/commands.txt} so screenshots can be taken on a hidden desktop with no keyboard, mouse or sound.
  */
 public final class Harness {
     /** What the harness needs from the game; implemented next to each version's adapter. */
@@ -50,7 +36,10 @@ public final class Harness {
 
         void quit();
 
-        /** Mute sound, disable the narrator, keep running without focus. Called every tick; must be cheap. */
+        /**
+         * Mutes sound, disables the narrator and keeps the game running without focus, and must be cheap because it
+         * runs every tick.
+         */
         void quiet();
     }
 
@@ -105,6 +94,7 @@ public final class Harness {
         }
     }
 
+    /** Runs one command line, where a {@code ui} command needs a short {@code wait} after it before a screenshot. */
     private void execute(String line) {
         int space = line.indexOf(' ');
         String verb = space < 0 ? line : line.substring(0, space);

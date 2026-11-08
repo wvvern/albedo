@@ -14,10 +14,8 @@ import org.lwjgl.opengl.GL11;
 import java.io.File;
 
 /**
- * A loading screen with a progress bar while a full resource reload blocks the client thread, so that the game does
- * not look frozen. The reload calls {@link #begin} and {@link #step} for each reload listener (ReloadListenersMixin)
- * and {@link #load} for each texture. The bar moves one part for each listener, and in a part it moves with the
- * textures. It draws at most each {@link #FRAME_MS} ms. LoadingScreenRenderer is not used: Patcher can turn it off.
+ * A progress bar while a full resource reload blocks the client thread, drawn without LoadingScreenRenderer because
+ * Patcher can turn that off.
  */
 final class ReloadScreen {
     private static final long FRAME_MS = 100;
@@ -69,7 +67,7 @@ final class ReloadScreen {
         long now = Minecraft.getSystemTime();
         if (!force && now - lastFrame < FRAME_MS) return;
         lastFrame = now;
-        // Each listener has an equal part. In a part, the bar moves toward its end as the textures load.
+        // Each listener has an equal part, in which the bar moves toward its end as the textures load.
         float part = steps <= 0 ? 0f : 1f / steps;
         float progress = steps <= 0 ? 0f : Math.max(0, step - 1) * part + part * loads / (loads + 200f);
 

@@ -6,8 +6,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * The OptiFine members that a repaint needs, found by reflection. Without OptiFine each one is null and has no effect.
- * The names are OptiFine names (OptiFine adds them), so they do not change with the mappings.
+ * The OptiFine members that a repaint needs, found by reflection under OptiFine names that do not change with the
+ * mappings, and null with no effect when OptiFine is not there.
  */
 final class OptiFine {
     private static final Method IS_SHADERS = method(type("Config"), "isShaders");

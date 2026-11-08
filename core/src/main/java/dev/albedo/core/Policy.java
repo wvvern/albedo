@@ -12,8 +12,8 @@ import dev.albedo.core.texture.TextureKey;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Every rendering decision, answered from one immutable profile snapshot. Thread-safe: texture loading runs on
- * worker threads on modern versions. A new Policy is built whenever the config changes.
+ * Every rendering decision, answered from one immutable profile snapshot, thread-safe because texture loading runs on
+ * worker threads on modern versions.
  */
 public final class Policy {
     public static final Policy DISABLED = new Policy(null);

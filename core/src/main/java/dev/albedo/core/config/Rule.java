@@ -6,10 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * A group: a name, the texture ids or glob patterns it covers, and its look. Immutable.
- * A group with {@link #usesGlobalLook()} takes its category's look (useful when a category only changes its groups).
- */
+/** An immutable group: a name, the texture ids or glob patterns it covers, and its look. */
 public final class Rule {
     private final String name;
     private final List<String> patterns;
@@ -52,6 +49,7 @@ public final class Rule {
 
     public Appearance appearance() { return appearance; }
 
+    /** True when the group takes its category's look, which is useful when a category only changes its groups. */
     public boolean usesGlobalLook() { return globalLook; }
 
     public Rule withName(String n) { return new Rule(n, patterns, globs, appearance, globalLook); }

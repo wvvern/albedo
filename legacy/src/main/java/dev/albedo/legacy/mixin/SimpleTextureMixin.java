@@ -17,8 +17,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Stand-alone textures: entities, sky (sun, moon, clouds, rain, snow), the particle sheet. It keeps the blur and clamp
- * settings of the upload, so that a repaint (SimpleTextureUpload) writes the pixels with the same settings.
+ * Stand-alone textures (entities, sky, the particle sheet), with the blur and clamp settings of the upload kept so
+ * that a repaint (SimpleTextureUpload) writes the pixels with the same settings.
  */
 @Mixin(SimpleTexture.class)
 public abstract class SimpleTextureMixin extends AbstractTexture implements SimpleTextureUpload.State {

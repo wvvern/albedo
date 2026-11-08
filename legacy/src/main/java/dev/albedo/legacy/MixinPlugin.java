@@ -8,13 +8,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Selects the mixins for the game with or without OptiFine. OptiFine changes the signature of some targets
- * (for example it makes FaceBakery.getFaceBrightness static), and a mixin that does not match stops the game.
- * Mixins with a name that starts with "OptiFine" apply only with OptiFine. Mixins with a name that ends with
- * "VanillaMixin" apply only without OptiFine.
+ * Selects the mixins for the game with or without OptiFine, because OptiFine changes the signature of some targets
+ * (for example it makes FaceBakery.getFaceBrightness static) and a mixin that does not match stops the game.
  */
 public final class MixinPlugin implements IMixinConfigPlugin {
-    /** The Forge tweaker of OptiFine. FML puts the OptiFine jar on the class path before the mixins apply. */
+    /** The Forge tweaker of OptiFine, whose jar FML puts on the class path before the mixins apply. */
     private static final boolean OPTIFINE = MixinPlugin.class.getClassLoader().getResource("optifine/OptiFineForgeTweaker.class") != null;
 
     @Override

@@ -15,7 +15,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Converts {@link Config} to and from JSON. Example:
+ * Converts {@link Config} to and from JSON such as the example below, where an unknown key is an error so that a
+ * typo is reported instead of silently ignored:
  * <pre>
  * {
  *   "enabled": true,
@@ -31,9 +32,6 @@ import java.util.Set;
  *   }
  * }
  * </pre>
- * The built-in profiles are not in the file (see {@link Presets}). A group writes only the look fields that differ
- * from its category; a group with none takes the category's look.
- * Unknown keys are errors, so a typo is reported instead of silently ignored.
  */
 public final class ConfigCodec {
     private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha");
@@ -51,8 +49,8 @@ public final class ConfigCodec {
     // ---------------------------------------------------------------- profile files
 
     /**
-     * One profile as a file to share: {@code {"albedoProfile": 1, "name": "my-profile", "profile": {...}}}.
-     * The "profile" object has the same keys as a profile in the config file.
+     * One profile as a file to share, {@code {"albedoProfile": 1, "name": "my-profile", "profile": {...}}}, where the
+     * "profile" object has the same keys as a profile in the config file.
      */
     public static String encodeProfileFile(Profile p) {
         Map<String, Object> root = new LinkedHashMap<String, Object>();
@@ -62,7 +60,7 @@ public final class ConfigCodec {
         return Json.write(root);
     }
 
-    /** Reads a profile file. The name is normalized; the caller makes it unique. Errors name the bad key. */
+    /** Reads a profile file and normalizes its name, which the caller then makes unique. */
     public static Profile decodeProfileFile(String json) {
         Object parsed = Json.parse(json);
         if (!(parsed instanceof Map) || !((Map<?, ?>) parsed).containsKey(PROFILE_FILE)) {

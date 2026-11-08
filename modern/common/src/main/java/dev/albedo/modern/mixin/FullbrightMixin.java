@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * Fullbright: while the lightmap is computed, the brightness (gamma) option reads as far above its maximum. Every
- * option read in that method is wrapped and only the gamma one is changed, so nothing depends on call order.
+ * Fullbright: while the lightmap is computed, the brightness (gamma) option reads as far above its maximum, with every
+ * option read wrapped and only the gamma one changed so that nothing depends on call order.
  */
 //? if >=26.1 {
 @Mixin(net.minecraft.client.renderer.LightmapRenderStateExtractor.class)

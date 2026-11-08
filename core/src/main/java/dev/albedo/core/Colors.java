@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Color parsing/formatting and channel helpers. All colors are 0xAARRGGBB ints. */
+/** Color parsing/formatting and channel helpers for 0xAARRGGBB ints. */
 public final class Colors {
     private static final Map<String, Integer> NAMED = new HashMap<String, Integer>();
 
@@ -41,7 +41,7 @@ public final class Colors {
     private static int clamp(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
     /**
-     * Parses "#RGB", "#RRGGBB", "#AARRGGBB", "0x..." or a color name. Missing alpha means opaque.
+     * Parses "#RGB", "#RRGGBB", "#AARRGGBB", "0x..." or a color name, where missing alpha means opaque.
      *
      * @throws IllegalArgumentException for anything else
      */

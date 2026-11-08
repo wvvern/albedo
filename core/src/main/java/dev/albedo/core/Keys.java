@@ -4,20 +4,16 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Key names usable in the config. Each knows how every Minecraft era identifies it:
- * <ul>
- *   <li>{@link Key#minecraftName}: the stable translation key ("key.keyboard.f6") that 1.13+ resolves to its own
- *       code space. This matters: 1.13-1.21.x use GLFW codes, 26.x uses SDL scancodes, and resolving by name
- *       through the game's InputConstants works for all of them.</li>
- *   <li>{@link Key#lwjgl2}: the LWJGL 2 code used by 1.8.9-1.12.2.</li>
- * </ul>
- * Polling raw keys keeps the core free of keybinding APIs, which differ on every loader and version.
- */
+/** Key names usable in the config, polled as raw keys because keybinding APIs differ on every loader and version. */
 public final class Keys {
     public static final class Key {
         public final String name;
+        /**
+         * The stable translation key ("key.keyboard.f6"), which works through InputConstants on 1.13+ although
+         * 1.13-1.21.x use GLFW codes and 26.x uses SDL scancodes.
+         */
         public final String minecraftName;
+        /** The LWJGL 2 code that 1.8.9-1.12.2 use. */
         public final int lwjgl2;
 
         Key(String name, String minecraftName, int lwjgl2) {

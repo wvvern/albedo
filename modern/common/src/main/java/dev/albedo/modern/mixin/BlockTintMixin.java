@@ -7,9 +7,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * Where vanilla chunk meshing applies block tints (grass, leaves, vines, redstone...). The handler only sees the
- * int, so no version-specific type appears in it; only the target string changes.
- * require = 0: other renderers (e.g. Sodium) may replace this method; the colormap hooks still apply then.
+ * Where vanilla chunk meshing applies block tints (grass, leaves, vines, redstone...), with require = 0 because other
+ * renderers (e.g. Sodium) may replace this method and the colormap hooks still apply then.
  */
 @Mixin(ModelBlockRenderer.class)
 public abstract class BlockTintMixin {

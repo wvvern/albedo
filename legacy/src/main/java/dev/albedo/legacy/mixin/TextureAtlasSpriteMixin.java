@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.awt.image.BufferedImage;
 
 /**
- * Block/item atlas sprites ("minecraft:blocks/stone"), before mipmaps and animation frames are split. A repaint calls
- * loadSprite again with new pixels (see SpriteUpload), and keeps the animation state through this mixin.
+ * Block/item atlas sprites ("minecraft:blocks/stone") before mipmaps and animation frames are split, with the
+ * animation state kept so that a repaint (see SpriteUpload) continues the animation.
  */
 @Mixin(TextureAtlasSprite.class)
 public abstract class TextureAtlasSpriteMixin implements SpriteUpload.Animation {

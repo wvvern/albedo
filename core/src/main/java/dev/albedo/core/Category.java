@@ -6,10 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * What a texture (or a non-texture visual such as the sky color) belongs to.
- * Every platform adapter maps what it renders onto these; nothing here knows about Minecraft classes.
- */
+/** What a texture (or a non-texture visual such as the sky color) belongs to, with no knowledge of Minecraft classes. */
 public enum Category {
     /** Terrain block textures (stone, grass, leaves, glass...). */
     BLOCKS,
@@ -19,7 +16,7 @@ public enum Category {
     BLOCK_ENTITIES,
     /** Things that carry text or pictures: signs, banners, paintings, maps and item frames. */
     DECORATIONS,
-    /** Biome colormaps (grass/foliage). Flattened together with BLOCKS when tint removal is on. */
+    /** Biome colormaps (grass/foliage), flattened together with BLOCKS when tint removal is on. */
     COLORMAPS,
     /** Block breaking crack overlay. */
     BLOCK_BREAKING,
@@ -34,7 +31,7 @@ public enum Category {
     CLOUDS,
     /** Rain and snow. */
     WEATHER,
-    /** Everything unrecognised. Never touched unless a profile explicitly configures it. */
+    /** Everything unrecognised, which changes only when a profile explicitly configures it. */
     OTHER;
 
     public String key() {
@@ -42,8 +39,8 @@ public enum Category {
     }
 
     /**
-     * The styles that mean something here. The sky is a color, not a texture; clouds can only be hidden (since 1.21.2
-     * the game reads their shape, not their colors, from the texture).
+     * The styles that mean something here, where clouds can only be hidden because since 1.21.2 the game reads their
+     * shape, not their colors, from the texture.
      */
     public List<Appearance.Mode> supportedModes() {
         switch (this) {

@@ -5,14 +5,9 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * A case-insensitive pattern over texture ids such as {@code minecraft:oak_leaves}. Two forms:
- * <ul>
- *   <li>Glob: {@code *} matches any run of characters, {@code ?} one character; it must match the whole id.</li>
- *   <li>Regular expression between slashes, for example {@code /^(oak|birch)_/}; it may match any part of the id.</li>
- * </ul>
- * A pattern without a namespace ignores it, so {@code stone} matches {@code minecraft:stone} and {@code /^oak/}
- * matches {@code minecraft:oak_log}. A regular expression has a namespace only when it starts with one
- * ({@code /^mymod:/}).
+ * A case-insensitive pattern over texture ids: a glob ({@code *} for any run, {@code ?} for one character) that must
+ * match the whole id, or a regular expression between slashes ({@code /^(oak|birch)_/}) that may match any part, and
+ * a pattern that does not start with a namespace ignores the namespace ({@code stone} matches {@code minecraft:stone}).
  */
 public final class Glob {
     private static final Pattern NAMESPACE_FIRST = Pattern.compile("^\\^?[a-z0-9_.-]+:");

@@ -1,7 +1,7 @@
 package dev.albedo.core;
 
 /**
- * Minimal mutable image view. Adapters wrap the platform image type (BufferedImage, NativeImage...) in this,
+ * Minimal mutable image view that adapters wrap around the platform image type (BufferedImage, NativeImage...),
  * converting to and from non-premultiplied ARGB.
  */
 public interface PixelBuffer {
@@ -49,7 +49,7 @@ public interface PixelBuffer {
             System.arraycopy(pixels, 0, target, 0, pixels.length);
         }
 
-        /** The pixels, row by row from the top, as 0xAARRGGBB. Read-only use: this is the live array. */
+        /** The live pixel array (do not write to it), row by row from the top, as 0xAARRGGBB. */
         public int[] argb() {
             return pixels;
         }

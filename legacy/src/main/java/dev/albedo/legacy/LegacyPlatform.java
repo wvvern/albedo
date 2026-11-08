@@ -51,9 +51,8 @@ final class LegacyPlatform implements Platform {
     }
 
     /**
-     * Marks all chunks in render distance for a new mesh. The old meshes stay on screen until the new ones are ready.
-     * loadRenderers is not used: with some mods (tests: Patcher, Essential and OptiFine L5 together) the chunks then
-     * stayed empty until the player moved.
+     * Marks all chunks in render distance for a new mesh without loadRenderers, which with some mods (Patcher,
+     * Essential and OptiFine L5 together) leaves the chunks empty until the player moves.
      */
     @Override
     public void rebuildChunks() {

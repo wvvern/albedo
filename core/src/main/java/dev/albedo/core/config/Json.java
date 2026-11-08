@@ -6,11 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Tiny JSON reader/writer so the core needs no library (Gson's API differs across the Minecraft versions we span).
- * Values map to: Map (object, insertion ordered), List, String, Double, Boolean, null.
- * The reader also accepts // line comments and trailing commas, since people edit this file by hand.
- */
+/** Tiny JSON reader/writer so the core needs no library (Gson's API differs across the Minecraft versions we span). */
 public final class Json {
     private final String s;
     private int i;
@@ -19,6 +15,10 @@ public final class Json {
         this.s = s;
     }
 
+    /**
+     * Parses text into Map (insertion ordered), List, String, Double, Boolean or null, and accepts // line comments
+     * and trailing commas because people edit the config file by hand.
+     */
     public static Object parse(String text) {
         Json p = new Json(text);
         p.skip();

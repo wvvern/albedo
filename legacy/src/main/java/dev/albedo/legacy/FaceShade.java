@@ -1,12 +1,11 @@
 package dev.albedo.legacy;
 
 /**
- * The face shade that 1.8.9 FaceBakery bakes into the vertex color of block quads: the gray of 0.5 (down), 0.6
- * (east, west) or 0.8 (north, south) of 255, the same on the 4 vertices. Up and unshaded faces are white. With shading
- * off, the chunk mesh gets white in place of these grays.
+ * The face shade that 1.8.9 FaceBakery bakes into the vertex color of block quads (0.5 down, 0.6 east and west, 0.8
+ * north and south of 255, white for up and unshaded faces), which the chunk mesh gets as white when shading is off.
  */
 final class FaceShade {
-    /** Vertex data: 4 vertices, 7 ints each (14 with OptiFine shaders). The color is int 3 of each vertex. */
+    /** The index of the color in each vertex of the vertex data (4 vertices of 7 ints, 14 with OptiFine shaders). */
     private static final int COLOR = 3;
     private static final ThreadLocal<int[]> SCRATCH = new ThreadLocal<int[]>();
 

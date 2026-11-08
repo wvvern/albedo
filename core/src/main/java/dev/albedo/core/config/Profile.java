@@ -8,7 +8,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-/** A named look: settings for each category plus world-wide {@link Toggle}s. Immutable. */
+/** An immutable named look: settings for each category plus world-wide {@link Toggle}s. */
 public final class Profile {
     private final String name;
     private final Map<Category, CategorySettings> categories;

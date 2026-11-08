@@ -10,13 +10,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Optional;
 
 /**
- * Since 1.21.2 clouds.png is read straight by CloudRenderer as cell data rather than as a texture, so hiding clouds
- * means handing it no data. On 1.21.1 the class doesn't exist (@Pseudo makes this a no-op) and the texture hook
- * already makes clouds transparent.
+ * Hides clouds by handing CloudRenderer no data, because since 1.21.2 it reads clouds.png as cell data rather than as
+ * a texture.
  */
 @Pseudo
 @Mixin(targets = "net.minecraft.client.renderer.CloudRenderer")
 public abstract class CloudsMixin {
+    /** Does nothing on 1.21.1, where the class does not exist and the texture hook already makes clouds transparent. */
     @Inject(method = "prepare(Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/util/profiling/ProfilerFiller;)Ljava/util/Optional;",
             at = @At("RETURN"), cancellable = true, require = 0)
     private void albedo$hide(CallbackInfoReturnable<Optional<?>> cir) {

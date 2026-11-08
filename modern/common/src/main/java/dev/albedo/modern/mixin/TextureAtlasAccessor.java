@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 import java.util.List;
 //?}
 
-/** Replaces the animation of repainted sprites. Before 1.21.11 the sprites upload each frame, so it is empty. */
+/** Replaces the animation of repainted sprites, and is empty before 1.21.11 because there the sprites upload each frame. */
 @Mixin(TextureAtlas.class)
 public interface TextureAtlasAccessor {
     //? if >=1.21.11 {

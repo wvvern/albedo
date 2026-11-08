@@ -5,12 +5,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Recovers a sprite's texture folder from the atlas it was stitched into.
- *
- * <p>Since 1.19.3 atlases are defined by JSON "sources", and several vanilla atlases strip the folder from sprite
- * names (prefix ""): the particle atlas names {@code textures/particle/flame.png} just {@code minecraft:flame}.
- * Without the folder the classifier could not tell a particle from anything else, so adapters pass the atlas id
- * along with the sprite name and this restores the folder.
+ * Recovers the texture folder that several atlases strip from sprite names since 1.19.3 (the particle atlas names
+ * {@code textures/particle/flame.png} just {@code minecraft:flame}), so that the classifier can tell a particle from
+ * anything else.
  */
 public final class AtlasPaths {
     private static final Map<String, String> PREFIXLESS = new HashMap<String, String>();
