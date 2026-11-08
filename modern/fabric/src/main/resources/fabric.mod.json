@@ -8,10 +8,10 @@
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["dev.plainview.fabric.PlainviewFabric"],
-    "modmenu": ["dev.plainview.fabric.ModMenuIntegration"]
+    "client": ["dev.blockpainter.fabric.BlockPainterFabric"],
+    "modmenu": ["dev.blockpainter.fabric.ModMenuIntegration"]
   },
-  "mixins": ["plainview.mixins.json"],
+  "mixins": ["blockpainter.mixins.json"],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
     "minecraft": "${minecraft_range}",

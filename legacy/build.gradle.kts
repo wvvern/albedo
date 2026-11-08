@@ -65,7 +65,7 @@ tasks.withType(JavaCompile::class) {
 }
 
 tasks.withType(org.gradle.jvm.tasks.Jar::class) {
-    archiveBaseName.set("$modid-forge")
+    archiveBaseName.set("block-painter-forge")
     manifest.attributes.run {
         this["FMLCorePluginContainsFMLMod"] = "true"
         this["ForceLoadAsMod"] = "true"
@@ -121,7 +121,7 @@ tasks.register<JavaExec>("runClientDev") {
     )
     // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
     if (project.hasProperty("harness")) {
-        systemProperty("plainview.harness", File(project.property("harness") as String).absolutePath)
+        systemProperty("blockpainter.harness", File(project.property("harness") as String).absolutePath)
         args("--width", "1600", "--height", "900")
     }
 }

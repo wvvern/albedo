@@ -1,6 +1,6 @@
 # Test scene for 1.8.9 (superflat: grass at y=3, player stands at y=4). Run by tools/screenshots.ps1.
 wait 200
-world PlainviewTest
+world BlockPainterTest
 waitworld
 wait 100
 hud off

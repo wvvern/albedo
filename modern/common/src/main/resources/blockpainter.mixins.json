@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.blockpainter.modern.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "AmbientOcclusionMixin",
+    "BiomeColorsMixin",
+    "FaceShadeMixin",
+    "BlockTintMixin",
+    "CloudsMixin",
+    "DryFoliageColorMixin",
+    "FogMixin",
+    "FoliageColorMixin",
+    "FullbrightMixin",
+    "GrassColorMixin",
+    "MinecraftMixin",
+    "ShadowMixin",
+    "SkyMixin",
+    "SpriteContentsAccessor",
+    "SpriteLoaderMixin",
+    "TextureLoadMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

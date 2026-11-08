@@ -1,4 +1,4 @@
-# Plainview
+# Block Painter
 
 A client-side Minecraft mod that flattens chosen parts of the world (blocks, fluids, sky, clouds, particles,
 entities...) to one flat color, each texture's own average color, or your own texture. It works like the flat white
@@ -62,7 +62,7 @@ Drop the jar for your loader and version into `mods/`. Three profiles come built
 - **World** (left, below the categories): *Fullbright*, *Shading* (smooth lighting and darker sides), and
   *Foliage* (grass, flowers, ferns, vines...).
 - **Style:** *Vanilla*, *Color* (one flat color), *Average* (each texture's own average color), *Gray*,
-  *Image* (your PNG from `config/plainview/textures/`), or *Hide*.
+  *Image* (your PNG from `config/blockpainter/textures/`), or *Hide*.
 - **Color:** a saturation/brightness square, hue and opacity bars, a hex field (paste works), and a palette.
 - **Shape:** *Keep* see-through parts, make them a hard *Cut-out*, or fill them in (*Solid*, e.g. solid leaves).
 - **Remove biome tint** for blocks and fluids.
@@ -74,7 +74,7 @@ texture, shading, and foliage changes reload resources for a moment.
 
 ### Config file
 
-Everything is stored in `config/plainview/config.json`, which you can also edit by hand; changes apply within a
+Everything is stored in `config/blockpainter/config.json`, which you can also edit by hand; changes apply within a
 second, and mistakes are reported in game with the line and column.
 
 ```jsonc
@@ -136,4 +136,4 @@ To run a dev client: `./gradlew :fabric:26.3:runClient` (any loader or version) 
 `tools/screenshots.ps1` (Windows) starts each version on an invisible desktop, so nothing appears on screen, with
 sound and the narrator off. A file-driven test harness in the mod (enabled only by `-Pharness=<dir>`) creates a
 superflat world, builds the test scene from `tools/harness/`, and captures the screenshots above for every profile.
-See `core/src/main/java/dev/plainview/core/dev/Harness.java` for the commands.
+See `core/src/main/java/dev/blockpainter/core/dev/Harness.java` for the commands.

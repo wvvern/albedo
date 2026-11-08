@@ -52,7 +52,7 @@ if (loader in ['fabric', 'neoforge']) {
             displayName.set("Client:${loader}:${stonecutter.current.version}")
             // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
             if (project.hasProperty('harness')) {
-                property('plainview.harness', new File(project.property('harness') as String).absolutePath)
+                property('blockpainter.harness', new File(project.property('harness') as String).absolutePath)
                 programArgs('--width', '1600', '--height', '900')
             }
         }

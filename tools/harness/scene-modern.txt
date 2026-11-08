@@ -1,7 +1,7 @@
 # Test scene for 1.21+ (superflat: grass at y=-61, player stands at y=-60). Run by tools/screenshots.ps1.
 # Let the first resource load finish before opening a world.
 wait 200
-world PlainviewTest
+world BlockPainterTest
 waitworld
 wait 100
 hud off
