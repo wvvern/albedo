@@ -167,6 +167,11 @@ final class Ui {
 
     boolean hover(int x, int y, int w, int h) {
         if (overlay != null && !inOverlay && inside(overlay, mx, my)) return false;
+        return pointerIn(x, y, w, h);
+    }
+
+    /** Whether the pointer is in the rectangle, whatever is drawn over it. */
+    boolean pointerIn(int x, int y, int w, int h) {
         return mx >= x && my >= y && mx < x + w && my < y + h;
     }
 

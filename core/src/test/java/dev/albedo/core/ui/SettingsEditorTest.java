@@ -87,6 +87,14 @@ class SettingsEditorTest {
         render(editor, canvas);
         click(editor, canvas, "Done");
         assertEquals("minimal", sc.config().activeProfileName());
+
+        // A click on a row selects it too.
+        editor = new SettingsEditor(sc);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Profile: minimal");
+        click(editor, canvas, "quake-black");
+        click(editor, canvas, "Done");
+        assertEquals("quake-black", sc.config().activeProfileName());
     }
 
     @Test
@@ -458,7 +466,6 @@ class SettingsEditorTest {
 
         @Override public void reloadResources() { reloads++; }
         @Override public void rebuildChunks() { rebuilds++; }
-        @Override public boolean shadingInModels() { return false; }
         @Override public void showMessage(String message) {}
         @Override public boolean isKeyDown(Keys.Key key) { return false; }
         @Override public PixelBuffer readImage(File png) { return null; }

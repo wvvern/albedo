@@ -10,10 +10,13 @@ import java.util.regex.PatternSyntaxException;
  *   <li>Glob: {@code *} matches any run of characters, {@code ?} one character; it must match the whole id.</li>
  *   <li>Regular expression between slashes, for example {@code /^(oak|birch)_/}; it may match any part of the id.</li>
  * </ul>
- * A pattern without a ':' ignores the namespace, so {@code stone} matches {@code minecraft:stone} and
- * {@code /^oak/} matches {@code minecraft:oak_log}.
+ * A pattern without a namespace ignores it, so {@code stone} matches {@code minecraft:stone} and {@code /^oak/}
+ * matches {@code minecraft:oak_log}. A regular expression has a namespace only when it starts with one
+ * ({@code /^mymod:/}).
  */
 public final class Glob {
+    private static final Pattern NAMESPACE_FIRST = Pattern.compile("^\\^?[a-z0-9_.-]+:");
+
     private final Pattern pattern;
     private final boolean regex;
     private final boolean withNamespace;
@@ -29,7 +32,8 @@ public final class Glob {
         String g = text.trim();
         if (isRegex(g)) {
             String body = g.substring(1, g.length() - 1);
-            return new Glob(Pattern.compile(body, Pattern.CASE_INSENSITIVE), true, body.indexOf(':') >= 0);
+            // Only a namespace at the start ("^mymod:") brings it in; "(?:" and "(?i:" are regex syntax.
+            return new Glob(Pattern.compile(body, Pattern.CASE_INSENSITIVE), true, NAMESPACE_FIRST.matcher(body).find());
         }
         g = g.toLowerCase(Locale.ROOT);
         StringBuilder re = new StringBuilder();
@@ -51,6 +55,7 @@ public final class Glob {
     /** Why {@code text} is not a valid pattern, or null when it is. */
     public static String problem(String text) {
         if (!isRegex(text)) return null;
+        if (text.trim().length() == 2) return "type an expression between the slashes";
         try {
             compile(text);
             return null;

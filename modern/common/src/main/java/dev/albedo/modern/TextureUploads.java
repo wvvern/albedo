@@ -224,7 +224,8 @@ final class TextureUploads {
 
     private static void write(PixelBuffer pixels, NativeImage image) {
         //? if >=1.21.11 {
-        if (pixels instanceof PixelBuffer.Heap heap && image.format() == NativeImage.Format.RGBA && image.getWidth() == heap.width()) {
+        if (pixels instanceof PixelBuffer.Heap heap && image.format() == NativeImage.Format.RGBA && image.getWidth() == heap.width()
+                && image.getHeight() == heap.height()) {
             // One native copy. The image keeps each pixel as ABGR.
             int[] argb = heap.argb();
             int[] abgr = new int[argb.length];

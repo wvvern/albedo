@@ -66,11 +66,6 @@ final class LegacyPlatform implements Platform {
     }
 
     @Override
-    public boolean shadingInModels() {
-        return false; // the models keep the face shade, and LegacyHooks.addQuad removes it from the chunk mesh
-    }
-
-    @Override
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.ingameGUI != null) mc.ingameGUI.setRecordPlaying(message, false); // the 1.8 action bar

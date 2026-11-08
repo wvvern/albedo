@@ -28,10 +28,6 @@ public final class Presets {
         return ALL;
     }
 
-    public static boolean isBuiltIn(String name) {
-        return ALL.containsKey(name);
-    }
-
     /** Everything static is one flat color, evenly lit, without plants; anything that moves keeps its texture. */
     static Profile quake(boolean white) {
         int block = white ? 0xFFFFFFFF : 0xFF141414;

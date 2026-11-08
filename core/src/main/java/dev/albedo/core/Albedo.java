@@ -47,6 +47,8 @@ public final class Albedo {
 
     private long lastModified;
     private int ticks;
+    /** A texture was recorded with an older policy than the current one; see {@link #processTexture}. */
+    private volatile boolean recheck;
     private final AtomicInteger transformedSinceSummary = new AtomicInteger();
     private final boolean[] keyWasDown = new boolean[3];
 
@@ -105,8 +107,11 @@ public final class Albedo {
         if (sc == null || sc.store.repainting()) return false;
         TextureKey key = TextureClassifier.classify(location);
         try {
-            Appearance a = sc.policy.appearanceFor(key);
+            Policy policy = sc.policy;
+            Appearance a = policy.appearanceFor(key);
             sc.store.record(location, key, image, upload, a);
+            // A worker thread can load a texture while the client thread applies a new policy: check it next tick.
+            if (sc.policy != policy) sc.recheck = true;
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
@@ -128,6 +133,12 @@ public final class Albedo {
 
     private static final int COLORMAP_SIZE = 256;
 
+    /** True on the thread of a running repaint. Load hooks that a repaint runs again can then skip their work. */
+    public static boolean repainting() {
+        Albedo sc = instance;
+        return sc != null && sc.store.repainting();
+    }
+
     /** Ids seen in a category, sorted, each with its original average color. Read-only; client thread. */
     public Map<String, Integer> catalog(Category category) {
         return store.catalog(category);
@@ -144,10 +155,13 @@ public final class Albedo {
     /** Re-reads the textures folder when it changed, and repaints the textures that use an image from it. */
     private void watchTexturesFolder() {
         File folder = texturesFolder();
-        if (folder.lastModified() == texturesModified) return;
-        boolean first = texturesModified == -1;
-        texturesModified = folder.lastModified();
         File[] files = folder.listFiles();
+        // The folder's own time changes when a file is added or removed; a file's time when it is saved again.
+        long modified = folder.lastModified();
+        if (files != null) for (File f : files) modified = Math.max(modified, f.lastModified());
+        if (modified == texturesModified) return;
+        boolean first = texturesModified == -1;
+        texturesModified = modified;
         List<String> names = new ArrayList<String>();
         if (files != null) {
             for (File f : files) if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".png")) names.add(f.getName());
@@ -201,6 +215,7 @@ public final class Albedo {
                 }
             }
         }
+        if (recheck) refresh(policy, false);
         if (harness != null) harness.tick();
     }
 
@@ -232,14 +247,19 @@ public final class Albedo {
      */
     private void refresh(Policy old, boolean userImagesChanged) {
         Policy now = policy;
+        recheck = false;
         boolean shading = old.shading() != now.shading();
-        if ((shading && platform.shadingInModels()) || (!store.complete() && !old.sameTextures(now))) {
+        if (!store.complete() && (userImagesChanged || !old.sameTextures(now))) {
             platform.reloadResources();
             return;
         }
         long start = System.nanoTime();
-        TextureStore.Result r = store.repaint(now, textureSource, userImagesChanged);
-        platform.finishRepaint();
+        TextureStore.Result r;
+        try {
+            r = store.repaint(now, textureSource, userImagesChanged);
+        } finally {
+            platform.finishRepaint();
+        }
         if (r.failed > 0) {
             platform.warn(r.failed + " textures cannot be repainted. Resources reload instead.", null);
             platform.reloadResources();

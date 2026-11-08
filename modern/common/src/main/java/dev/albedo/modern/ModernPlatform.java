@@ -79,11 +79,6 @@ final class ModernPlatform implements Platform {
     }
 
     @Override
-    public boolean shadingInModels() {
-        return false;
-    }
-
-    @Override
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {

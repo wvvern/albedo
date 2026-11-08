@@ -68,9 +68,9 @@ The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false`. Their 
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
-## Settings changes
+### Repaint on 1.8.9
 
-A settings change does not reload resources. `TextureStore` keeps the original pixels of each texture and an `Upload` from the adapter. `Albedo.refresh` paints again only the textures whose look changed. A change to tint or shading also rebuilds the chunks. On 1.8.9:
+The general steps are in "Settings changes" below. On 1.8.9:
 
 - `SpriteUpload` (atlas sprites) calls `loadSprite` with the new strip and `generateMipmaps` with the mip levels of the atlas. Then it puts the current frame into the atlas at the origin of the sprite. The frame and tick counters stay, so water, lava and fire continue to animate. OptiFine does its own sprite work in `loadSprite` (transparent pixel color, the "Multitexture" copy), so the repaint gets it too.
 - `SimpleTextureUpload` writes the pixels into the GL texture with the blur and clamp of the first upload. A downloaded skin is not kept: its default skin placeholder must not take the place of the real default skin.
@@ -92,7 +92,7 @@ A settings change (screen, key, harness or config file) goes to `Albedo.apply`. 
 2. Textures: when a texture loads, its hook gives the core the original pixels and a `TextureStore.Upload`. `TextureStore.repaint` makes new pixels for each texture whose look changed, from its original, and calls its upload.
 3. `Platform.finishRepaint`: the adapter sends the uploads that it collected to the GPU, all at once.
 4. Block tints, fluid tints and shading are in the chunk meshes. If they change, `Platform.rebuildChunks` rebuilds the chunks.
-5. Only when the repaint cannot do the change, `Platform.reloadResources` reloads all resources: an upload fails, the store is over its memory limit, or the shading is in the block models (1.8.9).
+5. Only when the repaint cannot do the change, `Platform.reloadResources` reloads all resources: an upload fails, or the store is over its memory limit. A texture that loads on a worker thread while the policy changes is checked again on the next tick.
 
 The log shows `Repainted N textures in X ms` for a repaint and `Reloaded resources in X ms` for a reload.
 

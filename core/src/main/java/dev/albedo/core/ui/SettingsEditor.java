@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -279,7 +280,7 @@ public final class SettingsEditor {
 
     private void closePicker() {
         picking = false;
-        ui.clearFocus();
+        if (ui.isFocused("profiles.search")) ui.clearFocus(); // a click on Rename has just focused its own field
         ui.endOverlay();
     }
 
@@ -308,7 +309,7 @@ public final class SettingsEditor {
         }
         int rows = pickerRows(), h = pickerHeight();
         int x = pickerX, y = pickerY, w = pickerW;
-        if (ui.clicked() && !ui.hover(x, y - Ui.H - 1, w, h + Ui.H + 1)) {
+        if (ui.clicked() && !ui.pointerIn(x, y - Ui.H - 1, w, h + Ui.H + 1)) {
             closePicker();
             return;
         }
@@ -1320,69 +1321,49 @@ public final class SettingsEditor {
         }
     }
 
-    static String name(Category c) {
-        switch (c) {
-            case BLOCKS: return "Blocks";
-            case FLUIDS: return "Fluids";
-            case BLOCK_ENTITIES: return "Block entities";
-            case DECORATIONS: return "Decorations";
-            case ITEMS: return "Items";
-            case ENTITIES: return "Mobs and entities";
-            case PLAYERS: return "Players";
-            case PARTICLES: return "Particles";
-            case BLOCK_BREAKING: return "Mining cracks";
-            case SKY: return "Sky";
-            case CLOUDS: return "Clouds";
-            case WEATHER: return "Weather";
-            default: return c.key();
+    /** The words the screen uses for one category. */
+    private static final class Words {
+        final String name, members, example, description;
+
+        /**
+         * @param members what a group's patterns name, the label of its input ("Blocks", "Particles")
+         * @param example a name to type in the group input
+         */
+        Words(String name, String members, String example, String description) {
+            this.name = name;
+            this.members = members;
+            this.example = example;
+            this.description = description;
         }
     }
 
-    /** What a group's patterns name in this category, as the label of its input: "Blocks", "Particles"... */
-    static String members(Category c) {
-        switch (c) {
-            case BLOCKS: return "Blocks";
-            case FLUIDS: return "Fluids";
-            case ITEMS: return "Items";
-            case ENTITIES: return "Mobs";
-            case PLAYERS: return "Skins";
-            case PARTICLES: return "Particles";
-            case BLOCK_BREAKING: return "Stages";
-            default: return "Textures";
-        }
+    private static final Map<Category, Words> WORDS = new EnumMap<Category, Words>(Category.class);
+
+    static {
+        WORDS.put(Category.BLOCKS, new Words("Blocks", "Blocks", "dirt", "Terrain: stone, grass, leaves, glass..."));
+        WORDS.put(Category.FLUIDS, new Words("Fluids", "Fluids", "water", "Water and lava"));
+        WORDS.put(Category.BLOCK_ENTITIES, new Words("Block entities", "Textures", "chest", "Chests, beds, bells, decorated pots"));
+        WORDS.put(Category.DECORATIONS, new Words("Decorations", "Textures", "banner", "Signs, banners, paintings, maps, item frames"));
+        WORDS.put(Category.ITEMS, new Words("Items", "Items", "diamond_sword", "Item icons and held items"));
+        WORDS.put(Category.ENTITIES, new Words("Mobs and entities", "Mobs", "creeper", "Mobs, projectiles, armor"));
+        WORDS.put(Category.PLAYERS, new Words("Players", "Skins", "steve", "Default player skins"));
+        WORDS.put(Category.PARTICLES, new Words("Particles", "Particles", "flame", "Smoke, flames, hits, splashes"));
+        WORDS.put(Category.BLOCK_BREAKING, new Words("Mining cracks", "Stages", "destroy_stage", "The cracks on a block while you mine it"));
+        WORDS.put(Category.SKY, new Words("Sky", "Textures", "sun", "Sky color. Also hides the sun, moon and stars."));
+        WORDS.put(Category.CLOUDS, new Words("Clouds", "Textures", "clouds", "Clouds"));
+        WORDS.put(Category.WEATHER, new Words("Weather", "Textures", "rain", "Rain and snow"));
     }
 
-    /** A name to type in the group input of this category. */
-    static String example(Category c) {
-        switch (c) {
-            case BLOCKS: return "dirt";
-            case FLUIDS: return "water";
-            case BLOCK_ENTITIES: return "chest";
-            case DECORATIONS: return "banner";
-            case ITEMS: return "diamond_sword";
-            case ENTITIES: return "creeper";
-            case PLAYERS: return "steve";
-            case PARTICLES: return "flame";
-            case BLOCK_BREAKING: return "destroy_stage";
-            default: return "stone";
-        }
+    private static Words words(Category c) {
+        Words w = WORDS.get(c);
+        return w != null ? w : new Words(c.key(), "Textures", "stone", "");
     }
 
-    static String description(Category c) {
-        switch (c) {
-            case BLOCKS: return "Terrain: stone, grass, leaves, glass...";
-            case FLUIDS: return "Water and lava";
-            case BLOCK_ENTITIES: return "Chests, beds, bells, decorated pots";
-            case DECORATIONS: return "Signs, banners, paintings, maps, item frames";
-            case ITEMS: return "Item icons and held items";
-            case ENTITIES: return "Mobs, projectiles, armor";
-            case PLAYERS: return "Default player skins";
-            case PARTICLES: return "Smoke, flames, hits, splashes";
-            case BLOCK_BREAKING: return "The cracks on a block while you mine it";
-            case SKY: return "Sky color. Also hides the sun, moon and stars.";
-            case CLOUDS: return "Clouds";
-            case WEATHER: return "Rain and snow";
-            default: return "";
-        }
-    }
+    static String name(Category c) { return words(c).name; }
+
+    static String members(Category c) { return words(c).members; }
+
+    static String example(Category c) { return words(c).example; }
+
+    static String description(Category c) { return words(c).description; }
 }

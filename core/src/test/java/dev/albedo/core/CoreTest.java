@@ -159,6 +159,13 @@ class CoreTest {
         assertSame(c, c.withoutProfile("minimal"));
         Config changed = c.withProfile(c.activeProfile().with(Toggle.SHADOWS, false));
         assertEquals("quake-white-custom", changed.activeProfileName());
+        // A second change to the built-in profile makes a second copy; the first copy stays as it was.
+        Config again = changed.withActiveProfile("quake-white");
+        again = again.withProfile(again.activeProfile().with(Toggle.FULLBRIGHT, false));
+        assertEquals("quake-white-custom-2", again.activeProfileName());
+        assertFalse(again.activeProfile().is(Toggle.FULLBRIGHT));
+        assertFalse(again.profiles().get("quake-white-custom").is(Toggle.SHADOWS));
+        assertTrue(again.profiles().get("quake-white-custom").is(Toggle.FULLBRIGHT));
         assertEquals(Presets.all().get("quake-white"), changed.profiles().get("quake-white"));
         assertEquals(Collections.singleton("quake-white-custom"), changed.userProfiles().keySet());
         assertEquals(changed, ConfigCodec.decode(ConfigCodec.encode(changed)), "the file holds only the user profiles");
@@ -291,6 +298,9 @@ class CoreTest {
         assertNull(Glob.problem("/ok/"));
         assertNull(Glob.problem("plain"));
         assertNotNull(Glob.problem("/(open/"));
+        assertNotNull(Glob.problem("//"), "an empty expression would match everything");
+        assertTrue(Glob.compile("/^(?:oak)_log/").matches("minecraft:oak_log"), "(?: is not a namespace");
+        assertTrue(Glob.compile("/(?i:OAK)_log/").matches("minecraft:oak_log"));
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
                 "{ \"profiles\": { \"x\": { \"particles\": { \"groups\": [ { \"match\": \"/(open/\" } ] } } } }"));
         assertTrue(e.getMessage().contains("not a valid pattern"), e.getMessage());

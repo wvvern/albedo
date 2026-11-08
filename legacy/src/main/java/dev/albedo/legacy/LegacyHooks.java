@@ -33,8 +33,9 @@ public final class LegacyHooks {
      */
     public static void processSprite(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
         bootstrap();
+        // A repaint calls loadSprite with pixels that are already done: nothing to keep or change.
+        if (Albedo.repainting() || images == null || images.length == 0 || images[0] == null) return;
         ReloadScreen.load();
-        if (images == null || images.length == 0 || images[0] == null) return;
         String name = sprite.getIconName();
         // OptiFine "Multitexture": the parent sprite loads this copy from the same, already changed, images.
         if (name.endsWith(".spriteSingle")) return;
@@ -50,8 +51,8 @@ public final class LegacyHooks {
      */
     public static BufferedImage processTexture(SimpleTexture texture, ResourceLocation location, BufferedImage image) {
         bootstrap();
+        if (image == null || Albedo.repainting()) return image;
         ReloadScreen.load();
-        if (image == null) return null;
         TextureStore.Upload upload;
         if (texture.getClass() == SimpleTexture.class) upload = new SimpleTextureUpload(texture, location);
         else if (texture instanceof ThreadDownloadImageData) upload = null;

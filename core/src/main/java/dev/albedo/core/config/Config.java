@@ -45,11 +45,11 @@ public final class Config {
      */
     public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles) {
         Map<String, Profile> all = new LinkedHashMap<String, Profile>(Presets.all());
+        for (Profile p : profiles.values()) if (!isBuiltIn(p.name())) all.put(p.name(), p);
+        // Changed built-in profiles last, so that their new names do not take a name that a user profile has.
         String active = activeProfile;
         for (Profile p : profiles.values()) {
-            if (!Presets.isBuiltIn(p.name())) {
-                all.put(p.name(), p);
-            } else if (!p.equals(Presets.all().get(p.name()))) {
+            if (isBuiltIn(p.name()) && !p.equals(Presets.all().get(p.name()))) {
                 String copy = freeName(all, p.name() + "-custom");
                 all.put(copy, p.renamed(copy));
                 if (p.name().equals(active)) active = copy;
@@ -66,7 +66,7 @@ public final class Config {
     }
 
     public static boolean isBuiltIn(String name) {
-        return Presets.isBuiltIn(name);
+        return Presets.all().containsKey(name);
     }
 
     /** The profiles the user made: what the config file stores. */

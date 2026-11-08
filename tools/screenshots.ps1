@@ -75,7 +75,12 @@ foreach ($target in $Targets) {
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 3
         if (-not (Get-Process -Id $gradlePid -ErrorAction SilentlyContinue)) { break }
-        if ((Test-Path $harnessLog) -and (Select-String -Path $harnessLog -Pattern "^> quit" -Quiet)) { Start-Sleep -Seconds 5; break }
+        if ((Test-Path $harnessLog) -and (Select-String -Path $harnessLog -Pattern "^> quit" -Quiet)) {
+            # The game saves the world before it exits; 26.x can take 10 s or more.
+            $quitBy = (Get-Date).AddSeconds(30)
+            while ((Get-Date) -lt $quitBy -and (Get-Process -Id $gradlePid -ErrorAction SilentlyContinue)) { Start-Sleep -Seconds 1 }
+            break
+        }
     }
     if (Get-Process -Id $gradlePid -ErrorAction SilentlyContinue) {
         Write-Host "[$target] still running after the scene; stopping it"

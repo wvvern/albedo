@@ -7,8 +7,8 @@ import dev.albedo.core.config.Appearance;
 
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,7 +67,8 @@ public final class TextureStore {
     /** By texture name: some textures share a key, for example the OptiFine connected textures of one block. */
     private final Map<String, Entry> entries = new ConcurrentHashMap<String, Entry>();
     private final AtomicLong bytes = new AtomicLong();
-    private volatile boolean complete = true;
+    /** Names of textures that did not fit in the budget. A later record of the name, when it fits, removes it. */
+    private final Set<String> refused = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     /** Set on the thread that repaints, so an upload that runs a load hook is not recorded again. */
     private final ThreadLocal<Boolean> repainting = new ThreadLocal<Boolean>();
 
@@ -85,7 +86,7 @@ public final class TextureStore {
 
     /** Whether every changeable texture has its original, so that {@link #repaint} can reach all of them. */
     public boolean complete() {
-        return complete;
+        return refused.isEmpty();
     }
 
     /** True on the thread of a running {@link #repaint}. Load hooks then leave the image alone. */
@@ -103,15 +104,18 @@ public final class TextureStore {
     public void record(String name, TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
         if (key.category() == Category.OTHER || upload == null) return;
         Entry next = new Entry(key, PixelBuffer.Heap.copyOf(image), upload, applied);
-        Entry before = entries.get(name);
-        long delta = next.bytes() - (before == null ? 0 : before.bytes());
-        if (bytes.get() + delta > budget) {
-            complete = false;
-            return;
+        synchronized (this) { // worker threads record at the same time on modern versions
+            Entry before = entries.get(name);
+            long delta = next.bytes() - (before == null ? 0 : before.bytes());
+            if (bytes.get() + delta > budget) {
+                refused.add(name);
+                return;
+            }
+            refused.remove(name);
+            bytes.addAndGet(delta);
+            entries.put(name, next);
+            if (before == null || before.average != next.average) version.incrementAndGet();
         }
-        bytes.addAndGet(delta);
-        entries.put(name, next);
-        if (before == null || before.average != next.average) version.incrementAndGet();
     }
 
     /**
@@ -122,20 +126,19 @@ public final class TextureStore {
         int repainted = 0, failed = 0;
         repainting.set(Boolean.TRUE);
         try {
-            for (Iterator<Entry> it = entries.values().iterator(); it.hasNext();) {
-                Entry entry = it.next();
+            for (Map.Entry<String, Entry> e : entries.entrySet()) {
+                Entry entry = e.getValue();
                 Appearance want = policy.appearanceFor(entry.key);
                 boolean userImage = userImagesChanged && want.mode() == Appearance.Mode.TEXTURE;
                 if (want.equals(entry.applied) && !userImage) continue;
-                PixelBuffer.Heap pixels = entry.original.copy();
-                PixelTransformer.apply(want, pixels, images);
                 try {
+                    PixelBuffer.Heap pixels = entry.original.copy();
+                    PixelTransformer.apply(want, pixels, images);
                     if (entry.upload.upload(pixels)) {
                         entry.applied = want;
                         repainted++;
                     } else {
-                        it.remove();
-                        bytes.addAndGet(-entry.bytes());
+                        forget(e.getKey(), entry);
                     }
                 } catch (Exception ex) {
                     failed++;
@@ -145,6 +148,14 @@ public final class TextureStore {
             repainting.remove();
         }
         return new Result(repainted, failed);
+    }
+
+    /** Drops a texture that is no longer in use, unless a reload has recorded it again in the meantime. */
+    private synchronized void forget(String name, Entry entry) {
+        if (entries.remove(name, entry)) {
+            bytes.addAndGet(-entry.bytes());
+            version.incrementAndGet();
+        }
     }
 
     /** Ids kept for a category, sorted, each with its original average color. Read-only; client thread. */
