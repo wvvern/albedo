@@ -2,7 +2,7 @@
 
 Albedo is a client-side Minecraft mod. It changes blocks, fluids, sky, mobs and other parts of the world to one flat color.
 
-It works like the flat "Quake" texture packs: things that move are easy to see. The mod changes textures as they load, so it also works with modded blocks and other resource packs.
+With flat colors, things that move are easy to see. The mod changes textures as they load, so it also works with modded blocks and other resource packs.
 
 | Vanilla | Quake white | Quake white, shading off |
 |---|---|---|
