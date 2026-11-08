@@ -6,6 +6,7 @@ import dev.albedo.core.Colors;
 import dev.albedo.core.Glob;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
+import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
@@ -19,29 +20,15 @@ import dev.albedo.core.texture.TextureKey;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Queue;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
-/**
- * The settings screen, version-agnostic. Adapters wrap it in their version's Screen class, forward input and draw
- * it through a {@link Canvas}. It edits a draft {@link Config}; Apply/Done hand the draft to {@link Albedo#apply}.
- *
- * <p>Pages: a category has a global look, ordered groups (each with its own look) and a texture browser; the World
- * page holds the profile's toggles.
- *
- * <p>Layout: a centered panel (at most {@link #MAX_W} x {@link #MAX_H}) with a header, a sidebar, the page and a
- * footer. Rows of controls are {@link Ui#H} high with {@link #GAP} between them; labels left of controls share one
- * column as wide as the widest label.
- */
+import static dev.albedo.core.ui.GroupMatches.shortId;
+import static dev.albedo.core.ui.GroupMatches.toPattern;
+
+/** The settings screen of all versions, which edits a draft config that Apply and Done give to {@link Albedo#apply}. */
 public final class SettingsEditor {
     private static final Category[] CATEGORIES = {
             Category.BLOCKS, Category.FLUIDS, Category.BLOCK_ENTITIES, Category.DECORATIONS, Category.ITEMS, Category.ENTITIES,
@@ -51,65 +38,113 @@ public final class SettingsEditor {
             0xFFFFFFFF, 0xFFC8C8C8, 0xFF8C8C8C, 0xFF505050, 0xFF141414, 0xFF000000, 0xFF6D4C41, 0xFFFF7043,
             0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF8E24AA,
     };
-    /** Texture-name endings that are faces or states of one block, so "grass_block*" can stand for all of them. */
-    private static final List<String> FACE_SUFFIXES = Arrays.asList("top", "side", "bottom", "front", "back", "end",
-            "overlay", "snow", "inner", "outer", "still", "flow", "base", "open", "on", "off", "lit", "particle");
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope"};
+    private static final String BUILT_IN = "built-in";
     private static final int ROW = 11;
     private static final int GAP = 6;
-    private static final int MAX_SUGGESTIONS = 6;
     private static final int MAX_W = 620, MAX_H = 380;
-    private static final long STATUS_MS = 6000;
+    private static final long TOAST_MS = 6000;
 
     private enum Tab { LOOK, GROUPS, TEXTURES }
 
+    /** The header's mode, which only {@link #setMode} changes, so that each mode gives back the focus it took. */
+    private enum Mode {
+        BROWSE,
+        /** The searchable profile list is open under the profile button. */
+        PICK_PROFILE,
+        /** The profile name is a text field, with Save and Cancel. */
+        RENAME
+    }
+
+    /** What the content area shows (the World page, a category tab or a group), which only {@link #go} changes. */
+    private static final class Page {
+        final Category category;
+        final Tab tab;
+        final boolean world;
+        /** The open group, or -1. */
+        final int group;
+
+        private Page(Category category, Tab tab, boolean world, int group) {
+            this.category = category;
+            this.tab = tab;
+            this.world = world;
+            this.group = group;
+        }
+
+        static Page of(Category c) { return new Page(c, Tab.LOOK, false, -1); }
+
+        /** The World page keeps the category, so that the sidebar can go back to it. */
+        Page toWorld() { return new Page(category, tab, true, -1); }
+
+        Page withTab(Tab t) { return new Page(category, t, false, -1); }
+
+        /** Opens a group of the category, or with -1 goes back to the tab it was opened from. */
+        Page withGroup(int index) { return new Page(category, tab, world && index < 0, index); }
+
+        boolean inGroup() { return group >= 0; }
+    }
+
+    /** A message above the footer for a few seconds; the next click hides it. */
+    private static final class Toast {
+        final String text;
+        final boolean error;
+        final long at;
+
+        Toast(String text, boolean error) {
+            this.text = text;
+            this.error = error;
+            this.at = System.currentTimeMillis();
+        }
+    }
+
+    /** The color picker's own HSV, kept apart from the color so that hue survives at zero saturation or brightness. */
+    private static final class Hsv {
+        float hue, sat, val;
+        /** The color these values show, or null before the first sync. */
+        Integer color;
+
+        void sync(int argb) {
+            float[] hsv = Ui.toHsv(argb);
+            if (hsv[1] > 0 && hsv[2] > 0) hue = hsv[0];
+            sat = hsv[1];
+            val = hsv[2];
+            color = argb;
+        }
+    }
+
     private final Albedo sc;
     final Ui ui;
+    private final GroupMatches matches = new GroupMatches();
+    private final ScriptedInput script = new ScriptedInput();
     private Config saved;
     private Config draft;
     private Policy preview;
-    private Category category = Category.BLOCKS;
-    private Tab tab = Tab.LOOK;
-    /** The World page (the profile's toggles) is showing instead of a category. */
-    private boolean worldPage;
-    /** Index of the group being edited, or -1. */
-    private int group = -1;
+    private Page page = Page.of(Category.BLOCKS);
+    private Mode mode = Mode.BROWSE;
+    private Toast toast;
     /** Shown under the scope switch when a switch was refused. */
     private String notice;
-    /** The result of the last export or import, shown for a few seconds above the footer. */
-    private String status;
-    private int statusColor;
-    private long statusAt;
-    private int suggestion;
+    private boolean closed;
     /** Width of the label column ("Style", "Color", ...) plus its gap; set each frame from the font. */
     private int labelW;
-    private final TextField hex = new TextField(9, new TextField.Filter() {
-        @Override
-        public boolean accepts(char c) { return Character.digit(c, 16) >= 0 || c == '#'; }
-    });
+    /** The profile button, and the bottom of the page that the open profile list must stay above. */
+    private Rect profileButton = new Rect(0, 0, 0, 0);
+    private int bodyBottom;
+    private int picked;
+    private int suggestion;
+    private final Hsv hsv = new Hsv();
+
+    private final TextField hex = new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#');
     private final TextField search = new TextField(64, TextField.ANY);
-    private final TextField add = new TextField(64, new TextField.Filter() {
-        @Override
-        public boolean accepts(char c) { return Character.isLetterOrDigit(c) || "_-:*?/.^$|()[]{}+\\,".indexOf(c) >= 0; }
-    });
+    private final TextField add = new TextField(64, c -> Character.isLetterOrDigit(c) || "_-:*?/.^$|()[]{}+\\,".indexOf(c) >= 0);
     private final TextField groupName = new TextField(32, TextField.ANY);
-    private final TextField rename = new TextField(32, new TextField.Filter() {
-        @Override
-        public boolean accepts(char c) { return Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == ' '; }
-    });
-    private boolean renaming;
-    private boolean closed;
-    /** Picker state, kept separately so hue survives at zero saturation/brightness. */
-    private float hue, sat, val;
-    private int pickerColor = 1; // never a real color, forces the first sync
+    private final TextField rename = new TextField(32, c -> Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == ' ');
+    private final TextField profileSearch = new TextField(32, TextField.ANY);
 
     public SettingsEditor(final Albedo sc) {
         this.sc = sc;
-        this.ui = new Ui(new Ui.Clipboard() {
-            @Override
-            public String get() { return sc.platform().clipboard(); }
-        });
+        this.ui = new Ui(() -> sc.platform().clipboard());
         this.saved = sc.config();
         setDraft(saved);
     }
@@ -117,11 +152,11 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- input from adapters (the pointer position
     // is taken from each render call)
 
-    public void mousePressed(double x, double y, int button) {
+    public void mousePressed(int button) {
         if (button == 0) ui.mousePressed();
     }
 
-    public void mouseReleased(double x, double y, int button) {
+    public void mouseReleased(int button) {
         if (button == 0) ui.mouseReleased();
     }
 
@@ -134,41 +169,34 @@ public final class SettingsEditor {
     /** The adapter closes its screen once this turns true. */
     public boolean isClosed() { return closed; }
 
+    /** Queues an input for the open screen, from the dev harness (see {@link ScriptedInput}). */
+    public static void script(String command) {
+        ScriptedInput.add(command);
+    }
+
     // ---------------------------------------------------------------- frame
 
     public void render(Canvas canvas, int mouseX, int mouseY) {
-        Recorder recorder = null;
-        if (scriptPointer != null) {
-            mouseX = scriptPointer[0];
-            mouseY = scriptPointer[1];
-        }
-        boolean release = false;
-        if (!SCRIPT.isEmpty() || scriptPointer != null) {
-            if (lastTexts != null) release = runScript(SCRIPT.poll());
-            if (scriptPointer != null) {
-                mouseX = scriptPointer[0];
-                mouseY = scriptPointer[1];
-            }
-            canvas = recorder = new Recorder(canvas);
-        }
+        boolean scripted = script.active();
+        if (scripted) canvas = script.beginFrame(canvas, ui);
+        ui.begin(canvas, script.x(mouseX), script.y(mouseY));
+        if (ui.clicked()) toast = null;
 
-        ui.begin(canvas, mouseX, mouseY);
-        if (ui.clicked()) status = null; // the next click dismisses the message
         int w = canvas.width(), h = canvas.height();
-        labelW = 0;
+        labelW = ui.width(Labels.members(page.category));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
-        labelW = Math.max(labelW, ui.width(members(category))) + 8;
+        labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
-        int x0 = (w - pw) / 2, y0 = (h - ph) / 2, x1 = x0 + pw, y1 = y0 + ph;
+        int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
         ui.fill(0, 0, w, h, Ui.SCRIM);
         ui.round(x0, y0, pw, ph, Ui.BG);
 
-        int bodyTop = y0 + 26, bodyBottom = y1 - 24;
-        pickerBottom = bodyBottom;
+        int bodyTop = y0 + 26;
+        bodyBottom = y1 - 24;
         header(x0 + 8, y0 + 6, pw - 16);
         ui.fill(x0 + 8, bodyTop - 3, pw - 16, 1, Ui.BORDER);
         int widest = 0;
-        for (Category c : CATEGORIES) widest = Math.max(widest, ui.width(name(c)));
+        for (Category c : CATEGORIES) widest = Math.max(widest, ui.width(Labels.name(c)));
         int sideW = Math.min(widest + 22, pw / 4 + 20);
         sidebar(x0 + 8, bodyTop + 2, sideW, bodyBottom - bodyTop - 4);
         int cx = x0 + 16 + sideW, cw = pw - 24 - sideW;
@@ -176,27 +204,65 @@ public final class SettingsEditor {
         ui.fill(x0 + 8, bodyBottom + 1, pw - 16, 1, Ui.BORDER);
         footer(x0 + 8, bodyBottom + 5, pw - 16);
         toast(cx, bodyBottom - 3, cw);
-        profilePicker();
+        if (mode == Mode.PICK_PROFILE) profileList();
+        escape();
 
-        if (ui.takeKey(UiKey.ESCAPE)) {
-            if (ui.disarm()) {
-                // Esc cancels a pending delete first.
-            } else if (group >= 0) openGroup(-1);
-            else done();
-        }
         ui.end();
-        if (release) ui.mouseReleased();
-        if (recorder != null) lastTexts = recorder.texts;
+        if (scripted) script.endFrame(ui);
+    }
+
+    /** Takes an Esc that no text field or header mode took this frame, for an armed button, the open group, then the screen. */
+    private void escape() {
+        if (!ui.takeKey(UiKey.ESCAPE) || ui.disarm()) return;
+        if (page.inGroup()) go(page.withGroup(-1));
+        else done();
+    }
+
+    /** The only way the mode changes: the old mode gives back its focus and overlay, the new one sets its own. */
+    private void setMode(Mode next) {
+        if (mode == Mode.PICK_PROFILE) {
+            ui.releaseFocus("profiles.search"); // a click on Rename has just focused its own field
+            ui.endOverlay();
+        }
+        if (mode == Mode.RENAME) ui.releaseFocus("rename");
+        mode = next;
+        if (next == Mode.PICK_PROFILE) {
+            profileSearch.set("");
+            picked = Math.max(0, new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName()));
+            ui.focus("profiles.search");
+        } else if (next == Mode.RENAME) {
+            rename.set(draft.activeProfileName());
+            rename.selectAll = true;
+            ui.focus("rename");
+        }
+    }
+
+    /** The only way the page changes: what belongs to the old page (input, suggestion, notice, search) is reset. */
+    private void go(Page next) {
+        Page prev = page;
+        page = next;
+        if (next.group != prev.group || next.world != prev.world || next.category != prev.category) {
+            add.set("");
+            suggestion = 0;
+            ui.clearFocus();
+        }
+        boolean otherCategory = next.category != prev.category;
+        if (otherCategory || next.world != prev.world || next.tab != prev.tab) {
+            search.set("");
+            ui.resetScroll("list");
+            notice = null;
+        }
+        if (otherCategory) ui.resetScroll("groups");
     }
 
     // ---------------------------------------------------------------- header: title, on/off, profiles
 
     private void header(int x, int y, int w) {
-        int bw = 0;
-        for (String l : new String[]{"Copy", "Rename", "Delete"}) bw = Math.max(bw, ui.buttonWidth(l));
-        int right = x + w, buttonsW = (renaming ? 2 : 3) * (bw + 3) - 3;
+        if (mode == Mode.RENAME && ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) setMode(Mode.BROWSE);
+        int bw = ui.buttonWidth("Copy", "Rename", "Delete");
+        int right = x + w, buttonsW = (mode == Mode.RENAME ? 2 : 3) * (bw + 3) - 3;
 
-        // Title, then the switch. The title is left out first when the window is too narrow for it and the profile.
+        // A narrow window drops the title first, so that the profile button keeps its room.
         int stateW = 22 + ui.width("Off"), titleW = ui.width(Albedo.NAME) + 8;
         boolean showTitle = w - 3 * (bw + 3) - 5 - titleW - stateW - 8 >= 70;
         int tx = x;
@@ -210,156 +276,123 @@ public final class SettingsEditor {
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 
         int px = tx + stateW + 8, pw = right - buttonsW - 8 - px;
-        boolean builtIn = Config.isBuiltIn(draft.activeProfileName());
-        if (renaming) {
-            if (ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) {
-                cancelRename();
-                return;
-            }
-            boolean save = ui.button("rename.save", right - 2 * bw - 3, y, bw, Ui.H, "Save", Ui.Style.PRIMARY, true, "Save the name (Enter)");
-            boolean cancel = ui.button("rename.cancel", right - bw, y, bw, Ui.H, "Cancel", Ui.Style.NORMAL, true, "Keep the old name (Esc)");
-            if (cancel) {
-                cancelRename();
-                return;
-            }
-            if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _");
-            if (save || !ui.isFocused("rename")) finishRename();
+        if (mode == Mode.RENAME) renameBar(px, y, pw, right, bw);
+        else profileBar(px, y, pw, right, bw);
+    }
+
+    private void renameBar(int px, int y, int pw, int right, int bw) {
+        boolean save = ui.button("rename.save", right - 2 * bw - 3, y, bw, Ui.H, "Save", Ui.Style.PRIMARY, true, "Save the name (Enter)");
+        if (ui.button("rename.cancel", right - bw, y, bw, Ui.H, "Cancel", Ui.Style.NORMAL, true, "Keep the old name (Esc)")) {
+            setMode(Mode.BROWSE);
             return;
         }
+        if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _");
+        // Enter or a click elsewhere ends the input; both keep the name.
+        if (save || !ui.isFocused("rename")) finishRename();
+    }
 
+    private void finishRename() {
+        setMode(Mode.BROWSE);
+        setDraft(draft.withRenamedProfile(draft.activeProfileName(), rename.text));
+    }
+
+    private void profileBar(int px, int y, int pw, int right, int bw) {
+        boolean builtIn = Config.isBuiltIn(draft.activeProfileName());
         if (builtIn) {
             ui.button("delete", right - bw, y, bw, Ui.H, "Delete", Ui.Style.DANGER, false, "Built-in profiles cannot be deleted");
         } else if (ui.confirmButton("delete", right - bw, y, bw, Ui.H, "Delete", "Delete this profile",
                 "Click again to delete profile \"" + draft.activeProfileName() + "\"")) {
             String gone = draft.activeProfileName();
-            setDraft(draft.withoutProfile(gone));
-            setStatus("Deleted profile " + gone + ".", Ui.MUTED);
+            switchProfile(draft.withoutProfile(gone));
+            say("Deleted profile " + gone + ".");
         }
         if (ui.button("rename", right - 2 * bw - 3, y, bw, Ui.H, "Rename", Ui.Style.NORMAL, !builtIn,
                 builtIn ? "Built-in profiles cannot be renamed. Copy it to make your own." : "Rename this profile")) {
-            startRename();
+            setMode(Mode.RENAME);
         }
         if (ui.button("new", right - 3 * bw - 6, y, bw, Ui.H, "Copy", Ui.Style.NORMAL, true,
                 "Make a new profile as a copy of this one")) {
             String name = draft.freeProfileName(draft.activeProfileName() + "-copy");
             setDraft(draft.withProfile(draft.activeProfile().renamed(name)).withActiveProfile(name));
-            startRename();
+            setMode(Mode.RENAME);
         }
+        if (mode == Mode.RENAME || pw < 40) return;
 
-        if (pw < 40) return;
+        profileButton = new Rect(px, y, pw, Ui.H);
         if (ui.button("profiles", px, y, pw, Ui.H, "", Ui.Style.NORMAL, true,
                 "Select a profile. " + draft.keys().cycleProfile + " selects the next profile in game.")) {
-            if (picking) closePicker();
-            else openPicker();
+            setMode(mode == Mode.PICK_PROFILE ? Mode.BROWSE : Mode.PICK_PROFILE);
         }
-        String name = draft.activeProfileName(), tag = builtIn ? "built-in" : "";
+        String name = draft.activeProfileName(), tag = builtIn ? BUILT_IN : "";
         int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6, room = pw - 18 - tagW;
         String full = "Profile: " + name;
         ui.text(ui.width(full) <= room ? full : ui.ellipsize(name, room), px + 5, y + 3, Ui.TEXT);
         if (tagW > 0) ui.text(tag, px + pw - 12 - tagW, y + 3, Ui.FAINT);
         ui.text("v", px + pw - 10, y + 3, Ui.MUTED);
-        pickerX = px;
-        pickerY = y + Ui.H + 1;
-        pickerW = pw;
         // Reserved before the page is drawn, so that a click on the open list does not also reach the page.
-        if (picking) ui.reserveOverlay(pickerX, pickerY, pickerW, pickerHeight());
+        if (mode == Mode.PICK_PROFILE) ui.reserveOverlay(profileListArea());
     }
 
-    // ---------------------------------------------------------------- profile picker: a searchable list
+    // ---------------------------------------------------------------- profile list: a searchable dropdown
 
-    private boolean picking;
-    private int pickerX, pickerY, pickerW, pickerBottom, picked;
-    private final TextField pickerSearch = new TextField(32, TextField.ANY);
-
-    private void openPicker() {
-        picking = true;
-        pickerSearch.set("");
-        picked = Math.max(0, new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName()));
-        ui.focus("profiles.search");
-    }
-
-    private void closePicker() {
-        picking = false;
-        if (ui.isFocused("profiles.search")) ui.clearFocus(); // a click on Rename has just focused its own field
-        ui.endOverlay();
-    }
-
-    private List<String> pickerNames() {
-        String q = pickerSearch.text.trim().toLowerCase(Locale.ROOT);
+    private List<String> profileNames() {
+        String q = profileSearch.text.trim().toLowerCase(Locale.ROOT);
         List<String> names = new ArrayList<String>();
         for (String n : draft.profiles().keySet()) if (n.contains(q)) names.add(n);
         return names;
     }
 
-    private int pickerRows() {
-        return Math.max(1, Math.min(pickerNames().size(), (pickerBottom - pickerY - Ui.H - 6) / ROW));
+    private int profileRows() {
+        int top = profileButton.bottom() + 1;
+        return Math.max(1, Math.min(profileNames().size(), (bodyBottom - top - Ui.H - 6) / ROW));
     }
 
-    private int pickerHeight() {
-        return Ui.H + 6 + pickerRows() * ROW;
+    private Rect profileListArea() {
+        return new Rect(profileButton.x, profileButton.bottom() + 1, profileButton.w, Ui.H + 6 + profileRows() * ROW);
     }
 
-    /** Drawn after the page, over it. Up, Down and Enter choose; Esc or a click outside closes it. */
-    private void profilePicker() {
-        if (!picking) return;
-        boolean down = ui.takeKey(UiKey.DOWN), up = ui.takeKey(UiKey.UP), enter = ui.takeKey(UiKey.ENTER);
+    /** The profile list over the page, where Up, Down and Enter choose and Esc or a click outside closes it. */
+    private void profileList() {
         if (ui.takeKey(UiKey.ESCAPE)) {
-            closePicker();
+            setMode(Mode.BROWSE);
             return;
         }
-        int rows = pickerRows(), h = pickerHeight();
-        int x = pickerX, y = pickerY, w = pickerW;
-        if (ui.clicked() && !ui.pointerIn(x, y - Ui.H - 1, w, h + Ui.H + 1)) {
-            closePicker();
+        Rect area = profileListArea();
+        if (ui.clicked() && !ui.pointerIn(area.x, profileButton.y, area.w, area.bottom() - profileButton.y)) {
+            setMode(Mode.BROWSE);
             return;
         }
+        boolean down = ui.takeKey(UiKey.DOWN), up = ui.takeKey(UiKey.UP), enter = ui.takeKey(UiKey.ENTER);
+        int rows = profileRows(), x = area.x, y = area.y, w = area.w;
         ui.beginOverlay();
-        ui.round(x, y, w, h, Ui.BORDER);
-        ui.round(x + 1, y + 1, w - 2, h - 2, Ui.PANEL);
-        if (ui.textField("profiles.search", pickerSearch, x + 2, y + 2, w - 4, Ui.H, "Search profiles", null)) picked = 0;
-        if (!ui.isFocused("profiles.search")) ui.focus("profiles.search");
-        List<String> names = pickerNames(); // after the field, so that this frame's typing filters the list
+        ui.panel(area, Ui.BORDER, Ui.PANEL);
+        if (ui.textField("profiles.search", profileSearch, x + 2, y + 2, w - 4, Ui.H, "Search profiles", null)) picked = 0;
+        ui.focus("profiles.search"); // the list keeps the keyboard while it is open
+        List<String> names = profileNames(); // after the field, so that this frame's typing filters the list
         if (down) picked++;
         if (up) picked--;
         picked = Math.max(0, Math.min(picked, names.size() - 1));
         int ly = y + Ui.H + 4;
         if (names.isEmpty()) ui.textFit("No profile has this name", x + 5, ly + 1, w - 10, Ui.FAINT);
         int first = names.size() > rows ? Math.max(0, Math.min(picked - rows + 1, names.size() - rows)) : 0;
+        String chosen = null;
         for (int i = first; i < Math.min(names.size(), first + rows); i++) {
             String n = names.get(i);
             int ry = ly + (i - first) * ROW;
             if (i == picked) ui.fill(x + 1, ry, w - 2, ROW, Ui.CARD_HOVER);
             if (n.equals(draft.activeProfileName())) ui.fill(x + 1, ry + 1, 2, ROW - 2, Ui.ACCENT);
-            boolean chosen = ui.button("profiles.row." + n, x + 1, ry, w - 2, ROW, "", Ui.Style.GHOST, true, null);
-            String tag = Config.isBuiltIn(n) ? "built-in" : "";
+            boolean clicked = ui.button("profiles.row." + n, x + 1, ry, w - 2, ROW, "", Ui.Style.GHOST, true, null);
+            String tag = Config.isBuiltIn(n) ? BUILT_IN : "";
             int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6;
             ui.text(ui.ellipsize(n, w - 14 - tagW), x + 6, ry + 1, Ui.TEXT);
             if (tagW > 0) ui.text(tag, x + w - 4 - tagW, ry + 1, Ui.FAINT);
-            if (chosen || (enter && i == picked)) {
-                setDraft(draft.withActiveProfile(n));
-                closePicker();
-                break;
-            }
+            if (clicked || (enter && i == picked)) chosen = n;
         }
         ui.endOverlay();
-    }
-
-    private void startRename() {
-        renaming = true;
-        rename.set(draft.activeProfileName());
-        rename.selectAll = true;
-        ui.focus("rename");
-    }
-
-    private void finishRename() {
-        renaming = false;
-        ui.clearFocus();
-        setDraft(draft.withRenamedProfile(draft.activeProfileName(), rename.text));
-    }
-
-    private void cancelRename() {
-        renaming = false;
-        ui.clearFocus();
+        if (chosen != null) {
+            switchProfile(draft.withActiveProfile(chosen));
+            setMode(Mode.BROWSE);
+        }
     }
 
     // ---------------------------------------------------------------- sidebar: categories, then the World page
@@ -370,24 +403,16 @@ public final class SettingsEditor {
         int ry = y;
         for (Category c : CATEGORIES) {
             Appearance a = profile().get(c).appearance();
-            String tip = description(c) + (a.isOriginal() ? " Now: vanilla." : "");
-            if (sidebarRow("cat." + c.key(), x, ry, w, pitch - 1, name(c), tip, !worldPage && c == category, !a.isOriginal())) {
-                category = c;
-                worldPage = false;
-                tab = Tab.LOOK;
-                notice = null;
-                openGroup(-1);
-                search.set("");
-                ui.resetScroll("list");
-            }
+            String tip = Labels.description(c) + (a.isOriginal() ? " Now: vanilla." : "");
+            boolean active = !page.world && c == page.category;
+            if (sidebarRow("cat." + c.key(), x, ry, w, pitch - 1, Labels.name(c), tip, active, !a.isOriginal())) go(Page.of(c));
             lookIcon(x + 6, ry + (pitch - 9) / 2, a);
             ry += pitch;
         }
         ry += 5;
         ui.fill(x + 4, ry - 3, w - 8, 1, Ui.BORDER);
-        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage and shadows", worldPage, true)) {
-            worldPage = true;
-            openGroup(-1);
+        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage and shadows", page.world, true)) {
+            go(page.toWorld());
         }
         // a small sun as the World icon
         int iy = ry + (pitch - 9) / 2;
@@ -402,7 +427,7 @@ public final class SettingsEditor {
         else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080));
     }
 
-    /** A selectable sidebar entry; the icon is drawn by the caller at x + 6. Returns true when clicked. */
+    /** A sidebar entry that returns true when clicked, with room at x + 6 for the icon of the caller. */
     private boolean sidebarRow(String id, int x, int y, int w, int h, String label, String tip, boolean active, boolean bright) {
         boolean clicked = false;
         String shown = ui.ellipsize(label, w - 20);
@@ -421,59 +446,69 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- content
 
     private void content(int x, int y, int w, int h) {
-        if (worldPage) {
+        if (page.world) {
             worldPage(x, y, w, h);
             return;
         }
+        Category category = page.category;
         CategorySettings cs = profile().get(category);
-        if (group >= 0 && group < cs.rules().size()) {
-            groupPage(x, y, w, y + h, cs, group);
-            return;
+        if (page.inGroup()) {
+            // The group may be gone: deleted, or a different profile is active.
+            if (page.group < cs.rules().size()) {
+                groupPage(x, y, w, y + h, cs, page.group);
+                return;
+            }
+            go(page.withGroup(-1));
         }
-        group = -1;
-        ui.text(name(category), x, y, Ui.TEXT);
-        int nameW = ui.width(name(category)) + 8;
-        ui.textFit(description(category), x + nameW, y, w - nameW, Ui.MUTED);
+        String name = Labels.name(category);
+        ui.text(name, x, y, Ui.TEXT);
+        int nameW = ui.width(name) + 8;
+        ui.textFit(Labels.description(category), x + nameW, y, w - nameW, Ui.MUTED);
         int cy = y + 13;
         if (category.hasGroups()) {
-            Tab[] tabs = Tab.values();
             String[] labels = {"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()};
-            int picked = ui.tabs("tab", x, cy, w, labels, tab.ordinal(), new String[]{
-                    "The look of all " + name(category).toLowerCase(Locale.ROOT) + " textures that are not in a group",
+            int chosen = ui.tabs("tab", x, cy, w, labels, page.tab.ordinal(), new String[]{
+                    "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group",
                     "Sets of textures that have their own look",
                     "All loaded textures. Click one to put it in a group."});
-            if (picked != tab.ordinal()) {
-                tab = tabs[picked];
-                notice = null;
+            if (chosen != page.tab.ordinal()) {
+                go(page.withTab(Tab.values()[chosen]));
                 return;
             }
             cy += Ui.H + GAP;
         }
-        if (tab == Tab.LOOK || !category.hasGroups()) lookTab(x, cy, w, y + h, cs);
-        else if (tab == Tab.GROUPS) groupsTab(x, cy, w, y + h - cy, cs);
-        else texturesTab(x, cy, w, y + h - cy, cs);
+        Tab tab = category.hasGroups() ? page.tab : Tab.LOOK;
+        switch (tab) {
+            case GROUPS: groupsTab(x, cy, w, y + h - cy, cs); break;
+            case TEXTURES: texturesTab(x, cy, w, y + h - cy, cs); break;
+            default: lookTab(x, cy, w, y + h, cs);
+        }
     }
 
     private void lookTab(int x, int y, int w, int bottom, CategorySettings cs) {
-        int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0)
-                + (category == Category.BLOCKS || category == Category.FLUIDS || category == Category.SKY ? 12 : 0);
+        Category category = page.category;
+        boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
+        int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? 12 : 0);
         int cy = lookEditor(x, y, w, bottom - below, cs, -1);
         if (cs.onlyGroups()) {
             cy += ui.paragraph("Only groups change (see Groups). Groups set to Global use this look.", x, cy, w, Ui.FAINT) + GAP;
         }
-        if (category == Category.BLOCKS || category == Category.FLUIDS) {
-            boolean tint = ui.toggleRow("tint", x - 4, cy, w + 4, "Remove biome tint", cs.removeTint(),
+        if (tint) {
+            boolean remove = ui.toggleRow("tint", x - 4, cy, w + 4, "Remove biome tint", cs.removeTint(),
                     category == Category.BLOCKS ? "Grass and leaves do not get the biome color" : "Water does not get the biome color");
-            if (tint != cs.removeTint()) setCategory(cs.withRemoveTint(tint));
+            if (remove != cs.removeTint()) setCategory(cs.withRemoveTint(remove));
         }
         if (category == Category.SKY) ui.paragraph("This also sets the fog to the sky color.", x, cy, w, Ui.FAINT);
     }
 
     /**
-     * Style, color and shape controls for the global look ({@code index} -1) or a group. Returns the next y.
-     * A group's first style is "Global" when only groups change, otherwise "Vanilla" (which keeps its blocks as they are).
+     * Draws style, color and shape controls for the global look or a group, whose first style is "Global" in the only-groups scope.
+     *
+     * @param index the group, or -1 for the global look
+     * @return the next y
      */
     private int lookEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
+        Category category = page.category;
         Rule rule = index < 0 ? null : cs.rules().get(index);
         boolean global = rule != null && rule.usesGlobalLook();
         Appearance target = rule == null ? cs.appearance() : rule.appearance();
@@ -481,48 +516,51 @@ public final class SettingsEditor {
         String[] labels = new String[modes.size()], tips = new String[modes.size()];
         int selected = 0;
         for (int i = 0; i < modes.size(); i++) {
-            labels[i] = modeLabel(modes.get(i));
-            tips[i] = modeTip(modes.get(i));
+            labels[i] = Labels.mode(modes.get(i));
+            tips[i] = Labels.modeTip(modes.get(i));
             if (!global && modes.get(i) == target.mode()) selected = i;
         }
         if (rule != null && cs.onlyGroups()) {
             labels[0] = "Global";
-            tips[0] = "Use the " + name(category) + " look";
+            tips[0] = "Use the " + Labels.name(category) + " look";
         } else if (rule != null) {
             tips[0] = "Do not change these blocks";
         }
         int lx = x + labelW, cw = w - labelW;
         ui.text("Style", x, y + 3, Ui.MUTED);
-        int picked = ui.segmented("mode", lx, y, cw, Ui.H, labels, selected, tips);
-        int cy = y + ui.lastHeight + GAP;
-        if (picked != selected) {
-            if (rule != null && cs.onlyGroups() && picked == 0) setRule(cs, index, rule.withGlobalLook());
-            else setLook(cs, index, target.withMode(modes.get(picked)));
+        int chosen = ui.segmented("mode", lx, y, cw, labels, selected, tips);
+        int cy = y + ui.segmentedHeight(labels, cw) + GAP;
+        if (chosen != selected) {
+            if (rule != null && cs.onlyGroups() && chosen == 0) setRule(cs, index, rule.withGlobalLook());
+            else setLook(cs, index, target.withMode(modes.get(chosen)));
             return cy; // the rest of the layout depends on the style; draw it next frame
         }
         if (global) {
             ui.swatch(lx, cy + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080));
-            ui.text(ui.ellipsize(modeTip(cs.appearance().mode()) + " (the " + name(category) + " look)", cw - 14), lx + 13, cy + 3, Ui.MUTED);
+            String text = Labels.modeTip(cs.appearance().mode()) + " (the " + Labels.name(category) + " look)";
+            ui.text(ui.ellipsize(text, cw - 14), lx + 13, cy + 3, Ui.MUTED);
             return cy + Ui.H + GAP;
         }
-        boolean usesShape = target.mode() != Appearance.Mode.ORIGINAL && target.mode() != Appearance.Mode.HIDDEN
+        Appearance.Mode m = target.mode();
+        boolean usesShape = m != Appearance.Mode.ORIGINAL && m != Appearance.Mode.HIDDEN
                 && category != Category.SKY && category != Category.CLOUDS;
-        if (target.mode() == Appearance.Mode.TEXTURE) cy = texturePicker(x, cy, w, cs, index, target);
-        if (target.mode() == Appearance.Mode.SOLID || target.mode() == Appearance.Mode.TEXTURE) {
+        if (m == Appearance.Mode.TEXTURE) cy = imagePicker(x, cy, w, cs, index, target);
+        if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE) {
             ui.text("Color", x, cy + 3, Ui.MUTED);
-            if (target.mode() == Appearance.Mode.TEXTURE) ui.tip(x, cy, labelW, Ui.H, "The color to use when the image is not found");
+            if (m == Appearance.Mode.TEXTURE) ui.tip(x, cy, labelW, Ui.H, "The color to use when the image is not found");
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
             int pickerH = Math.max(24, Math.min(44, bottom - cy - GAP - (usesShape ? Ui.H + GAP : 0)));
             cy = colorPicker(lx, cy, cw, pickerH, cs, index, target);
         }
         if (usesShape) {
+            String[] shapes = {"Keep", "Cut-out", "Solid"};
             ui.text("Shape", x, cy + 3, Ui.MUTED);
-            int a = ui.segmented("alpha", lx, cy, cw, Ui.H, new String[]{"Keep", "Cut-out", "Solid"}, target.alpha().ordinal(),
+            int a = ui.segmented("alpha", lx, cy, cw, shapes, target.alpha().ordinal(),
                     new String[]{"Keep transparent parts (glass, leaves)",
                             "Make each part fully solid or fully transparent",
                             "Fill all holes. Leaves and glass become solid cubes."});
             if (a != target.alpha().ordinal()) setLook(cs, index, target.withAlpha(Appearance.Alpha.values()[a]));
-            cy += ui.lastHeight + GAP;
+            cy += ui.segmentedHeight(shapes, cw) + GAP;
         }
         return cy;
     }
@@ -530,12 +568,13 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- groups
 
     private void groupsTab(int x, int y, int w, int h, CategorySettings cs) {
+        String name = Labels.name(page.category);
+        String[] scopes = {"Everything", "Only groups"};
         ui.text("Scope", x, y + 3, Ui.MUTED);
-        int scope = ui.segmented("scope", x + labelW, y, w - labelW, Ui.H, new String[]{"Everything", "Only groups"},
-                cs.onlyGroups() ? 1 : 0, new String[]{
-                        "The " + name(category) + " look applies to all. Groups change their own blocks.",
-                        "Only blocks in groups change. All other blocks stay vanilla."});
-        int cy = y + ui.lastHeight + GAP;
+        int scope = ui.segmented("scope", x + labelW, y, w - labelW, scopes, cs.onlyGroups() ? 1 : 0, new String[]{
+                "The " + name + " look applies to all. Groups change their own blocks.",
+                "Only blocks in groups change. All other blocks stay vanilla."});
+        int cy = y + ui.segmentedHeight(scopes, w - labelW) + GAP;
         if (scope != (cs.onlyGroups() ? 1 : 0)) {
             Rule blocker = cs.blocksScopeSwitch();
             if (blocker == null) {
@@ -552,7 +591,7 @@ public final class SettingsEditor {
         int nw = ui.buttonWidth(newLabel);
         if (ui.button("group.new", x, cy, nw, Ui.H, newLabel, Ui.Style.PRIMARY, true, "Make a set of blocks with its own look")) {
             setCategory(cs.withRuleAt(cs.rules().size(), cs.newGroup(freeGroupName(cs), Collections.<String>emptyList())));
-            openGroup(cs.rules().size());
+            go(page.withGroup(cs.rules().size()));
             ui.focus("add");
             return;
         }
@@ -561,50 +600,57 @@ public final class SettingsEditor {
         cy += Ui.H + GAP;
         if (rules.isEmpty()) {
             ui.paragraph(cs.onlyGroups() ? "There are no groups. Nothing changes."
-                    : "There are no groups. All textures use the " + name(category) + " look.", x, cy + 2, w, Ui.FAINT);
+                    : "There are no groups. All textures use the " + name + " look.", x, cy + 2, w, Ui.FAINT);
             return;
         }
-        int rowH = 16, lh = y + h - cy;
+        int rowH = 16, lh = y + h - cy, visible = Math.max(1, lh / rowH);
         int first = ui.scroll("groups", x, cy, w, lh, rules.size(), rowH);
-        int listW = rules.size() > Math.max(1, lh / rowH) ? w - 6 : w;
-        for (int i = first; i < Math.min(rules.size(), first + Math.max(1, lh / rowH)); i++) {
-            Rule r = rules.get(i);
-            int ry = cy + (i - first) * rowH;
-            int bx = x + listW - 50;
-            ui.round(x, ry, listW, rowH - 2, Ui.PANEL);
-            if (ui.button("group." + i, x, ry, bx - x - 2, rowH - 2, "", Ui.Style.GHOST, true, "Edit group " + r.displayName())) {
-                openGroup(i);
-                return;
-            }
-            Appearance a = cs.lookOf(r);
-            lookIcon(x + 4, ry + 3, a);
-            String look = r.usesGlobalLook() ? "global look" : a.isOriginal() ? "vanilla" : modeLabel(a.mode()).toLowerCase(Locale.ROOT);
-            int room = bx - x - 22;
-            int nameW = Math.min(ui.width(r.displayName()), room / 2);
-            ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, ry + 3, Ui.TEXT);
-            String members = r.patterns().isEmpty() ? "no blocks" : String.join(", ", r.patterns());
-            ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, ry + 3, Ui.MUTED);
-            if (ui.button("group.up." + i, bx, ry + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
-                setCategory(cs.withRuleMoved(i, -1));
-            }
-            if (ui.button("group.down." + i, bx + 16, ry + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Move down")) {
-                setCategory(cs.withRuleMoved(i, 1));
-            }
-            if (ui.confirmButton("group.del." + i, bx + 34, ry + 1, 15, 12, "x", "Delete this group",
-                    "Click again to delete \"" + r.displayName() + "\"")) {
-                setCategory(cs.withoutRule(i));
-                return;
-            }
+        int listW = rules.size() > visible ? w - 6 : w;
+        for (int i = first; i < Math.min(rules.size(), first + visible); i++) {
+            if (groupRow(x, cy + (i - first) * rowH, listW, rowH - 2, cs, i)) return;
         }
+    }
+
+    /** One row of the group list, which returns true when a click opened or deleted a group. */
+    private boolean groupRow(int x, int y, int w, int h, CategorySettings cs, int i) {
+        List<Rule> rules = cs.rules();
+        Rule r = rules.get(i);
+        int bx = x + w - 50;
+        ui.round(x, y, w, h, Ui.PANEL);
+        if (ui.button("group." + i, x, y, bx - x - 2, h, "", Ui.Style.GHOST, true, "Edit group " + r.displayName())) {
+            go(page.withGroup(i));
+            return true;
+        }
+        Appearance a = cs.lookOf(r);
+        lookIcon(x + 4, y + 3, a);
+        String look = r.usesGlobalLook() ? "global look" : a.isOriginal() ? "vanilla" : Labels.mode(a.mode()).toLowerCase(Locale.ROOT);
+        int room = bx - x - 22;
+        int nameW = Math.min(ui.width(r.displayName()), room / 2);
+        ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, y + 3, Ui.TEXT);
+        String members = r.patterns().isEmpty() ? "no blocks" : String.join(", ", r.patterns());
+        ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, y + 3, Ui.MUTED);
+        // A move keeps drawing the old rows for this frame, so the list does not flicker.
+        if (ui.button("group.up." + i, bx, y + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
+            setCategory(cs.withRuleMoved(i, -1));
+        }
+        if (ui.button("group.down." + i, bx + 16, y + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Move down")) {
+            setCategory(cs.withRuleMoved(i, 1));
+        }
+        if (ui.confirmButton("group.del." + i, bx + 34, y + 1, 15, 12, "x", "Delete this group",
+                "Click again to delete \"" + r.displayName() + "\"")) {
+            setCategory(cs.withoutRule(i));
+            return true;
+        }
+        return false;
     }
 
     private void groupPage(int x, int y, int w, int bottom, CategorySettings cs, int index) {
         Rule rule = cs.rules().get(index);
         if (ui.button("back", x, y - 3, 13, Ui.H, "<", Ui.Style.GHOST, true, "Back to the groups (Esc)")) {
-            openGroup(-1);
+            go(page.withGroup(-1));
             return;
         }
-        String crumb = name(category) + " /";
+        String crumb = Labels.name(page.category) + " /";
         ui.text(crumb, x + 16, y, Ui.MUTED);
         int dw = ui.buttonWidth("Delete");
         int nx = x + 20 + ui.width(crumb), nw = Math.min(140, x + w - dw - 6 - nx);
@@ -617,159 +663,118 @@ public final class SettingsEditor {
         if (ui.confirmButton("group.delete", x + w - dw, y - 3, dw, Ui.H, "Delete", "Delete this group",
                 "Click again to delete \"" + rule.displayName() + "\"")) {
             setCategory(cs.withoutRule(index));
-            openGroup(-1);
+            go(page.withGroup(-1));
             return;
         }
         // Keep room for the block input and one line of chips under the look.
         int cy = lookEditor(x, y + Ui.H + 2, w, bottom - Ui.H - 16, cs, index);
-        blocksEditor(x, cy, w, bottom, cs, index);
+        patternsEditor(x, cy, w, bottom, cs, index);
     }
 
-    /** The group's blocks as removable chips, and an input that suggests matching textures while typing. */
-    private void blocksEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
-        Rule rule = cs.rules().get(index);
+    /** The group's patterns as removable chips, and an input that suggests matching textures while typing. */
+    private void patternsEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
+        Category category = page.category;
         Map<String, Integer> catalog = sc.catalog(category);
-        String members = members(category);
+        String members = Labels.members(category);
         ui.text(members, x, y + 3, Ui.MUTED);
         int fx = x + labelW, fw = w - labelW;
         // Keys the list reacts to are taken before the field would (Enter would unfocus it); typing goes to the field.
-        boolean down = false, up = false, complete = false, enter = false;
-        if (ui.isFocused("add")) {
-            down = ui.takeKey(UiKey.DOWN);
-            up = ui.takeKey(UiKey.UP);
-            complete = ui.takeKey(UiKey.TAB);
-            enter = ui.takeKey(UiKey.ENTER);
-        }
-        if (ui.textField("add", add, fx, y, fw, Ui.H, "Type a name, for example " + example(category) + ". * selects all.",
+        boolean focused = ui.isFocused("add");
+        boolean down = focused && ui.takeKey(UiKey.DOWN), up = focused && ui.takeKey(UiKey.UP);
+        boolean complete = focused && ui.takeKey(UiKey.TAB), enter = focused && ui.takeKey(UiKey.ENTER);
+        if (ui.textField("add", add, fx, y, fw, Ui.H, "Type a name, for example " + Labels.example(category) + ". * selects all.",
                 "Enter adds the selected match. Tab completes. * matches any text. /text/ is a regular expression.")) {
             suggestion = 0;
         }
+        focused = ui.isFocused("add");
         // "/fla" is a regular expression still being typed: it means "/fla/".
         String typed = add.text.trim();
         if (typed.startsWith("/") && !Glob.isRegex(typed)) typed += "/";
         String problem = Glob.problem(typed);
-        List<Suggestion> list = ui.isFocused("add") && problem == null
-                ? suggestions(typed, catalog, cs, index) : Collections.<Suggestion>emptyList();
+        List<GroupMatches.Suggestion> list = focused && problem == null
+                ? matches.suggestions(typed, catalog, cs, index) : Collections.<GroupMatches.Suggestion>emptyList();
         if (down) suggestion++;
         if (up) suggestion--;
         suggestion = Math.max(0, Math.min(suggestion, list.size() - 1));
         if (complete && !list.isEmpty()) add.set(list.get(suggestion).pattern);
         if (enter && !typed.isEmpty() && problem == null) {
-            addPattern(cs, index, list.isEmpty() ? cleanPattern(typed) : list.get(suggestion).pattern);
+            addPattern(cs, index, list.isEmpty() ? toPattern(typed) : list.get(suggestion).pattern);
             return;
         }
         int listY = y + Ui.H + 2, rows = Math.min(list.size(), Math.max(0, (bottom - listY - 2) / ROW));
-        if (rows > 0) ui.reserveOverlay(fx, listY, fw, rows * ROW + 2);
-        if (ui.isFocused("add") && problem != null) {
+        Rect listArea = new Rect(fx, listY, fw, rows * ROW + 2);
+        if (rows > 0) ui.reserveOverlay(listArea);
+        if (focused && problem != null) {
             listY += ui.paragraph("Not a valid regular expression: " + problem, fx, listY + 2, fw, Ui.DANGER) + 2;
-        } else if (ui.isFocused("add") && !add.text.trim().isEmpty() && list.isEmpty()) {
+        } else if (focused && !add.text.trim().isEmpty() && list.isEmpty()) {
             ui.textFit("No texture matches. Enter adds it as you typed it.", fx, listY + 2, fw, Ui.FAINT);
             listY += 12;
         }
+        if (chips(fx, listY + 2, fw, bottom, cs, index, catalog)) return;
+        if (cs.rules().get(index).patterns().isEmpty() && rows == 0 && !focused) {
+            ui.paragraph("No " + members.toLowerCase(Locale.ROOT) + " yet. Type a name above, or * for all.", fx, listY + 4, fw, Ui.FAINT);
+        }
+        if (rows > 0) suggestionList(listArea, list.subList(0, rows), cs, index);
+    }
 
-        // chips
-        int cx = fx, cyy = listY + 2;
+    /** The group's patterns as chips in wrapped lines, which returns true when a click removed one. */
+    private boolean chips(int fx, int y, int fw, int bottom, CategorySettings cs, int index, Map<String, Integer> catalog) {
+        Rule rule = cs.rules().get(index);
+        int cx = fx, cy = y;
         for (int i = 0; i < rule.patterns().size(); i++) {
             String p = rule.patterns().get(i);
-            int[] stats = chipStats(cs, index, p, catalog);
-            int matched = stats[0], effective = stats[1];
-            Integer color = matched > 0 ? stats[2] : null;
-            boolean dim = matched == 0 || effective == 0;
-            String tip = matched == 0 ? "No loaded texture matches " + p
-                    : effective == 0 ? "A higher group already has all " + matched + " of these textures"
-                    : effective + " texture" + (effective == 1 ? "" : "s");
-            int cw = ui.chipWidth(p, color != null);
+            GroupMatches.Chip m = matches.chip(cs, index, p, catalog);
+            boolean dim = m.matched == 0 || m.effective == 0;
+            String tip = m.matched == 0 ? "No loaded texture matches " + p
+                    : m.effective == 0 ? "A higher group already has all " + m.matched + " of these textures"
+                    : m.effective + " texture" + (m.effective == 1 ? "" : "s");
+            int cw = ui.chipWidth(p, m.color != null);
             if (cx + cw > fx + fw && cx > fx) {
                 cx = fx;
-                cyy += 14;
+                cy += 14;
             }
             // Keep a line free for "+N more" unless this is the last chip, so none disappear silently.
             boolean last = i == rule.patterns().size() - 1;
-            if (cyy + 12 > (last ? bottom : bottom - 11)) {
+            if (cy + 12 > (last ? bottom : bottom - 11)) {
                 int more = rule.patterns().size() - i;
-                if (cyy + Ui.LINE <= bottom && !ui.textFit("+" + more + " more. Make the window larger to see them.", fx, cyy + 2, fw, Ui.FAINT)) {
-                    ui.textFit("+" + more + " more", fx, cyy + 2, fw, Ui.FAINT);
+                if (cy + Ui.LINE <= bottom) {
+                    ui.textFirstFit(fx, cy + 2, fw, Ui.FAINT, "+" + more + " more. Make the window larger to see them.", "+" + more + " more");
                 }
-                break;
+                return false;
             }
-            boolean[] removed = {false};
-            cx += ui.chip("chip." + i + "." + p, cx, cyy, color, p, dim, tip, removed) + 3;
-            if (removed[0]) {
+            if (ui.chip("chip." + i + "." + p, cx, cy, m.color, p, dim, tip)) {
                 List<String> next = new ArrayList<String>(rule.patterns());
                 next.remove(i);
                 setRule(cs, index, rule.withPatterns(next));
+                return true;
+            }
+            cx += cw + 3;
+        }
+        return false;
+    }
+
+    /** The suggestions under the group input, drawn over the chips. */
+    private void suggestionList(Rect area, List<GroupMatches.Suggestion> rows, CategorySettings cs, int index) {
+        int fx = area.x, fw = area.w;
+        ui.beginOverlay();
+        ui.panel(area, Ui.BORDER, Ui.PANEL);
+        for (int i = 0; i < rows.size(); i++) {
+            GroupMatches.Suggestion s = rows.get(i);
+            int ry = area.y + 1 + i * ROW;
+            if (i == suggestion) ui.fill(fx + 1, ry, fw - 2, ROW, Ui.CARD_HOVER);
+            if (ui.button("sugg." + i, fx + 1, ry, fw - 2, ROW, "", Ui.Style.GHOST, true, null)) {
+                ui.endOverlay();
+                addPattern(cs, index, s.pattern);
                 return;
             }
+            ui.swatch(fx + 4, ry + 2, 7, 7, s.color);
+            String right = s.owner != null ? "in " + s.owner : s.count > 1 ? s.count + " textures" : "";
+            int rw = right.isEmpty() ? 0 : Math.min(ui.width(right), fw / 3) + 6;
+            ui.text(ui.ellipsize(s.pattern, fw - 20 - rw), fx + 15, ry + 1, Ui.TEXT);
+            if (rw > 0) ui.text(ui.ellipsize(right, rw - 6), fx + fw - rw - 2, ry + 1, s.owner != null ? Ui.WARN : Ui.FAINT);
+            if (s.owner != null) ui.tip(fx + 1, ry, fw - 2, ROW, "Group " + s.owner + " also has this. A higher group wins.");
         }
-        if (rule.patterns().isEmpty() && rows == 0 && !ui.isFocused("add")) {
-            ui.paragraph("No " + members.toLowerCase(Locale.ROOT) + " yet. Type a name above, or * for all.", fx, cyy + 2, fw, Ui.FAINT);
-        }
-
-        // suggestions, drawn over the chips
-        if (rows > 0) {
-            ui.beginOverlay();
-            ui.round(fx, listY, fw, rows * ROW + 2, Ui.BORDER);
-            ui.round(fx + 1, listY + 1, fw - 2, rows * ROW, Ui.PANEL);
-            for (int i = 0; i < rows; i++) {
-                Suggestion s = list.get(i);
-                int ry = listY + 1 + i * ROW;
-                if (i == suggestion) ui.fill(fx + 1, ry, fw - 2, ROW, Ui.CARD_HOVER);
-                if (ui.button("sugg." + i, fx + 1, ry, fw - 2, ROW, "", Ui.Style.GHOST, true, null)) {
-                    addPattern(cs, index, s.pattern);
-                    ui.focus("add");
-                    return;
-                }
-                ui.swatch(fx + 4, ry + 2, 7, 7, s.color);
-                String right = s.owner != null ? "in " + s.owner : s.count > 1 ? s.count + " textures" : "";
-                int rw = right.isEmpty() ? 0 : Math.min(ui.width(right), fw / 3) + 6;
-                ui.text(ui.ellipsize(s.pattern, fw - 20 - rw), fx + 15, ry + 1, Ui.TEXT);
-                if (rw > 0) ui.text(ui.ellipsize(right, rw - 6), fx + fw - rw - 2, ry + 1, s.owner != null ? Ui.WARN : Ui.FAINT);
-                if (s.owner != null) ui.tip(fx + 1, ry, fw - 2, ROW, "Group " + s.owner + " also has this. A higher group wins.");
-            }
-            ui.endOverlay();
-        }
-    }
-
-    // Scanning ~1000 textures with globs is too slow to do every frame. Results depend only on the groups' block
-    // lists and the catalog, so they're kept until one of those changes (not on every color or name edit).
-    private List<List<String>> memoPatterns;
-    private Map<String, Integer> memoCatalog;
-    private TreeSet<String> shortIds;
-    private final Map<String, int[]> chipMemo = new HashMap<String, int[]>();
-    private final Map<String, List<Suggestion>> suggestionMemo = new HashMap<String, List<Suggestion>>();
-
-    private void checkMemo(CategorySettings cs, Map<String, Integer> catalog) {
-        List<List<String>> patterns = new ArrayList<List<String>>();
-        for (Rule r : cs.rules()) patterns.add(r.patterns());
-        if (catalog != memoCatalog) {
-            memoCatalog = catalog;
-            shortIds = new TreeSet<String>();
-            for (String id : catalog.keySet()) shortIds.add(shortId(id));
-            memoPatterns = null;
-        }
-        if (!patterns.equals(memoPatterns)) {
-            memoPatterns = patterns;
-            chipMemo.clear();
-            suggestionMemo.clear();
-        }
-    }
-
-    /** {textures matched, textures group {@code index} actually gets (no higher group took them), first match's color}. */
-    private int[] chipStats(CategorySettings cs, int index, String pattern, Map<String, Integer> catalog) {
-        checkMemo(cs, catalog);
-        String key = index + "|" + pattern;
-        int[] stats = chipMemo.get(key);
-        if (stats != null) return stats;
-        Glob g = Glob.compile(pattern);
-        Rule rule = cs.rules().get(index);
-        stats = new int[3];
-        for (Map.Entry<String, Integer> e : catalog.entrySet()) {
-            if (!g.matches(e.getKey())) continue;
-            if (stats[0]++ == 0) stats[2] = e.getValue();
-            if (cs.ruleFor(e.getKey()) == rule) stats[1]++;
-        }
-        chipMemo.put(key, stats);
-        return stats;
+        ui.endOverlay();
     }
 
     private void addPattern(CategorySettings cs, int index, String pattern) {
@@ -779,119 +784,7 @@ public final class SettingsEditor {
         ui.focus("add");
     }
 
-    private static final class Suggestion {
-        final String pattern;
-        final int count;
-        final Integer color;
-        final String owner;
-
-        Suggestion(String pattern, int count, Integer color, String owner) {
-            this.pattern = pattern;
-            this.count = count;
-            this.color = color;
-            this.owner = owner;
-        }
-    }
-
-    /**
-     * Matches for what's typed: the exact name first, then whole blocks ("grass_block*" covers its top, sides and
-     * overlay), then single textures; names starting with the text before names containing it. A typed pattern with *
-     * is offered as is.
-     */
-    private List<Suggestion> suggestions(String typed, Map<String, Integer> catalog, CategorySettings cs, int index) {
-        String q = cleanPattern(typed);
-        if (q.isEmpty()) return Collections.emptyList();
-        checkMemo(cs, catalog);
-        String key = index + "|" + q;
-        List<Suggestion> cached = suggestionMemo.get(key);
-        if (cached == null) {
-            cached = findSuggestions(q, catalog, cs, index);
-            suggestionMemo.put(key, cached);
-        }
-        return cached;
-    }
-
-    private List<Suggestion> findSuggestions(String q, Map<String, Integer> catalog, CategorySettings cs, int index) {
-        Rule self = cs.rules().get(index);
-        List<Suggestion> out = new ArrayList<Suggestion>();
-        if (Glob.isRegex(q) || q.indexOf('*') >= 0 || q.indexOf('?') >= 0) {
-            out.add(suggestionFor(q, catalog, cs, self));
-            return out;
-        }
-        Map<String, List<String>> stems = new LinkedHashMap<String, List<String>>();
-        List<String> singles = new ArrayList<String>();
-        for (String id : catalog.keySet()) {
-            String s = shortId(id);
-            if (!s.contains(q)) continue;
-            singles.add(s);
-            String stem = stem(s);
-            if (!stems.containsKey(stem)) stems.put(stem, new ArrayList<String>());
-            stems.get(stem).add(s);
-        }
-        List<String> candidates = new ArrayList<String>();
-        for (Map.Entry<String, List<String>> e : stems.entrySet()) {
-            if (e.getValue().size() > 1 && wholeBlock(e.getKey())) candidates.add(e.getKey() + "*");
-        }
-        candidates.addAll(singles);
-        // The exact name comes first, so that "dirt" + Enter adds dirt, not dirt_path*.
-        List<String> starts = new ArrayList<String>(), contains = new ArrayList<String>();
-        for (String c : candidates) {
-            if (self.patterns().contains(c)) continue;
-            if (c.equals(q) || c.equals(q + "*")) starts.add(0, c);
-            else (c.startsWith(q) ? starts : contains).add(c);
-        }
-        for (String c : starts) if (out.size() < MAX_SUGGESTIONS) out.add(suggestionFor(c, catalog, cs, self));
-        for (String c : contains) if (out.size() < MAX_SUGGESTIONS) out.add(suggestionFor(c, catalog, cs, self));
-        return out;
-    }
-
-    private Suggestion suggestionFor(String pattern, Map<String, Integer> catalog, CategorySettings cs, Rule self) {
-        Glob g = Glob.compile(pattern);
-        int count = 0;
-        Integer color = null;
-        String owner = null;
-        for (Map.Entry<String, Integer> e : catalog.entrySet()) {
-            if (!g.matches(e.getKey())) continue;
-            count++;
-            if (color == null) color = e.getValue();
-            Rule r = cs.ruleFor(e.getKey());
-            if (owner == null && r != null && r != self && r.patterns().contains(pattern)) owner = r.displayName();
-        }
-        return new Suggestion(pattern, count, color, owner);
-    }
-
-    /**
-     * "grass_block_side_overlay" -> "grass_block", "generic_7" (a particle frame) -> "generic". Names without a face
-     * or frame suffix are their own stem.
-     */
-    private static String stem(String id) {
-        for (int u = id.lastIndexOf('_'); u > 0 && isPart(id.substring(u + 1)); u = id.lastIndexOf('_')) {
-            id = id.substring(0, u);
-        }
-        return id;
-    }
-
-    private static boolean isPart(String suffix) {
-        return FACE_SUFFIXES.contains(suffix) || suffix.matches("[0-9]+");
-    }
-
-    /**
-     * True when "stem*" matches only that block's own textures (not e.g. "stone*" matching stone_bricks): a prefix
-     * range over the sorted names, no regex.
-     */
-    private boolean wholeBlock(String stem) {
-        for (String s : shortIds.subSet(stem, true, stem + Character.MAX_VALUE, true)) {
-            if (!stem(s).equals(stem)) return false;
-        }
-        return true;
-    }
-
-    /** Globs are lower case and lose the vanilla namespace; a regular expression stays as typed. */
-    private static String cleanPattern(String text) {
-        return Glob.isRegex(text) ? text.trim() : shortId(text.trim().toLowerCase(Locale.ROOT));
-    }
-
-    private String freeGroupName(CategorySettings cs) {
+    private static String freeGroupName(CategorySettings cs) {
         for (int n = cs.rules().size() + 1; ; n++) {
             boolean taken = false;
             for (Rule r : cs.rules()) if (r.displayName().equals("Group " + n)) taken = true;
@@ -899,17 +792,11 @@ public final class SettingsEditor {
         }
     }
 
-    private void openGroup(int index) {
-        group = index;
-        add.set("");
-        suggestion = 0;
-        ui.clearFocus();
-    }
-
     // ---------------------------------------------------------------- textures
 
     /** Every texture seen in this category; clicking one opens its group, or starts a group with it. */
     private void texturesTab(int x, int y, int w, int h, CategorySettings cs) {
+        Category category = page.category;
         Map<String, Integer> catalog = sc.catalog(category);
         List<String> ids = new ArrayList<String>();
         String q = search.text.trim().toLowerCase(Locale.ROOT);
@@ -951,12 +838,12 @@ public final class SettingsEditor {
 
     private void openTextureGroup(CategorySettings cs, String id, Rule owner) {
         if (owner != null) {
-            openGroup(cs.rules().indexOf(owner));
-        } else {
-            // First place, so the texture really gets this group's look even if a broader group also matches it.
-            setCategory(cs.withRuleAt(0, cs.newGroup(shortId(id), Collections.singletonList(shortId(id)))));
-            openGroup(0);
+            go(page.withGroup(cs.rules().indexOf(owner)));
+            return;
         }
+        // First place, so the texture really gets this group's look even if a broader group also matches it.
+        setCategory(cs.withRuleAt(0, cs.newGroup(shortId(id), Collections.singletonList(shortId(id)))));
+        go(page.withGroup(0));
     }
 
     // ---------------------------------------------------------------- world page
@@ -968,39 +855,22 @@ public final class SettingsEditor {
         int cy = y + 16;
         // Each row shows its explanation when all rows fit with it; otherwise the explanation is the tooltip only.
         int need = 0;
-        for (Toggle t : Toggle.values()) need += 18 + ui.paragraphHeight(explain(t), w - 12) + 4;
+        for (Toggle t : Toggle.values()) need += 18 + ui.paragraphHeight(Labels.explain(t), w - 12) + 4;
         boolean full = need <= y + h - cy;
         for (Toggle t : Toggle.values()) {
-            int rh = full ? 18 + ui.paragraphHeight(explain(t), w - 12) : 16;
+            String explain = Labels.explain(t);
+            int rh = full ? 18 + ui.paragraphHeight(explain, w - 12) : 16;
             ui.round(x, cy, w, rh, Ui.PANEL);
             boolean on = profile().is(t);
-            if (ui.toggleRow(t.key, x + 2, cy + 2, w - 4, label(t), on, explain(t)) != on) setProfile(profile().with(t, !on));
-            if (full) ui.paragraph(explain(t), x + 6, cy + 15, w - 12, Ui.MUTED);
+            if (ui.toggleRow(t.key, x + 2, cy + 2, w - 4, Labels.toggle(t), on, explain) != on) setProfile(profile().with(t, !on));
+            if (full) ui.paragraph(explain, x + 6, cy + 15, w - 12, Ui.MUTED);
             cy += rh + 4;
-        }
-    }
-
-    private static String label(Toggle t) {
-        switch (t) {
-            case FULLBRIGHT: return "Fullbright";
-            case SHADING: return "Shading";
-            case FOLIAGE: return "Foliage";
-            default: return "Entity shadows";
-        }
-    }
-
-    private static String explain(Toggle t) {
-        switch (t) {
-            case FULLBRIGHT: return "Full light in all areas. No dark caves or night.";
-            case SHADING: return "Smooth lighting and darker block sides.";
-            case FOLIAGE: return "Grass, flowers, ferns and vines. Off hides them.";
-            default: return "The round shadows below mobs and players.";
         }
     }
 
     // ---------------------------------------------------------------- color and image pickers
 
-    private int texturePicker(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
+    private int imagePicker(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
         List<String> names = sc.userTextureNames();
         ui.text("Image", x, y + 3, Ui.MUTED);
         int lx = x + labelW, lw = w - labelW;
@@ -1018,41 +888,41 @@ public final class SettingsEditor {
         return y + Ui.H + GAP;
     }
 
-    /** Saturation/brightness square, hue and opacity bars, hex input and a palette. Returns the next y. */
+    /** Draws a saturation and brightness square, hue and opacity bars, a hex input and a palette, and returns the next y. */
     private int colorPicker(int x, int y, int w, int sqH, CategorySettings cs, int index, Appearance target) {
         int color = target.color();
-        if (color != pickerColor) syncPicker(color);
+        if (hsv.color == null || hsv.color != color) hsv.sync(color);
         int alpha = Colors.alpha(color);
         int sqW = Math.min(84, w / 3);
 
         // saturation (x) / brightness (y) square, drawn in 3px cells
         for (int yy = 0; yy < sqH; yy += 3) {
             for (int xx = 0; xx < sqW; xx += 3) {
-                int cell = Ui.hsv(hue, xx / (float) (sqW - 1), 1 - yy / (float) (sqH - 1));
+                int cell = Ui.hsv(hsv.hue, xx / (float) (sqW - 1), 1 - yy / (float) (sqH - 1));
                 ui.fill(x + xx, y + yy, Math.min(3, sqW - xx), Math.min(3, sqH - yy), cell);
             }
         }
-        int kx = x + Math.round(sat * (sqW - 1)), ky = y + Math.round((1 - val) * (sqH - 1));
-        ui.outline(kx - 2, ky - 2, 5, 5, val > 0.5f ? 0xFF000000 : 0xFFFFFFFF);
+        int kx = x + Math.round(hsv.sat * (sqW - 1)), ky = y + Math.round((1 - hsv.val) * (sqH - 1));
+        ui.outline(kx - 2, ky - 2, 5, 5, hsv.val > 0.5f ? 0xFF000000 : 0xFFFFFFFF);
         ui.tip(x, y, sqW, sqH, "Saturation and brightness");
         float[] sv = ui.dragArea("sv", x, y, sqW, sqH);
         if (sv != null) {
-            sat = sv[0];
-            val = 1 - sv[1];
+            hsv.sat = sv[0];
+            hsv.val = 1 - sv[1];
         }
 
         // hue bar
         int hx = x + sqW + 4;
         for (int yy = 0; yy < sqH; yy += 2) ui.fill(hx, y + yy, 8, Math.min(2, sqH - yy), Ui.hsv(yy / (float) sqH, 1, 1));
-        ui.fill(hx - 1, y + Math.round(hue * (sqH - 1)), 10, 1, 0xFFFFFFFF);
+        ui.fill(hx - 1, y + Math.round(hsv.hue * (sqH - 1)), 10, 1, 0xFFFFFFFF);
         ui.tip(hx, y, 8, sqH, "Hue");
         float[] hv = ui.dragArea("hue", hx, y, 8, sqH);
-        if (hv != null) hue = Math.min(hv[1], 0.999f);
+        if (hv != null) hsv.hue = Math.min(hv[1], 0.999f);
 
         // opacity bar
         int ax = hx + 12;
         ui.checker(ax, y, 8, sqH);
-        int rgb = Ui.hsv(hue, sat, val);
+        int rgb = Ui.hsv(hsv.hue, hsv.sat, hsv.val);
         for (int yy = 0; yy < sqH; yy += 2) ui.fill(ax, y + yy, 8, Math.min(2, sqH - yy), Colors.withAlpha(rgb, 255 - yy * 255 / sqH));
         ui.fill(ax - 1, y + Math.round((1 - alpha / 255f) * (sqH - 1)), 10, 1, 0xFFFFFFFF);
         ui.tip(ax, y, 8, sqH, "Opacity " + Math.round(alpha * 100 / 255f) + "%");
@@ -1062,20 +932,20 @@ public final class SettingsEditor {
         // Dragging only the opacity keeps the exact RGB (the HSV round trip could shift it slightly).
         int next = Colors.withAlpha(av != null && sv == null && hv == null ? color : rgb, alpha);
         if (next != color) {
-            pickerColor = next;
+            hsv.color = next;
             setLook(cs, index, target.withColor(next));
         }
 
         // preview, hex and palette
         // The large preview is left out when it would make the hex field too narrow to show a whole color.
         int px = ax + 14, pw = Math.max(40, x + w - px);
-        int hexW = Math.min(62, pw), preview = pw - hexW >= 22 ? 22 : 0;
-        if (preview > 0) ui.swatch(px, y, 18, 18, next);
+        int hexW = Math.min(62, pw), previewW = pw - hexW >= 22 ? 22 : 0;
+        if (previewW > 0) ui.swatch(px, y, 18, 18, next);
         if (!ui.isFocused("hex")) hex.set(Colors.format(color));
-        if (ui.textField("hex", hex, px + preview, y + 2, hexW, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
+        if (ui.textField("hex", hex, px + previewW, y + 2, hexW, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
             try {
                 int typed = Colors.parse(hex.text);
-                syncPicker(typed);
+                hsv.sync(typed);
                 setLook(cs, index, target.withColor(typed));
             } catch (IllegalArgumentException ignored) {
                 // keep typing
@@ -1091,19 +961,11 @@ public final class SettingsEditor {
             ui.swatch(sx, sy, sw, sw, PALETTE[i]);
             if (clicked) {
                 int c = Colors.withAlpha(PALETTE[i], alpha);
-                syncPicker(c);
+                hsv.sync(c);
                 setLook(cs, index, target.withColor(c));
             }
         }
         return y + sqH + GAP;
-    }
-
-    private void syncPicker(int color) {
-        float[] hsv = Ui.toHsv(color);
-        if (hsv[1] > 0 && hsv[2] > 0) hue = hsv[0];
-        sat = hsv[1];
-        val = hsv[2];
-        pickerColor = color;
     }
 
     // ---------------------------------------------------------------- footer
@@ -1111,8 +973,8 @@ public final class SettingsEditor {
     private void footer(int x, int y, int w) {
         boolean dirty = !draft.equals(saved);
         Config.KeyBinds k = draft.keys();
-        int bw = Math.max(44, Math.max(ui.buttonWidth("Discard"), ui.buttonWidth("Apply")));
-        int lw = Math.max(ui.buttonWidth("Export"), ui.buttonWidth("Import"));
+        int bw = Math.max(44, ui.buttonWidth("Discard", "Apply"));
+        int lw = ui.buttonWidth("Export", "Import");
         if (ui.button("done", x + w - bw, y, bw, Ui.H, "Done", Ui.Style.PRIMARY, true, "Save and close (Esc)")) done();
         if (ui.button("apply", x + w - 2 * bw - 3, y, bw, Ui.H, "Apply", Ui.Style.NORMAL, dirty,
                 dirty ? "Save and show the result. The screen stays open." : "There are no changes to save")) apply();
@@ -1128,65 +990,61 @@ public final class SettingsEditor {
         }
         int tx = x + 2 * lw + 3 + 8, room = x + w - 3 * bw - 6 - 8 - tx;
         if (dirty) {
-            if (!ui.textFit("Changes not saved", tx, y + 3, room, Ui.WARN)) ui.textFit("Not saved", tx, y + 3, room, Ui.WARN);
-        } else if (!ui.textFit(k.toggle + " on/off   " + k.cycleProfile + " next profile   " + k.settings + " this screen",
-                tx, y + 3, room, Ui.FAINT)) {
-            ui.textFit(k.toggle + " on/off   " + k.cycleProfile + " next", tx, y + 3, room, Ui.FAINT);
+            ui.textFirstFit(tx, y + 3, room, Ui.WARN, "Changes not saved", "Not saved");
+        } else {
+            ui.textFirstFit(tx, y + 3, room, Ui.FAINT, k.toggle + " on/off   " + k.cycleProfile + " next profile   " + k.settings + " this screen",
+                    k.toggle + " on/off   " + k.cycleProfile + " next");
         }
     }
 
-    /** The last export or import result: a box above the footer for a few seconds, wrapped so all of it shows. */
+    /** The last message: a box above the footer for a few seconds, wrapped so all of it shows. */
     private void toast(int x, int bottom, int w) {
-        if (status == null) return;
-        if (System.currentTimeMillis() - statusAt > STATUS_MS) {
-            status = null;
+        if (toast == null) return;
+        if (System.currentTimeMillis() - toast.at > TOAST_MS) {
+            toast = null;
             return;
         }
-        int tw = Math.min(w, 240), th = ui.paragraphHeight(status, tw - 12) + 8;
-        int ty = bottom - th;
-        ui.round(x, ty, tw, th, statusColor == Ui.DANGER ? Ui.DANGER : Ui.BORDER);
-        ui.round(x + 1, ty + 1, tw - 2, th - 2, Ui.TOOLTIP);
-        ui.paragraph(status, x + 6, ty + 4, tw - 12, statusColor == Ui.DANGER ? Ui.DANGER : Ui.TEXT);
+        int tw = Math.min(w, 240), th = ui.paragraphHeight(toast.text, tw - 12) + 8;
+        ui.panel(new Rect(x, bottom - th, tw, th), toast.error ? Ui.DANGER : Ui.BORDER, Ui.TOOLTIP);
+        ui.paragraph(toast.text, x + 6, bottom - th + 4, tw - 12, toast.error ? Ui.DANGER : Ui.TEXT);
     }
+
+    private void say(String text) { toast = new Toast(text, false); }
+
+    private void sayError(String text) { toast = new Toast(text, true); }
 
     private void exportProfile() {
         try {
             File file = sc.exportProfile(profile());
-            setStatus("Saved to profiles/" + file.getName() + " and copied to the clipboard", Ui.MUTED);
+            say("Saved to profiles/" + file.getName() + " and copied to the clipboard");
         } catch (IOException e) {
             sc.platform().warn("Cannot export the profile", e);
-            setStatus("Cannot save the file: " + e.getMessage(), Ui.DANGER);
+            sayError("Cannot save the file: " + e.getMessage());
         }
     }
 
     private void importProfile() {
         String text = sc.platform().clipboard();
         if (text == null || text.trim().isEmpty()) {
-            setStatus("The clipboard is empty. Copy the text of a profile file, then push Import.", Ui.DANGER);
+            sayError("The clipboard is empty. Copy the text of a profile file, then push Import.");
             return;
         }
         try {
-            setDraft(draft.withImportedProfile(ConfigCodec.decodeProfileFile(text)));
-            setStatus("Added profile " + draft.activeProfileName() + ". Push Apply or Done to keep it.", Ui.MUTED);
+            switchProfile(draft.withImportedProfile(ConfigCodec.decodeProfileFile(text)));
+            say("Added profile " + draft.activeProfileName() + ". Push Apply or Done to keep it.");
         } catch (IllegalArgumentException e) {
-            setStatus("Cannot import: " + e.getMessage(), Ui.DANGER);
+            sayError("Cannot import: " + e.getMessage());
         }
     }
 
-    private void setStatus(String text, int color) {
-        status = text;
-        statusColor = color;
-        statusAt = System.currentTimeMillis();
-    }
-
     private void apply() {
-        sc.apply(draft);
+        RefreshResult r = sc.apply(draft);
         saved = draft;
-        setStatus("Saved", Ui.MUTED);
+        say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved");
     }
 
     private void done() {
-        if (renaming) finishRename();
+        if (mode == Mode.RENAME) finishRename();
         if (!draft.equals(saved)) sc.apply(draft);
         saved = draft;
         closed = true;
@@ -1197,10 +1055,14 @@ public final class SettingsEditor {
     private Profile profile() { return draft.activeProfile(); }
 
     private void setDraft(Config c) {
-        // An open group belongs to the profile it was opened in.
-        if (draft != null && !draft.activeProfileName().equals(c.activeProfileName())) openGroup(-1);
         draft = c;
         preview = Policy.of(c.activeProfile());
+    }
+
+    /** Selects a different profile, which closes a group of the previous one. */
+    private void switchProfile(Config c) {
+        setDraft(c);
+        go(page.withGroup(-1));
     }
 
     /** A change to a built-in profile goes into a new copy of it (see {@link Config}); the message says so. */
@@ -1208,12 +1070,11 @@ public final class SettingsEditor {
         String before = draft.activeProfileName();
         setDraft(draft.withProfile(p));
         if (!draft.activeProfileName().equals(before)) {
-            setStatus(before + " is built in and does not change. Your changes are in the new profile "
-                    + draft.activeProfileName() + ".", Ui.MUTED);
+            say(before + " is built in and does not change. Your changes are in the new profile " + draft.activeProfileName() + ".");
         }
     }
 
-    private void setCategory(CategorySettings cs) { setProfile(profile().with(category, cs)); }
+    private void setCategory(CategorySettings cs) { setProfile(profile().with(page.category, cs)); }
 
     /** Sets the global look ({@code index} -1) or a group's own look. */
     private void setLook(CategorySettings cs, int index, Appearance a) {
@@ -1225,145 +1086,11 @@ public final class SettingsEditor {
         setCategory(cs.withRule(index, r));
     }
 
-    // ---------------------------------------------------------------- scripted input for the dev harness
-
-    private static final Queue<String> SCRIPT = new ConcurrentLinkedQueue<String>();
-    /** Labels drawn in the last frame while a script runs: text -> center. */
-    private Map<String, int[]> lastTexts;
-    private int[] scriptPointer;
-
-    /**
-     * Queues an input for the open settings screen, for screenshots of each page (see the dev harness):
-     * {@code click <label>}, {@code type <text>}, {@code key <UiKey>}, {@code pointer off}. One runs per frame.
-     */
-    public static void script(String command) {
-        SCRIPT.add(command);
-    }
-
-    /** Returns true when the left button must be released after this frame. */
-    private boolean runScript(String command) {
-        if (command == null) return false;
-        int space = command.indexOf(' ');
-        String verb = space < 0 ? command : command.substring(0, space);
-        String arg = space < 0 ? "" : command.substring(space + 1);
-        if (verb.equals("click")) {
-            int[] at = lastTexts.get(arg);
-            if (at == null) {
-                for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(arg)) at = e.getValue();
-            }
-            if (at == null) return false;
-            scriptPointer = at;
-            ui.mousePressed();
-            return true;
-        }
-        if (verb.equals("type")) for (char ch : arg.toCharArray()) ui.typed(ch);
-        else if (verb.equals("key")) ui.key(UiKey.valueOf(arg), false);
-        else if (verb.equals("pointer")) scriptPointer = new int[]{-1, -1};
-        return false;
-    }
-
-    /** Passes drawing through and keeps where each text was drawn. */
-    private static final class Recorder implements Canvas {
-        final Canvas c;
-        final Map<String, int[]> texts = new HashMap<String, int[]>();
-
-        Recorder(Canvas c) { this.c = c; }
-
-        @Override public int width() { return c.width(); }
-        @Override public int height() { return c.height(); }
-        @Override public void fill(int x0, int y0, int x1, int y1, int argb) { c.fill(x0, y0, x1, y1, argb); }
-        @Override public int textWidth(String text) { return c.textWidth(text); }
-
-        @Override
-        public void text(String text, int x, int y, int argb) {
-            c.text(text, x, y, argb);
-            if (!texts.containsKey(text)) texts.put(text, new int[]{x + c.textWidth(text) / 2, y + 4});
-        }
-    }
-
-    // ---------------------------------------------------------------- labels
-
-    /**
-     * The preview color for an appearance applied to a texture whose average is {@code original}: the real transform
-     * on one pixel, so previews always match what is rendered. Null means hidden.
-     */
+    /** The real transform on one pixel of the {@code original} average color, so that previews match the game, or null for hidden. */
     private static Integer chipColor(Appearance a, int original) {
         if (a.mode() == Appearance.Mode.HIDDEN) return null;
         PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
         PixelTransformer.apply(a.withAlpha(Appearance.Alpha.OPAQUE), pixel, null);
         return pixel.getArgb(0, 0);
     }
-
-    /** Vanilla ids without the namespace; modded ids keep it. */
-    private static String shortId(String id) {
-        return id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
-    }
-
-    private static String modeLabel(Appearance.Mode m) {
-        switch (m) {
-            case ORIGINAL: return "Vanilla";
-            case SOLID: return "Color";
-            case AVERAGE: return "Average";
-            case GRAYSCALE: return "Gray";
-            case TEXTURE: return "Image";
-            default: return "Hide";
-        }
-    }
-
-    private static String modeTip(Appearance.Mode m) {
-        switch (m) {
-            case ORIGINAL: return "Do not change";
-            case SOLID: return "One flat color";
-            case AVERAGE: return "Each texture changes to its average color";
-            case GRAYSCALE: return "Keep the detail and remove the color";
-            case TEXTURE: return "A PNG image from config/albedo/textures";
-            default: return "Do not show";
-        }
-    }
-
-    /** The words the screen uses for one category. */
-    private static final class Words {
-        final String name, members, example, description;
-
-        /**
-         * @param members what a group's patterns name, the label of its input ("Blocks", "Particles")
-         * @param example a name to type in the group input
-         */
-        Words(String name, String members, String example, String description) {
-            this.name = name;
-            this.members = members;
-            this.example = example;
-            this.description = description;
-        }
-    }
-
-    private static final Map<Category, Words> WORDS = new EnumMap<Category, Words>(Category.class);
-
-    static {
-        WORDS.put(Category.BLOCKS, new Words("Blocks", "Blocks", "dirt", "Terrain: stone, grass, leaves, glass..."));
-        WORDS.put(Category.FLUIDS, new Words("Fluids", "Fluids", "water", "Water and lava"));
-        WORDS.put(Category.BLOCK_ENTITIES, new Words("Block entities", "Textures", "chest", "Chests, beds, bells, decorated pots"));
-        WORDS.put(Category.DECORATIONS, new Words("Decorations", "Textures", "banner", "Signs, banners, paintings, maps, item frames"));
-        WORDS.put(Category.ITEMS, new Words("Items", "Items", "diamond_sword", "Item icons and held items"));
-        WORDS.put(Category.ENTITIES, new Words("Mobs and entities", "Mobs", "creeper", "Mobs, projectiles, armor"));
-        WORDS.put(Category.PLAYERS, new Words("Players", "Skins", "steve", "Default player skins"));
-        WORDS.put(Category.PARTICLES, new Words("Particles", "Particles", "flame", "Smoke, flames, hits, splashes"));
-        WORDS.put(Category.BLOCK_BREAKING, new Words("Mining cracks", "Stages", "destroy_stage", "The cracks on a block while you mine it"));
-        WORDS.put(Category.SKY, new Words("Sky", "Textures", "sun", "Sky color. Also hides the sun, moon and stars."));
-        WORDS.put(Category.CLOUDS, new Words("Clouds", "Textures", "clouds", "Clouds"));
-        WORDS.put(Category.WEATHER, new Words("Weather", "Textures", "rain", "Rain and snow"));
-    }
-
-    private static Words words(Category c) {
-        Words w = WORDS.get(c);
-        return w != null ? w : new Words(c.key(), "Textures", "stone", "");
-    }
-
-    static String name(Category c) { return words(c).name; }
-
-    static String members(Category c) { return words(c).members; }
-
-    static String example(Category c) { return words(c).example; }
-
-    static String description(Category c) { return words(c).description; }
 }

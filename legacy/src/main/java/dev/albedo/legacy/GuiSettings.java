@@ -43,12 +43,12 @@ public final class GuiSettings extends GuiScreen implements Canvas {
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
-        editor.mousePressed(x, y, button);
+        editor.mousePressed(button);
     }
 
     @Override
     protected void mouseReleased(int x, int y, int button) {
-        editor.mouseReleased(x, y, button);
+        editor.mouseReleased(button);
     }
 
     @Override

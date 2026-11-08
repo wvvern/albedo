@@ -19,7 +19,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-/** {@link Platform} for Minecraft 1.21+ on any loader. Loader-specific code lives only in the tiny entrypoints. */
+/** The {@link Platform} for Minecraft 1.21 and later on all loaders, which keeps loader code in the entrypoints. */
 final class ModernPlatform implements Platform {
     static final String MINECRAFT = /*$ minecraft*/ "26.3";
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
@@ -59,18 +59,19 @@ final class ModernPlatform implements Platform {
     }
 
     @Override
-    public void finishRepaint() {
+    public boolean finishRepaint() {
         try {
             TextureUploads.flush();
+            return true;
         } catch (RuntimeException e) {
-            warn("Cannot draw the repainted sprites. Resources reload instead.", e);
-            reloadResources();
+            warn("Cannot draw the repainted sprites", e);
+            return false;
         }
     }
 
     @Override
     public void rebuildChunks() {
-        // The same step as after a resource reload. Sodium replaces the rebuild that it starts with its own.
+        // The same step as after a resource reload, which Sodium replaces with its own rebuild.
         //? if >=26.1 {
         Minecraft.getInstance().levelExtractor.allChanged();
         //?} else {

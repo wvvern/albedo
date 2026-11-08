@@ -27,10 +27,7 @@ public final class LegacyHooks {
         if (sc != null) sc.clientTick(Minecraft.getMinecraft().currentScreen != null);
     }
 
-    /**
-     * A block atlas sprite ("minecraft:blocks/stone"), at the start of loadSprite. Changes {@code images[0]}, the full
-     * animation strip, before the sprite makes its frames and mip levels from it.
-     */
+    /** Changes the animation strip {@code images[0]} of a block atlas sprite before loadSprite makes frames and mip levels from it. */
     public static void processSprite(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
         bootstrap();
         // A repaint calls loadSprite with pixels that are already done: nothing to keep or change.
@@ -43,11 +40,9 @@ public final class LegacyHooks {
     }
 
     /**
-     * A stand-alone texture ("minecraft:textures/entity/pig/pig.png"). Only a plain SimpleTexture is repainted in place.
-     * A downloaded skin loads the default skin as its placeholder: that copy is not kept, so it cannot take the place
-     * of the real default skin in the store.
+     * Changes a stand-alone texture such as "minecraft:textures/entity/pig/pig.png", where only a plain SimpleTexture can repaint in place.
      *
-     * @return the image to use: the input, transformed in place, or an ARGB copy of it
+     * @return the input changed in place, or a changed ARGB copy of it
      */
     public static BufferedImage processTexture(SimpleTexture texture, ResourceLocation location, BufferedImage image) {
         bootstrap();
@@ -55,8 +50,8 @@ public final class LegacyHooks {
         ReloadScreen.load();
         TextureStore.Upload upload;
         if (texture.getClass() == SimpleTexture.class) upload = new SimpleTextureUpload(texture, location);
-        else if (texture instanceof ThreadDownloadImageData) upload = null;
-        else upload = SimpleTextureUpload.UNKNOWN_SUBCLASS;
+        else if (texture instanceof ThreadDownloadImageData) upload = null; // a skin placeholder must not replace the default skin
+        else upload = TextureStore.RELOAD_ONLY; // a texture type from a different mod
         return process(String.valueOf(location), image, upload);
     }
 
@@ -75,10 +70,7 @@ public final class LegacyHooks {
         ReloadScreen.step();
     }
 
-    /**
-     * A block quad goes into a chunk mesh. Models always have face shade (FaceBakery), so with shading off the mesh
-     * gets the quad without it. Then a shading change only rebuilds the chunks, and it needs no model reload.
-     */
+    /** Removes the face shade that every model has from a quad when shading is off, so that a shading change needs no model reload. */
     public static void addQuad(WorldRenderer renderer, int[] vertexData) {
         renderer.addVertexData(shading() ? vertexData : FaceShade.remove(vertexData));
     }
@@ -110,7 +102,7 @@ public final class LegacyHooks {
         return shading() ? original : 1.0f;
     }
 
-    /** Biome colormaps ("grass", "foliage"). The game keeps the array, so a repaint changes it in place. */
+    /** Changes the "grass" or "foliage" colormap in the array that the game keeps, so that a repaint can change it again. */
     public static void colormap(String name, int[] pixels) {
         bootstrap();
         Albedo.processColormap("minecraft:textures/colormap/" + name + ".png", pixels);

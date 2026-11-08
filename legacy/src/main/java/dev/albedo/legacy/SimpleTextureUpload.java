@@ -9,12 +9,9 @@ import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.util.ResourceLocation;
 
-/**
- * Writes new pixels into the GL texture of a SimpleTexture (entities, sky, the particle sheet), with the blur and
- * clamp settings of its texture metadata. The size does not change, so the texture is not allocated again.
- */
+/** Writes new pixels of the same size into the GL texture of a SimpleTexture, with the blur and clamp of its metadata. */
 public final class SimpleTextureUpload implements TextureStore.Upload {
-    /** The GL state of a SimpleTexture. SimpleTextureMixin implements it. */
+    /** The GL state of a SimpleTexture, which SimpleTextureMixin implements. */
     public interface State {
         /** -1 when the texture has no GL texture. */
         int albedo$glTextureId();
@@ -23,14 +20,6 @@ public final class SimpleTextureUpload implements TextureStore.Upload {
 
         boolean albedo$clamp();
     }
-
-    /** For a subclass that can change its texture in a different way: a change to it reloads resources. */
-    static final TextureStore.Upload UNKNOWN_SUBCLASS = new TextureStore.Upload() {
-        @Override
-        public boolean upload(PixelBuffer pixels) {
-            throw new UnsupportedOperationException("not a plain SimpleTexture");
-        }
-    };
 
     private final SimpleTexture texture;
     private final ResourceLocation location;

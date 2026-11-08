@@ -5,6 +5,7 @@ import dev.albedo.core.Category;
 import dev.albedo.core.Keys;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Platform;
+import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
@@ -132,7 +133,8 @@ class SettingsEditorTest {
         Config c = sc.config();
 
         // Fullbright and the sky color are read each frame: nothing to repaint.
-        sc.apply(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)));
+        RefreshResult r = sc.apply(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)));
+        assertEquals(RefreshResult.Outcome.UNCHANGED, r.outcome);
         assertEquals(0, p.uploads + p.reloads + p.rebuilds);
 
         // A new group repaints its blocks only.
@@ -141,12 +143,15 @@ class SettingsEditorTest {
         CategorySettings blocks = c.activeProfile().get(Category.BLOCKS);
         List<Rule> groups = new ArrayList<Rule>(blocks.rules());
         groups.add(0, ground);
-        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks.withRules(groups))));
+        r = sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks.withRules(groups))));
+        assertEquals(RefreshResult.Outcome.REPAINTED, r.outcome);
+        assertEquals(1, r.repainted);
         assertEquals(1, p.uploads);
 
         // Shading and tints are in the chunk meshes: rebuild them, never reload.
         c = sc.config();
-        sc.apply(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)));
+        r = sc.apply(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)));
+        assertEquals(RefreshResult.Outcome.REBUILT_CHUNKS, r.outcome);
         c = sc.config();
         sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, c.activeProfile().get(Category.BLOCKS).withRemoveTint(false))));
         assertEquals(2, p.rebuilds);
@@ -156,6 +161,77 @@ class SettingsEditorTest {
         sc.apply(sc.config().withEnabled(false));
         assertEquals(10, p.uploads);
         assertEquals(0, p.reloads);
+        sc.apply(Config.defaults());
+    }
+
+    @Test
+    void aRepaintThatCannotReachTheGpuReloads() {
+        FakePlatform p = (FakePlatform) sc.platform();
+        sc.apply(Config.defaults());
+        p.reset();
+        p.flushFails = true;
+        try {
+            RefreshResult r = sc.apply(sc.config().withEnabled(false));
+            assertEquals(RefreshResult.Outcome.RELOADED, r.outcome);
+            assertNotNull(r.reason);
+            assertEquals(1, p.reloads, "the core reloads, the adapter does not");
+        } finally {
+            p.flushFails = false;
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void anEditInAGroupOfABuiltInProfileKeepsTheGroupOpenAndEscWorks() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Groups");
+        click(editor, canvas, "Leaves");
+        click(editor, canvas, "Type a name");
+        type(editor, canvas, "stone");
+        editor.keyPressed(UiKey.ENTER, false); // the first change makes quake-white-custom
+        render(editor, canvas);
+        assertNotNull(canvas.find("Leaves"), "the group stays open in the copy: " + canvas.texts.keySet());
+        assertNotNull(canvas.find("stone"), "the chip shows: " + canvas.texts.keySet());
+
+        editor.keyPressed(UiKey.ESCAPE, false); // the input ends
+        render(editor, canvas);
+        editor.keyPressed(UiKey.ESCAPE, false); // back to the groups
+        render(editor, canvas);
+        editor.keyPressed(UiKey.ESCAPE, false); // the screen closes
+        render(editor, canvas);
+        assertTrue(editor.isClosed());
+        assertEquals("quake-white-custom", sc.config().activeProfileName());
+        sc.apply(Config.defaults());
+    }
+
+    @Test
+    void escClosesTheHeaderModeFirst() {
+        sc.apply(withOwnProfile());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+
+        click(editor, canvas, "Rename");
+        type(editor, canvas, "zzz");
+        editor.keyPressed(UiKey.ESCAPE, false);
+        render(editor, canvas);
+        assertFalse(editor.isClosed(), "Esc ends the rename, not the screen");
+        assertNotNull(canvas.find("Profile: test"), "the old name stays: " + canvas.texts.keySet());
+
+        click(editor, canvas, "Profile: test");
+        assertNotNull(canvas.find("minimal"), "the list is open: " + canvas.texts.keySet());
+        editor.keyPressed(UiKey.ESCAPE, false);
+        render(editor, canvas);
+        assertFalse(editor.isClosed(), "Esc closes the list, not the screen");
+        assertNull(canvas.find("minimal"), "the list is closed: " + canvas.texts.keySet());
+
+        editor.keyPressed(UiKey.ESCAPE, false);
+        render(editor, canvas);
+        assertTrue(editor.isClosed());
+        assertEquals("test", sc.config().activeProfileName());
         sc.apply(Config.defaults());
     }
 
@@ -388,9 +464,9 @@ class SettingsEditorTest {
                         editor = new SettingsEditor(sc);
                         editor.ui.tipDelay = 0;
                     }
-                    editor.mousePressed(x, y, 0);
+                    editor.mousePressed(0);
                     editor.render(canvas, x, y);
-                    editor.mouseReleased(x, y, 0);
+                    editor.mouseReleased(0);
                     editor.charTyped('a');
                     editor.keyPressed(UiKey.BACKSPACE, false);
                     editor.mouseScrolled(-1);
@@ -404,9 +480,9 @@ class SettingsEditorTest {
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {
         int[] at = canvas.find(label);
         assertNotNull(at, "label not drawn: " + label + " (drawn: " + canvas.texts.keySet() + ")");
-        editor.mousePressed(at[0], at[1], 0);
+        editor.mousePressed(0);
         editor.render(canvas, at[0], at[1]);
-        editor.mouseReleased(at[0], at[1], 0);
+        editor.mouseReleased(0);
         canvas.texts.clear();
         editor.render(canvas, at[0], at[1]);
     }
@@ -461,10 +537,12 @@ class SettingsEditorTest {
         @Override public void info(String message) {}
         @Override public void warn(String message, Throwable error) {}
         int reloads, rebuilds, uploads;
+        boolean flushFails;
 
         void reset() { reloads = rebuilds = uploads = 0; }
 
         @Override public void reloadResources() { reloads++; }
+        @Override public boolean finishRepaint() { return !flushFails; }
         @Override public void rebuildChunks() { rebuilds++; }
         @Override public void showMessage(String message) {}
         @Override public boolean isKeyDown(Keys.Key key) { return false; }

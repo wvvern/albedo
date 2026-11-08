@@ -14,31 +14,31 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Every loaded texture with a copy of its original pixels and a way to put new pixels back. A settings change then
- * repaints only the textures whose look changed, without a resource reload.
- *
- * <p>Thread-safe: modern versions load textures on worker threads. {@link #repaint} runs on the client thread.
- */
+/** Every loaded texture with a copy of its original pixels, safe for the worker threads that load textures on modern versions. */
 public final class TextureStore {
-    /** How an adapter writes new pixels into a loaded texture (and the GPU). Called on the client thread. */
+    /** How an adapter writes new pixels into a loaded texture on the client thread. */
     public interface Upload {
         /**
          * @param pixels the new pixels, the same size as the original
-         * @return false when the texture is no longer in use (a reload replaced it)
+         * @return false when a reload has replaced the texture
          */
         boolean upload(PixelBuffer pixels) throws Exception;
     }
 
+    /** The upload for a texture type from a different mod, which only a resource reload can change. */
+    public static final Upload RELOAD_ONLY = pixels -> {
+        throw new IllegalStateException("a reload-only texture has no upload");
+    };
+
     /** What a repaint did. */
     public static final class Result {
         public final int repainted;
-        /** Textures that could not be repainted: the caller must reload resources. */
-        public final int failed;
+        /** Textures whose new look needs a resource reload, because their upload failed or is {@link #RELOAD_ONLY}. */
+        public final int needReload;
 
-        Result(int repainted, int failed) {
+        Result(int repainted, int needReload) {
             this.repainted = repainted;
-            this.failed = failed;
+            this.needReload = needReload;
         }
     }
 
@@ -47,6 +47,7 @@ public final class TextureStore {
         final PixelBuffer.Heap original;
         final Upload upload;
         final int average;
+        /** The look the texture has in the game, or null when it is not known. */
         volatile Appearance applied;
 
         Entry(TextureKey key, PixelBuffer.Heap original, Upload upload, Appearance applied) {
@@ -64,12 +65,12 @@ public final class TextureStore {
     static final long DEFAULT_BUDGET = 128L << 20;
 
     private final long budget;
-    /** By texture name: some textures share a key, for example the OptiFine connected textures of one block. */
+    /** By texture name, because some textures share a key, for example the OptiFine connected textures of one block. */
     private final Map<String, Entry> entries = new ConcurrentHashMap<String, Entry>();
     private final AtomicLong bytes = new AtomicLong();
-    /** Names of textures that did not fit in the budget. A later record of the name, when it fits, removes it. */
-    private final Set<String> refused = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-    /** Set on the thread that repaints, so an upload that runs a load hook is not recorded again. */
+    /** Names of textures that did not fit in the budget until a smaller record of the same name. */
+    private final Set<String> overBudget = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+    /** Set on the thread that repaints, so that a load hook that the upload runs does not record the texture again. */
     private final ThreadLocal<Boolean> repainting = new ThreadLocal<Boolean>();
 
     private final AtomicInteger version = new AtomicInteger();
@@ -86,20 +87,20 @@ public final class TextureStore {
 
     /** Whether every changeable texture has its original, so that {@link #repaint} can reach all of them. */
     public boolean complete() {
-        return refused.isEmpty();
+        return overBudget.isEmpty();
     }
 
-    /** True on the thread of a running {@link #repaint}. Load hooks then leave the image alone. */
+    /** True on the thread of a running {@link #repaint}, where load hooks must leave the image alone. */
     public boolean repainting() {
         return Boolean.TRUE.equals(repainting.get());
     }
 
     /**
-     * Keeps a copy of {@code image} (call it before the image is changed). {@code applied} is the look the caller
-     * gives it now. Textures of {@link Category#OTHER} are not kept: no setting changes them. A null {@code upload}
-     * means that the texture cannot be repainted: it is not kept, and a kept texture with the same name stays.
+     * Keeps a copy of {@code image} before the caller changes it, unless no setting changes it or {@code upload} is null.
      *
-     * @param name the texture name, for example "minecraft:blocks/stone". A texture with the same name replaces it.
+     * @param name the texture name, for example "minecraft:blocks/stone", which replaces a kept texture of that name
+     * @param upload null for a copy that must not replace the kept texture, for example a skin placeholder
+     * @param applied the look the caller gives the image now
      */
     public void record(String name, TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
         if (key.category() == Category.OTHER || upload == null) return;
@@ -108,22 +109,25 @@ public final class TextureStore {
             Entry before = entries.get(name);
             long delta = next.bytes() - (before == null ? 0 : before.bytes());
             if (bytes.get() + delta > budget) {
-                refused.add(name);
+                overBudget.add(name);
                 return;
             }
-            refused.remove(name);
+            overBudget.remove(name);
             bytes.addAndGet(delta);
             entries.put(name, next);
             if (before == null || before.average != next.average) version.incrementAndGet();
         }
     }
 
-    /**
-     * Gives each kept texture the look {@code policy} wants, where it differs from the look it has. With
-     * {@code userImagesChanged}, textures in the user image style are painted again too.
-     */
+    /** Makes the next {@link #repaint} paint this texture, whose look in the game is not known. */
+    public void invalidate(String name) {
+        Entry e = entries.get(name);
+        if (e != null) e.applied = null;
+    }
+
+    /** Gives each kept texture the look {@code policy} wants, and repaints user images again when they changed. */
     public Result repaint(Policy policy, PixelTransformer.TextureSource images, boolean userImagesChanged) {
-        int repainted = 0, failed = 0;
+        int repainted = 0, needReload = 0;
         repainting.set(Boolean.TRUE);
         try {
             for (Map.Entry<String, Entry> e : entries.entrySet()) {
@@ -131,6 +135,10 @@ public final class TextureStore {
                 Appearance want = policy.appearanceFor(entry.key);
                 boolean userImage = userImagesChanged && want.mode() == Appearance.Mode.TEXTURE;
                 if (want.equals(entry.applied) && !userImage) continue;
+                if (entry.upload == RELOAD_ONLY) {
+                    needReload++;
+                    continue;
+                }
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
                     PixelTransformer.apply(want, pixels, images);
@@ -141,16 +149,16 @@ public final class TextureStore {
                         forget(e.getKey(), entry);
                     }
                 } catch (Exception ex) {
-                    failed++;
+                    needReload++;
                 }
             }
         } finally {
             repainting.remove();
         }
-        return new Result(repainted, failed);
+        return new Result(repainted, needReload);
     }
 
-    /** Drops a texture that is no longer in use, unless a reload has recorded it again in the meantime. */
+    /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
             bytes.addAndGet(-entry.bytes());
@@ -158,7 +166,7 @@ public final class TextureStore {
         }
     }
 
-    /** Ids kept for a category, sorted, each with its original average color. Read-only; client thread. */
+    /** Ids kept for a category in name order, each with its original average color, for the client thread. */
     public Map<String, Integer> catalog(Category category) {
         int v = version.get();
         if (v != viewsVersion) {
@@ -178,14 +186,11 @@ public final class TextureStore {
         return view;
     }
 
-    /** An upload into a pixel array that the game keeps by reference (the biome colormaps). */
+    /** An upload into a pixel array that the game keeps by reference, such as a biome colormap. */
     public static Upload intoArray(final int[] target) {
-        return new Upload() {
-            @Override
-            public boolean upload(PixelBuffer pixels) {
-                ((PixelBuffer.Heap) pixels).copyInto(target);
-                return true;
-            }
+        return pixels -> {
+            ((PixelBuffer.Heap) pixels).copyInto(target);
+            return true;
         };
     }
 }

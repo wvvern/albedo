@@ -9,8 +9,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Hosts the version-agnostic {@link SettingsEditor}: forwards input and draws it through a {@link Canvas}.
- * Everything version-specific about the settings screen is in this file.
+ * Hosts the version-agnostic {@link SettingsEditor} and holds everything version-specific about the settings screen,
+ * such as input and drawing through a {@link Canvas}.
  */
 public final class SettingsScreen extends Screen {
     private final Screen parent;
@@ -69,13 +69,13 @@ public final class SettingsScreen extends Screen {
     //? if >=1.21.9 {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-        editor.mousePressed(event.x(), event.y(), event.button());
+        editor.mousePressed(event.button());
         return true;
     }
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
-        editor.mouseReleased(event.x(), event.y(), event.button());
+        editor.mouseReleased(event.button());
         return true;
     }
 
@@ -92,13 +92,13 @@ public final class SettingsScreen extends Screen {
     //?} else {
     /*@Override
     public boolean mouseClicked(double x, double y, int button) {
-        editor.mousePressed(x, y, button);
+        editor.mousePressed(button);
         return true;
     }
 
     @Override
     public boolean mouseReleased(double x, double y, int button) {
-        editor.mouseReleased(x, y, button);
+        editor.mouseReleased(button);
         return true;
     }
 

@@ -22,11 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * The single entry point adapters talk to. Holds the current config/policy, watches the config file, handles the
- * keys and transforms textures. Adapters call {@link #init} once, {@link #processTexture} for every loaded texture,
- * {@link #currentPolicy()} from render hooks and {@link #clientTick} every client tick.
- */
+/** The one entry point of the core for the adapters, which hold the config, watch its file, read the keys and change textures. */
 public final class Albedo {
     public static final String MOD_ID = "albedo";
     public static final String NAME = "Albedo";
@@ -41,14 +37,13 @@ public final class Albedo {
     private volatile Config config;
     private volatile Policy policy = Policy.DISABLED;
     private final Map<String, PixelBuffer> userTextures = new ConcurrentHashMap<String, PixelBuffer>();
-    /** Every loaded texture with its original: what a settings change repaints and the settings screen lists. */
     private final TextureStore store = new TextureStore();
-    private final PixelTransformer.TextureSource textureSource;
+    private final PixelTransformer.TextureSource textureSource = this::userTexture;
 
     private long lastModified;
     private int ticks;
-    /** A texture was recorded with an older policy than the current one; see {@link #processTexture}. */
-    private volatile boolean recheck;
+    /** A worker thread recorded a texture while the policy changed, so the next client tick repaints it. */
+    private volatile boolean stale;
     private final AtomicInteger transformedSinceSummary = new AtomicInteger();
     private final boolean[] keyWasDown = new boolean[3];
 
@@ -57,15 +52,9 @@ public final class Albedo {
         this.dir = new File(platform.configDir(), MOD_ID);
         this.configFile = new File(dir, "config.json");
         this.harness = Harness.fromSystemProperty(platform);
-        this.textureSource = new PixelTransformer.TextureSource() {
-            @Override
-            public PixelBuffer load(String name) {
-                return userTexture(name);
-            }
-        };
     }
 
-    /** Idempotent. */
+    /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {
         if (instance == null) {
             Albedo sc = new Albedo(platform);
@@ -77,12 +66,12 @@ public final class Albedo {
         return instance;
     }
 
-    /** May be null before init. */
+    /** The core, or null before {@link #init}. */
     public static Albedo get() {
         return instance;
     }
 
-    /** Never null: a disabled policy before init. Safe to call from any thread, any time. */
+    /** The policy for any thread at any time, which is the disabled policy before {@link #init}. */
     public static Policy currentPolicy() {
         Albedo sc = instance;
         return sc == null ? Policy.DISABLED : sc.policy;
@@ -95,11 +84,10 @@ public final class Albedo {
     // ---------------------------------------------------------------- textures
 
     /**
-     * Keeps the original of a freshly loaded texture, then transforms it in place. The {@code upload} puts other
-     * pixels into the same texture later, when a settings change repaints it. A null {@code upload} only transforms
-     * the image, for a copy that must not replace the kept texture (for example the placeholder of a downloaded skin).
+     * Keeps the original of a freshly loaded texture and changes the image in place.
      *
      * @param location "minecraft:textures/block/stone.png" or a sprite name with its folder ("minecraft:block/stone")
+     * @param upload how a later repaint writes into the texture, or null for a copy that only gets changed
      * @return true if the image was changed
      */
     public static boolean processTexture(String location, PixelBuffer image, TextureStore.Upload upload) {
@@ -110,8 +98,11 @@ public final class Albedo {
             Policy policy = sc.policy;
             Appearance a = policy.appearanceFor(key);
             sc.store.record(location, key, image, upload, a);
-            // A worker thread can load a texture while the client thread applies a new policy: check it next tick.
-            if (sc.policy != policy) sc.recheck = true;
+            // The client thread can apply a new policy while a worker thread loads this texture with the old one.
+            if (sc.policy != policy) {
+                sc.store.invalidate(location);
+                sc.stale = true;
+            }
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
@@ -121,10 +112,7 @@ public final class Albedo {
         }
     }
 
-    /**
-     * A biome colormap ({@code minecraft:textures/colormap/grass.png}) as the game keeps it: an ARGB array that it
-     * reads by reference. Changed in place, now and on each repaint.
-     */
+    /** Changes a biome colormap in the ARGB array that the game reads by reference, now and on each repaint. */
     public static void processColormap(String location, int[] pixels) {
         if (pixels != null && pixels.length == COLORMAP_SIZE * COLORMAP_SIZE) {
             processTexture(location, new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels), TextureStore.intoArray(pixels));
@@ -133,13 +121,13 @@ public final class Albedo {
 
     private static final int COLORMAP_SIZE = 256;
 
-    /** True on the thread of a running repaint. Load hooks that a repaint runs again can then skip their work. */
+    /** True on the thread of a running repaint, where load hooks must skip their work. */
     public static boolean repainting() {
         Albedo sc = instance;
         return sc != null && sc.store.repainting();
     }
 
-    /** Ids seen in a category, sorted, each with its original average color. Read-only; client thread. */
+    /** Ids seen in a category in name order, each with its original average color, for the client thread. */
     public Map<String, Integer> catalog(Category category) {
         return store.catalog(category);
     }
@@ -215,7 +203,7 @@ public final class Albedo {
                 }
             }
         }
-        if (recheck) refresh(policy, false);
+        if (stale) refresh(policy, false);
         if (harness != null) harness.tick();
     }
 
@@ -228,50 +216,52 @@ public final class Albedo {
     }
 
     /** Swap config, persist it, tell the player what changed, and show the change in the world. */
-    public void apply(Config next) {
+    public RefreshResult apply(Config next) {
         Config before = config;
-        if (next.equals(before)) return;
+        if (next.equals(before)) return RefreshResult.painted(0, false, 0);
         Policy old = policy;
         setConfig(next);
         save();
         if (before.enabled() != next.enabled() || !before.activeProfileName().equals(next.activeProfileName())) {
             platform.showMessage(NAME + ": " + (next.enabled() ? next.activeProfileName() : "off"));
         }
-        refresh(old, false);
+        return refresh(old, false);
     }
 
-    /**
-     * Shows the current policy in the world. Sky, fog, fullbright and shadows are read each frame. Textures are
-     * repainted one by one. Tints and shading live in the chunk meshes, so a change to them rebuilds the chunks. Only
-     * what the repaint cannot reach makes a full resource reload.
-     */
-    private void refresh(Policy old, boolean userImagesChanged) {
+    /** Shows the current policy in the world by the cheapest path that reaches all that changed from {@code old}. */
+    private RefreshResult refresh(Policy old, boolean userImagesChanged) {
+        stale = false; // before the policy is read, so that a texture recorded after this point sets it again
         Policy now = policy;
-        recheck = false;
-        boolean shading = old.shading() != now.shading();
-        if (!store.complete() && (userImagesChanged || !old.sameTextures(now))) {
+        RefreshResult result = paint(old, now, userImagesChanged);
+        String line = result.describe();
+        if (result.outcome == RefreshResult.Outcome.RELOADED) {
+            platform.warn(line, null);
             platform.reloadResources();
-            return;
+        } else if (line != null) {
+            platform.info(line);
+        }
+        return result;
+    }
+
+    /** Repaints textures and rebuilds chunk meshes, which hold tints and shading, or asks for a reload. */
+    private RefreshResult paint(Policy old, Policy now, boolean userImagesChanged) {
+        if (!store.complete() && (userImagesChanged || !old.sameTextures(now))) {
+            return RefreshResult.reloaded("the resource packs have more textures than the mod keeps");
         }
         long start = System.nanoTime();
         TextureStore.Result r;
+        boolean flushed;
         try {
             r = store.repaint(now, textureSource, userImagesChanged);
         } finally {
-            platform.finishRepaint();
+            flushed = platform.finishRepaint();
         }
-        if (r.failed > 0) {
-            platform.warn(r.failed + " textures cannot be repainted. Resources reload instead.", null);
-            platform.reloadResources();
-            return;
-        }
-        boolean meshes = shading || old.removeTint(Category.BLOCKS) != now.removeTint(Category.BLOCKS)
+        if (r.needReload > 0) return RefreshResult.reloaded(r.needReload + " textures cannot be repainted");
+        if (!flushed) return RefreshResult.reloaded("the repainted textures cannot be sent to the GPU");
+        boolean meshes = old.shading() != now.shading() || old.removeTint(Category.BLOCKS) != now.removeTint(Category.BLOCKS)
                 || old.removeTint(Category.FLUIDS) != now.removeTint(Category.FLUIDS);
         if (meshes) platform.rebuildChunks();
-        if (r.repainted > 0 || meshes) {
-            platform.info("Repainted " + r.repainted + " textures" + (meshes ? " and rebuilt chunks" : "") + " in "
-                    + (System.nanoTime() - start) / 1000000 + " ms");
-        }
+        return RefreshResult.painted(r.repainted, meshes, (System.nanoTime() - start) / 1000000);
     }
 
     // ---------------------------------------------------------------- persistence
@@ -291,7 +281,7 @@ public final class Albedo {
         }
     }
 
-    /** @return false (keeping the old config) if the file is invalid */
+    /** @return false if the file is not valid, which keeps the current config */
     private boolean load() {
         lastModified = configFile.lastModified();
         try {

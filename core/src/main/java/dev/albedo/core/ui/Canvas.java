@@ -1,9 +1,6 @@
 package dev.albedo.core.ui;
 
-/**
- * The drawing port for the settings screen: the few primitives every Minecraft version since 1.8 offers.
- * Coordinates are GUI-scaled pixels; colors are 0xAARRGGBB.
- */
+/** The drawing primitives of every Minecraft version since 1.8, in GUI pixels and 0xAARRGGBB colors. */
 public interface Canvas {
     int width();
 

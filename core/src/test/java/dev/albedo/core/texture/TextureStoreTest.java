@@ -46,11 +46,11 @@ class TextureStoreTest {
         return Policy.of(c.withProfile(c.activeProfile().with(Category.BLOCKS, cs)));
     }
 
-    private static void record(TextureStore store, String id, FakeUpload upload, Policy policy) {
+    private static void record(TextureStore store, String id, TextureStore.Upload upload, Policy policy) {
         recordNamed(store, "minecraft:block/" + id, upload, policy);
     }
 
-    private static void recordNamed(TextureStore store, String name, FakeUpload upload, Policy policy) {
+    private static void recordNamed(TextureStore store, String name, TextureStore.Upload upload, Policy policy) {
         TextureKey key = TextureClassifier.classify(name);
         store.record(name, key, image(), upload, policy.appearanceFor(key));
     }
@@ -88,7 +88,7 @@ class TextureStoreTest {
         broken.broken = true;
         TextureStore.Result r = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false);
         assertEquals(0, r.repainted);
-        assertEquals(1, r.failed);
+        assertEquals(1, r.needReload);
         assertFalse(store.catalog(Category.BLOCKS).containsKey("minecraft:stone"), "a gone texture leaves the store");
     }
 
@@ -101,6 +101,35 @@ class TextureStoreTest {
         assertEquals(1, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
         assertEquals(1, stone.uploads.size());
         assertTrue(store.complete());
+    }
+
+    @Test
+    void aReloadOnlyTextureNeedsAReloadOnlyWhenItsLookChanges() {
+        TextureStore store = new TextureStore();
+        FakeUpload stone = new FakeUpload();
+        record(store, "stone", stone, Policy.DISABLED);
+        String modded = "minecraft:textures/entity/modded.png";
+        recordNamed(store, modded, TextureStore.RELOAD_ONLY, Policy.DISABLED);
+        assertTrue(store.complete());
+        assertTrue(store.catalog(Category.ENTITIES).containsKey(TextureClassifier.classify(modded).id()), "the texture list shows it");
+
+        TextureStore.Result blocksOnly = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false);
+        assertEquals(1, blocksOnly.repainted);
+        assertEquals(0, blocksOnly.needReload, "a change to other textures repaints them");
+
+        Config c = Config.defaults();
+        CategorySettings green = new CategorySettings(Appearance.solid(0xFF00FF00), false, Collections.<Rule>emptyList());
+        Policy mobs = Policy.of(c.withProfile(c.activeProfile().with(Category.ENTITIES, green)));
+        assertEquals(1, store.repaint(mobs, null, false).needReload);
+    }
+
+    @Test
+    void anInvalidatedTextureIsRepaintedWithTheSameLook() {
+        TextureStore store = new TextureStore();
+        FakeUpload stone = new FakeUpload();
+        record(store, "stone", stone, Policy.DISABLED);
+        store.invalidate("minecraft:block/stone");
+        assertEquals(1, store.repaint(Policy.DISABLED, null, false).repainted);
     }
 
     @Test

@@ -5,34 +5,34 @@ import dev.albedo.core.dev.Harness;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * The port each loader/version adapter implements. This is the only way the core reaches the game, so the core
- * never has to change when Minecraft does.
- */
+/** The port each loader and version adapter implements, which is the only way the core reaches the game. */
 public interface Platform {
-    /** e.g. "Fabric 1.21.1"; for logs. */
+    /** A name for logs, for example "Fabric 1.21.1". */
     String describe();
 
-    /** The game's config directory (the core puts its own folder inside). */
+    /** The game's config folder, which gets a folder of the core inside. */
     File configDir();
 
     void info(String message);
 
     void warn(String message, Throwable error);
 
-    /** Reload all resources and rebuild chunks: the slow path, for what a repaint cannot reach. Client thread. */
+    /** Reloads all resources and rebuilds chunks on the client thread, for what a repaint cannot reach. */
     void reloadResources();
 
     /**
-     * Called after each repaint, also when an upload failed. An adapter that collects uploads sends them to the GPU
-     * here, all at once. Client thread.
+     * Sends the uploads of a repaint to the GPU on the client thread, also after a failed upload.
+     *
+     * @return false when the uploads could not be sent, which makes the core reload resources
      */
-    default void finishRepaint() {}
+    default boolean finishRepaint() {
+        return true;
+    }
 
-    /** Rebuild the chunk meshes, which hold block tints and lighting. Client thread. */
+    /** Rebuilds the chunk meshes, which hold block tints and lighting, on the client thread. */
     void rebuildChunks();
 
-    /** Show a short message to the player (action bar). Called on the client thread. */
+    /** Shows a short message to the player in the action bar, on the client thread. */
     void showMessage(String message);
 
     /** Whether the key is held right now. */
@@ -41,7 +41,7 @@ public interface Platform {
     /** Decode a PNG from disk into ARGB pixels, using whatever image class this version ships. */
     PixelBuffer readImage(File png) throws IOException;
 
-    /** Show the settings screen (wrapping {@link dev.albedo.core.ui.SettingsEditor}). */
+    /** Shows the settings screen, a version screen that wraps {@link dev.albedo.core.ui.SettingsEditor}. */
     void openSettings();
 
     String clipboard();
