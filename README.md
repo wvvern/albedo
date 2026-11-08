@@ -137,9 +137,7 @@ For design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Releases
 
-1. Push a tag such as `v1.0.0`.
-2. CI builds all jars and makes a GitHub release.
-3. CI uploads the jars to Modrinth (slug `albedo`) if the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
+See [docs/RELEASING.md](docs/RELEASING.md). In short: write the version's section in [CHANGELOG.md](CHANGELOG.md), then push a tag such as `v1.0.0`. CI builds all jars, makes a GitHub release with the changelog section as notes, and uploads the jars to Modrinth (slug `albedo`) if the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
 
 ## License
 

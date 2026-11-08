@@ -51,6 +51,10 @@ Checkstyle examines `core/src/main` and `core/src/test` only. It does not examin
 23. Layout: indent with 4 spaces. You can write an `if`, `for` or `else` with no braces if the statement fits on one line. `[review]`
 24. Javadoc is short. Write it for public types, and for members when the name does not tell enough. For each change to core behavior, add or change a JUnit 5 test. `[review]`
 
+## Commits
+
+25. A commit title is a Conventional Commit in ASD-STE100: `type: Verb ...`, at most 72 characters, no period. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. The body says why, not how. Release notes come from these titles (see [RELEASING.md](RELEASING.md)). `[review]`
+
 ## When a check is incorrect
 
 If a check is incorrect for one element, add `@SuppressWarnings("checkstyle:<check>")`, for example `checkstyle:linelength`, with a comment that gives the reason. Do not change `checkstyle.xml` for one file. The regex checks also match text in string literals.

@@ -81,6 +81,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash tools/lint.sh
+      - name: Release notes
+        # A tag needs its CHANGELOG.md section (docs/RELEASING.md). Fail before the builds, not after.
+        if: env.TAG != ''
+        run: bash tools/release-notes.sh "$TAG"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -89,13 +93,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+        run: |
+          bash tools/release-notes.sh "$TAG" > notes.md
+          gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "Albedo ${TAG#v}" --notes-file notes.md
 
   modrinth:
     # Runs only when the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN exist.
@@ -113,6 +120,8 @@ jobs:
           - { target: '26.3', loader: neoforge, mc: '26.3' }
           - { target: '1.8.9', loader: forge, mc: '1.8.9' }
     steps:
+      - uses: actions/checkout@v4
+      - run: bash tools/release-notes.sh "$TAG" > notes.md
       - uses: actions/download-artifact@v4
         with:
           name: jars-${{ matrix.target }}
@@ -122,8 +131,8 @@ jobs:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: dist/albedo-${{ matrix.loader }}-*.jar
-          name: ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target }}
+          name: Albedo ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target }}
           version: ${{ env.TAG }}+${{ matrix.loader }}-${{ matrix.target }}
           loaders: ${{ matrix.loader }}
           game-versions: ${{ matrix.mc }}
-          changelog: https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}
+          changelog-file: notes.md
