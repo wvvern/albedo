@@ -4,6 +4,7 @@ import dev.blockpainter.core.Platform;
 import dev.blockpainter.core.BlockPainter;
 import dev.blockpainter.core.config.Config;
 import dev.blockpainter.core.config.Toggle;
+import dev.blockpainter.core.ui.SettingsEditor;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +27,8 @@ import java.util.Deque;
  *   <li>{@code mod on|off}, {@code profile <name>}, {@code <toggle> on|off} (fullbright, shading, foliage, shadows):
  *       change the config like a player would</li>
  *   <li>{@code settings open|close}, {@code hud on|off}</li>
+ *   <li>{@code ui click <label>|type <text>|key <UiKey>|pointer off}: input for the open settings screen, to show
+ *       each page (see {@link SettingsEditor#script}); put a short {@code wait} after each</li>
  *   <li>{@code wait <ticks>}, {@code screenshot <name>}, {@code quit}</li>
  * </ul>
  */
@@ -119,7 +122,8 @@ public final class Harness {
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
-        } else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
+        } else if (verb.equals("ui")) SettingsEditor.script(arg);
+        else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
