@@ -60,6 +60,29 @@ if (loader in ['fabric', 'neoforge']) {
     }
 }
 
+// -Pcompat=sodium (or embeddium, or a comma list) adds that renderer mod to the dev run only, to test compatibility.
+// The release jars and normal builds do not change. The versions are in versions/<v>/gradle.properties.
+if (loader in ['fabric', 'neoforge'] && project.hasProperty('compat')) {
+    def mods = (project.property('compat') as String).split(',')*.trim().findAll { it }
+    def runtime = unobfuscated ? 'runtimeOnly' : 'modLocalRuntime'
+    repositories {
+        exclusiveContent {
+            forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
+            filter { includeGroup 'maven.modrinth' }
+        }
+    }
+    dependencies {
+        mods.each { mod ->
+            def modVersion = project.findProperty("${mod}_${loader}")
+            // Gradle configures every node, so a node with no build of this mod only logs it.
+            if (modVersion == null) logger.info("No ${mod} build for ${loader} ${project.minecraft_version}")
+            else add(runtime, "maven.modrinth:${mod}:${modVersion}")
+        }
+        // Most players use Sodium with Fabric API, so the test does too. Block Painter itself does not need it.
+        if (loader == 'fabric' && 'sodium' in mods) add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}")
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.toVersion(javaVersion)
     targetCompatibility = JavaVersion.toVersion(javaVersion)

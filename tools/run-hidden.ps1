@@ -5,12 +5,15 @@ Prints the process id of the Gradle wrapper.
 
 .EXAMPLE
 ./tools/run-hidden.ps1 -Dir modern -Task ":fabric:26.3:runClient" -Harness C:\temp\harness -Log C:\temp\run.log
+./tools/run-hidden.ps1 -Dir modern -Task ":fabric:26.3:runClient" -Harness C:\temp\harness -Compat sodium
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Dir,
     [Parameter(Mandatory = $true)][string]$Task,
     [Parameter(Mandatory = $true)][string]$Harness,
-    [string]$Log = "$env:TEMP\blockpainter-hidden.log"
+    [string]$Log = "$env:TEMP\blockpainter-hidden.log",
+    # Optional. Adds a renderer mod to the dev run (-Pcompat, see modern/gradle/shared.gradle), for example sodium.
+    [string]$Compat = ""
 )
 
 Add-Type @"
@@ -41,7 +44,8 @@ if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.Inter
 $Dir = (Resolve-Path $Dir).Path
 $gradlew = Join-Path $Dir "gradlew.bat"
 # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
-$commandLine = "cmd.exe /s /c `"`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`" > `"$Log`" 2>&1`""
+$compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
+$commandLine = "cmd.exe /s /c `"`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg > `"$Log`" 2>&1`""
 
 $si = New-Object HiddenDesktop+STARTUPINFO
 $si.cb = [Runtime.InteropServices.Marshal]::SizeOf($si)

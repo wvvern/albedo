@@ -44,6 +44,16 @@ public final class ModernHooks {
         return BlockPainter.currentPolicy().removeTint(Category.BLOCKS) ? -1 : original;
     }
 
+    /** Sodium: a tint index of -1 means "no tint", so the renderer skips the block color provider. */
+    public static int blockTintIndex(int tintIndex) {
+        return BlockPainter.currentPolicy().removeTint(Category.BLOCKS) ? -1 : tintIndex;
+    }
+
+    /** Embeddium: false means "no tint", so the renderer skips the block color provider. */
+    public static boolean blockTinted(boolean tinted) {
+        return tinted && !BlockPainter.currentPolicy().removeTint(Category.BLOCKS);
+    }
+
     public static boolean removeFluidTint() {
         return BlockPainter.currentPolicy().removeTint(Category.FLUIDS);
     }

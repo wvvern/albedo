@@ -140,7 +140,8 @@ For design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Known limits
 
-- Sodium, Embeddium and OptiFine replace block meshing. Fixed tints (birch and spruce leaves, lily pads, swamp grass) do not change. The mod still removes biome grass and foliage tint.
+- Sodium and Embeddium: all features operate. Tests used Sodium 0.8.13 to 0.9.3 and Embeddium 1.0.15. A different version of these mods can stop the block tint change.
+- OptiFine replaces block meshing. Fixed tints (birch and spruce leaves, lily pads, swamp grass) do not change. The mod still removes biome grass and foliage tint.
 - On 1.21.2 and later, you can only hide clouds.
 - Downloaded player skins do not change.
 - Hidden foliage also hides the items of those plants.

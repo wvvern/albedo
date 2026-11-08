@@ -7,15 +7,23 @@ night with and without fullbright, and the settings screen.
 .DESCRIPTION
 The game runs with the test harness (core/src/main/java/dev/blockpainter/core/dev/Harness.java).
 Sound and narrator are off. The game does not pause when it loses focus.
-Screenshots go to docs/screenshots/<target>/.
+Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
 ./tools/screenshots.ps1 -Targets fabric-26.3  # one target
+# With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
+./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
 #>
 param(
     [string[]]$Targets = @("fabric-26.3", "neoforge-26.3", "fabric-1.21.11", "neoforge-1.21.11", "fabric-1.21.1", "neoforge-1.21.1", "forge-1.8.9"),
-    [int]$TimeoutSeconds = 600
+    [int]$TimeoutSeconds = 600,
+    # Folder for the screenshots, relative to the repository root. The default is the README folder.
+    [string]$OutDir = "docs\screenshots",
+    # Optional dev-only renderer mod for modern targets, for example sodium or embeddium.
+    [string]$Compat = "",
+    # More command files in tools/harness/, added after the scene.
+    [string[]]$Extra = @()
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -50,13 +58,14 @@ foreach ($target in $Targets) {
     Remove-Item -Force (Join-Path $runDir "config\blockpainter\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\BlockPainterTest") -ErrorAction SilentlyContinue
     # First the scene for this version, then the shots for all versions.
-    Get-Content (Join-Path $PSScriptRoot "harness\$scene"), (Join-Path $PSScriptRoot "harness\shots.txt") |
+    $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\shots.txt")
+    Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"
-    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log
+    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log -Compat $Compat
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $harnessLog = Join-Path $harness "log.txt"
     while ((Get-Date) -lt $deadline) {
@@ -71,7 +80,7 @@ foreach ($target in $Targets) {
         Stop-Process -Id $gradlePid -Force -ErrorAction SilentlyContinue
     }
 
-    $out = Join-Path $root "docs\screenshots\$target"
+    $out = Join-Path $root "$OutDir\$target"
     Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $out | Out-Null
     $shots = Get-ChildItem $harness -Filter *.png
