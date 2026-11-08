@@ -77,8 +77,9 @@ foreach ($target in $Targets) {
     $out = Join-Path $root "$OutDir\$target"
     Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $out | Out-Null
-    $shots = Get-ChildItem $harness -Filter *.png
-    $shots | Copy-Item -Destination $out -Force
-    Write-Host "[$target] $($shots.Count) screenshots -> $out"
+    # Not $shots: PowerShell names are not case-sensitive, and the [string]$Shots parameter would make it one string.
+    $pngs = Get-ChildItem $harness -Filter *.png
+    $pngs | Copy-Item -Destination $out -Force
+    Write-Host "[$target] $($pngs.Count) screenshots -> $out"
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
 }
