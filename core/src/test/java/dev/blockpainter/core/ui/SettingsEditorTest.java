@@ -276,6 +276,7 @@ class SettingsEditorTest {
                     editor.keyPressed(UiKey.BACKSPACE, false);
                     editor.mouseScrolled(-1);
                     editor.render(canvas, x, y);
+                    editor.render(canvas, x + 1, y); // a moved pointer shows the tooltip, which must stay on screen
                 }
             }
         }

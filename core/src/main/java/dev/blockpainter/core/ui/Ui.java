@@ -63,6 +63,7 @@ final class Ui {
     private boolean hintNow;
     private String shownHint;
     private long hintSince;
+    private boolean tipAfterClick;
     private String armed;
     private long armedAt;
     /** Height used by the last {@link #segmented} call (it wraps into rows when the labels do not fit). */
@@ -115,7 +116,10 @@ final class Ui {
     void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
         clickedFrame = pressed;
-        if (mouseX != mx || mouseY != my) hintSince = System.currentTimeMillis();
+        if (mouseX != mx || mouseY != my) {
+            hintSince = System.currentTimeMillis();
+            tipAfterClick = false;
+        }
         mx = mouseX;
         my = mouseY;
         hint = null;
@@ -198,6 +202,7 @@ final class Ui {
         if (!pressed || !hover(x, y, w, h)) return false;
         pressed = false;
         drag = id;
+        tipAfterClick = true;
         if (!id.equals(focus)) focus = null;
         if (!id.equals(armed)) armed = null;
         return true;
@@ -218,7 +223,8 @@ final class Ui {
             shownHint = hint;
             hintSince = System.currentTimeMillis();
         }
-        if (!hintNow && System.currentTimeMillis() - hintSince < tipDelay) return;
+        // After a click the result matters more than the explanation: no tooltip until the pointer moves.
+        if (!hintNow && (tipAfterClick || System.currentTimeMillis() - hintSince < tipDelay)) return;
         int maxW = Math.min(170, c.width() - 8);
         List<String> lines = wrap(hint, maxW);
         int tw = 0;
