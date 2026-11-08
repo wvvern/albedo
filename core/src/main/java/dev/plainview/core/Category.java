@@ -1,5 +1,9 @@
 package dev.plainview.core;
 
+import dev.plainview.core.config.Appearance;
+
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -33,6 +37,24 @@ public enum Category {
 
     public String key() {
         return name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * The styles that mean something here. The sky is a color, not a texture; clouds can only be hidden (since 1.21.2
+     * the game reads their shape, not their colors, from the texture).
+     */
+    public List<Appearance.Mode> supportedModes() {
+        switch (this) {
+            case SKY: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID);
+            case CLOUDS: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.HIDDEN);
+            case WEATHER: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID, Appearance.Mode.HIDDEN);
+            default: return Arrays.asList(Appearance.Mode.values());
+        }
+    }
+
+    /** Whether groups of individual textures make sense (not for the sky, clouds and weather). */
+    public boolean hasGroups() {
+        return this != SKY && this != CLOUDS && this != WEATHER;
     }
 
     public static Category byKey(String key) {

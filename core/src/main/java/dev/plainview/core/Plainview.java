@@ -8,20 +8,19 @@ import dev.plainview.core.texture.PixelTransformer;
 import dev.plainview.core.texture.TextureClassifier;
 import dev.plainview.core.texture.TextureKey;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The single entry point adapters talk to. Holds the current config/policy, watches the config file, handles the
@@ -31,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class Plainview {
     public static final String MOD_ID = "plainview";
     public static final String NAME = "Plainview";
-    private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final int WATCH_INTERVAL_TICKS = 20;
 
     private static volatile Plainview instance;
@@ -49,7 +47,7 @@ public final class Plainview {
 
     private long lastModified;
     private int ticks;
-    private volatile int transformedSinceSummary;
+    private final AtomicInteger transformedSinceSummary = new AtomicInteger();
     private final boolean[] keyWasDown = new boolean[3];
 
     private Plainview(Platform platform) {
@@ -104,36 +102,68 @@ public final class Plainview {
         Plainview sc = instance;
         if (sc == null) return false;
         TextureKey key = TextureClassifier.classify(location);
-        sc.catalog.put(key, PixelTransformer.average(image));
-        Appearance a = sc.policy.appearanceFor(key);
-        if (a.isOriginal()) return false;
         try {
+            if (key.category().hasGroups() && key.category() != Category.COLORMAPS && key.category() != Category.OTHER) {
+                // Only what the settings screen can list is recorded; the average is its preview color.
+                Integer average = PixelTransformer.average(image);
+                if (!average.equals(sc.catalog.put(key, average))) sc.catalogVersion.incrementAndGet();
+            }
+            Appearance a = sc.policy.appearanceFor(key);
+            if (a.isOriginal()) return false;
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
-            if (changed) sc.transformedSinceSummary++;
+            if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
-            sc.platform.warn("Could not transform " + key, e);
+            sc.platform.warn("Could not process " + key, e);
             return false;
         }
     }
 
-    /** Ids seen in a category, sorted, each with its original average color. */
+    // Sorted per-category views of the catalog, rebuilt only when a texture was added or its color changed.
+    private final AtomicInteger catalogVersion = new AtomicInteger();
+    private final Map<Category, Map<String, Integer>> catalogViews = new EnumMap<Category, Map<String, Integer>>(Category.class);
+    private int catalogViewsVersion = -1;
+
+    /** Ids seen in a category, sorted, each with its original average color. Read-only; client thread. */
     public Map<String, Integer> catalog(Category category) {
-        Map<String, Integer> out = new TreeMap<String, Integer>();
-        for (Map.Entry<TextureKey, Integer> e : catalog.entrySet()) {
-            if (e.getKey().category() == category) out.put(e.getKey().id(), e.getValue());
+        int version = catalogVersion.get();
+        if (version != catalogViewsVersion) {
+            catalogViews.clear();
+            catalogViewsVersion = version;
         }
-        return out;
+        Map<String, Integer> view = catalogViews.get(category);
+        if (view == null) {
+            Map<String, Integer> out = new TreeMap<String, Integer>();
+            for (Map.Entry<TextureKey, Integer> e : catalog.entrySet()) {
+                if (e.getKey().category() == category) out.put(e.getKey().id(), e.getValue());
+            }
+            view = Collections.unmodifiableMap(out);
+            catalogViews.put(category, view);
+        }
+        return view;
     }
 
-    /** PNG names in the user textures folder, for the TEXTURE mode picker. */
+    private volatile List<String> textureNames = Collections.emptyList();
+    private long texturesModified = -1;
+
+    /** PNG names in the user textures folder, for the TEXTURE mode picker (refreshed by the file watcher). */
     public List<String> userTextureNames() {
-        File[] files = new File(dir, "textures").listFiles();
-        if (files == null) return Collections.emptyList();
+        return textureNames;
+    }
+
+    /** Re-reads the textures folder when it changed; dropping cached images makes edited PNGs apply on next reload. */
+    private void watchTexturesFolder() {
+        File folder = texturesFolder();
+        if (folder.lastModified() == texturesModified) return;
+        texturesModified = folder.lastModified();
+        File[] files = folder.listFiles();
         List<String> names = new ArrayList<String>();
-        for (File f : files) if (f.isFile() && f.getName().toLowerCase().endsWith(".png")) names.add(f.getName());
+        if (files != null) {
+            for (File f : files) if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".png")) names.add(f.getName());
+        }
         Collections.sort(names);
-        return names;
+        textureNames = Collections.unmodifiableList(names);
+        userTextures.clear();
     }
 
     public File texturesFolder() {
@@ -166,9 +196,10 @@ public final class Plainview {
         if (pressed(2, keys.settings, screenOpen)) platform.openSettings();
 
         if (++ticks % WATCH_INTERVAL_TICKS == 0) {
-            if (transformedSinceSummary > 0) {
-                platform.info("Flattened " + transformedSinceSummary + " textures with profile '" + config.activeProfileName() + "'");
-                transformedSinceSummary = 0;
+            watchTexturesFolder();
+            int transformed = transformedSinceSummary.getAndSet(0);
+            if (transformed > 0) {
+                platform.info("Flattened " + transformed + " textures with profile '" + config.activeProfileName() + "'");
             }
             if (configFile.lastModified() != lastModified) {
                 Config before = config;
@@ -237,12 +268,7 @@ public final class Plainview {
     private void save() {
         try {
             dir.mkdirs();
-            OutputStream out = new FileOutputStream(configFile);
-            try {
-                out.write(ConfigCodec.encode(config).getBytes(UTF8));
-            } finally {
-                out.close();
-            }
+            Files.write(configFile.toPath(), ConfigCodec.encode(config).getBytes(StandardCharsets.UTF_8));
             lastModified = configFile.lastModified();
         } catch (IOException e) {
             platform.warn("Could not save " + configFile, e);
@@ -250,15 +276,6 @@ public final class Plainview {
     }
 
     private static String read(File f) throws IOException {
-        InputStream in = new FileInputStream(f);
-        try {
-            ByteArrayOutputStream buf = new ByteArrayOutputStream();
-            byte[] b = new byte[8192];
-            int n;
-            while ((n = in.read(b)) > 0) buf.write(b, 0, n);
-            return new String(buf.toByteArray(), UTF8);
-        } finally {
-            in.close();
-        }
+        return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
     }
 }

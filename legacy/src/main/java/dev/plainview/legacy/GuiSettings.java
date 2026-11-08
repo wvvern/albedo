@@ -37,7 +37,6 @@ public final class GuiSettings extends GuiScreen implements Canvas {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        editor.mouseMoved(mouseX, mouseY);
         editor.render(this, mouseX, mouseY);
         if (editor.isClosed()) mc.displayGuiScreen(parent);
     }

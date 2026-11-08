@@ -4,6 +4,7 @@ import dev.plainview.core.config.Appearance;
 import dev.plainview.core.config.CategorySettings;
 import dev.plainview.core.config.Config;
 import dev.plainview.core.config.Profile;
+import dev.plainview.core.config.Rule;
 import dev.plainview.core.config.Toggle;
 import dev.plainview.core.texture.Foliage;
 import dev.plainview.core.texture.TextureKey;
@@ -53,16 +54,24 @@ public final class Policy {
             return removeTint(Category.BLOCKS) ? Appearance.solid(0xFFFFFFFF) : Appearance.ORIGINAL;
         }
         CategorySettings s = profile.get(c);
-        if (s.ruleFor(key.id()) != null) return s.appearanceFor(key.id());
-        if (c == Category.BLOCKS && !profile.is(Toggle.FOLIAGE) && Foliage.matches(key.id())) {
-            // Invisible plants: zero alpha is skipped by cutout rendering on every version.
-            return Appearance.of(Appearance.Mode.HIDDEN);
+        Rule group = s.ruleFor(key.id());
+        if (group == null) {
+            // Groups win; otherwise two world-wide decisions come before the category's look.
+            if (c == Category.BLOCKS && !profile.is(Toggle.FOLIAGE) && Foliage.matches(key.id())) {
+                // Invisible plants: zero alpha is skipped by cutout rendering on every version.
+                return Appearance.of(Appearance.Mode.HIDDEN);
+            }
+            if (c == Category.SKY && overridesSky() && !key.id().contains("end_sky")) {
+                // A flat sky has no sun, moon or stars; the End's sky texture takes the flat color instead.
+                return Appearance.of(Appearance.Mode.HIDDEN);
+            }
         }
-        if (c == Category.SKY && overridesSky() && !key.id().contains("end_sky")) {
-            // A flat sky has no sun, moon or stars; the End's sky texture takes the flat color instead.
-            return Appearance.of(Appearance.Mode.HIDDEN);
-        }
-        return s.appearanceFor(key.id());
+        return s.lookOf(group);
+    }
+
+    /** True when clouds should not be drawn at all. */
+    public boolean cloudsHidden() {
+        return profile != null && profile.get(Category.CLOUDS).appearance().mode() == Appearance.Mode.HIDDEN;
     }
 
     /** Should biome / hard-coded tints for this category be replaced by white? */
@@ -75,13 +84,19 @@ public final class Policy {
         return profile != null && profile.get(Category.SKY).appearance().mode() == Appearance.Mode.SOLID;
     }
 
-    /** The flat sky color as opaque 0xAARRGGBB; only meaningful when {@link #overridesSky()}. */
-    public int skyColor() {
-        return profile == null ? 0 : profile.get(Category.SKY).appearance().color() | 0xFF000000;
+    /** The flat sky color as {r, g, b} in 0..1 (what fog and clear-color APIs take), or null when not overridden. */
+    public float[] skyRgb() {
+        if (!overridesSky()) return null;
+        int c = profile.get(Category.SKY).appearance().color();
+        return new float[]{Colors.red(c) / 255f, Colors.green(c) / 255f, Colors.blue(c) / 255f};
     }
 
-    public boolean fullbright() {
-        return profile != null && profile.is(Toggle.FULLBRIGHT);
+    /** Far above the brightness slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
+    public static final float FULLBRIGHT_GAMMA = 16f;
+
+    /** The brightness (gamma) setting the lightmap should use instead of the player's {@code setting}. */
+    public double gamma(double setting) {
+        return profile != null && profile.is(Toggle.FULLBRIGHT) ? FULLBRIGHT_GAMMA : setting;
     }
 
     /** False when ambient occlusion and per-face shading should be switched off. */

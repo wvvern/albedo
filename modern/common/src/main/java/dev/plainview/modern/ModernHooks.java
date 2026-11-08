@@ -2,11 +2,8 @@ package dev.plainview.modern;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.plainview.core.Category;
-import dev.plainview.core.Policy;
 import dev.plainview.core.Plainview;
-import dev.plainview.core.config.Appearance;
 import dev.plainview.core.texture.AtlasPaths;
-import dev.plainview.core.texture.TextureClassifier;
 import dev.plainview.modern.mixin.SpriteContentsAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
@@ -20,9 +17,6 @@ import java.util.Arrays;
  * so the per-version surface is as small as possible.
  */
 public final class ModernHooks {
-    /** Far above the slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
-    private static final Double FULLBRIGHT_GAMMA = 16.0;
-
     private ModernHooks() {}
 
     public static void bootstrap() {
@@ -69,14 +63,13 @@ public final class ModernHooks {
     }
 
     public static void overrideFog(Vector4f color) {
-        Policy p = Plainview.currentPolicy();
-        if (!p.overridesSky() || color == null) return;
-        int c = p.skyColor();
-        color.set(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, color.w);
+        float[] rgb = Plainview.currentPolicy().skyRgb();
+        if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
     }
 
+    /** Only the brightness option is changed; the mixin wraps every option read in the lightmap code. */
     public static Object gamma(OptionInstance<?> option, Object value) {
-        return Plainview.currentPolicy().fullbright() && option == Minecraft.getInstance().options.gamma() ? FULLBRIGHT_GAMMA : value;
+        return option == Minecraft.getInstance().options.gamma() ? (Object) Plainview.currentPolicy().gamma((Double) value) : value;
     }
 
     public static Object entityShadows(OptionInstance<?> option, Object value) {
@@ -84,8 +77,6 @@ public final class ModernHooks {
     }
 
     public static boolean cloudsHidden() {
-        return Plainview.currentPolicy()
-                .appearanceFor(TextureClassifier.classify("minecraft:textures/environment/clouds.png"))
-                .mode() == Appearance.Mode.HIDDEN;
+        return Plainview.currentPolicy().cloudsHidden();
     }
 }

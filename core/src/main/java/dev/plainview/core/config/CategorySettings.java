@@ -3,6 +3,7 @@ package dev.plainview.core.config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * One category's global look, its ordered groups (first match wins) and switches. Immutable.
@@ -16,6 +17,8 @@ import java.util.List;
  */
 public final class CategorySettings {
     public static final CategorySettings UNTOUCHED = new CategorySettings(Appearance.ORIGINAL, false, false, Collections.<Rule>emptyList());
+    /** Colors handed to new groups in turn, so each new group stands out. */
+    private static final int[] GROUP_COLORS = {0xFF6D4C41, 0xFF43A047, 0xFF1E88E5, 0xFFE53935, 0xFFFDD835, 0xFF8E24AA};
 
     private final Appearance appearance;
     private final boolean removeTint;
@@ -41,8 +44,12 @@ public final class CategorySettings {
 
     /** What applies to {@code id}: its group's look, the global look, or vanilla for unlisted ids in "only groups". */
     public Appearance appearanceFor(String id) {
-        Rule r = ruleFor(id);
-        if (r != null) return r.usesGlobalLook() ? appearance : r.appearance();
+        return lookOf(ruleFor(id));
+    }
+
+    /** The look for a texture in {@code group}, or in no group when it's null. */
+    public Appearance lookOf(Rule group) {
+        if (group != null) return group.usesGlobalLook() ? appearance : group.appearance();
         return onlyGroups ? Appearance.ORIGINAL : appearance;
     }
 
@@ -81,6 +88,54 @@ public final class CategorySettings {
         return new CategorySettings(appearance, removeTint, onlyGroups, value);
     }
 
+    // ---------------------------------------------------------------- group edits
+
+    /**
+     * A new group in this scope: under "only groups" it takes the global look (so adding a block just switches it on),
+     * otherwise it gets its own color from a rotating set so it stands out.
+     */
+    public Rule newGroup(String name, List<String> patterns) {
+        Rule r = new Rule(name, patterns, Appearance.solid(GROUP_COLORS[rules.size() % GROUP_COLORS.length]), false);
+        return onlyGroups ? r.withGlobalLook() : r;
+    }
+
+    public CategorySettings withRule(int index, Rule r) {
+        List<Rule> next = new ArrayList<Rule>(rules);
+        next.set(index, r);
+        return withRules(next);
+    }
+
+    /** Inserts at {@code index}; earlier groups win, so 0 is the highest priority. */
+    public CategorySettings withRuleAt(int index, Rule r) {
+        List<Rule> next = new ArrayList<Rule>(rules);
+        next.add(index, r);
+        return withRules(next);
+    }
+
+    public CategorySettings withoutRule(int index) {
+        List<Rule> next = new ArrayList<Rule>(rules);
+        next.remove(index);
+        return withRules(next);
+    }
+
+    public CategorySettings withRuleMoved(int index, int by) {
+        List<Rule> next = new ArrayList<Rule>(rules);
+        Collections.swap(next, index, index + by);
+        return withRules(next);
+    }
+
+    /** Adds {@code pattern} to group {@code index}; the same pattern in any other group moves here. */
+    public CategorySettings withPatternIn(int index, String pattern) {
+        List<Rule> next = new ArrayList<Rule>();
+        for (int i = 0; i < rules.size(); i++) {
+            List<String> p = new ArrayList<String>(rules.get(i).patterns());
+            p.remove(pattern);
+            if (i == index) p.add(pattern);
+            next.add(rules.get(i).withPatterns(p));
+        }
+        return withRules(next);
+    }
+
     /**
      * A group whose look would mean nothing under the other scope ("vanilla" when only groups change, "global look"
      * when everything changes) blocks switching scope; returns it, or null if switching is safe.
@@ -96,12 +151,8 @@ public final class CategorySettings {
         return new Appearance(
                 rule.mode() == oldParent.mode() ? newParent.mode() : rule.mode(),
                 rule.color() == oldParent.color() ? newParent.color() : rule.color(),
-                eq(rule.texture(), oldParent.texture()) ? newParent.texture() : rule.texture(),
+                Objects.equals(rule.texture(), oldParent.texture()) ? newParent.texture() : rule.texture(),
                 rule.alpha() == oldParent.alpha() ? newParent.alpha() : rule.alpha());
-    }
-
-    private static boolean eq(String a, String b) {
-        return a == null ? b == null : a.equals(b);
     }
 
     @Override

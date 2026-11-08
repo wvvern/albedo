@@ -45,9 +45,8 @@ public final class LegacyHooks {
         if (pixels != null && Plainview.currentPolicy().removeTint(Category.BLOCKS)) Arrays.fill(pixels, 0xFFFFFFFF);
     }
 
-    /** Far above the slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
     public static float gamma(float setting) {
-        return Plainview.currentPolicy().fullbright() ? 16f : setting;
+        return (float) Plainview.currentPolicy().gamma(setting);
     }
 
     public static boolean shading() {
@@ -64,9 +63,6 @@ public final class LegacyHooks {
 
     /** @return {r, g, b} in 0..1 or null when the sky is not overridden */
     public static float[] skyRgb() {
-        Policy p = Plainview.currentPolicy();
-        if (!p.overridesSky()) return null;
-        int c = p.skyColor();
-        return new float[]{((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f};
+        return Plainview.currentPolicy().skyRgb();
     }
 }

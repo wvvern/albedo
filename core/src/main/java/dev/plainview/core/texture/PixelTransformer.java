@@ -66,11 +66,15 @@ public final class PixelTransformer {
         }
     }
 
-    /** Alpha-weighted average of the visible pixels; opaque result. Fully transparent images give mid gray. */
+    /**
+     * Alpha-weighted average of the visible pixels; opaque result. Fully transparent images give mid gray.
+     * Large images are sampled on a grid of at most about 64 x 64 pixels, which is plenty for one color.
+     */
     public static int average(PixelBuffer img) {
         long r = 0, g = 0, b = 0, w = 0;
-        for (int y = 0; y < img.height(); y++) {
-            for (int x = 0; x < img.width(); x++) {
+        int step = Math.max(1, Math.max(img.width(), img.height()) / 64);
+        for (int y = 0; y < img.height(); y += step) {
+            for (int x = 0; x < img.width(); x += step) {
                 int p = img.getArgb(x, y);
                 int a = Colors.alpha(p);
                 if (a == 0) continue;

@@ -50,21 +50,20 @@ final class Ui {
     private final List<KeyPress> keys = new ArrayList<KeyPress>();
     private final StringBuilder typed = new StringBuilder();
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
-    private Clipboard clipboard;
+    private final Clipboard clipboard;
 
     interface Clipboard {
         String get();
     }
 
-    // ---------------------------------------------------------------- events (between frames)
-
-    void mouseMoved(double x, double y) {
-        mx = (int) x;
-        my = (int) y;
+    Ui(Clipboard clipboard) {
+        this.clipboard = clipboard;
     }
 
-    void mousePressed(double x, double y) {
-        mouseMoved(x, y);
+    // ---------------------------------------------------------------- events (between frames; the pointer position
+    // comes from each frame's render call)
+
+    void mousePressed() {
         down = true;
         pressed = true;
     }
@@ -88,9 +87,8 @@ final class Ui {
 
     // ---------------------------------------------------------------- frame
 
-    void begin(Canvas canvas, int mouseX, int mouseY, Clipboard clipboard) {
+    void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
-        this.clipboard = clipboard;
         mx = mouseX;
         my = mouseY;
         hint = null;
@@ -107,8 +105,6 @@ final class Ui {
     }
 
     String hint() { return hint; }
-
-    boolean hasFocus() { return focus != null; }
 
     boolean isFocused(String id) { return id.equals(focus); }
 
@@ -222,10 +218,14 @@ final class Ui {
 
     String ellipsize(String s, int max) {
         if (c.textWidth(s) <= max) return s;
-        String dots = "...";
-        int end = s.length();
-        while (end > 0 && c.textWidth(s.substring(0, end) + dots) > max) end--;
-        return s.substring(0, end) + dots;
+        // Binary search for the longest prefix that fits with "..." after it.
+        int lo = 0, hi = s.length();
+        while (lo < hi) {
+            int mid = (lo + hi + 1) / 2;
+            if (c.textWidth(s.substring(0, mid) + "...") <= max) lo = mid;
+            else hi = mid - 1;
+        }
+        return s.substring(0, lo) + "...";
     }
 
     /** Light/dark squares behind translucent colors. */
@@ -269,8 +269,12 @@ final class Ui {
      * A removable tag: swatch, label and an x. Returns its width; {@code removed[0]} is set when the x was clicked.
      * {@code dim} draws it faded (for entries that currently have no effect).
      */
+    int chipWidth(String label, boolean hasSwatch) {
+        return 4 + (hasSwatch ? 10 : 0) + width(label) + 12;
+    }
+
     int chip(String id, int x, int y, Integer swatch, String label, boolean dim, String tipText, boolean[] removed) {
-        int w = 4 + (swatch != null ? 10 : 0) + width(label) + 12;
+        int w = chipWidth(label, swatch != null);
         round(x, y, w, 12, dim ? PANEL : CARD);
         if (dim) outline(x, y, w, 12, BORDER);
         int tx = x + 4;
@@ -315,7 +319,7 @@ final class Ui {
             if (i == selected) round(sx + 1, y + 1, sw - 2, h - 2, ACCENT);
             else if (hovered) round(sx + 1, y + 1, sw - 2, h - 2, CARD_HOVER);
             textCentered(ellipsize(labels[i], sw - 2), sx + sw / 2, y + (h - LINE) / 2 + 1, i == selected ? 0xFFFFFFFF : hovered ? TEXT : MUTED);
-            tip(sx, y, sw, h, tips == null ? null : tips[i]);
+            tip(sx, y, sw, h, tips[i]);
             if (press(id + "." + i, sx, y, sw, h)) result = i;
         }
         return result;
@@ -353,7 +357,7 @@ final class Ui {
                     it.remove();
                     break;
                 }
-                if (k.ctrl && k.key == UiKey.V && clipboard != null) changed |= field.insert(clipboard.get());
+                if (k.ctrl && k.key == UiKey.V) changed |= field.insert(clipboard.get());
                 else changed |= field.key(k.key, k.ctrl);
                 it.remove();
             }

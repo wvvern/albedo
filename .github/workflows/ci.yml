@@ -4,7 +4,7 @@ name: CI
 # Push a tag such as v1.2.0 to publish a GitHub release (and a Modrinth release once configured).
 on:
   push:
-    branches: ['**']
+    branches: [master]
     tags: ['v*']
   pull_request:
   workflow_dispatch:

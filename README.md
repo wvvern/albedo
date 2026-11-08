@@ -89,11 +89,10 @@ second, and mistakes are reported in game with the line and column.
       "foliage": false,                                  // hide grass, flowers, ferns, vines...
       "blocks": {
         "mode": "solid", "color": "#FFFFFF", "removeTint": true,
-        "rules": [                                       // first match wins; unset fields follow the category
-          { "match": "*leaves*", "alpha": "opaque" },
-          { "match": ["*glass*", "*ice"], "color": "#80FFFFFF" },
-          { "match": "*_ore", "mode": "original" },
-          { "match": "mymod:*", "mode": "average" }
+        "groups": [                                      // first match wins; unset fields follow the category
+          { "name": "Ground", "match": ["dirt", "grass_block*", "gravel"], "color": "#7A5C3A" },
+          { "name": "Leaves", "match": "*leaves*", "alpha": "opaque" },
+          { "name": "Ores", "match": "*_ore", "mode": "original" }
         ]
       },
       "fluids": { "mode": "solid", "color": "#D0D0D0", "removeTint": true },

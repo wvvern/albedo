@@ -33,11 +33,13 @@ final class TextField {
         StringBuilder accepted = new StringBuilder();
         for (char ch : s.toCharArray()) if (ch >= ' ' && filter.accepts(ch)) accepted.append(ch);
         if (accepted.length() == 0) return false;
-        if (selectAll) set("");
-        String next = text.substring(0, cursor) + accepted + text.substring(cursor);
-        if (next.length() > maxLength) return false;
+        String before = selectAll ? "" : text.substring(0, cursor);
+        String after = selectAll ? "" : text.substring(cursor);
+        String next = before + accepted + after;
+        if (next.length() > maxLength) return false; // nothing changes, including a pending select-all
+        selectAll = false;
         text = next;
-        cursor += accepted.length();
+        cursor = before.length() + accepted.length();
         return true;
     }
 

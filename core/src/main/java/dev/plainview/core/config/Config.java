@@ -71,9 +71,19 @@ public final class Config {
         return new Config(enabled, activeProfile, keys, next);
     }
 
-    /** Renames in place, keeping the profile's position and active state. */
-    public Config withRenamedProfile(String from, String to) {
-        if (!profiles.containsKey(from) || profiles.containsKey(to)) return this;
+    /** Profile names are lower-case words joined by "-", e.g. "my-profile". */
+    public static String normalizeName(String name) {
+        return name.trim().replaceAll("\\s+", "-").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Renames in place, keeping the profile's position and active state. The name is normalized, and a name already
+     * in use gets a number ("quake-white-2"). A blank name changes nothing.
+     */
+    public Config withRenamedProfile(String from, String newName) {
+        String clean = normalizeName(newName);
+        if (!profiles.containsKey(from) || clean.isEmpty() || clean.equals(from)) return this;
+        String to = freeProfileName(clean);
         Map<String, Profile> next = new LinkedHashMap<String, Profile>();
         for (Profile p : profiles.values()) next.put(p.name().equals(from) ? to : p.name(), p.name().equals(from) ? p.renamed(to) : p);
         return new Config(enabled, activeProfile.equals(from) ? to : activeProfile, keys, next);

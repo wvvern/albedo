@@ -3,6 +3,7 @@ package dev.plainview.core.ui;
 import dev.plainview.core.Category;
 import dev.plainview.core.Colors;
 import dev.plainview.core.Glob;
+import dev.plainview.core.PixelBuffer;
 import dev.plainview.core.Policy;
 import dev.plainview.core.Plainview;
 import dev.plainview.core.config.Appearance;
@@ -11,15 +12,18 @@ import dev.plainview.core.config.Config;
 import dev.plainview.core.config.Profile;
 import dev.plainview.core.config.Rule;
 import dev.plainview.core.config.Toggle;
+import dev.plainview.core.texture.PixelTransformer;
 import dev.plainview.core.texture.TextureKey;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * The settings screen, version-agnostic. Adapters wrap it in their version's Screen class, forward input and draw
@@ -37,8 +41,6 @@ public final class SettingsEditor {
             0xFFFFFFFF, 0xFFC8C8C8, 0xFF8C8C8C, 0xFF505050, 0xFF141414, 0xFF000000, 0xFF6D4C41, 0xFFFF7043,
             0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF8E24AA,
     };
-    /** Colors handed to new groups in turn, so each new group stands out. */
-    private static final int[] GROUP_COLORS = {0xFF6D4C41, 0xFF43A047, 0xFF1E88E5, 0xFFE53935, 0xFFFDD835, 0xFF8E24AA};
     /** Texture-name endings that are faces or states of one block, so "grass_block*" can stand for all of them. */
     private static final List<String> FACE_SUFFIXES = Arrays.asList("top", "side", "bottom", "front", "back", "end",
             "overlay", "snow", "inner", "outer", "still", "flow", "base", "open", "on", "off", "lit", "particle");
@@ -50,7 +52,7 @@ public final class SettingsEditor {
     private enum Tab { LOOK, GROUPS, TEXTURES }
 
     private final Plainview sc;
-    private final Ui ui = new Ui();
+    private final Ui ui;
     private Config saved;
     private Config draft;
     private Policy preview;
@@ -83,18 +85,21 @@ public final class SettingsEditor {
     private float hue, sat, val;
     private int pickerColor = 1; // never a real color, forces the first sync
 
-    public SettingsEditor(Plainview sc) {
+    public SettingsEditor(final Plainview sc) {
         this.sc = sc;
+        this.ui = new Ui(new Ui.Clipboard() {
+            @Override
+            public String get() { return sc.platform().clipboard(); }
+        });
         this.saved = sc.config();
         setDraft(saved);
     }
 
-    // ---------------------------------------------------------------- input from adapters
-
-    public void mouseMoved(double x, double y) { ui.mouseMoved(x, y); }
+    // ---------------------------------------------------------------- input from adapters (the pointer position
+    // is taken from each render call)
 
     public void mousePressed(double x, double y, int button) {
-        if (button == 0) ui.mousePressed(x, y);
+        if (button == 0) ui.mousePressed();
     }
 
     public void mouseReleased(double x, double y, int button) {
@@ -113,10 +118,7 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- frame
 
     public void render(Canvas canvas, int mouseX, int mouseY) {
-        ui.begin(canvas, mouseX, mouseY, new Ui.Clipboard() {
-            @Override
-            public String get() { return sc.platform().clipboard(); }
-        });
+        ui.begin(canvas, mouseX, mouseY);
         int w = canvas.width(), h = canvas.height();
         int m = w < 440 ? 4 : 10;
         int x0 = m, y0 = m, x1 = w - m, y1 = h - m;
@@ -166,6 +168,11 @@ public final class SettingsEditor {
         int px = tx + 44, pw = right - 3 * bw - 2 * gap - 8 - px;
         if (pw < 60) return;
         if (renaming) {
+            if (ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) {
+                renaming = false;
+                ui.clearFocus();
+                return;
+            }
             ui.textField("rename", rename, px + 14, y, pw - 28, 14, "profile name", "Enter to save, Esc to cancel");
             if (!ui.isFocused("rename")) finishRename();
             return;
@@ -188,8 +195,7 @@ public final class SettingsEditor {
 
     private void finishRename() {
         renaming = false;
-        String name = rename.text.trim().replace(' ', '-').toLowerCase(Locale.ROOT);
-        if (!name.isEmpty()) setDraft(draft.withRenamedProfile(draft.activeProfileName(), name));
+        setDraft(draft.withRenamedProfile(draft.activeProfileName(), rename.text));
     }
 
     // ---------------------------------------------------------------- sidebar: categories, then the World page
@@ -206,8 +212,7 @@ public final class SettingsEditor {
                 search.set("");
                 ui.resetScroll("list");
             }
-            if (a.isOriginal()) ui.outline(x + 6, ry + 2, 8, 8, Ui.FAINT);
-            else ui.swatch(x + 6, ry + 2, 8, 8, chipColor(a, 0xFF808080));
+            lookIcon(x + 6, ry + 2, a);
             ry += 13;
         }
         ry += 5;
@@ -220,6 +225,12 @@ public final class SettingsEditor {
         ui.fill(x + 9, ry + 2, 2, 8, Ui.MUTED);
         ui.fill(x + 6, ry + 5, 8, 2, Ui.MUTED);
         ui.fill(x + 8, ry + 4, 4, 4, Ui.TEXT);
+    }
+
+    /** An 8x8 icon for a look: its color, or an empty outline for vanilla. */
+    private void lookIcon(int x, int y, Appearance a) {
+        if (a.isOriginal()) ui.outline(x, y, 8, 8, Ui.FAINT);
+        else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080));
     }
 
     /** A selectable sidebar entry; the icon is drawn by the caller at x + 6. Returns true when clicked. */
@@ -250,7 +261,7 @@ public final class SettingsEditor {
         group = -1;
         ui.text(name(category), x, y, Ui.TEXT);
         int cy = y + 13;
-        if (hasGroups(category)) {
+        if (category.hasGroups()) {
             Tab[] tabs = Tab.values();
             String[] labels = {"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()};
             int picked = ui.segmented("tab", x, cy, Math.min(w, 240), 14, labels, tab.ordinal(), new String[]{
@@ -265,7 +276,6 @@ public final class SettingsEditor {
             cy += 20;
         } else {
             ui.text(ui.ellipsize(description(category), w - ui.width(name(category)) - 8), x + ui.width(name(category)) + 8, y, Ui.MUTED);
-            tab = Tab.LOOK;
         }
         if (tab == Tab.LOOK) lookTab(x, cy, w, cs);
         else if (tab == Tab.GROUPS) groupsTab(x, cy, w, y + h - cy, cs);
@@ -294,13 +304,13 @@ public final class SettingsEditor {
         Rule rule = index < 0 ? null : cs.rules().get(index);
         boolean global = rule != null && rule.usesGlobalLook();
         Appearance target = rule == null ? cs.appearance() : rule.appearance();
-        Appearance.Mode[] modes = modes(category);
-        String[] labels = new String[modes.length], tips = new String[modes.length];
+        List<Appearance.Mode> modes = category.supportedModes();
+        String[] labels = new String[modes.size()], tips = new String[modes.size()];
         int selected = 0;
-        for (int i = 0; i < modes.length; i++) {
-            labels[i] = modeLabel(modes[i]);
-            tips[i] = modeTip(modes[i]);
-            if (!global && modes[i] == target.mode()) selected = i;
+        for (int i = 0; i < modes.size(); i++) {
+            labels[i] = modeLabel(modes.get(i));
+            tips[i] = modeTip(modes.get(i));
+            if (!global && modes.get(i) == target.mode()) selected = i;
         }
         if (rule != null && cs.onlyGroups()) {
             labels[0] = "Global";
@@ -313,7 +323,7 @@ public final class SettingsEditor {
         int picked = ui.segmented("mode", lx, y, cw, 14, labels, selected, tips);
         if (picked != selected) {
             if (rule != null && cs.onlyGroups() && picked == 0) setRule(cs, index, rule.withGlobalLook());
-            else setLook(cs, index, target.withMode(modes[picked]));
+            else setLook(cs, index, target.withMode(modes.get(picked)));
             return y + 20; // the rest of the layout depends on the style; draw it next frame
         }
         int cy = y + 20;
@@ -363,11 +373,8 @@ public final class SettingsEditor {
         int cy = y + 18;
         if (notice != null) cy += ui.paragraph(notice, x, cy, w, Ui.DANGER) + 3;
         if (ui.button("group.new", x, cy, 70, 14, "+ New group", Ui.Style.PRIMARY, true, "A set of blocks with its own look")) {
-            List<Rule> rules = new ArrayList<Rule>(cs.rules());
-            int color = GROUP_COLORS[rules.size() % GROUP_COLORS.length];
-            rules.add(new Rule(freeGroupName(cs), Collections.<String>emptyList(), Appearance.solid(color), false));
-            setCategory(cs.withRules(rules));
-            openGroup(rules.size() - 1);
+            setCategory(cs.withRuleAt(cs.rules().size(), cs.newGroup(freeGroupName(cs), Collections.<String>emptyList())));
+            openGroup(cs.rules().size());
             ui.focus("add");
             return;
         }
@@ -388,21 +395,18 @@ public final class SettingsEditor {
                 openGroup(i);
                 return;
             }
-            Appearance a = r.usesGlobalLook() ? cs.appearance() : r.appearance();
-            if (a.isOriginal()) ui.outline(x + 4, ry + 3, 8, 8, Ui.FAINT);
-            else ui.swatch(x + 4, ry + 3, 8, 8, chipColor(a, 0xFF808080));
+            Appearance a = cs.lookOf(r);
+            lookIcon(x + 4, ry + 3, a);
             String look = r.usesGlobalLook() ? "global look" : a.isOriginal() ? "kept vanilla" : modeLabel(a.mode()).toLowerCase(Locale.ROOT);
             int nameW = Math.min(ui.width(r.displayName()), (w - 70) / 2);
             ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, ry + 3, Ui.TEXT);
-            String members = r.patterns().isEmpty() ? "empty" : join(r.patterns());
+            String members = r.patterns().isEmpty() ? "empty" : String.join(", ", r.patterns());
             ui.text(ui.ellipsize(look + "  -  " + members, w - 80 - nameW), x + 22 + nameW, ry + 3, Ui.MUTED);
             int bx = x + w - 56;
-            if (ui.button("group.up." + i, bx, ry + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Higher priority")) move(cs, i, -1);
-            if (ui.button("group.down." + i, bx + 16, ry + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Lower priority")) move(cs, i, 1);
+            if (ui.button("group.up." + i, bx, ry + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Higher priority")) setCategory(cs.withRuleMoved(i, -1));
+            if (ui.button("group.down." + i, bx + 16, ry + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Lower priority")) setCategory(cs.withRuleMoved(i, 1));
             if (ui.button("group.del." + i, bx + 34, ry + 1, 15, 12, "x", Ui.Style.DANGER, true, "Delete this group")) {
-                List<Rule> next = new ArrayList<Rule>(rules);
-                next.remove(i);
-                setCategory(cs.withRules(next));
+                setCategory(cs.withoutRule(i));
                 return;
             }
         }
@@ -423,9 +427,7 @@ public final class SettingsEditor {
             return;
         }
         if (ui.button("group.delete", x + w - 44, y - 3, 44, 14, "Delete", Ui.Style.DANGER, true, "Delete this group")) {
-            List<Rule> next = new ArrayList<Rule>(cs.rules());
-            next.remove(index);
-            setCategory(cs.withRules(next));
+            setCategory(cs.withoutRule(index));
             openGroup(-1);
             return;
         }
@@ -467,19 +469,25 @@ public final class SettingsEditor {
         int cx = fx, cyy = listY + 2;
         for (int i = 0; i < rule.patterns().size(); i++) {
             String p = rule.patterns().get(i);
-            int[] stats = chipStats(cs, rule, p, catalog);
+            int[] stats = chipStats(cs, index, p, catalog);
             int matched = stats[0], effective = stats[1];
             Integer color = matched > 0 ? stats[2] : null;
             boolean dim = matched == 0 || effective == 0;
             String tip = matched == 0 ? "No loaded texture is called " + p
                     : effective == 0 ? "A higher group already takes all " + matched + " of these"
                     : effective + " texture" + (effective == 1 ? "" : "s");
-            int cw = 4 + (color != null ? 10 : 0) + ui.width(p) + 12;
+            int cw = ui.chipWidth(p, color != null);
             if (cx + cw > fx + fw && cx > fx) {
                 cx = fx;
                 cyy += 14;
             }
-            if (cyy + 12 > bottom) break;
+            // Keep a line free for "+N more" unless this is the last chip, so none disappear silently.
+            boolean last = i == rule.patterns().size() - 1;
+            if (cyy + 12 > (last ? bottom : bottom - 11)) {
+                String more = "+" + (rule.patterns().size() - i) + " more; use a larger window or smaller GUI scale";
+                if (cyy + Ui.LINE <= bottom) ui.text(ui.ellipsize(more, fw), fx, cyy + 2, Ui.FAINT);
+                break;
+            }
             boolean[] removed = {false};
             cx += ui.chip("chip." + i + "." + p, cx, cyy, color, p, dim, tip, removed) + 3;
             if (removed[0]) {
@@ -517,28 +525,38 @@ public final class SettingsEditor {
         }
     }
 
-    // Scanning ~1000 textures with globs is too slow to do every frame, so results are kept until the groups change.
-    private CategorySettings memoFor;
-    private int memoCatalogSize;
-    private final Map<String, int[]> chipMemo = new LinkedHashMap<String, int[]>();
-    private final Map<String, List<Suggestion>> suggestionMemo = new LinkedHashMap<String, List<Suggestion>>();
+    // Scanning ~1000 textures with globs is too slow to do every frame. Results depend only on the groups' block
+    // lists and the catalog, so they're kept until one of those changes (not on every color or name edit).
+    private List<List<String>> memoPatterns;
+    private Map<String, Integer> memoCatalog;
+    private TreeSet<String> shortIds;
+    private final Map<String, int[]> chipMemo = new HashMap<String, int[]>();
+    private final Map<String, List<Suggestion>> suggestionMemo = new HashMap<String, List<Suggestion>>();
 
     private void checkMemo(CategorySettings cs, Map<String, Integer> catalog) {
-        if (memoFor != cs || memoCatalogSize != catalog.size()) {
-            memoFor = cs;
-            memoCatalogSize = catalog.size();
+        List<List<String>> patterns = new ArrayList<List<String>>();
+        for (Rule r : cs.rules()) patterns.add(r.patterns());
+        if (catalog != memoCatalog) {
+            memoCatalog = catalog;
+            shortIds = new TreeSet<String>();
+            for (String id : catalog.keySet()) shortIds.add(shortId(id));
+            memoPatterns = null;
+        }
+        if (!patterns.equals(memoPatterns)) {
+            memoPatterns = patterns;
             chipMemo.clear();
             suggestionMemo.clear();
         }
     }
 
-    /** {textures matched, textures this group actually gets (no higher group took them), first match's color}. */
-    private int[] chipStats(CategorySettings cs, Rule rule, String pattern, Map<String, Integer> catalog) {
+    /** {textures matched, textures group {@code index} actually gets (no higher group took them), first match's color}. */
+    private int[] chipStats(CategorySettings cs, int index, String pattern, Map<String, Integer> catalog) {
         checkMemo(cs, catalog);
-        String key = cs.rules().indexOf(rule) + "|" + pattern;
+        String key = index + "|" + pattern;
         int[] stats = chipMemo.get(key);
         if (stats != null) return stats;
         Glob g = Glob.compile(pattern);
+        Rule rule = cs.rules().get(index);
         stats = new int[3];
         for (Map.Entry<String, Integer> e : catalog.entrySet()) {
             if (!g.matches(e.getKey())) continue;
@@ -549,23 +567,10 @@ public final class SettingsEditor {
         return stats;
     }
 
-    /** Adds a pattern to group {@code index}; the same pattern in another group moves here. */
     private void addPattern(CategorySettings cs, int index, String pattern) {
         add.set("");
         suggestion = 0;
-        if (pattern.isEmpty()) return;
-        List<Rule> rules = new ArrayList<Rule>();
-        for (int i = 0; i < cs.rules().size(); i++) {
-            Rule r = cs.rules().get(i);
-            List<String> p = new ArrayList<String>(r.patterns());
-            if (i == index) {
-                if (!p.contains(pattern)) p.add(pattern);
-            } else {
-                p.remove(pattern);
-            }
-            rules.add(r.withPatterns(p));
-        }
-        setCategory(cs.withRules(rules));
+        if (!pattern.isEmpty()) setCategory(cs.withPatternIn(index, pattern));
         ui.focus("add");
     }
 
@@ -619,7 +624,7 @@ public final class SettingsEditor {
         }
         List<String> candidates = new ArrayList<String>();
         for (Map.Entry<String, List<String>> e : stems.entrySet()) {
-            if (e.getValue().size() > 1 && wholeBlock(e.getKey(), catalog)) candidates.add(e.getKey() + "*");
+            if (e.getValue().size() > 1 && wholeBlock(e.getKey())) candidates.add(e.getKey() + "*");
         }
         candidates.addAll(singles);
         List<String> starts = new ArrayList<String>(), contains = new ArrayList<String>();
@@ -653,24 +658,19 @@ public final class SettingsEditor {
         return u > 0 && FACE_SUFFIXES.contains(id.substring(u + 1)) ? id.substring(0, u) : id;
     }
 
-    /** True when "stem*" matches only that block's own textures (not e.g. "stone*" matching stone_bricks). */
-    private static boolean wholeBlock(String stem, Map<String, Integer> catalog) {
-        Glob g = Glob.compile(stem + "*");
-        for (String id : catalog.keySet()) {
-            String s = shortId(id);
-            if (g.matches(id) && !stem(s).equals(stem)) return false;
+    /**
+     * True when "stem*" matches only that block's own textures (not e.g. "stone*" matching stone_bricks): a prefix
+     * range over the sorted names, no regex.
+     */
+    private boolean wholeBlock(String stem) {
+        for (String s : shortIds.subSet(stem, true, stem + Character.MAX_VALUE, true)) {
+            if (!stem(s).equals(stem)) return false;
         }
         return true;
     }
 
     private static String cleanPattern(String text) {
         return shortId(text.trim().toLowerCase(Locale.ROOT));
-    }
-
-    private void move(CategorySettings cs, int i, int by) {
-        List<Rule> rules = new ArrayList<Rule>(cs.rules());
-        Collections.swap(rules, i, i + by);
-        setCategory(cs.withRules(rules));
     }
 
     private String freeGroupName(CategorySettings cs) {
@@ -733,11 +733,8 @@ public final class SettingsEditor {
         if (owner != null) {
             openGroup(cs.rules().indexOf(owner));
         } else {
-            List<Rule> rules = new ArrayList<Rule>(cs.rules());
-            // Under "only groups" a new group takes the global look, so picking a texture just switches it on.
-            rules.add(0, new Rule(shortId(id), Collections.singletonList(shortId(id)),
-                    Appearance.solid(GROUP_COLORS[rules.size() % GROUP_COLORS.length]), cs.onlyGroups()));
-            setCategory(cs.withRules(rules));
+            // First place, so the texture really gets this group's look even if a broader group also matches it.
+            setCategory(cs.withRuleAt(0, cs.newGroup(shortId(id), Collections.singletonList(shortId(id)))));
             openGroup(0);
         }
     }
@@ -798,7 +795,7 @@ public final class SettingsEditor {
     private int colorPicker(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
         int color = target.color();
         if (color != pickerColor) syncPicker(color);
-        int alpha = color >>> 24;
+        int alpha = Colors.alpha(color);
         int sqW = Math.min(84, w / 3), sqH = 44;
 
         // saturation (x) / brightness (y) square, drawn in 3px cells
@@ -826,15 +823,15 @@ public final class SettingsEditor {
         // opacity bar
         int ax = hx + 12;
         ui.checker(ax, y, 8, sqH);
-        int rgb = Ui.hsv(hue, sat, val) & 0xFFFFFF;
-        for (int yy = 0; yy < sqH; yy += 2) ui.fill(ax, y + yy, 8, Math.min(2, sqH - yy), ((255 - yy * 255 / sqH) << 24) | rgb);
+        int rgb = Ui.hsv(hue, sat, val);
+        for (int yy = 0; yy < sqH; yy += 2) ui.fill(ax, y + yy, 8, Math.min(2, sqH - yy), Colors.withAlpha(rgb, 255 - yy * 255 / sqH));
         ui.fill(ax - 1, y + Math.round((1 - alpha / 255f) * (sqH - 1)), 10, 1, 0xFFFFFFFF);
         float[] av = ui.dragArea("alpha.bar", ax, y, 8, sqH);
         if (av != null) alpha = Math.round((1 - av[1]) * 255);
 
-        int next = (alpha << 24) | (Ui.hsv(hue, sat, val) & 0xFFFFFF);
-        if (sv != null || hv != null || av != null) {
-            if (av != null && sv == null && hv == null) next = (alpha << 24) | (color & 0xFFFFFF);
+        // Dragging only the opacity keeps the exact RGB (the HSV round trip could shift it slightly).
+        int next = Colors.withAlpha(av != null && sv == null && hv == null ? color : rgb, alpha);
+        if (next != color) {
             pickerColor = next;
             setLook(cs, index, target.withColor(next));
         }
@@ -859,7 +856,7 @@ public final class SettingsEditor {
             boolean clicked = ui.button("pal." + i, sx - 1, sy - 1, sw + 2, sw + 2, "", Ui.Style.GHOST, true, Colors.format(PALETTE[i]));
             ui.swatch(sx, sy, sw, sw, PALETTE[i]);
             if (clicked) {
-                int c = (PALETTE[i] & 0xFFFFFF) | (alpha << 24);
+                int c = Colors.withAlpha(PALETTE[i], alpha);
                 syncPicker(c);
                 setLook(cs, index, target.withColor(c));
             }
@@ -907,6 +904,8 @@ public final class SettingsEditor {
     private Profile profile() { return draft.activeProfile(); }
 
     private void setDraft(Config c) {
+        // An open group belongs to the profile it was opened in.
+        if (draft != null && !draft.activeProfileName().equals(c.activeProfileName())) openGroup(-1);
         draft = c;
         preview = Policy.of(c.activeProfile());
     }
@@ -922,49 +921,25 @@ public final class SettingsEditor {
     }
 
     private void setRule(CategorySettings cs, int index, Rule r) {
-        List<Rule> rules = new ArrayList<Rule>(cs.rules());
-        rules.set(index, r);
-        setCategory(cs.withRules(rules));
+        setCategory(cs.withRule(index, r));
     }
 
     // ---------------------------------------------------------------- labels
 
-    /** The chip shown for an appearance: its color, the texture's own color, or null for hidden. */
+    /**
+     * The preview color for an appearance applied to a texture whose average is {@code original}: the real transform
+     * on one pixel, so previews always match what is rendered. Null means hidden.
+     */
     private static Integer chipColor(Appearance a, int original) {
-        switch (a.mode()) {
-            case SOLID:
-            case TEXTURE: return a.color();
-            case AVERAGE: return original | 0xFF000000;
-            case GRAYSCALE:
-                int l = (Colors.red(original) * 299 + Colors.green(original) * 587 + Colors.blue(original) * 114) / 1000;
-                return Colors.argb(255, l, l, l);
-            case HIDDEN: return null;
-            default: return original;
-        }
-    }
-
-    private static String join(List<String> parts) {
-        StringBuilder sb = new StringBuilder();
-        for (String p : parts) sb.append(sb.length() == 0 ? "" : ", ").append(p);
-        return sb.toString();
+        if (a.mode() == Appearance.Mode.HIDDEN) return null;
+        PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
+        PixelTransformer.apply(a.withAlpha(Appearance.Alpha.OPAQUE), pixel, null);
+        return pixel.getArgb(0, 0);
     }
 
     /** Vanilla ids without the namespace; modded ids keep it. */
     private static String shortId(String id) {
         return id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
-    }
-
-    private static boolean hasGroups(Category c) {
-        return c != Category.SKY && c != Category.CLOUDS && c != Category.WEATHER;
-    }
-
-    private static Appearance.Mode[] modes(Category c) {
-        switch (c) {
-            case SKY: return new Appearance.Mode[]{Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID};
-            case CLOUDS: return new Appearance.Mode[]{Appearance.Mode.ORIGINAL, Appearance.Mode.HIDDEN};
-            case WEATHER: return new Appearance.Mode[]{Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID, Appearance.Mode.HIDDEN};
-            default: return Appearance.Mode.values();
-        }
     }
 
     private static String modeLabel(Appearance.Mode m) {

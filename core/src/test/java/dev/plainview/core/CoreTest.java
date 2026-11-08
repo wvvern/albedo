@@ -95,10 +95,11 @@ class CoreTest {
         assertEquals(0x80FFFFFF, p.appearanceFor(TextureClassifier.classify("minecraft:block/glass_pane_top")).color());
         assertTrue(p.appearanceFor(TextureClassifier.classify("minecraft:block/diamond_ore")).isOriginal());
         assertTrue(p.removeTint(Category.BLOCKS));
-        assertTrue(p.fullbright());
+        assertEquals(Policy.FULLBRIGHT_GAMMA, p.gamma(0.5), 0.0);
         assertTrue(p.shadows(), "toggles not mentioned keep their defaults");
         assertTrue(p.overridesSky());
-        assertEquals(0xFF000000, p.skyColor());
+        assertArrayEquals(new float[]{0f, 0f, 0f}, p.skyRgb(), 0f);
+        assertEquals(0.5, Policy.of(Config.defaults().withActiveProfile("minimal")).gamma(0.5), 0.0);
         assertEquals(Appearance.Mode.HIDDEN, p.appearanceFor(TextureClassifier.classify("minecraft:textures/environment/sun.png")).mode());
         assertEquals(Appearance.Mode.SOLID, p.appearanceFor(TextureClassifier.classify("minecraft:textures/environment/end_sky.png")).mode());
         assertEquals(0xFFFFFFFF, p.appearanceFor(TextureClassifier.classify("minecraft:textures/colormap/grass.png")).color());
@@ -188,6 +189,18 @@ class CoreTest {
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"color\": \"nope\" } } } }"));
         assertTrue(e.getMessage().contains("x.blocks"), e.getMessage());
         assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"bloks\": {} } } }"));
+        IllegalArgumentException typo = assertThrows(IllegalArgumentException.class,
+                () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"rules\": [] } } } }"));
+        assertTrue(typo.getMessage().contains("'rules'"), typo.getMessage());
+
+        // A group's own "keep" shape survives a round trip under an "opaque" category.
+        Rule keep = new Rule("Glass", Collections.singletonList("*glass*"),
+                new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.KEEP), false);
+        CategorySettings opaque = new CategorySettings(new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.OPAQUE),
+                false, Collections.singletonList(keep));
+        Config c = Config.defaults();
+        Config withKeep = c.withProfile(c.activeProfile().with(Category.BLOCKS, opaque));
+        assertEquals(withKeep, ConfigCodec.decode(ConfigCodec.encode(withKeep)));
     }
 
     @Test

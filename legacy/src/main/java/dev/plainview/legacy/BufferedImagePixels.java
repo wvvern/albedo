@@ -13,11 +13,20 @@ final class BufferedImagePixels implements PixelBuffer {
     }
 
     /**
-     * Palette or byte-backed images would quantise our colors on write, so convert to plain ARGB first.
-     * Returns the same instance when it already is.
+     * Palette, gray or alpha-less images would lose our colors on write, so those are copied to plain ARGB first.
+     * Returns the same instance for the 32-bit layouts, which setRGB writes exactly.
      */
     static BufferedImage toArgb(BufferedImage src) {
-        if (src == null || src.getType() == BufferedImage.TYPE_INT_ARGB) return src;
+        if (src == null) return null;
+        switch (src.getType()) {
+            case BufferedImage.TYPE_INT_ARGB:
+            case BufferedImage.TYPE_INT_ARGB_PRE:
+            case BufferedImage.TYPE_4BYTE_ABGR:
+            case BufferedImage.TYPE_4BYTE_ABGR_PRE:
+                return src;
+            default:
+                break;
+        }
         BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
         int[] row = new int[src.getWidth()];
         for (int y = 0; y < src.getHeight(); y++) {

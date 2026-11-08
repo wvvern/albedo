@@ -5,15 +5,11 @@ import dev.plainview.core.Plainview;
 import dev.plainview.core.config.Config;
 import dev.plainview.core.config.Toggle;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -55,7 +51,6 @@ public final class Harness {
         void quiet();
     }
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
     private static volatile File logFile;
 
     private final File dir;
@@ -113,13 +108,14 @@ public final class Harness {
         String arg = space < 0 ? "" : line.substring(space + 1).trim();
         Plainview sc = Plainview.get();
         Config config = sc.config();
+        Toggle toggle = Toggle.byKey(verb);
         if (verb.equals("world")) host.openWorld(arg);
         else if (verb.equals("waitworld")) waitingForWorld = true;
         else if (verb.equals("run")) host.runCommand(arg);
         else if (verb.equals("wait")) waitTicks = Integer.parseInt(arg);
         else if (verb.equals("mod")) sc.apply(config.withEnabled(arg.equals("on")));
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
-        else if (Toggle.byKey(verb) != null) sc.apply(config.withProfile(config.activeProfile().with(Toggle.byKey(verb), arg.equals("on"))));
+        else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -137,13 +133,7 @@ public final class Harness {
         taken.delete();
         if (!commands.renameTo(taken)) return; // the writer may still hold it; try next tick
         try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(taken), UTF8));
-            try {
-                String line;
-                while ((line = in.readLine()) != null) queue.add(line);
-            } finally {
-                in.close();
-            }
+            queue.addAll(Files.readAllLines(taken.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             log("! cannot read commands: " + e);
         }
@@ -163,12 +153,8 @@ public final class Harness {
 
     private static synchronized void write(File f, String text, boolean append) {
         try {
-            Writer w = new OutputStreamWriter(new FileOutputStream(f, append), UTF8);
-            try {
-                w.write(text);
-            } finally {
-                w.close();
-            }
+            Files.write(f.toPath(), text.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE,
+                    append ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ignored) {
             // Logging must never break the game.
         }

@@ -47,7 +47,9 @@ foreach ($target in $Targets) {
     # Start from the default config and a fresh world every time, so screenshots are reproducible.
     Remove-Item -Force (Join-Path $runDir "config\plainview\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\PlainviewTest") -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $PSScriptRoot "harness\$scene") (Join-Path $harness "commands.txt")
+    # The version-specific scene, then the shots every version takes.
+    Get-Content (Join-Path $PSScriptRoot "harness\$scene"), (Join-Path $PSScriptRoot "harness\shots.txt") |
+        Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
     Write-Host "[$target] launching hidden"

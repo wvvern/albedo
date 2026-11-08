@@ -61,11 +61,6 @@ public final class SettingsScreen extends Screen {
     }
 
     @Override
-    public void mouseMoved(double x, double y) {
-        editor.mouseMoved(x, y);
-    }
-
-    @Override
     public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
         editor.mouseScrolled(vertical);
         return true;

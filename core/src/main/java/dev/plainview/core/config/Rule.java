@@ -18,17 +18,22 @@ public final class Rule {
     private final boolean globalLook;
 
     public Rule(String name, List<String> patterns, Appearance appearance, boolean globalLook) {
+        this(name, Collections.unmodifiableList(new ArrayList<String>(patterns)), compile(patterns), appearance, globalLook);
+    }
+
+    /** Copies share the compiled patterns, so changing a look or name doesn't recompile anything. */
+    private Rule(String name, List<String> patterns, List<Glob> globs, Appearance appearance, boolean globalLook) {
         this.name = name == null ? "" : name;
-        this.patterns = Collections.unmodifiableList(new ArrayList<String>(patterns));
-        List<Glob> globs = new ArrayList<Glob>();
-        for (String p : patterns) globs.add(Glob.compile(p));
+        this.patterns = patterns;
         this.globs = globs;
         this.appearance = appearance;
         this.globalLook = globalLook;
     }
 
-    public Rule(List<String> patterns, Appearance appearance) {
-        this("", patterns, appearance, false);
+    private static List<Glob> compile(List<String> patterns) {
+        List<Glob> globs = new ArrayList<Glob>();
+        for (String p : patterns) globs.add(Glob.compile(p));
+        return globs;
     }
 
     public boolean matches(String id) {
@@ -36,7 +41,7 @@ public final class Rule {
         return false;
     }
 
-    /** The given name, or the first pattern for unnamed rules written by hand. */
+    /** The given name, or the first pattern for unnamed groups written by hand. */
     public String displayName() {
         return !name.isEmpty() ? name : patterns.isEmpty() ? "Group" : patterns.get(0);
     }
@@ -49,16 +54,17 @@ public final class Rule {
 
     public boolean usesGlobalLook() { return globalLook; }
 
-    public Rule withName(String n) { return new Rule(n, patterns, appearance, globalLook); }
+    public Rule withName(String n) { return new Rule(n, patterns, globs, appearance, globalLook); }
 
     public Rule withPatterns(List<String> p) { return new Rule(name, p, appearance, globalLook); }
 
-    public Rule withAppearance(Appearance a) { return new Rule(name, patterns, a, false); }
+    public Rule withAppearance(Appearance a) { return new Rule(name, patterns, globs, a, false); }
 
-    public Rule withGlobalLook() { return new Rule(name, patterns, appearance, true); }
+    public Rule withGlobalLook() { return new Rule(name, patterns, globs, appearance, true); }
 
     @Override
     public boolean equals(Object o) {
+        if (o == this) return true;
         if (!(o instanceof Rule)) return false;
         Rule r = (Rule) o;
         return r.name.equals(name) && r.patterns.equals(patterns) && r.appearance.equals(appearance) && r.globalLook == globalLook;
