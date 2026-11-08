@@ -16,6 +16,8 @@ Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -OutDir build\gallery
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
 ./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
+# With Iris (it adds Sodium) and a shader pack zip that you downloaded; without -ShaderPack, Iris has shaders off:
+./tools/screenshots.ps1 -Targets fabric-26.3 -Compat iris -ShaderPack C:\temp\pack.zip -Extra scene-compat.txt -OutDir build\compat-iris
 #>
 param(
     [string[]]$Targets = @("fabric-26.3", "neoforge-26.3", "fabric-1.21.11", "neoforge-1.21.11", "fabric-1.21.1", "neoforge-1.21.1", "forge-1.8.9"),
@@ -26,11 +28,18 @@ param(
     [string]$Shots = "shots.txt",
     # Optional dev-only renderer mod for modern targets, for example sodium or embeddium.
     [string]$Compat = "",
+    # Optional shader pack zip for -Compat iris. The script copies it into the run folder, which git ignores.
+    [string]$ShaderPack = "",
     # More command files in tools/harness/, added after the scene.
     [string[]]$Extra = @()
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+$iris = ($Compat -split "," | ForEach-Object { $_.Trim() }) -contains "iris"
+if ($ShaderPack) {
+    if (-not $iris) { throw "-ShaderPack needs -Compat iris" }
+    $ShaderPack = (Resolve-Path $ShaderPack).Path
+}
 
 function Set-Options([string]$runDir) {
     # Turn off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
@@ -46,6 +55,24 @@ function Set-Options([string]$runDir) {
     ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii $file
 }
 
+function Set-Iris([string]$runDir) {
+    # Iris reads config/iris.properties at start, and the file stays for later runs, so each run writes it.
+    $config = Join-Path $runDir "config"
+    New-Item -ItemType Directory -Force $config | Out-Null
+    $lines = @("disableUpdateMessage=true", "enableShaders=$(if ($ShaderPack) { 'true' } else { 'false' })")
+    if ($ShaderPack) {
+        $packs = Join-Path $runDir "shaderpacks"
+        New-Item -ItemType Directory -Force $packs | Out-Null
+        $name = Split-Path -Leaf $ShaderPack
+        # A new copy each run, so that a folder pack does not keep files from an old copy.
+        Remove-Item -Recurse -Force (Join-Path $packs $name) -ErrorAction SilentlyContinue
+        Copy-Item -Recurse -Force $ShaderPack $packs
+        $lines += "shaderPack=$name"
+    }
+    # Iris reads the file as ISO-8859-1, so no byte order mark.
+    $lines | Set-Content -Encoding ascii (Join-Path $config "iris.properties")
+}
+
 foreach ($target in $Targets) {
     $loader, $version = $target -split "-", 2
     if ($loader -eq "forge") {
@@ -58,6 +85,8 @@ foreach ($target in $Targets) {
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
     Set-Options $runDir
+    $irisRun = $iris -and $loader -ne "forge"
+    if ($irisRun) { Set-Iris $runDir }
     # Use the default config and a new world each time, so the screenshots are the same each run.
     Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
@@ -97,4 +126,9 @@ foreach ($target in $Targets) {
     $pngs | Copy-Item -Destination $out -Force
     Write-Host "[$target] $($pngs.Count) screenshots -> $out"
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
+    # Iris turns shaders off when the pack does not load, and the run continues.
+    $gradleText = Get-Content -Raw $log -ErrorAction SilentlyContinue
+    if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
+        Write-Host "[$target] Iris did not load the shader pack; see $log"
+    }
 }

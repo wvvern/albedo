@@ -60,10 +60,15 @@ if (loader in ['fabric', 'neoforge']) {
     }
 }
 
-// -Pcompat=sodium (or embeddium, or a comma list) adds that renderer mod to the dev run only, to test compatibility.
+// -Pcompat=sodium (or embeddium, iris, or a comma list) adds that renderer mod to the dev run only, to test compatibility.
 // The release jars and normal builds do not change. The versions are in versions/<v>/gradle.properties.
 if (loader in ['fabric', 'neoforge'] && project.hasProperty('compat')) {
-    def mods = (project.property('compat') as String).split(',')*.trim().findAll { it }
+    def mods = (project.property('compat') as String).toLowerCase().split(',')*.trim().findAll { it }
+    if ('iris' in mods) {
+        // Iris needs Sodium, which cannot run with Embeddium.
+        if ('embeddium' in mods) logger.warn('-Pcompat: Iris needs Sodium, so Embeddium is not added')
+        mods = ['sodium'] + (mods - ['sodium', 'embeddium'])
+    }
     def runtime = unobfuscated ? 'runtimeOnly' : 'modLocalRuntime'
     repositories {
         exclusiveContent {
@@ -80,6 +85,9 @@ if (loader in ['fabric', 'neoforge'] && project.hasProperty('compat')) {
         }
         // Most players use Sodium with Fabric API, so the test does too. Albedo itself does not need it.
         if (loader == 'fabric' && 'sodium' in mods) add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}")
+        // Loom's remap of a mod dependency drops its nested jars, so the remapped versions add the Iris libraries here.
+        def irisLibs = 'iris' in mods ? project.findProperty("iris_libs_${loader}") : null
+        if (irisLibs) (irisLibs as String).split(',')*.trim().each { add('runtimeOnly', it) { transitive = false } }
     }
 }
 

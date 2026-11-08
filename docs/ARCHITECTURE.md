@@ -66,6 +66,8 @@ The adapters change data at stable points, not in the renderers. The core proces
 
 The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false`. Their targets contain no Minecraft types. If the renderer is not installed, Mixin skips them. Sodium uses the vanilla atlas, colormaps, `BiomeColors`, face shade and lightmap, so the other hooks also apply to Sodium. To test with Sodium or Embeddium, add `-Pcompat=sodium` or `-Pcompat=embeddium` to a `runClient` task. This adds the mod to the dev run only. The versions are in `modern/versions/<v>/gradle.properties`. `tools/screenshots.ps1` has the parameters `-Compat`, `-Extra scene-compat.txt` and `-OutDir`.
 
+Iris uses Sodium, so `-Pcompat=iris` also adds Sodium. Iris has no Albedo hooks of its own. Without a shader pack, Iris renders the same as Sodium. A shader pack can draw its own sky, clouds, light and shadows, and then the sky, cloud, fullbright, shading and shadow hooks have no effect. To test with a shader pack, give `tools/screenshots.ps1` the parameters `-Compat iris -ShaderPack <zip>`. The script copies the pack into the run folder and writes `config/iris.properties` in each run, also with shaders off.
+
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
 ### Repaint on 1.8.9
@@ -144,6 +146,10 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 
 ## Known gaps
 
+- `-Pcompat=iris` adds Iris only on Fabric 26.3 and Fabric 1.21.11. On the other targets it adds only Sodium:
+  - On 1.21.x, Loom remaps the `-Pcompat` mods and removes the jars that they contain. Thus the Sodium jar for NeoForge 1.21.x loads no mod, and Iris on NeoForge 1.21.x cannot start. On Fabric 1.21.11, `iris_libs_fabric` adds the libraries that the Iris jar contains.
+  - Iris on Fabric 1.21.1 cannot start in the dev run: after the remap, one of its mixins has no target descriptor.
+  - On NeoForge 26.3, Sodium 0.9.3 does not accept Iris 1.11.7, and Sodium 0.9.2 does not start on the NeoForge version of the build.
 - The Sodium and Embeddium hooks use internal method names of these mods. A new version can rename them. Then the hook does not apply (`require = 0`) and fixed tints stay. Test each new version with `-Pcompat` and `tools/harness/scene-compat.txt`.
 - 1.8.9 with OptiFine: the project tests only OptiFine HD U M6 pre2 (with `tools/optifine.ps1`). OptiFine shaders are not tested.
 - Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
