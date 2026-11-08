@@ -155,3 +155,4 @@ MIT. See [LICENSE](LICENSE).
 - On 1.21.2 and later, you can only hide clouds.
 - Downloaded player skins do not change.
 - Hidden foliage also hides the items of those plants.
+- On 1.8.9, all particles are one texture, so groups in the Particles category have no effect there.
