@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "Flatten blocks, sky, fluids and more to a single color or texture so moving things stand out.",
+  "authors": [],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.singlecolor.fabric.SingleColorFabric"]
+  },
+  "mixins": ["singlecolor.mixins.json"],
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": "${minecraft_range}",
+    "java": ">=${java_version}"
+  }
+}

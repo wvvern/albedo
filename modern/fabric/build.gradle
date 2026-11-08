@@ -1,0 +1,42 @@
+apply from: rootProject.file('gradle/shared.gradle')
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+configurations {
+    common { canBeResolved = true; canBeConsumed = false }
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+    shadowBundle { canBeResolved = true; canBeConsumed = false }
+}
+
+def commonNode = ":common:${stonecutter.current.project}"
+
+dependencies {
+    add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
+    common(commonNamed(commonNode)) { transitive false }
+    shadowBundle project(path: commonNode, configuration: 'transformProductionFabric')
+}
+
+processResources {
+    def props = [
+            mod_id               : rootProject.mod_id,
+            mod_name             : rootProject.mod_name,
+            version              : project.version,
+            minecraft_range      : project.minecraft_range_fabric,
+            java_version         : project.java_version,
+            fabric_loader_version: rootProject.fabric_loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') { expand props }
+}
+
+jar { archiveClassifier = 'raw' }
+
+shadowJar {
+    configurations = [project.configurations.shadowBundle]
+    mergeServiceFiles()
+}

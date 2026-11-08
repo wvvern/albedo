@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.7",
+  "package": "${basePackage}.legacy.mixin",
+  "refmap": "mixins.${modid}.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "BiomeColorHelperMixin",
+    "BlockModelRendererMixin",
+    "ColorizerFoliageMixin",
+    "ColorizerGrassMixin",
+    "EntityRendererMixin",
+    "ForgeBlockInfoMixin",
+    "MinecraftMixin",
+    "RenderGlobalMixin",
+    "SimpleTextureMixin",
+    "TextureAtlasSpriteMixin"
+  ]
+}

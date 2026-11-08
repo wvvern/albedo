@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.singlecolor.modern.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "BiomeColorsMixin",
+    "BlockTintMixin",
+    "CloudsMixin",
+    "DryFoliageColorMixin",
+    "FogMixin",
+    "FoliageColorMixin",
+    "GrassColorMixin",
+    "MinecraftMixin",
+    "SkyMixin",
+    "SpriteContentsAccessor",
+    "SpriteLoaderMixin",
+    "TextureLoadMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

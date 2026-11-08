@@ -1,0 +1,95 @@
+// Shared setup for every Minecraft version node of common, fabric and neoforge.
+def loader = project.parent.name
+
+def versionProperties = new Properties()
+rootProject.file("versions/${stonecutter.current.project}/gradle.properties").withInputStream { versionProperties.load(it) }
+versionProperties.each { key, value -> project.ext.set(key, value) }
+
+// Minecraft is obfuscated up to 1.21.11 and unobfuscated from 26.1 on.
+def unobfuscated = stonecutter.eval(stonecutter.current.version, '>=26.1')
+def javaVersion = (project.java_version as String).toInteger()
+ext.unobfuscated = unobfuscated
+ext.modImplementation = unobfuscated ? 'implementation' : 'modImplementation'
+ext.commonNamed = { String path -> unobfuscated ? project.project(path) : project.dependencies.project(path: path, configuration: 'namedElements') }
+
+group = "${rootProject.maven_group}.${loader}"
+version = "${rootProject.mod_version}+${project.minecraft_version}"
+
+apply plugin: unobfuscated ? 'dev.architectury.loom-no-remap' : 'dev.architectury.loom'
+apply plugin: 'architectury-plugin'
+if (loader in ['fabric', 'neoforge']) {
+    apply plugin: 'com.gradleup.shadow'
+}
+
+architectury {
+    minecraft = project.minecraft_version
+}
+
+base {
+    archivesName = "$rootProject.archives_name-$loader"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:$project.minecraft_version"
+    if (!unobfuscated) {
+        mappings loom.officialMojangMappings()
+    }
+}
+
+if (loader == 'common') {
+    // The version-agnostic core is compiled straight into common (it has no Minecraft types).
+    sourceSets.main.java.srcDir rootProject.file('../core/src/main/java')
+}
+
+if (loader in ['fabric', 'neoforge']) {
+    loom.runs {
+        configureEach {
+            generateRunConfig.set(true)
+            appendProjectPathToDisplayName.set(false)
+            ideConfigFolder.set(loader == 'fabric' ? 'Fabric' : 'NeoForge')
+        }
+        getByName('client').displayName.set("Client:${loader}:${stonecutter.current.version}")
+        named('server') { displayName.set("Server:${loader}:${stonecutter.current.version}") }
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(javaVersion)
+    targetCompatibility = JavaVersion.toVersion(javaVersion)
+    toolchain { languageVersion = JavaLanguageVersion.of(javaVersion) }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    it.options.release = javaVersion
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    zip64 = true
+}
+
+processResources {
+    def props = [mod_id: rootProject.mod_id, java_version: javaVersion]
+    inputs.properties props
+    filesMatching(['*.mixins.json']) { expand props }
+}
+
+if (loader in ['fabric', 'neoforge']) {
+    tasks.named('shadowJar') {
+        archiveClassifier = unobfuscated ? '' : 'dev-shadow'
+    }
+    if (!unobfuscated) {
+        tasks.named('remapJar') {
+            inputFile.set(tasks.named('shadowJar').flatMap { it.archiveFile })
+            dependsOn 'shadowJar'
+            archiveClassifier = ''
+        }
+    }
+    ext.releaseJarTask = tasks.named(unobfuscated ? 'shadowJar' : 'remapJar')
+    tasks.register('releaseJar') {
+        group = 'build'
+        description = 'Builds the jar to install for this loader and Minecraft version.'
+        dependsOn releaseJarTask
+    }
+    tasks.named('assemble') { dependsOn 'releaseJar' }
+}

@@ -1,0 +1,25 @@
+// Version-agnostic core: plain Java 8, zero Minecraft or loader dependencies.
+// Platform builds compile these sources directly; this project exists to run the unit tests.
+plugins {
+    id 'java-library'
+}
+
+repositories { mavenCentral() }
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 8   // must stay compilable for Minecraft 1.8.9
+    options.compilerArgs += ['-Xlint:-options']
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }

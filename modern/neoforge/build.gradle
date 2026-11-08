@@ -1,0 +1,45 @@
+apply from: rootProject.file('gradle/shared.gradle')
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+repositories {
+    maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+}
+
+configurations {
+    common { canBeResolved = true; canBeConsumed = false }
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentNeoForge.extendsFrom common
+    shadowBundle { canBeResolved = true; canBeConsumed = false }
+}
+
+def commonNode = ":common:${stonecutter.current.project}"
+
+dependencies {
+    neoForge "net.neoforged:neoforge:$project.neoforge_version"
+    common(commonNamed(commonNode)) { transitive false }
+    shadowBundle project(path: commonNode, configuration: 'transformProductionNeoForge')
+}
+
+processResources {
+    def props = [
+            mod_id         : rootProject.mod_id,
+            mod_name       : rootProject.mod_name,
+            version        : project.version,
+            minecraft_range: project.minecraft_range_neoforge,
+            neoforge_range : project.neoforge_range,
+    ]
+    inputs.properties props
+    filesMatching('META-INF/neoforge.mods.toml') { expand props }
+}
+
+jar { archiveClassifier = 'raw' }
+
+shadowJar {
+    configurations = [project.configurations.shadowBundle]
+    mergeServiceFiles()
+}
