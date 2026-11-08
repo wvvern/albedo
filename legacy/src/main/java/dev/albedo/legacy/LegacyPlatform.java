@@ -36,9 +36,16 @@ final class LegacyPlatform implements Platform {
 
     @Override
     public void reloadResources() {
-        Minecraft mc = Minecraft.getMinecraft();
-        mc.refreshResources();
-        rebuildChunks();
+        final Minecraft mc = Minecraft.getMinecraft();
+        long start = System.nanoTime();
+        // refreshResources also rebuilds the chunks.
+        ReloadScreen.run(new Runnable() {
+            @Override
+            public void run() {
+                mc.refreshResources();
+            }
+        });
+        info("Reloaded all resources in " + (System.nanoTime() - start) / 1000000 + " ms");
     }
 
     @Override
@@ -49,7 +56,7 @@ final class LegacyPlatform implements Platform {
 
     @Override
     public boolean shadingInModels() {
-        return true; // FaceBakery bakes the darker block sides into the model quads
+        return false; // the models keep the face shade, and LegacyHooks.addQuad removes it from the chunk mesh
     }
 
     @Override

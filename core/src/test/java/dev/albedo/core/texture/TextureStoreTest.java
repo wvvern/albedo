@@ -89,6 +89,17 @@ class TextureStoreTest {
     }
 
     @Test
+    void aNullUploadKeepsTheTextureThatIsThere() {
+        TextureStore store = new TextureStore();
+        FakeUpload stone = new FakeUpload();
+        record(store, "stone", stone, Policy.DISABLED);
+        record(store, "stone", null, Policy.DISABLED);
+        assertEquals(1, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(1, stone.uploads.size());
+        assertTrue(store.complete());
+    }
+
+    @Test
     void overBudgetTheStoreIsIncomplete() {
         TextureStore store = new TextureStore(8);
         record(store, "stone", new FakeUpload(), Policy.DISABLED);

@@ -92,10 +92,11 @@ public final class TextureStore {
 
     /**
      * Keeps a copy of {@code image} (call it before the image is changed). {@code applied} is the look the caller
-     * gives it now. Textures of {@link Category#OTHER} are not kept: no setting changes them.
+     * gives it now. Textures of {@link Category#OTHER} are not kept: no setting changes them. A null {@code upload}
+     * means that the texture cannot be repainted: it is not kept, and a kept texture with the same key stays.
      */
     public void record(TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
-        if (key.category() == Category.OTHER) return;
+        if (key.category() == Category.OTHER || upload == null) return;
         Entry next = new Entry(PixelBuffer.Heap.copyOf(image), upload, applied);
         Entry before = entries.get(key);
         long delta = next.bytes() - (before == null ? 0 : before.bytes());
