@@ -1,6 +1,6 @@
 # Test scene for 1.8.9 (superflat: grass at y=3, player stands at y=4). tools/screenshots.ps1 runs this file.
 wait 200
-world WorldPainterTest
+world AlbedoTest
 waitworld
 wait 100
 hud off

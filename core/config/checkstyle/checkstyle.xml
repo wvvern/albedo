@@ -57,7 +57,7 @@
         <module name="UnusedImports"/>
         <module name="IllegalImport">
             <!-- Ports and adapters: the core reaches the game only through Platform and Canvas. -->
-            <property name="illegalPkgs" value="sun, com.sun, java.awt, javax.imageio, javax.swing, net.minecraft, com.mojang, net.fabricmc, net.neoforged, net.minecraftforge, cpw.mods, org.spongepowered, com.llamalad7, org.lwjgl, dev.worldpainter.modern, dev.worldpainter.legacy, dev.worldpainter.fabric, dev.worldpainter.neoforge"/>
+            <property name="illegalPkgs" value="sun, com.sun, java.awt, javax.imageio, javax.swing, net.minecraft, com.mojang, net.fabricmc, net.neoforged, net.minecraftforge, cpw.mods, org.spongepowered, com.llamalad7, org.lwjgl, dev.albedo.modern, dev.albedo.legacy, dev.albedo.fabric, dev.albedo.neoforge"/>
         </module>
         <module name="RegexpSinglelineJava">
             <!-- IllegalImport does not see fully qualified names. This check also matches text in string literals. -->

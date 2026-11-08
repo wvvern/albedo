@@ -1,7 +1,7 @@
 [
   {
     "modid": "${modid}",
-    "name": "World Painter",
+    "name": "Albedo",
     "description": "Changes blocks, sky, fluids, mobs and more to one flat color, the average color of each texture, or a PNG. Things that move are easy to see.",
     "version": "${version}",
     "mcversion": "${mcversion}",

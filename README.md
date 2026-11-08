@@ -1,6 +1,6 @@
-# World Painter
+# Albedo
 
-World Painter is a client-side Minecraft mod. It changes blocks, fluids, sky, mobs and other parts of the world to one flat color.
+Albedo is a client-side Minecraft mod. It changes blocks, fluids, sky, mobs and other parts of the world to one flat color.
 
 It works like the flat "Quake" texture packs: things that move are easy to see. The mod changes textures as they load, so it also works with modded blocks and other resource packs.
 
@@ -56,7 +56,7 @@ You can change the keys in the config file.
 - **Profile bar:** select, copy, rename or delete a profile. To rename, type the name and push Enter or Save. Esc or Cancel keeps the old name.
 - **Delete:** a profile or group delete needs two clicks. The first click makes the button red. Click it again in 3 seconds to delete. Esc or a click on a different control cancels.
 - **Tooltips:** keep the pointer on a control to see what it does.
-- **Export and Import:** Export saves the profile to `config/worldpainter/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number. The result shows in a message box for some seconds. A click closes it.
+- **Export and Import:** Export saves the profile to `config/albedo/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number. The result shows in a message box for some seconds. A click closes it.
 - **Categories (left list):** each category has a color square that shows its current color.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
 - **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
@@ -74,7 +74,7 @@ The footer shows "Changes not saved" when there are changes. Apply saves and sho
 
 ## Config file
 
-The settings are in `config/worldpainter/config.json`. You can edit this file by hand. The mod reloads it within one second and shows errors in game with their location. Unknown keys are errors.
+The settings are in `config/albedo/config.json`. You can edit this file by hand. The mod reloads it within one second and shows errors in game with their location. Unknown keys are errors.
 
 ```json
 {
@@ -110,7 +110,7 @@ The settings are in `config/worldpainter/config.json`. You can edit this file by
 - **Category fields:** `mode`, `color`, `texture`, `alpha`, `removeTint`, `onlyGroups`, `groups`.
 - **`mode`:** `original`, `solid`, `average`, `grayscale`, `texture` or `hidden`. Sky supports `original` and `solid`. Clouds support `original` and `hidden`. Weather supports `original`, `solid` and `hidden`.
 - **`color`:** `#RGB`, `#RRGGBB`, `#AARRGGBB` or a name such as `white`.
-- **`texture`:** a PNG file name in `config/worldpainter/textures/`.
+- **`texture`:** a PNG file name in `config/albedo/textures/`.
 - **`alpha`:** `keep`, `binary` or `opaque`.
 - **Group fields:** `name`, `match` (a pattern or a list of patterns), and `mode`, `color`, `texture`, `alpha`. A field that the group does not set comes from the category. A group with no look fields uses the category look.
 
@@ -132,7 +132,7 @@ For design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 1. Push a tag such as `v1.0.0`.
 2. CI builds all jars and makes a GitHub release.
-3. CI uploads the jars to Modrinth (slug `world-painter`) if the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
+3. CI uploads the jars to Modrinth (slug `albedo`) if the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
 
 ## License
 

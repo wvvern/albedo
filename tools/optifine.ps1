@@ -15,7 +15,7 @@ Before you start:
 3. Run "./gradlew build" in legacy/.
 
 The game runs offline (no login). The game folder is legacy\build\optifine\game.
-Screenshots go to <OutDir>\<variant>\. The harness log is in %TEMP%\worldpainter-harness\optifine-1.8.9-<variant>\.
+Screenshots go to <OutDir>\<variant>\. The harness log is in %TEMP%\albedo-harness\optifine-1.8.9-<variant>\.
 
 Variants (OptiFine settings, see Set-Variant):
   none        no OptiFine
@@ -101,7 +101,7 @@ function Set-Lines([string]$file, [hashtable]$wanted) {
 function Set-Variant([string]$variant) {
     New-Item -ItemType Directory -Force (Join-Path $game "mods") | Out-Null
     Get-ChildItem (Join-Path $game "mods") -Filter *.jar | Remove-Item -Force
-    $jar = Get-ChildItem (Join-Path $legacy "build\libs") -Filter "world-painter-forge-*.jar" | Select-Object -First 1
+    $jar = Get-ChildItem (Join-Path $legacy "build\libs") -Filter "albedo-forge-*.jar" | Select-Object -First 1
     if (-not $jar) { throw "Run ./gradlew build in legacy/ first." }
     Copy-Item $jar.FullName (Join-Path $game "mods")
     if ($variant -ne "none") {
@@ -122,8 +122,8 @@ function Set-Variant([string]$variant) {
     }
     Set-Lines (Join-Path $game "options.txt") $options
     if ($of.Count -gt 0) { Set-Lines (Join-Path $game "optionsof.txt") $of }
-    Remove-Item -Force (Join-Path $game "config\worldpainter\config.json") -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force (Join-Path $game "saves\WorldPainterTest") -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path $game "config\albedo\config.json") -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force (Join-Path $game "saves\AlbedoTest") -ErrorAction SilentlyContinue
 }
 
 $javaExe = Find-Java
@@ -134,7 +134,7 @@ $assetIndex = "1.8.9-1.8"
 if (-not (Test-Path (Join-Path $assets "indexes\$assetIndex.json"))) { $assets = Join-Path $mc "assets"; $assetIndex = "1.8" }
 
 foreach ($variant in $Variants) {
-    $harness = Join-Path $env:TEMP "worldpainter-harness\optifine-1.8.9-$variant"
+    $harness = Join-Path $env:TEMP "albedo-harness\optifine-1.8.9-$variant"
     if (Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape($harness) }) {
         throw "A game with the harness $harness is already running."
     }
@@ -148,7 +148,7 @@ foreach ($variant in $Variants) {
     # The class path is too long for cmd.exe, so it goes in the CLASSPATH variable that the game process inherits.
     $env:CLASSPATH = $classPath
     $debug = if ($DumpClasses) { "-Dlegacy.debugClassLoading=true -Dlegacy.debugClassLoadingSave=true -Dmixin.debug.verbose=true" } else { "" }
-    $arguments = @("-Xmx2G", "-Djava.library.path=`"$natives`"", "-Dworldpainter.harness=`"$harness`"", $debug, "net.minecraft.launchwrapper.Launch",
+    $arguments = @("-Xmx2G", "-Djava.library.path=`"$natives`"", "-Dalbedo.harness=`"$harness`"", $debug, "net.minecraft.launchwrapper.Launch",
         "--username", "Dev", "--version", "1.8.9", "--gameDir", "`"$game`"", "--assetsDir", "`"$assets`"", "--assetIndex", $assetIndex,
         "--uuid", "0", "--accessToken", "0", "--userProperties", "{}", "--userType", "legacy",
         "--tweakClass", "net.minecraftforge.fml.common.launcher.FMLTweaker", "--width", "1600", "--height", "900")

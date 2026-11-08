@@ -5,7 +5,7 @@ Builds a test scene in a superflat world. Takes screenshots of vanilla, each bui
 night with and without fullbright, and the settings screen.
 
 .DESCRIPTION
-The game runs with the test harness (core/src/main/java/dev/worldpainter/core/dev/Harness.java).
+The game runs with the test harness (core/src/main/java/dev/albedo/core/dev/Harness.java).
 Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 
@@ -54,13 +54,13 @@ foreach ($target in $Targets) {
         $dir = Join-Path $root "modern"; $task = ":${loader}:${version}:runClient"
         $runDir = Join-Path $dir "$loader\versions\$version\run"; $scene = "scene-modern.txt"
     }
-    $harness = Join-Path $env:TEMP "worldpainter-harness\$target"
+    $harness = Join-Path $env:TEMP "albedo-harness\$target"
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
     Set-Options $runDir
     # Use the default config and a new world each time, so the screenshots are the same each run.
-    Remove-Item -Force (Join-Path $runDir "config\worldpainter\config.json") -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force (Join-Path $runDir "saves\WorldPainterTest") -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
     # First the scene for this version, then the shots for all versions.
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$Shots")
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |

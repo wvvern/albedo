@@ -20,7 +20,7 @@ plugins {
     id 'dev.kikugie.stonecutter' version '0.9.8'
 }
 
-rootProject.name = 'world-painter-modern'
+rootProject.name = 'albedo-modern'
 
 // The Minecraft-free core lives outside this build so the legacy build can share it.
 // It is a project here only so its unit tests run; platform jars compile its sources directly.

@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.albedo.modern.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "AmbientOcclusionMixin",
+    "BiomeColorsMixin",
+    "FaceShadeMixin",
+    "BlockTintMixin",
+    "CloudsMixin",
+    "DryFoliageColorMixin",
+    "FogMixin",
+    "FoliageColorMixin",
+    "FullbrightMixin",
+    "GrassColorMixin",
+    "MinecraftMixin",
+    "ShadowMixin",
+    "SkyMixin",
+    "SodiumAmbientOcclusionMixin",
+    "SodiumTintMixin",
+    "SpriteContentsAccessor",
+    "SpriteLoaderMixin",
+    "TextureLoadMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

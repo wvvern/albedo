@@ -1,6 +1,6 @@
 # Architecture
 
-World Painter uses ports and adapters. The core contains almost all of the code and has no Minecraft types. Each Minecraft era has a small adapter.
+Albedo uses ports and adapters. The core contains almost all of the code and has no Minecraft types. Each Minecraft era has a small adapter.
 
 ```
 +----------------------------------------------------------------+
@@ -10,7 +10,7 @@ World Painter uses ports and adapters. The core contains almost all of the code 
 |   Policy             all render decisions, from one snapshot   |
 |   texture/           TextureClassifier, AtlasPaths, Foliage,   |
 |                      PixelTransformer                          |
-|   WorldPainter       init, processTexture, catalog, tick       |
+|   Albedo             init, processTexture, catalog, tick       |
 |   ui/                settings screen (SettingsEditor, Ui)      |
 |   dev/Harness        screenshot harness (development only)     |
 |   Platform, Canvas   ports that the adapters implement         |
@@ -25,7 +25,7 @@ World Painter uses ports and adapters. The core contains almost all of the code 
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
 | 17 mixins + 1 accessor      |   | 15 mixins, MixinPlugin      |
-+-----------------------------+   | WorldPainterForge (@Mod)    |
++-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/
  entrypoint,        entrypoint,
@@ -96,7 +96,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 3. Run `./gradlew :fabric:<v>:build :neoforge:<v>:build` in `modern/`. The compile errors show the hooks that moved.
 4. Fix each error with a `//? if` branch.
 5. Examine the condition boundaries (`>=1.21.2`, `>=1.21.4`, `>=1.21.5`, `>=1.21.6`, `>=1.21.9`, `>=1.21.11`, `>=26.1`). The project tests them only on the built versions.
-6. Run `./gradlew :fabric:<v>:runClient`. Make sure that the log shows `World Painter ready` and `Flattened N textures`.
+6. Run `./gradlew :fabric:<v>:runClient`. Make sure that the log shows `Albedo ready` and `Flattened N textures`.
 
 ## Testing
 

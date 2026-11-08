@@ -11,7 +11,7 @@ Changes blocks, sky, fluids, mobs and more to one flat color, the average color 
 '''
 
 [[mixins]]
-config = "worldpainter.mixins.json"
+config = "albedo.mixins.json"
 
 [[dependencies.${mod_id}]]
 modId = "neoforge"
