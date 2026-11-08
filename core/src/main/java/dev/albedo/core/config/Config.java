@@ -38,16 +38,42 @@ public final class Config {
     private final KeyBinds keys;
     private final Map<String, Profile> profiles;
 
+    /**
+     * The built-in profiles always come first and cannot change. A profile with a built-in name that differs from the
+     * built-in one is a change to it: it is kept as a new profile ("quake-white-custom"), which becomes active if the
+     * built-in one was.
+     */
     public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles) {
-        if (profiles.isEmpty()) throw new IllegalArgumentException("config needs at least one profile");
+        Map<String, Profile> all = new LinkedHashMap<String, Profile>(Presets.all());
+        String active = activeProfile;
+        for (Profile p : profiles.values()) {
+            if (!Presets.isBuiltIn(p.name())) {
+                all.put(p.name(), p);
+            } else if (!p.equals(Presets.all().get(p.name()))) {
+                String copy = freeName(all, p.name() + "-custom");
+                all.put(copy, p.renamed(copy));
+                if (p.name().equals(active)) active = copy;
+            }
+        }
         this.enabled = enabled;
         this.keys = keys;
-        this.profiles = Collections.unmodifiableMap(new LinkedHashMap<String, Profile>(profiles));
-        this.activeProfile = profiles.containsKey(activeProfile) ? activeProfile : profiles.keySet().iterator().next();
+        this.profiles = Collections.unmodifiableMap(all);
+        this.activeProfile = all.containsKey(active) ? active : all.keySet().iterator().next();
     }
 
     public static Config defaults() {
-        return new Config(true, "quake-white", KeyBinds.DEFAULT, Presets.all());
+        return new Config(true, "quake-white", KeyBinds.DEFAULT, Collections.<String, Profile>emptyMap());
+    }
+
+    public static boolean isBuiltIn(String name) {
+        return Presets.isBuiltIn(name);
+    }
+
+    /** The profiles the user made: what the config file stores. */
+    public Map<String, Profile> userProfiles() {
+        Map<String, Profile> out = new LinkedHashMap<String, Profile>(profiles);
+        out.keySet().removeAll(Presets.all().keySet());
+        return out;
     }
 
     public boolean enabled() { return enabled; }
@@ -78,11 +104,11 @@ public final class Config {
 
     /**
      * Renames in place, keeping the profile's position and active state. The name is normalized, and a name already
-     * in use gets a number ("quake-white-2"). A blank name changes nothing.
+     * in use gets a number ("quake-white-2"). A blank name and a built-in profile change nothing.
      */
     public Config withRenamedProfile(String from, String newName) {
         String clean = normalizeName(newName);
-        if (!profiles.containsKey(from) || clean.isEmpty() || clean.equals(from)) return this;
+        if (!profiles.containsKey(from) || isBuiltIn(from) || clean.isEmpty() || clean.equals(from)) return this;
         String to = freeProfileName(clean);
         Map<String, Profile> next = new LinkedHashMap<String, Profile>();
         for (Profile p : profiles.values()) next.put(p.name().equals(from) ? to : p.name(), p.name().equals(from) ? p.renamed(to) : p);
@@ -95,9 +121,9 @@ public final class Config {
         return withProfile(p.renamed(name)).withActiveProfile(name);
     }
 
-    /** No-op for the last remaining profile. */
+    /** No-op for a built-in profile. */
     public Config withoutProfile(String name) {
-        if (profiles.size() <= 1) return this;
+        if (isBuiltIn(name)) return this;
         Map<String, Profile> next = new LinkedHashMap<String, Profile>(profiles);
         next.remove(name);
         return new Config(enabled, activeProfile, keys, next);
@@ -112,8 +138,12 @@ public final class Config {
 
     /** A name not used yet, based on {@code base}. */
     public String freeProfileName(String base) {
-        if (!profiles.containsKey(base)) return base;
-        for (int i = 2; ; i++) if (!profiles.containsKey(base + "-" + i)) return base + "-" + i;
+        return freeName(profiles, base);
+    }
+
+    private static String freeName(Map<String, Profile> taken, String base) {
+        if (!taken.containsKey(base)) return base;
+        for (int i = 2; ; i++) if (!taken.containsKey(base + "-" + i)) return base + "-" + i;
     }
 
     @Override

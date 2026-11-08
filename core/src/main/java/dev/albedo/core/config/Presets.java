@@ -8,14 +8,28 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-/** Built-in profiles written to the config file on first launch. */
+/**
+ * The built-in profiles. They come from code, not from the config file, so they cannot change and an update can
+ * improve them. A change to one makes a copy (see {@link Config}).
+ */
 public final class Presets {
-    private Presets() {}
+    private static final Map<String, Profile> ALL;
 
-    public static Map<String, Profile> all() {
+    static {
         Map<String, Profile> m = new LinkedHashMap<String, Profile>();
         for (Profile p : new Profile[]{quake(true), quake(false), minimal()}) m.put(p.name(), p);
-        return m;
+        ALL = Collections.unmodifiableMap(m);
+    }
+
+    private Presets() {}
+
+    /** In menu order. */
+    public static Map<String, Profile> all() {
+        return ALL;
+    }
+
+    public static boolean isBuiltIn(String name) {
+        return ALL.containsKey(name);
     }
 
     /** Everything static is one flat color, evenly lit, without plants; anything that moves keeps its texture. */
@@ -23,12 +37,15 @@ public final class Presets {
         int block = white ? 0xFFFFFFFF : 0xFF141414;
         int fluid = white ? 0xFFD0D0D0 : 0xFF0A0A0A;
         int sky = white ? 0xFFFFFFFF : 0xFF000000;
+        // Signs, banners and maps are toned, not lost: their text and patterns stay readable on them.
+        int decoration = white ? 0xFFD4D4D4 : 0xFF6A6A6A;
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
         // Solid leaves: through their holes you'd otherwise see darker back faces, which is exactly the noise to remove.
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 new Appearance(Appearance.Mode.SOLID, block, null, Appearance.Alpha.OPAQUE), false);
         c.put(Category.BLOCKS, new CategorySettings(Appearance.solid(block), true, Collections.singletonList(solidLeaves)));
         c.put(Category.BLOCK_ENTITIES, flat(block, false));
+        c.put(Category.DECORATIONS, flat(decoration, false));
         c.put(Category.FLUIDS, flat(fluid, true));
         c.put(Category.SKY, flat(sky, false));
         c.put(Category.CLOUDS, hidden());
@@ -46,6 +63,7 @@ public final class Presets {
         CategorySettings avg = new CategorySettings(Appearance.of(Appearance.Mode.AVERAGE), false, Collections.<Rule>emptyList());
         c.put(Category.BLOCKS, avg);
         c.put(Category.BLOCK_ENTITIES, avg);
+        c.put(Category.DECORATIONS, avg);
         c.put(Category.FLUIDS, avg);
         c.put(Category.CLOUDS, hidden());
         return new Profile("minimal", c, Profile.defaultToggles());

@@ -47,13 +47,15 @@ You can change the keys in the config file.
 
 | Profile | Result |
 |---------|--------|
-| `quake-white` | Blocks, block entities and sky are white. Leaves are solid. Fluids are light gray. The profile removes biome tint and hides foliage, clouds and weather. Fullbright is on. |
-| `quake-black` | The same as `quake-white`, in near-black. |
+| `quake-white` | Blocks, block entities and sky are white. Signs, banners, paintings and maps are light gray. Leaves are solid. Fluids are light gray. The profile removes biome tint and hides foliage, clouds and weather. Fullbright is on. |
+| `quake-black` | The same as `quake-white`, in near-black. Signs, banners, paintings and maps are mid gray, so that their text stays readable. |
 | `minimal` | Each block becomes its own average color. |
+
+These three profiles are built in. You cannot rename, delete or change them. When you change a built-in profile, the mod puts the change in a new profile, for example `quake-white-custom`, and selects it. The config file keeps only your own profiles, so an update can improve the built-in profiles.
 
 ### Settings screen
 
-- **Profile bar:** select, copy, rename or delete a profile. To rename, type the name and push Enter or Save. Esc or Cancel keeps the old name.
+- **Profile bar:** click the profile name to open the profile list. Type to search, push Up or Down to select, and push Enter. Copy makes a new profile from the active one. Rename and Delete are for your own profiles. To rename, type the name and push Enter or Save. Esc or Cancel keeps the old name.
 - **Delete:** a profile or group delete needs two clicks. The first click makes the button red. Click it again in 3 seconds to delete. Esc or a click on a different control cancels.
 - **Tooltips:** keep the pointer on a control to see what it does.
 - **Export and Import:** Export saves the profile to `config/albedo/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number. The result shows in a message box for some seconds. A click closes it.
@@ -61,16 +63,21 @@ You can change the keys in the config file.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
 - **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
 - **Textures tab:** all loaded textures of the category. Type in the search field to find a texture. Click a texture to put it in a group.
-- **Groups tab:** a group is a named set of blocks with its own look. Use the arrows to move a group up or down.
+- **Groups tab:** a group is a named set of textures with its own look: blocks, particles, mobs or other textures of the category. Use the arrows to move a group up or down.
 
-To add blocks to a group, type a block name. The input shows matching textures, with whole blocks first (for example, `grass_block*` covers all faces). Push Up or Down to select a texture. Push Enter to add it. Push Tab to complete the name. A `*` matches any text. Each block shows as a chip with a remove button.
+To add textures to a group, type a name. The input shows matching textures of the category, with whole blocks first (for example, `grass_block*` covers all faces, and `generic*` covers all frames of a particle). Push Up or Down to select a texture. Push Enter to add it. Push Tab to complete the name. Each pattern shows as a chip with a remove button. Two kinds of pattern:
+
+- **Name with wildcards:** `*` matches any text, so `*` alone selects all textures of the category, and `?` matches one character. The pattern must match the whole name.
+- **Regular expression:** text between two slashes, for example `/^(oak|birch)_/`. It can match any part of the name. Case does not matter. The input shows an error if the expression is not valid.
+
+A pattern without `:` ignores the namespace: `stone` matches `minecraft:stone`.
 
 If a block is in two groups, the higher group in the list wins. Each category has a scope:
 
 - **Everything:** the category look applies to all blocks, and groups change their blocks. A group set to Vanilla keeps its blocks unchanged.
 - **Only groups:** only blocks in groups change. A group set to Global uses the category look.
 
-The footer shows "Changes not saved" when there are changes. Apply saves and shows the result. Done or Esc saves and closes the screen. Discard closes the screen and does not save. Fullbright, shadows and sky color change immediately. Texture, shading and foliage changes reload resources.
+The footer shows "Changes not saved" when there are changes. Apply saves and shows the result. Done or Esc saves and closes the screen. Discard closes the screen and does not save. Changes show immediately: the mod repaints only the textures that change, and does not reload resources.
 
 ## Config file
 
@@ -106,13 +113,13 @@ The settings are in `config/albedo/config.json`. You can edit this file by hand.
 ```
 
 - **Profile toggles:** `fullbright`, `shading`, `foliage`, `shadows`.
-- **Category keys:** `blocks`, `fluids`, `block_entities`, `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds`, `weather`.
+- **Category keys:** `blocks`, `fluids`, `block_entities`, `decorations` (signs, banners, paintings, maps, item frames), `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds`, `weather`.
 - **Category fields:** `mode`, `color`, `texture`, `alpha`, `removeTint`, `onlyGroups`, `groups`.
 - **`mode`:** `original`, `solid`, `average`, `grayscale`, `texture` or `hidden`. Sky supports `original` and `solid`. Clouds support `original` and `hidden`. Weather supports `original`, `solid` and `hidden`.
 - **`color`:** `#RGB`, `#RRGGBB`, `#AARRGGBB` or a name such as `white`.
 - **`texture`:** a PNG file name in `config/albedo/textures/`.
 - **`alpha`:** `keep`, `binary` or `opaque`.
-- **Group fields:** `name`, `match` (a pattern or a list of patterns), and `mode`, `color`, `texture`, `alpha`. A field that the group does not set comes from the category. A group with no look fields uses the category look.
+- **Group fields:** `name`, `match` (a pattern or a list of patterns; a pattern between slashes is a regular expression), and `mode`, `color`, `texture`, `alpha`. A field that the group does not set comes from the category. A group with no look fields uses the category look.
 
 ## Building
 

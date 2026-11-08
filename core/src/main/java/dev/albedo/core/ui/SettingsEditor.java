@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public final class SettingsEditor {
     private static final Category[] CATEGORIES = {
-            Category.BLOCKS, Category.FLUIDS, Category.BLOCK_ENTITIES, Category.ITEMS, Category.ENTITIES,
+            Category.BLOCKS, Category.FLUIDS, Category.BLOCK_ENTITIES, Category.DECORATIONS, Category.ITEMS, Category.ENTITIES,
             Category.PLAYERS, Category.PARTICLES, Category.BLOCK_BREAKING, Category.SKY, Category.CLOUDS, Category.WEATHER,
     };
     private static final int[] PALETTE = {
@@ -54,7 +54,7 @@ public final class SettingsEditor {
     private static final List<String> FACE_SUFFIXES = Arrays.asList("top", "side", "bottom", "front", "back", "end",
             "overlay", "snow", "inner", "outer", "still", "flow", "base", "open", "on", "off", "lit", "particle");
     /** The labels left of controls; the label column is as wide as the widest. */
-    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Blocks", "Scope"};
+    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope"};
     private static final int ROW = 11;
     private static final int GAP = 6;
     private static final int MAX_SUGGESTIONS = 6;
@@ -90,7 +90,7 @@ public final class SettingsEditor {
     private final TextField search = new TextField(64, TextField.ANY);
     private final TextField add = new TextField(64, new TextField.Filter() {
         @Override
-        public boolean accepts(char c) { return Character.isLetterOrDigit(c) || "_-:*?/.".indexOf(c) >= 0; }
+        public boolean accepts(char c) { return Character.isLetterOrDigit(c) || "_-:*?/.^$|()[]{}+\\,".indexOf(c) >= 0; }
     });
     private final TextField groupName = new TextField(32, TextField.ANY);
     private final TextField rename = new TextField(32, new TextField.Filter() {
@@ -156,14 +156,15 @@ public final class SettingsEditor {
         int w = canvas.width(), h = canvas.height();
         labelW = 0;
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
-        labelW += 8;
+        labelW = Math.max(labelW, ui.width(members(category))) + 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, x1 = x0 + pw, y1 = y0 + ph;
         ui.fill(0, 0, w, h, Ui.SCRIM);
         ui.round(x0, y0, pw, ph, Ui.BG);
 
-        header(x0 + 8, y0 + 6, pw - 16);
         int bodyTop = y0 + 26, bodyBottom = y1 - 24;
+        pickerBottom = bodyBottom;
+        header(x0 + 8, y0 + 6, pw - 16);
         ui.fill(x0 + 8, bodyTop - 3, pw - 16, 1, Ui.BORDER);
         int widest = 0;
         for (Category c : CATEGORIES) widest = Math.max(widest, ui.width(name(c)));
@@ -174,6 +175,7 @@ public final class SettingsEditor {
         ui.fill(x0 + 8, bodyBottom + 1, pw - 16, 1, Ui.BORDER);
         footer(x0 + 8, bodyBottom + 5, pw - 16);
         toast(cx, bodyBottom - 3, cw);
+        profilePicker();
 
         if (ui.takeKey(UiKey.ESCAPE)) {
             if (ui.disarm()) {
@@ -207,7 +209,7 @@ public final class SettingsEditor {
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 
         int px = tx + stateW + 8, pw = right - buttonsW - 8 - px;
-        boolean single = draft.profiles().size() <= 1;
+        boolean builtIn = Config.isBuiltIn(draft.activeProfileName());
         if (renaming) {
             if (ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) {
                 cancelRename();
@@ -224,14 +226,16 @@ public final class SettingsEditor {
             return;
         }
 
-        if (single) ui.button("delete", right - bw, y, bw, Ui.H, "Delete", Ui.Style.DANGER, false, "You cannot delete the last profile");
-        else if (ui.confirmButton("delete", right - bw, y, bw, Ui.H, "Delete", "Delete this profile",
+        if (builtIn) {
+            ui.button("delete", right - bw, y, bw, Ui.H, "Delete", Ui.Style.DANGER, false, "Built-in profiles cannot be deleted");
+        } else if (ui.confirmButton("delete", right - bw, y, bw, Ui.H, "Delete", "Delete this profile",
                 "Click again to delete profile \"" + draft.activeProfileName() + "\"")) {
             String gone = draft.activeProfileName();
             setDraft(draft.withoutProfile(gone));
             setStatus("Deleted profile " + gone + ".", Ui.MUTED);
         }
-        if (ui.button("rename", right - 2 * bw - 3, y, bw, Ui.H, "Rename", Ui.Style.NORMAL, true, "Rename this profile")) {
+        if (ui.button("rename", right - 2 * bw - 3, y, bw, Ui.H, "Rename", Ui.Style.NORMAL, !builtIn,
+                builtIn ? "Built-in profiles cannot be renamed. Copy it to make your own." : "Rename this profile")) {
             startRename();
         }
         if (ui.button("new", right - 3 * bw - 6, y, bw, Ui.H, "Copy", Ui.Style.NORMAL, true,
@@ -242,23 +246,101 @@ public final class SettingsEditor {
         }
 
         if (pw < 40) return;
-        String tip = "The active profile (" + (indexOfProfile() + 1) + " of " + draft.profiles().size() + "). "
-                + draft.keys().cycleProfile + " selects the next profile in game.";
-        if (ui.button("prev", px, y, 13, Ui.H, "<", Ui.Style.GHOST, !single, "Previous profile")) {
-            setDraft(draft.withActiveProfile(draft.profileNameAt(-1)));
+        if (ui.button("profiles", px, y, pw, Ui.H, "", Ui.Style.NORMAL, true,
+                "Select a profile. " + draft.keys().cycleProfile + " selects the next profile in game.")) {
+            if (picking) closePicker();
+            else openPicker();
         }
-        if (ui.button("next", px + pw - 13, y, 13, Ui.H, ">", Ui.Style.GHOST, !single, "Next profile")) {
-            setDraft(draft.withActiveProfile(draft.profileNameAt(1)));
-        }
-        ui.round(px + 14, y, pw - 28, Ui.H, Ui.CARD);
-        String full = "Profile: " + draft.activeProfileName();
-        String label = ui.width(full) <= pw - 32 ? full : ui.ellipsize(draft.activeProfileName(), pw - 32);
-        ui.textCentered(label, px + pw / 2, y + 3, Ui.TEXT);
-        ui.tip(px + 14, y, pw - 28, Ui.H, label.equals(full) ? tip : full + ". " + tip);
+        String name = draft.activeProfileName(), tag = builtIn ? "built-in" : "";
+        int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6, room = pw - 18 - tagW;
+        String full = "Profile: " + name;
+        ui.text(ui.width(full) <= room ? full : ui.ellipsize(name, room), px + 5, y + 3, Ui.TEXT);
+        if (tagW > 0) ui.text(tag, px + pw - 12 - tagW, y + 3, Ui.FAINT);
+        ui.text("v", px + pw - 10, y + 3, Ui.MUTED);
+        pickerX = px;
+        pickerY = y + Ui.H + 1;
+        pickerW = pw;
+        // Reserved before the page is drawn, so that a click on the open list does not also reach the page.
+        if (picking) ui.reserveOverlay(pickerX, pickerY, pickerW, pickerHeight());
     }
 
-    private int indexOfProfile() {
-        return new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName());
+    // ---------------------------------------------------------------- profile picker: a searchable list
+
+    private boolean picking;
+    private int pickerX, pickerY, pickerW, pickerBottom, picked;
+    private final TextField pickerSearch = new TextField(32, TextField.ANY);
+
+    private void openPicker() {
+        picking = true;
+        pickerSearch.set("");
+        picked = Math.max(0, new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName()));
+        ui.focus("profiles.search");
+    }
+
+    private void closePicker() {
+        picking = false;
+        ui.clearFocus();
+        ui.endOverlay();
+    }
+
+    private List<String> pickerNames() {
+        String q = pickerSearch.text.trim().toLowerCase(Locale.ROOT);
+        List<String> names = new ArrayList<String>();
+        for (String n : draft.profiles().keySet()) if (n.contains(q)) names.add(n);
+        return names;
+    }
+
+    private int pickerRows() {
+        return Math.max(1, Math.min(pickerNames().size(), (pickerBottom - pickerY - Ui.H - 6) / ROW));
+    }
+
+    private int pickerHeight() {
+        return Ui.H + 6 + pickerRows() * ROW;
+    }
+
+    /** Drawn after the page, over it. Up, Down and Enter choose; Esc or a click outside closes it. */
+    private void profilePicker() {
+        if (!picking) return;
+        boolean down = ui.takeKey(UiKey.DOWN), up = ui.takeKey(UiKey.UP), enter = ui.takeKey(UiKey.ENTER);
+        if (ui.takeKey(UiKey.ESCAPE)) {
+            closePicker();
+            return;
+        }
+        int rows = pickerRows(), h = pickerHeight();
+        int x = pickerX, y = pickerY, w = pickerW;
+        if (ui.clicked() && !ui.hover(x, y - Ui.H - 1, w, h + Ui.H + 1)) {
+            closePicker();
+            return;
+        }
+        ui.beginOverlay();
+        ui.round(x, y, w, h, Ui.BORDER);
+        ui.round(x + 1, y + 1, w - 2, h - 2, Ui.PANEL);
+        if (ui.textField("profiles.search", pickerSearch, x + 2, y + 2, w - 4, Ui.H, "Search profiles", null)) picked = 0;
+        if (!ui.isFocused("profiles.search")) ui.focus("profiles.search");
+        List<String> names = pickerNames(); // after the field, so that this frame's typing filters the list
+        if (down) picked++;
+        if (up) picked--;
+        picked = Math.max(0, Math.min(picked, names.size() - 1));
+        int ly = y + Ui.H + 4;
+        if (names.isEmpty()) ui.textFit("No profile has this name", x + 5, ly + 1, w - 10, Ui.FAINT);
+        int first = names.size() > rows ? Math.max(0, Math.min(picked - rows + 1, names.size() - rows)) : 0;
+        for (int i = first; i < Math.min(names.size(), first + rows); i++) {
+            String n = names.get(i);
+            int ry = ly + (i - first) * ROW;
+            if (i == picked) ui.fill(x + 1, ry, w - 2, ROW, Ui.CARD_HOVER);
+            if (n.equals(draft.activeProfileName())) ui.fill(x + 1, ry + 1, 2, ROW - 2, Ui.ACCENT);
+            boolean chosen = ui.button("profiles.row." + n, x + 1, ry, w - 2, ROW, "", Ui.Style.GHOST, true, null);
+            String tag = Config.isBuiltIn(n) ? "built-in" : "";
+            int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6;
+            ui.text(ui.ellipsize(n, w - 14 - tagW), x + 6, ry + 1, Ui.TEXT);
+            if (tagW > 0) ui.text(tag, x + w - 4 - tagW, ry + 1, Ui.FAINT);
+            if (chosen || (enter && i == picked)) {
+                setDraft(draft.withActiveProfile(n));
+                closePicker();
+                break;
+            }
+        }
+        ui.endOverlay();
     }
 
     private void startRename() {
@@ -546,7 +628,8 @@ public final class SettingsEditor {
     private void blocksEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
         Rule rule = cs.rules().get(index);
         Map<String, Integer> catalog = sc.catalog(category);
-        ui.text("Blocks", x, y + 3, Ui.MUTED);
+        String members = members(category);
+        ui.text(members, x, y + 3, Ui.MUTED);
         int fx = x + labelW, fw = w - labelW;
         // Keys the list reacts to are taken before the field would (Enter would unfocus it); typing goes to the field.
         boolean down = false, up = false, complete = false, enter = false;
@@ -556,22 +639,29 @@ public final class SettingsEditor {
             complete = ui.takeKey(UiKey.TAB);
             enter = ui.takeKey(UiKey.ENTER);
         }
-        if (ui.textField("add", add, fx, y, fw, Ui.H, "Type a block name, for example dirt",
-                "Enter adds the selected match. Tab completes. * matches any text.")) {
+        if (ui.textField("add", add, fx, y, fw, Ui.H, "Type a name, for example " + example(category) + ". * selects all.",
+                "Enter adds the selected match. Tab completes. * matches any text. /text/ is a regular expression.")) {
             suggestion = 0;
         }
-        List<Suggestion> list = ui.isFocused("add") ? suggestions(add.text, catalog, cs, index) : Collections.<Suggestion>emptyList();
+        // "/fla" is a regular expression still being typed: it means "/fla/".
+        String typed = add.text.trim();
+        if (typed.startsWith("/") && !Glob.isRegex(typed)) typed += "/";
+        String problem = Glob.problem(typed);
+        List<Suggestion> list = ui.isFocused("add") && problem == null
+                ? suggestions(typed, catalog, cs, index) : Collections.<Suggestion>emptyList();
         if (down) suggestion++;
         if (up) suggestion--;
         suggestion = Math.max(0, Math.min(suggestion, list.size() - 1));
         if (complete && !list.isEmpty()) add.set(list.get(suggestion).pattern);
-        if (enter && !add.text.trim().isEmpty()) {
-            addPattern(cs, index, list.isEmpty() ? cleanPattern(add.text) : list.get(suggestion).pattern);
+        if (enter && !typed.isEmpty() && problem == null) {
+            addPattern(cs, index, list.isEmpty() ? cleanPattern(typed) : list.get(suggestion).pattern);
             return;
         }
         int listY = y + Ui.H + 2, rows = Math.min(list.size(), Math.max(0, (bottom - listY - 2) / ROW));
         if (rows > 0) ui.reserveOverlay(fx, listY, fw, rows * ROW + 2);
-        if (ui.isFocused("add") && !add.text.trim().isEmpty() && list.isEmpty()) {
+        if (ui.isFocused("add") && problem != null) {
+            listY += ui.paragraph("Not a valid regular expression: " + problem, fx, listY + 2, fw, Ui.DANGER) + 2;
+        } else if (ui.isFocused("add") && !add.text.trim().isEmpty() && list.isEmpty()) {
             ui.textFit("No texture matches. Enter adds it as you typed it.", fx, listY + 2, fw, Ui.FAINT);
             listY += 12;
         }
@@ -584,7 +674,7 @@ public final class SettingsEditor {
             int matched = stats[0], effective = stats[1];
             Integer color = matched > 0 ? stats[2] : null;
             boolean dim = matched == 0 || effective == 0;
-            String tip = matched == 0 ? "No loaded texture has the name " + p
+            String tip = matched == 0 ? "No loaded texture matches " + p
                     : effective == 0 ? "A higher group already has all " + matched + " of these textures"
                     : effective + " texture" + (effective == 1 ? "" : "s");
             int cw = ui.chipWidth(p, color != null);
@@ -611,7 +701,7 @@ public final class SettingsEditor {
             }
         }
         if (rule.patterns().isEmpty() && rows == 0 && !ui.isFocused("add")) {
-            ui.paragraph("No blocks yet. Type a block name above.", fx, cyy + 2, fw, Ui.FAINT);
+            ui.paragraph("No " + members.toLowerCase(Locale.ROOT) + " yet. Type a name above, or * for all.", fx, cyy + 2, fw, Ui.FAINT);
         }
 
         // suggestions, drawn over the chips
@@ -708,7 +798,7 @@ public final class SettingsEditor {
      * is offered as is.
      */
     private List<Suggestion> suggestions(String typed, Map<String, Integer> catalog, CategorySettings cs, int index) {
-        String q = typed.trim().toLowerCase(Locale.ROOT);
+        String q = cleanPattern(typed);
         if (q.isEmpty()) return Collections.emptyList();
         checkMemo(cs, catalog);
         String key = index + "|" + q;
@@ -723,8 +813,8 @@ public final class SettingsEditor {
     private List<Suggestion> findSuggestions(String q, Map<String, Integer> catalog, CategorySettings cs, int index) {
         Rule self = cs.rules().get(index);
         List<Suggestion> out = new ArrayList<Suggestion>();
-        if (q.indexOf('*') >= 0 || q.indexOf('?') >= 0) {
-            out.add(suggestionFor(cleanPattern(q), catalog, cs, self));
+        if (Glob.isRegex(q) || q.indexOf('*') >= 0 || q.indexOf('?') >= 0) {
+            out.add(suggestionFor(q, catalog, cs, self));
             return out;
         }
         Map<String, List<String>> stems = new LinkedHashMap<String, List<String>>();
@@ -769,12 +859,19 @@ public final class SettingsEditor {
         return new Suggestion(pattern, count, color, owner);
     }
 
-    /** "grass_block_side_overlay" -> "grass_block"; names without a face suffix are their own stem. */
+    /**
+     * "grass_block_side_overlay" -> "grass_block", "generic_7" (a particle frame) -> "generic". Names without a face
+     * or frame suffix are their own stem.
+     */
     private static String stem(String id) {
-        for (int u = id.lastIndexOf('_'); u > 0 && FACE_SUFFIXES.contains(id.substring(u + 1)); u = id.lastIndexOf('_')) {
+        for (int u = id.lastIndexOf('_'); u > 0 && isPart(id.substring(u + 1)); u = id.lastIndexOf('_')) {
             id = id.substring(0, u);
         }
         return id;
+    }
+
+    private static boolean isPart(String suffix) {
+        return FACE_SUFFIXES.contains(suffix) || suffix.matches("[0-9]+");
     }
 
     /**
@@ -788,8 +885,9 @@ public final class SettingsEditor {
         return true;
     }
 
+    /** Globs are lower case and lose the vanilla namespace; a regular expression stays as typed. */
     private static String cleanPattern(String text) {
-        return shortId(text.trim().toLowerCase(Locale.ROOT));
+        return Glob.isRegex(text) ? text.trim() : shortId(text.trim().toLowerCase(Locale.ROOT));
     }
 
     private String freeGroupName(CategorySettings cs) {
@@ -1104,7 +1202,15 @@ public final class SettingsEditor {
         preview = Policy.of(c.activeProfile());
     }
 
-    private void setProfile(Profile p) { setDraft(draft.withProfile(p)); }
+    /** A change to a built-in profile goes into a new copy of it (see {@link Config}); the message says so. */
+    private void setProfile(Profile p) {
+        String before = draft.activeProfileName();
+        setDraft(draft.withProfile(p));
+        if (!draft.activeProfileName().equals(before)) {
+            setStatus(before + " is built in and does not change. Your changes are in the new profile "
+                    + draft.activeProfileName() + ".", Ui.MUTED);
+        }
+    }
 
     private void setCategory(CategorySettings cs) { setProfile(profile().with(category, cs)); }
 
@@ -1219,6 +1325,7 @@ public final class SettingsEditor {
             case BLOCKS: return "Blocks";
             case FLUIDS: return "Fluids";
             case BLOCK_ENTITIES: return "Block entities";
+            case DECORATIONS: return "Decorations";
             case ITEMS: return "Items";
             case ENTITIES: return "Mobs and entities";
             case PLAYERS: return "Players";
@@ -1231,11 +1338,42 @@ public final class SettingsEditor {
         }
     }
 
+    /** What a group's patterns name in this category, as the label of its input: "Blocks", "Particles"... */
+    static String members(Category c) {
+        switch (c) {
+            case BLOCKS: return "Blocks";
+            case FLUIDS: return "Fluids";
+            case ITEMS: return "Items";
+            case ENTITIES: return "Mobs";
+            case PLAYERS: return "Skins";
+            case PARTICLES: return "Particles";
+            case BLOCK_BREAKING: return "Stages";
+            default: return "Textures";
+        }
+    }
+
+    /** A name to type in the group input of this category. */
+    static String example(Category c) {
+        switch (c) {
+            case BLOCKS: return "dirt";
+            case FLUIDS: return "water";
+            case BLOCK_ENTITIES: return "chest";
+            case DECORATIONS: return "banner";
+            case ITEMS: return "diamond_sword";
+            case ENTITIES: return "creeper";
+            case PLAYERS: return "steve";
+            case PARTICLES: return "flame";
+            case BLOCK_BREAKING: return "destroy_stage";
+            default: return "stone";
+        }
+    }
+
     static String description(Category c) {
         switch (c) {
             case BLOCKS: return "Terrain: stone, grass, leaves, glass...";
             case FLUIDS: return "Water and lava";
-            case BLOCK_ENTITIES: return "Chests, beds, signs, banners, paintings";
+            case BLOCK_ENTITIES: return "Chests, beds, bells, decorated pots";
+            case DECORATIONS: return "Signs, banners, paintings, maps, item frames";
             case ITEMS: return "Item icons and held items";
             case ENTITIES: return "Mobs, projectiles, armor";
             case PLAYERS: return "Default player skins";

@@ -15,8 +15,10 @@ public enum Category {
     BLOCKS,
     /** Water, lava and modded fluids. */
     FLUIDS,
-    /** Things drawn with entity-style textures that are really scenery: chests, beds, signs, banners, paintings. */
+    /** Things drawn with entity-style textures that are really scenery: chests, beds, bells, decorated pots. */
     BLOCK_ENTITIES,
+    /** Things that carry text or pictures: signs, banners, paintings, maps and item frames. */
+    DECORATIONS,
     /** Biome colormaps (grass/foliage). Flattened together with BLOCKS when tint removal is on. */
     COLORMAPS,
     /** Block breaking crack overlay. */

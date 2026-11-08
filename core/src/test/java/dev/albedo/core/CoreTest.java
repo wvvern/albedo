@@ -4,6 +4,7 @@ import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
+import dev.albedo.core.config.Presets;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.Toggle;
@@ -33,6 +34,11 @@ class CoreTest {
         assertEquals(Category.WEATHER, TextureClassifier.classify("minecraft:textures/environment/rain.png").category());
         assertEquals(Category.SKY, TextureClassifier.classify("minecraft:textures/environment/sun.png").category());
         assertEquals(Category.BLOCK_ENTITIES, TextureClassifier.classify("minecraft:textures/entity/chest/normal.png").category());
+        // Things that carry text or pictures: modern and 1.8.9 names.
+        for (String s : new String[]{"entity/signs/oak", "entity/signs/hanging/oak", "textures/entity/sign.png", "entity/banner/base",
+            "entity/banner_base", "textures/map/map_background.png", "block/item_frame", "blocks/itemframe_background"}) {
+            assertEquals(Category.DECORATIONS, TextureClassifier.classify("minecraft:" + s).category(), s);
+        }
         assertEquals(Category.ENTITIES, TextureClassifier.classify("minecraft:textures/entity/zombie/zombie.png").category());
         assertEquals(Category.PLAYERS, TextureClassifier.classify("minecraft:textures/entity/player/wide/alex.png").category());
         assertEquals(Category.COLORMAPS, TextureClassifier.classify("minecraft:textures/colormap/grass.png").category());
@@ -63,8 +69,10 @@ class CoreTest {
         assertEquals("minecraft:block/stone", AtlasPaths.spriteLocation("minecraft:textures/atlas/blocks.png", "minecraft:block/stone"));
         assertEquals(Category.SKY,
                 TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:celestials", "minecraft:moon/full_moon")).category());
-        assertEquals(Category.BLOCK_ENTITIES,
+        assertEquals(Category.DECORATIONS,
                 TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:paintings", "minecraft:kebab")).category());
+        assertEquals(Category.DECORATIONS,
+                TextureClassifier.classify(AtlasPaths.spriteLocation("minecraft:map_decorations", "minecraft:player")).category());
     }
 
     @Test
@@ -146,12 +154,27 @@ class CoreTest {
         assertEquals(0xFFFF0000, leaves.color());
         assertEquals(Appearance.Alpha.OPAQUE, leaves.alpha());
 
-        Config renamed = c.withRenamedProfile("quake-white", "mine");
+        // Built-in profiles cannot be renamed or deleted; a change to one goes into a new profile.
+        assertSame(c, c.withRenamedProfile("quake-white", "mine"));
+        assertSame(c, c.withoutProfile("minimal"));
+        Config changed = c.withProfile(c.activeProfile().with(Toggle.SHADOWS, false));
+        assertEquals("quake-white-custom", changed.activeProfileName());
+        assertEquals(Presets.all().get("quake-white"), changed.profiles().get("quake-white"));
+        assertEquals(Collections.singleton("quake-white-custom"), changed.userProfiles().keySet());
+        assertEquals(changed, ConfigCodec.decode(ConfigCodec.encode(changed)), "the file holds only the user profiles");
+        assertFalse(ConfigCodec.encode(changed).contains("\"quake-white\": {"));
+
+        Config renamed = changed.withRenamedProfile("quake-white-custom", "mine");
         assertEquals("mine", renamed.activeProfileName());
         assertEquals("mine", renamed.activeProfile().name());
         assertEquals("quake-white-2", c.freeProfileName("quake-white"));
         assertEquals("fresh", c.freeProfileName("fresh"));
-        assertEquals(c.profiles().size() - 1, c.withoutProfile("minimal").profiles().size());
+        assertEquals(c.profiles(), renamed.withoutProfile("mine").profiles());
+
+        // An old file that stored a changed built-in profile keeps the change as a new profile.
+        Config old = ConfigCodec.decode("{ \"activeProfile\": \"minimal\", \"profiles\": { \"minimal\": { \"fullbright\": true } } }");
+        assertEquals("minimal-custom", old.activeProfileName());
+        assertTrue(old.activeProfile().is(Toggle.FULLBRIGHT));
 
         // Lighting and shadows do not change textures; looks, foliage and the on/off switch do.
         Policy p = Policy.of(c);
@@ -226,8 +249,9 @@ class CoreTest {
 
     @Test
     void profileFilesRoundTripAndRejectBadInput() {
-        Config c = ConfigCodec.decode("{ \"profiles\": { \"Mine\": { \"shadows\": false, \"blocks\": { \"mode\": \"solid\","
-                + " \"onlyGroups\": true, \"groups\": [ { \"name\": \"Ground\", \"match\": [\"dirt\", \"gravel\"] } ] } } } }");
+        Config c = ConfigCodec.decode("{ \"activeProfile\": \"Mine\", \"profiles\": { \"Mine\": { \"shadows\": false,"
+                + " \"blocks\": { \"mode\": \"solid\", \"onlyGroups\": true,"
+                + " \"groups\": [ { \"name\": \"Ground\", \"match\": [\"dirt\", \"gravel\"] } ] } } } }");
         for (Profile p : Config.defaults().withProfile(c.activeProfile()).profiles().values()) {
             assertEquals(p.renamed(Config.normalizeName(p.name())), ConfigCodec.decodeProfileFile(ConfigCodec.encodeProfileFile(p)));
         }
@@ -252,6 +276,24 @@ class CoreTest {
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decodeProfileFile(b[0]), b[0]);
             assertTrue(e.getMessage().contains(b[1]), e.getMessage());
         }
+    }
+
+    @Test
+    void patternsAreGlobsOrRegularExpressions() {
+        assertTrue(Glob.compile("stone").matches("minecraft:stone"));
+        assertFalse(Glob.compile("stone").matches("minecraft:stone_bricks"), "a glob matches the whole name");
+        assertTrue(Glob.compile("*").matches("minecraft:flame"));
+        assertTrue(Glob.compile("/^(oak|birch)_/").matches("minecraft:oak_leaves"), "the namespace is not part of the match");
+        assertFalse(Glob.compile("/^(oak|birch)_/").matches("minecraft:dark_oak_leaves"));
+        assertTrue(Glob.compile("/LEAVES$/").matches("minecraft:oak_leaves"), "case does not matter");
+        assertTrue(Glob.compile("/^mymod:/").matches("mymod:ruby_ore"), "a ':' brings the namespace in");
+        assertTrue(Glob.compile("/generic_\\d/").matches("minecraft:generic_7"));
+        assertNull(Glob.problem("/ok/"));
+        assertNull(Glob.problem("plain"));
+        assertNotNull(Glob.problem("/(open/"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+                "{ \"profiles\": { \"x\": { \"particles\": { \"groups\": [ { \"match\": \"/(open/\" } ] } } } }"));
+        assertTrue(e.getMessage().contains("not a valid pattern"), e.getMessage());
     }
 
     @Test

@@ -50,6 +50,72 @@ class SettingsEditorTest {
         });
     }
 
+    /** The defaults plus the user's own profile "test", which is active. */
+    private static Config withOwnProfile() {
+        Config c = Config.defaults();
+        return c.withImportedProfile(c.activeProfile().renamed("test"));
+    }
+
+    @Test
+    void aChangeToABuiltInProfileMakesACopyAndSaysSo() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        assertNotNull(canvas.find("built-in"), "the header says the profile is built in: " + canvas.texts.keySet());
+        click(editor, canvas, "Rename");
+        assertNull(canvas.find("Save"), "a built-in profile cannot be renamed");
+        click(editor, canvas, "Average");
+        assertNotNull(canvas.find("is built in"), "says where the change went: " + canvas.texts.keySet());
+        click(editor, canvas, "Done");
+        assertEquals("quake-white-custom", sc.config().activeProfileName());
+        assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
+        assertEquals(Appearance.Mode.SOLID, sc.config().profiles().get("quake-white").get(Category.BLOCKS).appearance().mode());
+    }
+
+    @Test
+    void theProfileListFiltersAsYouType() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Profile: quake-white");
+        assertNotNull(canvas.find("quake-black"), "the list shows all profiles: " + canvas.texts.keySet());
+        type(editor, canvas, "mini");
+        assertNull(canvas.find("quake-black"), "the search hides other profiles");
+        editor.keyPressed(UiKey.ENTER, false);
+        render(editor, canvas);
+        click(editor, canvas, "Done");
+        assertEquals("minimal", sc.config().activeProfileName());
+    }
+
+    @Test
+    void theGroupInputNamesTheCategoryAndTakesRegularExpressions() {
+        sc.apply(Config.defaults());
+        load("minecraft:particle/flame", 0xFFFF8000);
+        load("minecraft:particle/generic_0", 0xFF808080);
+        load("minecraft:particle/generic_1", 0xFF808080);
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Particles");
+        click(editor, canvas, "Groups");
+        click(editor, canvas, "+ New group");
+        type(editor, canvas, "gen");
+        assertNotNull(canvas.find("generic*"), "frames of one particle are one suggestion: " + canvas.texts.keySet());
+        for (int i = 0; i < 3; i++) editor.keyPressed(UiKey.BACKSPACE, false);
+        type(editor, canvas, "/^fl");
+        assertNotNull(canvas.find("/^fl/"), "an open regular expression is offered closed: " + canvas.texts.keySet());
+        editor.keyPressed(UiKey.ENTER, false);
+        render(editor, canvas);
+        type(editor, canvas, "/(");
+        assertNotNull(canvas.find("Not a valid regular expression"), "says why: " + canvas.texts.keySet());
+        click(editor, canvas, "Done");
+        CategorySettings particles = sc.config().activeProfile().get(Category.PARTICLES);
+        assertEquals(Collections.singletonList("/^fl/"), particles.rules().get(0).patterns());
+        assertNotNull(particles.ruleFor("minecraft:flame"));
+    }
+
     @Test
     void settingsChangesRepaintInsteadOfReloading() {
         FakePlatform p = (FakePlatform) sc.platform();
@@ -212,7 +278,7 @@ class SettingsEditorTest {
 
     @Test
     void deletingAProfileNeedsASecondClickAndEscCancelsIt() {
-        sc.apply(Config.defaults());
+        sc.apply(withOwnProfile());
         int before = sc.config().profiles().size();
         SettingsEditor editor = new SettingsEditor(sc);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
@@ -259,7 +325,7 @@ class SettingsEditorTest {
 
     @Test
     void renameSavesWithSaveAndCancelKeepsTheName() {
-        sc.apply(Config.defaults());
+        sc.apply(withOwnProfile());
         String name = sc.config().activeProfileName();
         SettingsEditor editor = new SettingsEditor(sc);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);

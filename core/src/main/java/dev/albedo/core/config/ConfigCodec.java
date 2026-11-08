@@ -2,6 +2,7 @@ package dev.albedo.core.config;
 
 import dev.albedo.core.Category;
 import dev.albedo.core.Colors;
+import dev.albedo.core.Glob;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,10 +19,10 @@ import java.util.Set;
  * <pre>
  * {
  *   "enabled": true,
- *   "activeProfile": "quake-white",
+ *   "activeProfile": "my-profile",
  *   "keys": { "toggle": "F6", "cycleProfile": "F7", "settings": "F9" },
  *   "profiles": {
- *     "quake-white": {
+ *     "my-profile": {
  *       "fullbright": true, "shading": true, "foliage": false,
  *       "blocks": { "mode": "solid", "color": "#FFFFFF", "removeTint": true,
  *                   "groups": [ { "name": "Ground", "match": ["dirt", "grass_block*", "gravel"], "color": "#7A5C3A" } ] },
@@ -30,7 +31,8 @@ import java.util.Set;
  *   }
  * }
  * </pre>
- * A group writes only the look fields that differ from its category; a group with none takes the category's look.
+ * The built-in profiles are not in the file (see {@link Presets}). A group writes only the look fields that differ
+ * from its category; a group with none takes the category's look.
  * Unknown keys are errors, so a typo is reported instead of silently ignored.
  */
 public final class ConfigCodec {
@@ -94,7 +96,6 @@ public final class ConfigCodec {
                 profiles.put(e.getKey(), decodeProfile(e.getKey(), object(e.getValue(), "profiles." + e.getKey(), null)));
             }
         }
-        if (profiles.isEmpty()) profiles.putAll(Presets.all());
         return new Config(bool(root, "enabled", true), str(root, "activeProfile", ""), binds, profiles);
     }
 
@@ -128,6 +129,10 @@ public final class ConfigCodec {
                 if (match instanceof String) patterns.add((String) match);
                 else if (match instanceof List) for (Object p : (List<?>) match) patterns.add(String.valueOf(p));
                 else throw new IllegalArgumentException(at + ": set \"match\" to \"pattern\" or [\"p1\", \"p2\"]");
+                for (String p : patterns) {
+                    String problem = Glob.problem(p);
+                    if (problem != null) throw new IllegalArgumentException(at + ": \"" + p + "\" is not a valid pattern: " + problem);
+                }
                 Rule r = new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), false);
                 // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
                 rules.add(onlyGroups && Collections.disjoint(rm.keySet(), LOOK_KEYS) ? r.withGlobalLook() : r);
@@ -165,7 +170,8 @@ public final class ConfigCodec {
         keys.put("settings", config.keys().settings);
         root.put("keys", keys);
         Map<String, Object> profiles = new LinkedHashMap<String, Object>();
-        for (Profile p : config.profiles().values()) profiles.put(p.name(), encodeProfile(p));
+        // Built-in profiles come from the code, so the file holds only the user's own.
+        for (Profile p : config.userProfiles().values()) profiles.put(p.name(), encodeProfile(p));
         root.put("profiles", profiles);
         return Json.write(root);
     }

@@ -69,12 +69,15 @@ public final class TextureClassifier {
         if (folder.equals("block") || folder.equals("blocks")) {
             if (rest.startsWith("destroy_stage")) return Category.BLOCK_BREAKING;
             if (isFluid(rest)) return Category.FLUIDS;
+            if (rest.startsWith("item_frame") || rest.startsWith("glow_item_frame") || rest.startsWith("itemframe")) {
+                return Category.DECORATIONS;
+            }
             return Category.BLOCKS;
         }
         if (folder.equals("item") || folder.equals("items")) return Category.ITEMS;
         if (folder.equals("particle") || folder.equals("particles")) return Category.PARTICLES;
         if (folder.equals("colormap")) return Category.COLORMAPS;
-        if (folder.equals("painting")) return Category.BLOCK_ENTITIES;
+        if (folder.equals("painting") || folder.equals("map")) return Category.DECORATIONS;
         if (folder.equals("environment")) {
             if (rest.contains("cloud")) return Category.CLOUDS;
             if (rest.startsWith("rain") || rest.startsWith("snow")) return Category.WEATHER;
@@ -82,6 +85,7 @@ public final class TextureClassifier {
         }
         if (folder.equals("entity")) {
             if (isPlayer(rest)) return Category.PLAYERS;
+            if (isDecoration(rest)) return Category.DECORATIONS;
             if (isBlockEntity(rest)) return Category.BLOCK_ENTITIES;
             return Category.ENTITIES;
         }
@@ -102,10 +106,14 @@ public final class TextureClassifier {
 
     private static final String[] BLOCK_ENTITY_FOLDERS = {
             // entity/shulker/ is deliberately absent: the same texture is used by the shulker mob.
-            "chest/", "bed/", "signs/", "sign/", "banner/", "banner_base",
-            "conduit/", "decorated_pot/", "bell/", "enchanting_table_book", "end_portal", "end_gateway",
+            "chest/", "bed/", "conduit/", "decorated_pot/", "bell/", "enchanting_table_book", "end_portal", "end_gateway",
             "beacon_beam", "lectern_book", "copper_golem_statue", "shelf/",
     };
+
+    /** Signs (1.8.9 "sign", later "signs/oak" and "signs/hanging/oak") and banners. */
+    private static boolean isDecoration(String rest) {
+        return rest.equals("sign") || rest.startsWith("signs/") || rest.startsWith("banner/") || rest.startsWith("banner_base");
+    }
 
     private static boolean isBlockEntity(String rest) {
         for (String f : BLOCK_ENTITY_FOLDERS) if (rest.startsWith(f)) return true;
