@@ -134,6 +134,10 @@ For design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 2. CI builds all jars and makes a GitHub release.
 3. CI uploads the jars to Modrinth (slug `blockpainter`) if the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ## Screenshots
 
 `tools/screenshots.ps1` (Windows) starts each version on a hidden desktop with sound and narrator off. It builds a test scene and saves the screenshots to `docs/screenshots/<target>/`.

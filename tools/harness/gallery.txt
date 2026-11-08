@@ -1,0 +1,85 @@
+# Images for the store page. Run it after scene-*.txt in place of shots.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -OutDir build\gallery
+wait 60
+mod off
+wait 160
+screenshot g01-vanilla
+profile quake-white
+wait 200
+screenshot g02-quake-white
+profile quake-black
+wait 200
+screenshot g03-quake-black
+profile minimal
+wait 200
+screenshot g04-minimal
+# A block group made in the settings screen: grass and dirt get their own color.
+profile quake-white
+wait 200
+settings open
+wait 20
+ui click Groups
+wait 10
+ui click + New group
+wait 10
+ui type grass
+wait 10
+screenshot g10-settings-suggestions
+ui key ENTER
+wait 5
+ui type dirt
+wait 5
+ui key ENTER
+wait 5
+ui key ESCAPE
+wait 5
+ui pointer off
+wait 10
+screenshot g11-settings-group
+ui key ESCAPE
+wait 10
+ui pointer off
+wait 10
+screenshot g12-settings-groups
+ui click Done
+wait 200
+screenshot g05-group-colors
+# Mobs in a flat color on the quake-black profile.
+profile quake-black
+wait 200
+settings open
+wait 20
+ui click Mobs and entities
+wait 10
+ui click Color
+wait 10
+ui pointer off
+wait 10
+screenshot g13-settings-look
+ui click Done
+wait 200
+screenshot g06-flat-mobs
+settings open
+wait 20
+ui click World
+wait 10
+ui pointer off
+wait 10
+screenshot g14-settings-world
+settings close
+wait 10
+run time set 18000
+mod off
+wait 160
+screenshot g07-night-vanilla
+profile quake-black
+wait 200
+screenshot g08-night-fullbright
+run time set 6000
+profile quake-white
+shading off
+wait 200
+screenshot g09-no-shading
+shading on
+wait 10
+quit

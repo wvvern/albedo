@@ -12,9 +12,12 @@ Screenshots go to docs/screenshots/<target>/.
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
 ./tools/screenshots.ps1 -Targets fabric-26.3  # one target
+./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -OutDir build\gallery  # store page images
 #>
 param(
     [string[]]$Targets = @("fabric-26.3", "neoforge-26.3", "fabric-1.21.11", "neoforge-1.21.11", "fabric-1.21.1", "neoforge-1.21.1", "forge-1.8.9"),
+    [string]$Shots = "shots.txt",
+    [string]$OutDir = "docs\screenshots",
     [int]$TimeoutSeconds = 600
 )
 $ErrorActionPreference = "Stop"
@@ -50,7 +53,7 @@ foreach ($target in $Targets) {
     Remove-Item -Force (Join-Path $runDir "config\blockpainter\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\BlockPainterTest") -ErrorAction SilentlyContinue
     # First the scene for this version, then the shots for all versions.
-    Get-Content (Join-Path $PSScriptRoot "harness\$scene"), (Join-Path $PSScriptRoot "harness\shots.txt") |
+    Get-Content (Join-Path $PSScriptRoot "harness\$scene"), (Join-Path $PSScriptRoot "harness\$Shots") |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
@@ -71,7 +74,7 @@ foreach ($target in $Targets) {
         Stop-Process -Id $gradlePid -Force -ErrorAction SilentlyContinue
     }
 
-    $out = Join-Path $root "docs\screenshots\$target"
+    $out = Join-Path $root "$OutDir\$target"
     Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $out | Out-Null
     $shots = Get-ChildItem $harness -Filter *.png
