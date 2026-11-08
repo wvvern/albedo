@@ -146,6 +146,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 - `./gradlew :core:test` in `modern/` tests the config model and codec, texture classification, pixel transforms and the settings screen. A fake `Canvas` records the position of each label. The tests click the labels and examine the saved config. A fuzz test clicks across the full screen at five GUI sizes.
 - `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
 - `tools/harness/repaint-modern.txt` and `repaint-legacy.txt` change the settings in a running game and take a screenshot after each change. `repaint-reload.txt` does the same after a resource reload. Compare the screenshots with a run where each change reloads resources. Only animated textures, particles and clouds can differ.
+- `tools/harness/particles-legacy.txt` adds particle and painting groups on 1.8.9 with the harness command `group <category> <name> <color or mode> <pattern>...`, and changes a group color to show a repaint.
 
 ## Known gaps
 
