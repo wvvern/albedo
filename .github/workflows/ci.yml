@@ -92,16 +92,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.jar
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
           bash tools/release-notes.sh "$TAG" > notes.md
+          jar="$(basename "$(ls dist/albedo-fabric-*.jar | sort | tail -1)")"
+          printf '\nTo make sure that a jar comes from this repository, run this command in its folder. Use the name of your jar.\n\n```\ngh attestation verify %s -R %s\n```\n' "$jar" "$GITHUB_REPOSITORY" >> notes.md
           gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "Albedo ${TAG#v}" --notes-file notes.md
 
   modrinth:

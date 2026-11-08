@@ -32,4 +32,6 @@ Example:
 - perf: Repaint only the changed textures on 1.8.9
 ```
 
+CI signs each jar with a GitHub build attestation and adds a `gh attestation verify` command to the end of the GitHub notes. Do not write it in the changelog.
+
 `bash tools/release-notes.sh X.Y.Z` prints the section as CI uses it. The release job fails when the section is missing.
