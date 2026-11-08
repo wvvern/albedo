@@ -17,6 +17,8 @@
     "MinecraftMixin",
     "ShadowMixin",
     "SkyMixin",
+    "SodiumAmbientOcclusionMixin",
+    "SodiumTintMixin",
     "SpriteContentsAccessor",
     "SpriteLoaderMixin",
     "TextureLoadMixin"

@@ -24,7 +24,7 @@ Block Painter uses ports and adapters. The core contains almost all of the code 
 | NativeImagePixels           |   | BufferedImagePixels         |
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
-| 15 mixins + 1 accessor      |   | 14 mixins                   |
+| 17 mixins + 1 accessor      |   | 14 mixins                   |
 +-----------------------------+   | BlockPainterForge (@Mod)    |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -52,15 +52,17 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Atlas sprites, before mipmaps | `SpriteLoader.stitch` | `TextureAtlasSprite.loadSprite` |
 | Other textures | `TextureContents.load` (1.21.4+), `SimpleTexture.doLoad` | `SimpleTexture.loadTexture` |
 | Biome colormaps | `GrassColor`, `FoliageColor`, `DryFoliageColor` `init` | `ColorizerGrass`, `ColorizerFoliage` |
-| Block tint | `ModelBlockRenderer` | `BlockModelRenderer`, Forge `BlockInfo` |
+| Block tint | `ModelBlockRenderer`. Sodium and Embeddium: tint index in their `BlockRenderer` | `BlockModelRenderer`, Forge `BlockInfo` |
 | Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
 | Fullbright | gamma read in `LightTexture`, 26.x `LightmapRenderStateExtractor` | gamma read in `EntityRenderer.updateLightmap` |
-| Shading: smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer` constructor | `Minecraft.isAmbientOcclusionEnabled` |
+| Shading: smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer` constructor and Sodium `LevelSlice.useAmbientOcclusion` | `Minecraft.isAmbientOcclusionEnabled` |
 | Shading: face shade | `ClientLevel.getShade`, 26.x `CardinalLighting.byFace` | `FaceBakery.getFaceBrightness` |
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
 | Clouds | `CloudRenderer.prepare` | - |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
+
+The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false`. Their targets contain no Minecraft types. If the renderer is not installed, Mixin skips them. Sodium uses the vanilla atlas, colormaps, `BiomeColors`, face shade and lightmap, so the other hooks also apply to Sodium. To test with Sodium or Embeddium, add `-Pcompat=sodium` or `-Pcompat=embeddium` to a `runClient` task. This adds the mod to the dev run only. The versions are in `modern/versions/<v>/gradle.properties`. `tools/screenshots.ps1` has the parameters `-Compat`, `-Extra scene-compat.txt` and `-OutDir`.
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
@@ -101,7 +103,8 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 
 ## Known gaps
 
-- Sodium, Embeddium and OptiFine replace block meshing, so the block tint hook does not run. The mod still removes biome grass and foliage tint. Fixed tints stay (birch and spruce leaves, lily pads, swamp grass). A fix needs one optional mixin for each renderer.
+- OptiFine replaces block meshing, so the block tint hook does not run. The mod still removes biome grass and foliage tint. Fixed tints stay (birch and spruce leaves, lily pads, swamp grass).
+- The Sodium and Embeddium hooks use internal method names of these mods. A new version can rename them. Then the hook does not apply (`require = 0`) and fixed tints stay. Test each new version with `-Pcompat` and `tools/harness/scene-compat.txt`.
 - Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
 - The game downloads player skins and does not load them as resources. Thus the `players` category changes only the default skins.
 - `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible. To hide it, add a group with `"mode": "hidden"`.

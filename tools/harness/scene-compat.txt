@@ -1,0 +1,8 @@
+# More blocks for renderer mods (Sodium, Embeddium). Use after scene-modern.txt (screenshots.ps1 -Extra scene-compat.txt).
+# Fixed tints: lily pads on the water. Swamp grass: a swamp biome strip at the right side.
+run setblock -6 -60 -4 lily_pad
+run setblock -6 -60 -3 lily_pad
+run fillbiome 7 -64 -12 9 -50 3 minecraft:swamp
+run setblock 7 -60 -6 grass_block
+run setblock 7 -59 -6 oak_leaves[persistent=true]
+run setblock 8 -60 -4 short_grass
