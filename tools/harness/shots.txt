@@ -1,4 +1,4 @@
-# Screenshots taken in every version's scene (appended to scene-*.txt by tools/screenshots.ps1).
+# Screenshots for the scene of each version. tools/screenshots.ps1 adds this file after scene-*.txt.
 wait 60
 mod off
 wait 160

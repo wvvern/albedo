@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-Starts a Gradle run task on a separate, invisible Windows desktop, so the game never shows a window, takes focus
-or appears in the taskbar. Prints the process id of the launched Gradle wrapper.
+Starts a Gradle run task on a hidden Windows desktop. The game window does not show, take focus or show in the taskbar.
+Prints the process id of the Gradle wrapper.
 
 .EXAMPLE
 ./tools/run-hidden.ps1 -Dir modern -Task ":fabric:26.3:runClient" -Harness C:\temp\harness -Log C:\temp\run.log
@@ -34,20 +34,20 @@ public static class HiddenDesktop {
 "@
 
 $desktopName = "BlockPainterHarness"
-# GENERIC_ALL; returns the existing desktop if it is already there.
+# GENERIC_ALL. If the desktop exists, CreateDesktop returns it.
 $desktop = [HiddenDesktop]::CreateDesktop($desktopName, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
 
 $Dir = (Resolve-Path $Dir).Path
 $gradlew = Join-Path $Dir "gradlew.bat"
-# --no-daemon: a daemon started from the visible desktop would launch the game window there.
+# --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
 $commandLine = "cmd.exe /s /c `"`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`" > `"$Log`" 2>&1`""
 
 $si = New-Object HiddenDesktop+STARTUPINFO
 $si.cb = [Runtime.InteropServices.Marshal]::SizeOf($si)
 $si.lpDesktop = $desktopName
 $pi = New-Object HiddenDesktop+PROCESS_INFORMATION
-# CREATE_NO_WINDOW keeps even the console off the hidden desktop.
+# CREATE_NO_WINDOW: no console window on the hidden desktop.
 if (-not [HiddenDesktop]::CreateProcess([NullString]::Value, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000,
         [IntPtr]::Zero, $Dir, [ref]$si, [ref]$pi)) {
     throw "CreateProcess failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"

@@ -1,11 +1,13 @@
 <#
 .SYNOPSIS
-Takes the README screenshots for each target on a hidden desktop: builds a test scene in a superflat world, then
-captures vanilla, every built-in profile, night with and without fullbright, and the settings screen.
+Makes the README screenshots for each target on a hidden desktop.
+Builds a test scene in a superflat world. Takes screenshots of vanilla, each built-in profile,
+night with and without fullbright, and the settings screen.
 
 .DESCRIPTION
-For each target the game runs with the test harness (see core/src/main/java/dev/blockpainter/core/dev/Harness.java),
-sound muted, narrator off, no pausing on focus loss. Screenshots land in docs/screenshots/<target>/.
+The game runs with the test harness (core/src/main/java/dev/blockpainter/core/dev/Harness.java).
+Sound and narrator are off. The game does not pause when it loses focus.
+Screenshots go to docs/screenshots/<target>/.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
@@ -19,7 +21,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
 function Set-Options([string]$runDir) {
-    # Silence first-launch onboarding (which can speak through the narrator) and sound before the game reads them.
+    # Turn off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
     New-Item -ItemType Directory -Force $runDir | Out-Null
     $file = Join-Path $runDir "options.txt"
     $options = [ordered]@{}
@@ -44,10 +46,10 @@ foreach ($target in $Targets) {
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
     Set-Options $runDir
-    # Start from the default config and a fresh world every time, so screenshots are reproducible.
+    # Use the default config and a new world each time, so the screenshots are the same each run.
     Remove-Item -Force (Join-Path $runDir "config\blockpainter\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\BlockPainterTest") -ErrorAction SilentlyContinue
-    # The version-specific scene, then the shots every version takes.
+    # First the scene for this version, then the shots for all versions.
     Get-Content (Join-Path $PSScriptRoot "harness\$scene"), (Join-Path $PSScriptRoot "harness\shots.txt") |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)

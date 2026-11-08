@@ -3,7 +3,7 @@
   "id": "${mod_id}",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "Flatten blocks, sky, fluids and more to a single color or texture so moving things stand out.",
+  "description": "Changes blocks, sky, fluids, mobs and more to one flat color, the average color of each texture, or a PNG. Things that move are easy to see.",
   "authors": [],
   "license": "MIT",
   "environment": "client",

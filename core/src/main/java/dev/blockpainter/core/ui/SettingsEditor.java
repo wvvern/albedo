@@ -146,7 +146,7 @@ public final class SettingsEditor {
     private void header(int x, int y, int w) {
         ui.text(BlockPainter.NAME, x, y + 3, Ui.TEXT);
         int tx = x + ui.width(BlockPainter.NAME) + 8;
-        boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(), "Turn the whole mod on or off");
+        boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(), "Turn the mod on or off");
         if (on != draft.enabled()) setDraft(draft.withEnabled(on));
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 
@@ -159,7 +159,7 @@ public final class SettingsEditor {
             startRename();
         }
         if (ui.button("new", right - 3 * bw - 2 * gap, y, bw, 14, "Copy", Ui.Style.NORMAL, true,
-                "New profile, starting as a copy of this one")) {
+                "Make a new profile as a copy of this one")) {
             String name = draft.freeProfileName(draft.activeProfileName() + "-copy");
             setDraft(draft.withProfile(draft.activeProfile().renamed(name)).withActiveProfile(name));
             startRename();
@@ -173,7 +173,7 @@ public final class SettingsEditor {
                 ui.clearFocus();
                 return;
             }
-            ui.textField("rename", rename, px + 14, y, pw - 28, 14, "profile name", "Enter to save, Esc to cancel");
+            ui.textField("rename", rename, px + 14, y, pw - 28, 14, "profile name", "Enter saves, Esc cancels");
             if (!ui.isFocused("rename")) finishRename();
             return;
         }
@@ -265,9 +265,9 @@ public final class SettingsEditor {
             Tab[] tabs = Tab.values();
             String[] labels = {"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()};
             int picked = ui.segmented("tab", x, cy, Math.min(w, 240), 14, labels, tab.ordinal(), new String[]{
-                    "The look of every " + name(category).toLowerCase(Locale.ROOT) + " texture without a group",
-                    "Sets of blocks with their own look, or kept vanilla",
-                    "Every texture the game has loaded, to put into groups"});
+                    "The look of all " + name(category).toLowerCase(Locale.ROOT) + " textures that are not in a group",
+                    "Sets of blocks that have their own look",
+                    "All loaded textures. Click one to put it in a group."});
             if (picked != tab.ordinal()) {
                 tab = tabs[picked];
                 notice = null;
@@ -285,15 +285,15 @@ public final class SettingsEditor {
     private void lookTab(int x, int y, int w, CategorySettings cs) {
         int cy = lookEditor(x, y, w, cs, -1);
         if (cs.onlyGroups()) {
-            ui.text(ui.ellipsize("Only groups change. This look applies to groups set to \"Global\".", w), x, cy, Ui.FAINT);
+            ui.text(ui.ellipsize("Only groups change. Groups set to \"Global\" use this look.", w), x, cy, Ui.FAINT);
             cy += 13;
         }
         if (category == Category.BLOCKS || category == Category.FLUIDS) {
             boolean tint = ui.toggleRow("tint", x - 4, cy, w + 4, "Remove biome tint", cs.removeTint(),
-                    category == Category.BLOCKS ? "Grass and leaves stop being colored by biome" : "Water stops being colored by biome");
+                    category == Category.BLOCKS ? "Grass and leaves do not get the biome color" : "Water does not get the biome color");
             if (tint != cs.removeTint()) setCategory(cs.withRemoveTint(tint));
         }
-        if (category == Category.SKY) ui.text(ui.ellipsize("Also sets fog, so the horizon blends into the flat sky.", w), x, cy, Ui.FAINT);
+        if (category == Category.SKY) ui.text(ui.ellipsize("This also sets the fog to the sky color.", w), x, cy, Ui.FAINT);
     }
 
     /**
@@ -316,7 +316,7 @@ public final class SettingsEditor {
             labels[0] = "Global";
             tips[0] = "Use the " + name(category) + " look";
         } else if (rule != null) {
-            tips[0] = "Keep these blocks vanilla while everything else changes";
+            tips[0] = "Do not change these blocks";
         }
         ui.text("Style", x, y + 3, Ui.MUTED);
         int lx = x + LABEL_W, cw = w - LABEL_W;
@@ -342,9 +342,9 @@ public final class SettingsEditor {
         if (usesShape) {
             ui.text("Shape", x, cy + 3, Ui.MUTED);
             int a = ui.segmented("alpha", lx, cy, cw, 14, new String[]{"Keep", "Cut-out", "Solid"}, target.alpha().ordinal(),
-                    new String[]{"Keep see-through parts as they are (glass, leaves)",
-                            "Half-transparent parts become either solid or invisible",
-                            "Fill every hole: leaves and glass become solid cubes"});
+                    new String[]{"Keep transparent parts (glass, leaves)",
+                            "Make each part fully solid or fully transparent",
+                            "Fill all holes. Leaves and glass become solid cubes."});
             if (a != target.alpha().ordinal()) setLook(cs, index, target.withAlpha(Appearance.Alpha.values()[a]));
             cy += 20;
         }
@@ -357,16 +357,16 @@ public final class SettingsEditor {
         ui.text("Change", x, y + 3, Ui.MUTED);
         int scope = ui.segmented("scope", x + LABEL_W, y, w - LABEL_W, 14, new String[]{"Everything", "Only groups"},
                 cs.onlyGroups() ? 1 : 0, new String[]{
-                        "The " + name(category) + " look applies to all; groups override it or keep blocks vanilla",
-                        "Only blocks in groups change; everything else stays vanilla"});
+                        "The " + name(category) + " look applies to all. Groups change their own blocks.",
+                        "Only blocks in groups change. All other blocks stay vanilla."});
         if (scope != (cs.onlyGroups() ? 1 : 0)) {
             Rule blocker = cs.blocksScopeSwitch();
             if (blocker == null) {
                 setCategory(cs.withOnlyGroups(scope == 1));
                 notice = null;
             } else {
-                notice = "Group \"" + blocker.displayName() + "\" is set to " + (cs.onlyGroups() ? "Global" : "Vanilla")
-                        + ", which has no meaning in the other mode. Change it first.";
+                notice = "Group \"" + blocker.displayName() + "\" uses " + (cs.onlyGroups() ? "Global" : "Vanilla")
+                        + ". This has no meaning in the other scope. Change it first.";
             }
             return;
         }
@@ -378,11 +378,11 @@ public final class SettingsEditor {
             ui.focus("add");
             return;
         }
-        ui.text(ui.ellipsize("Higher groups win when a block is in two.", w - 78), x + 76, cy + 3, Ui.FAINT);
+        ui.text(ui.ellipsize("A higher group wins over a lower group.", w - 78), x + 76, cy + 3, Ui.FAINT);
         cy += 18;
         List<Rule> rules = cs.rules();
         if (rules.isEmpty()) {
-            ui.text(ui.ellipsize(cs.onlyGroups() ? "No groups yet, so nothing changes." : "No groups yet: every texture uses the look.", w), x, cy + 2, Ui.FAINT);
+            ui.text(ui.ellipsize(cs.onlyGroups() ? "There are no groups. Nothing changes." : "There are no groups. All textures use the global look.", w), x, cy + 2, Ui.FAINT);
             return;
         }
         int rowH = 16, lh = y + h - cy;
@@ -397,14 +397,14 @@ public final class SettingsEditor {
             }
             Appearance a = cs.lookOf(r);
             lookIcon(x + 4, ry + 3, a);
-            String look = r.usesGlobalLook() ? "global look" : a.isOriginal() ? "kept vanilla" : modeLabel(a.mode()).toLowerCase(Locale.ROOT);
+            String look = r.usesGlobalLook() ? "global look" : a.isOriginal() ? "vanilla" : modeLabel(a.mode()).toLowerCase(Locale.ROOT);
             int nameW = Math.min(ui.width(r.displayName()), (w - 70) / 2);
             ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, ry + 3, Ui.TEXT);
             String members = r.patterns().isEmpty() ? "empty" : String.join(", ", r.patterns());
             ui.text(ui.ellipsize(look + "  -  " + members, w - 80 - nameW), x + 22 + nameW, ry + 3, Ui.MUTED);
             int bx = x + w - 56;
-            if (ui.button("group.up." + i, bx, ry + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Higher priority")) setCategory(cs.withRuleMoved(i, -1));
-            if (ui.button("group.down." + i, bx + 16, ry + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Lower priority")) setCategory(cs.withRuleMoved(i, 1));
+            if (ui.button("group.up." + i, bx, ry + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up")) setCategory(cs.withRuleMoved(i, -1));
+            if (ui.button("group.down." + i, bx + 16, ry + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Move down")) setCategory(cs.withRuleMoved(i, 1));
             if (ui.button("group.del." + i, bx + 34, ry + 1, 15, 12, "x", Ui.Style.DANGER, true, "Delete this group")) {
                 setCategory(cs.withoutRule(i));
                 return;
@@ -449,8 +449,8 @@ public final class SettingsEditor {
             complete = ui.takeKey(UiKey.TAB);
             enter = ui.takeKey(UiKey.ENTER);
         }
-        if (ui.textField("add", add, fx, y, fw, 14, "Add a block: type a name, e.g. dirt",
-                "Enter adds the highlighted match, Tab completes, * matches anything")) {
+        if (ui.textField("add", add, fx, y, fw, 14, "Type a block name, for example dirt",
+                "Enter adds the selected match. Tab completes. * matches any text.")) {
             suggestion = 0;
         }
         List<Suggestion> list = ui.isFocused("add") ? suggestions(add.text, catalog, cs, index) : Collections.<Suggestion>emptyList();
@@ -473,8 +473,8 @@ public final class SettingsEditor {
             int matched = stats[0], effective = stats[1];
             Integer color = matched > 0 ? stats[2] : null;
             boolean dim = matched == 0 || effective == 0;
-            String tip = matched == 0 ? "No loaded texture is called " + p
-                    : effective == 0 ? "A higher group already takes all " + matched + " of these"
+            String tip = matched == 0 ? "No loaded texture has the name " + p
+                    : effective == 0 ? "A higher group already has all " + matched + " of these textures"
                     : effective + " texture" + (effective == 1 ? "" : "s");
             int cw = ui.chipWidth(p, color != null);
             if (cx + cw > fx + fw && cx > fx) {
@@ -484,7 +484,7 @@ public final class SettingsEditor {
             // Keep a line free for "+N more" unless this is the last chip, so none disappear silently.
             boolean last = i == rule.patterns().size() - 1;
             if (cyy + 12 > (last ? bottom : bottom - 11)) {
-                String more = "+" + (rule.patterns().size() - i) + " more; use a larger window or smaller GUI scale";
+                String more = "+" + (rule.patterns().size() - i) + " more. Use a larger window or a smaller GUI scale.";
                 if (cyy + Ui.LINE <= bottom) ui.text(ui.ellipsize(more, fw), fx, cyy + 2, Ui.FAINT);
                 break;
             }
@@ -498,7 +498,7 @@ public final class SettingsEditor {
             }
         }
         if (rule.patterns().isEmpty() && rows == 0) {
-            ui.text(ui.ellipsize("Empty: type a block name above.", fw), fx, cyy + 2, Ui.FAINT);
+            ui.text(ui.ellipsize("Empty. Type a block name above.", fw), fx, cyy + 2, Ui.FAINT);
         }
 
         // suggestions, drawn over the chips
@@ -696,7 +696,7 @@ public final class SettingsEditor {
         List<String> ids = new ArrayList<String>();
         String q = search.text.trim().toLowerCase(Locale.ROOT);
         for (String id : catalog.keySet()) if (q.isEmpty() || id.contains(q)) ids.add(id);
-        if (ui.textField("search", search, x, y, Math.min(140, w), 14, "Search...", "Filter by name, e.g. leaves or ore")) {
+        if (ui.textField("search", search, x, y, Math.min(140, w), 14, "Search...", "Type a name, for example leaves or ore")) {
             ui.resetScroll("list");
         }
         ui.text(ui.ellipsize("Click a texture to put it in a group", w - 150), x + Math.min(140, w) + 8, y + 3, Ui.FAINT);
@@ -704,7 +704,7 @@ public final class SettingsEditor {
         if (lh < 20) return;
         ui.round(x, ly, w, lh, Ui.PANEL);
         if (catalog.isEmpty()) {
-            ui.text(ui.ellipsize("Textures show up here once the game has loaded them.", w - 12), x + 6, ly + 6, Ui.FAINT);
+            ui.text(ui.ellipsize("Textures show here after the game loads them.", w - 12), x + 6, ly + 6, Ui.FAINT);
             return;
         }
         int first = ui.scroll("list", x, ly + 2, w, lh - 4, ids.size(), ROW);
@@ -714,7 +714,7 @@ public final class SettingsEditor {
             int ry = ly + 2 + (i - first) * ROW;
             Rule owner = cs.ruleFor(id);
             if (ui.button("row." + id, x + 2, ry, w - 8, ROW, "", Ui.Style.GHOST, true,
-                    owner == null ? "Start a group with " + shortId(id) : "Open group \"" + owner.displayName() + "\"")) {
+                    owner == null ? "Make a new group with " + shortId(id) : "Open group \"" + owner.displayName() + "\"")) {
                 openTextureGroup(cs, id, owner);
                 return;
             }
@@ -743,7 +743,7 @@ public final class SettingsEditor {
 
     private void worldPage(int x, int y, int w) {
         ui.text("World", x, y, Ui.TEXT);
-        ui.text(ui.ellipsize("Applies to everything, whatever the categories say", w - 40), x + 40, y, Ui.MUTED);
+        ui.text(ui.ellipsize("These settings apply to all categories", w - 40), x + 40, y, Ui.MUTED);
         int cy = y + 16;
         for (Toggle t : Toggle.values()) {
             ui.round(x, cy, w, 26, Ui.PANEL);
@@ -765,10 +765,10 @@ public final class SettingsEditor {
 
     private static String explain(Toggle t) {
         switch (t) {
-            case FULLBRIGHT: return "Everything is lit as if at noon: no dark caves, no night.";
-            case SHADING: return "Smooth lighting and darker block sides. Off: every surface is flat.";
-            case FOLIAGE: return "Grass, flowers, ferns, vines and other small plants. Off: hidden.";
-            default: return "The round shadows under mobs and players.";
+            case FULLBRIGHT: return "All areas have full light. No dark caves and no night.";
+            case SHADING: return "Smooth lighting and darker block sides. Off makes all surfaces flat.";
+            case FOLIAGE: return "Grass, flowers, ferns, vines and other small plants. Off hides them and their items.";
+            default: return "The round shadows below mobs and players.";
         }
     }
 
@@ -882,7 +882,7 @@ public final class SettingsEditor {
         if (ui.button("done", x + w - bw, y, bw, 14, "Done", Ui.Style.PRIMARY, true, "Save and close (Esc)")) done();
         if (ui.button("apply", x + w - 2 * bw - 4, y, bw, 14, "Apply", Ui.Style.NORMAL, dirty, "Save and show the result")) apply();
         if (ui.button("cancel", x + w - 3 * bw - 8, y, bw, 14, dirty ? "Discard" : "Close", Ui.Style.NORMAL, true,
-                dirty ? "Close without saving" : "Close")) closed = true;
+                dirty ? "Close and do not save" : "Close")) closed = true;
         String hint = ui.hint() != null ? ui.hint()
                 : k.toggle + " on/off   " + k.cycleProfile + " next profile   " + k.settings + " this screen";
         ui.text(ui.ellipsize(hint, w - 3 * (bw + 4) - 8), x, y + 4, ui.hint() != null ? Ui.TEXT : Ui.FAINT);
@@ -955,12 +955,12 @@ public final class SettingsEditor {
 
     private static String modeTip(Appearance.Mode m) {
         switch (m) {
-            case ORIGINAL: return "Leave as it is";
+            case ORIGINAL: return "Do not change";
             case SOLID: return "One flat color";
-            case AVERAGE: return "Each texture becomes its own average color";
-            case GRAYSCALE: return "Keep detail, remove color";
-            case TEXTURE: return "Your own image from config/blockpainter/textures";
-            default: return "Make it invisible";
+            case AVERAGE: return "Each texture changes to its average color";
+            case GRAYSCALE: return "Keep the detail and remove the color";
+            case TEXTURE: return "A PNG image from config/blockpainter/textures";
+            default: return "Do not show";
         }
     }
 
@@ -970,7 +970,7 @@ public final class SettingsEditor {
             case FLUIDS: return "Fluids";
             case BLOCK_ENTITIES: return "Block entities";
             case ITEMS: return "Items";
-            case ENTITIES: return "Mobs & entities";
+            case ENTITIES: return "Mobs and entities";
             case PLAYERS: return "Players";
             case PARTICLES: return "Particles";
             case BLOCK_BREAKING: return "Mining cracks";
@@ -990,8 +990,8 @@ public final class SettingsEditor {
             case ENTITIES: return "Mobs, projectiles, armor";
             case PLAYERS: return "Default player skins";
             case PARTICLES: return "Smoke, flames, hits, splashes";
-            case BLOCK_BREAKING: return "The crack overlay while mining";
-            case SKY: return "Sky color; hides sun, moon and stars";
+            case BLOCK_BREAKING: return "The cracks on a block while you mine it";
+            case SKY: return "Sky color. Also hides the sun, moon and stars.";
             case CLOUDS: return "Clouds";
             case WEATHER: return "Rain and snow";
             default: return "";

@@ -91,7 +91,7 @@ public final class ConfigCodec {
                 List<String> patterns = new ArrayList<String>();
                 if (match instanceof String) patterns.add((String) match);
                 else if (match instanceof List) for (Object p : (List<?>) match) patterns.add(String.valueOf(p));
-                else throw new IllegalArgumentException(at + " needs \"match\": \"pattern\" or [\"p1\", \"p2\"]");
+                else throw new IllegalArgumentException(at + ": set \"match\" to \"pattern\" or [\"p1\", \"p2\"]");
                 Rule r = new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), false);
                 // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
                 rules.add(onlyGroups && Collections.disjoint(rm.keySet(), LOOK_KEYS) ? r.withGlobalLook() : r);
@@ -105,7 +105,7 @@ public final class ConfigCodec {
         try {
             Appearance.Mode mode = map.containsKey("mode") ? Appearance.Mode.byKey(str(map, "mode", "")) : parent.mode();
             if (!category.supportedModes().contains(mode)) {
-                throw new IllegalArgumentException("mode '" + mode.key() + "' is not available here (use one of " + keys(category.supportedModes()) + ")");
+                throw new IllegalArgumentException("this category cannot use mode '" + mode.key() + "'. Use one of " + keys(category.supportedModes()));
             }
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
             String texture = map.containsKey("texture") ? str(map, "texture", "") : parent.texture();
@@ -182,7 +182,7 @@ public final class ConfigCodec {
         Map<String, Object> map = (Map<String, Object>) o;
         if (known != null) {
             for (String key : map.keySet()) {
-                if (!known.contains(key)) throw new IllegalArgumentException(where + ": unknown setting '" + key + "' (use one of " + known + ")");
+                if (!known.contains(key)) throw new IllegalArgumentException(where + ": unknown setting '" + key + "'. Use one of " + known);
             }
         }
         return map;

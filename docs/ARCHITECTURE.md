@@ -1,82 +1,81 @@
 # Architecture
 
-The goal is that almost everything is written once and never touches Minecraft, and that the per-version part is
-small enough to port in an afternoon. The design is **ports and adapters** (hexagonal):
+Block Painter uses ports and adapters. The core contains almost all of the code and has no Minecraft types. Each Minecraft era has a small adapter.
 
 ```
-                ┌──────────────────────── core/ (plain Java 8, no Minecraft, unit-tested) ───────────────────────┐
-                │  config: Config / Profile / CategorySettings / Rule / Appearance  ◄── ConfigCodec + Json       │
-                │  Policy            every rendering decision, from one immutable config snapshot (thread-safe)   │
-                │  TextureClassifier path → Category + id   (handles 1.8 "blocks/" and 1.13+ "block/")           │
-                │  AtlasPaths        restores folders that modern atlases strip from sprite names               │
-                │  PixelTransformer  solid / average / grayscale / texture / hidden, on a PixelBuffer            │
-                │  BlockPainter      facade: init, processTexture, texture catalog, tick (keys, config watching) │
-                │  ui/               the whole settings screen: an immediate-mode toolkit + SettingsEditor      │
-                │  dev/Harness       file-driven test harness for hidden-desktop screenshots (dev only)         │
-                │  Platform (port)   dirs, logging, reload, keys, images, open settings; Canvas (drawing port) │
-                └──────────────────────────────────────────────▲──────────────────────────────────────────────┘
-                                                               │ calls only these
-          ┌────────────────────────────────────────────────────┴──────────────────────────────────────┐
-  modern/common (Mojang names, Stonecutter)                                   legacy/ (MCP names)
-  ModernPlatform, NativeImagePixels, ModernHooks,                             LegacyPlatform, BufferedImagePixels,
-  SettingsScreen (Canvas over GuiGraphics), harness host                      LegacyHooks, GuiSettings, harness host
-  + ~13 one-line mixins                                                       + 11 one-line mixins
-          │                    │                                                       │
-  fabric/ entrypoint     neoforge/ entrypoint                                 Forge @Mod class
-  + Mod Menu button      + mod list "Config" button
++----------------------------------------------------------------+
+| core/  (plain Java 8, no Minecraft types, unit tests)          |
+|   config/    Config, Profile, CategorySettings, Rule,          |
+|              Appearance, ConfigCodec, Json, Presets            |
+|   Policy             all render decisions, from one snapshot   |
+|   texture/           TextureClassifier, AtlasPaths, Foliage,   |
+|                      PixelTransformer                          |
+|   BlockPainter       init, processTexture, catalog, tick       |
+|   ui/                settings screen (SettingsEditor, Ui)      |
+|   dev/Harness        screenshot harness (development only)     |
+|   Platform, Canvas   ports that the adapters implement         |
++----------------------------------------------------------------+
+             ^                                  ^
+             | calls only the ports             |
++-----------------------------+   +-----------------------------+
+| modern/common               |   | legacy/                     |
+| Mojang names, Stonecutter   |   | MCP names, 1.8.9 Forge      |
+| ModernPlatform              |   | LegacyPlatform              |
+| NativeImagePixels           |   | BufferedImagePixels         |
+| ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
+| ModernHarnessHost           |   | LegacyHarnessHost           |
+| 15 mixins + 1 accessor      |   | 14 mixins                   |
++-----------------------------+   | BlockPainterForge (@Mod)    |
+     |                  |         +-----------------------------+
+ fabric/            neoforge/
+ entrypoint,        entrypoint,
+ Mod Menu button    mod list Config button
 ```
 
-**The settings screen is in the core too.** It is an immediate-mode UI (`core/ui`): every frame the editor calls
-widget methods that draw themselves through a five-method `Canvas` port (`fill`, `text`, `textWidth`, size) and
-report clicks, drags and typing queued by the adapter. Each version's screen class is ~100 lines of forwarding,
-so the UI looks and behaves identically on 1.8.9 and 26.3, and new widgets never touch version code. The list of
-textures it offers for per-texture overrides is the catalog the core records while processing textures, so it
-needs no registry access and includes modded textures.
+## Core
 
-## Why these choices
+- The core is plain Java 8. It compiles into every jar from `core/src`. It does not change for a new Minecraft version.
+- The core decides how everything looks: config, groups, matching, colors, pixel math, presets, keys and config reload.
+- `Platform` is the port for the game: config folder, logging, resource reload, messages, key state, PNG read, clipboard, the settings screen and the harness host.
+- `Canvas` is the port for drawing: `width`, `height`, `fill`, `text` and `textWidth`.
 
-**The core has zero Minecraft types.** Everything that decides *what* things look like (config, rules, matching,
-colors, pixel math, presets, keys, hot reload) is ordinary Java 8 with unit tests. It compiles into every jar
-from `core/src` and never changes for a new Minecraft version.
+The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.
 
-**Hooks are placed on the most stable seams.** Instead of rewriting renderers (which change constantly, e.g. 26.x's
-new render API), the adapters intercept data at the few points that have survived a decade of refactors:
+The Textures tab shows the catalog that the core records when it processes textures. Thus it needs no registry access, and it includes modded textures.
 
-| Seam | Why it's stable | Modern hook | 1.8.9 hook |
-|------|-----------------|-------------|------------|
-| Atlas sprites, before mipmaps | every atlas is stitched in one place | `SpriteLoader.stitch` | `TextureAtlasSprite.loadSprite` |
-| Stand-alone textures | single loader for `textures/**.png` | `TextureContents.load` / `SimpleTexture` | `SimpleTexture.loadTexture` |
-| Biome colormaps | `init(int[])` unchanged since 1.13 | `GrassColor` / `FoliageColor` / `DryFoliageColor` | `ColorizerGrass` / `ColorizerFoliage` |
-| Block tint call site | one per renderer | `ModelBlockRenderer` | `BlockModelRenderer` + Forge `BlockInfo` |
-| Fullbright | the lightmap reads one brightness option | gamma read in `LightTexture` / 26.x `LightmapRenderStateExtractor` | gamma read in `EntityRenderer.updateLightmap` |
-| Shading off: smooth lighting | one switch read while meshing | `Minecraft.useAmbientOcclusion` / 26.x `ModelBlockRenderer` constructor | `Minecraft.isAmbientOcclusionEnabled` |
-| Shading off: face shade | one per-face brightness lookup | `ClientLevel.getShade` / 26.x `CardinalLighting.byFace` | `FaceBakery.getFaceBrightness` (baked into models) |
-| Foliage off | no hook at all: plant textures get zero alpha, which cutout rendering skips | core `Foliage` + texture hooks | same |
-| Water tint | every loader funnels here | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
-| Sky / fog / clear color | one sky pass, one fog color | `LevelRenderer` sky pass + `FogRenderer` | `RenderGlobal.renderSky` + `EntityRenderer.updateFogColor` |
-| Tick | always exists | `Minecraft.tick` | `Minecraft.runTick` |
+## Hooks
 
-Because processing happens on decoded pixels, it doesn't matter how a texture got into the game (vanilla, a
-resource pack, or a mod). Mixin handlers take only plain values (`int`, `int[]`, `NativeImage`) wherever possible,
-so a class moving package doesn't break them.
+The adapters change data at stable points, not in the renderers. The core processes decoded pixels, so the source of a texture (vanilla, resource pack or mod) is not important. Mixin handlers use plain values (`int`, `int[]`, `NativeImage`) where possible.
 
-**No loader APIs.** Ticking, keys and config are done with mixins and raw key polling, so Fabric needs no Fabric
-API and the NeoForge and Fabric entrypoints are five lines each. Keys are resolved by Minecraft's own name
-(`key.keyboard.f6`) because the code space changed: GLFW codes through 1.21.x, SDL scancodes in 26.x, and LWJGL 2
-codes on 1.8.9.
+| Point | Modern hook | 1.8.9 hook |
+|-------|-------------|------------|
+| Atlas sprites, before mipmaps | `SpriteLoader.stitch` | `TextureAtlasSprite.loadSprite` |
+| Other textures | `TextureContents.load` (1.21.4+), `SimpleTexture.doLoad` | `SimpleTexture.loadTexture` |
+| Biome colormaps | `GrassColor`, `FoliageColor`, `DryFoliageColor` `init` | `ColorizerGrass`, `ColorizerFoliage` |
+| Block tint | `ModelBlockRenderer` | `BlockModelRenderer`, Forge `BlockInfo` |
+| Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
+| Fullbright | gamma read in `LightTexture`, 26.x `LightmapRenderStateExtractor` | gamma read in `EntityRenderer.updateLightmap` |
+| Shading: smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer` constructor | `Minecraft.isAmbientOcclusionEnabled` |
+| Shading: face shade | `ClientLevel.getShade`, 26.x `CardinalLighting.byFace` | `FaceBakery.getFaceBrightness` |
+| Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
+| Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
+| Clouds | `CloudRenderer.prepare` | - |
+| Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
-## Build tooling
+Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
-| Build | Versions | Tooling |
-|-------|----------|---------|
-| `modern/` | 1.21.1 – 26.3, Fabric + NeoForge | [Stonecutter](https://stonecutter.kikugie.dev) 0.9 (one source tree, comment-based version conditions) + Architectury Loom 1.17 (`loom` for obfuscated ≤1.21.11, `loom-no-remap` for unobfuscated 26.x), Gradle 9.8 |
-| `legacy/` | 1.8.9 Forge | Essential's fork of Architectury Loom 0.10 + Mixin 0.7.11, Gradle 8.8 (the build itself runs on JDK 21 via `gradle-daemon-jvm.properties`; the game runs on Java 8) |
+The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API. Keys use the Minecraft key name (for example `key.keyboard.f6`), because the key codes are different in each era. The eras use LWJGL 2 on 1.8.9, GLFW on 1.21.x and SDL on 26.x.
 
-No single toolchain covers both 1.8.9 Forge and 26.x today, so there are two builds sharing `core/src`. A third
-era (for example 1.12.2 Forge or 1.16–1.20 Fabric/Forge) would be another node in `modern/` if Architectury Loom
-supports it, or another sibling build like `legacy/`.
+## Builds
 
-Version differences inside `modern/` look like this, and are confined to the mixin and adapter files:
+| Build | Versions | Tools |
+|-------|----------|-------|
+| `modern/` | 1.21.1, 1.21.11, 26.3 (Fabric and NeoForge) | [Stonecutter](https://stonecutter.kikugie.dev) 0.9, Architectury Loom 1.17 (`loom` for 1.21.11 and earlier, `loom-no-remap` for 26.x), Gradle 9.8 |
+| `legacy/` | 1.8.9 (Forge) | Essential fork of Architectury Loom 0.10, Mixin 0.7.11, Gradle 8.8. Gradle runs on JDK 21. The game runs on Java 8. |
+
+One tool chain cannot support both 1.8.9 Forge and 26.x, so there are two builds. Both use `core/src`.
+
+In `modern/`, Stonecutter comments mark the version differences. They are only in mixin and adapter files:
 
 ```java
 //? if >=26.1 {
@@ -86,32 +85,23 @@ Version differences inside `modern/` look like this, and are confined to the mix
 *///?}
 ```
 
-## Adding a Minecraft version (modern)
+## Add a Minecraft version (modern)
 
-1. Add `versions/<v>/gradle.properties` (and `neoforge/versions/<v>/gradle.properties` with `loom.platform=neoforge`)
-   and list `<v>` in `settings.gradle`.
-2. `./gradlew :fabric:<v>:build :neoforge:<v>:build`; compile errors point at exactly the hooks that moved.
-   Fix them with a `//? if` branch. The condition boundaries between the built nodes (`>=1.21.2`, `>=1.21.4`,
-   `>=1.21.6`, `>=1.21.9`, `>=26.1`) are best guesses and only verified at the built nodes, so check them when you
-   add a version in between.
-3. `./gradlew :fabric:<v>:runClient`. The log should show `Block Painter ready` and a `Flattened N textures` line.
-
-## Known gaps / next steps
-
-- **Sodium / Embeddium / OptiFine:** they replace chunk meshing, so the call-site tint hook doesn't run. The colormap
-  hook still removes biome grass/foliage tints, but hard-coded tints (birch/spruce leaves, lily pads, swamp grass)
-  stay. Fix: one optional compat mixin per renderer.
-- **Clouds on 1.21.2+** support `hidden` and `original` only; recoloring needs a hook on the cloud color.
-- **Player skins** are downloaded rather than loaded as resources, so the `players` category only affects the
-  default skins for now.
-- **Foliage** is matched by texture name (`core/texture/Foliage`), so a modded plant with an unusual name stays
-  visible; add a rule with `"mode": "hidden"` for it.
+1. Add `modern/versions/<v>/gradle.properties`. Add `modern/neoforge/versions/<v>/gradle.properties` with `loom.platform=neoforge`.
+2. Add `<v>` to the `versions` list in `modern/settings.gradle`.
+3. Run `./gradlew :fabric:<v>:build :neoforge:<v>:build` in `modern/`. The compile errors show the hooks that moved.
+4. Fix each error with a `//? if` branch.
+5. Examine the condition boundaries (`>=1.21.2`, `>=1.21.4`, `>=1.21.5`, `>=1.21.6`, `>=1.21.9`, `>=1.21.11`, `>=26.1`). The project tests them only on the built versions.
+6. Run `./gradlew :fabric:<v>:runClient`. Make sure that the log shows `Block Painter ready` and `Flattened N textures`.
 
 ## Testing
 
-- `./gradlew :core:test` covers the config model and codec, classification, pixel transforms, and the settings
-  screen itself: a fake `Canvas` records where labels are drawn, so tests click real labels and check the saved
-  config, and a fuzz test clicks across the whole screen at five GUI sizes.
-- `tools/screenshots.ps1` runs every version on a hidden desktop through the harness (`core/dev/Harness`) and
-  captures the same scene for each profile into `docs/screenshots/<target>/`, so a visual regression on any
-  version is one script away.
+- `./gradlew :core:test` in `modern/` tests the config model and codec, texture classification, pixel transforms and the settings screen. A fake `Canvas` records the position of each label. The tests click the labels and examine the saved config. A fuzz test clicks across the full screen at five GUI sizes.
+- `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
+
+## Known gaps
+
+- Sodium, Embeddium and OptiFine replace block meshing, so the block tint hook does not run. The mod still removes biome grass and foliage tint. Fixed tints stay (birch and spruce leaves, lily pads, swamp grass). A fix needs one optional mixin for each renderer.
+- Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
+- The game downloads player skins and does not load them as resources. Thus the `players` category changes only the default skins.
+- `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible. To hide it, add a group with `"mode": "hidden"`.

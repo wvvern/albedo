@@ -1,7 +1,7 @@
 name: CI
 
-# Builds and tests every target on each push and pull request.
-# Push a tag such as v1.2.0 to publish a GitHub release (and a Modrinth release once configured).
+# Builds and tests all targets on each push and pull request.
+# Push a tag such as v1.2.0 to make a GitHub release. Modrinth upload needs the setup below.
 on:
   push:
     branches: [master]
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  # Set on tag builds only; the jars then carry the tag's version instead of gradle.properties'.
+  # Set on tag builds only. The jars then use the tag version, not the version in gradle.properties.
   TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build
         working-directory: modern
-        # Configure on demand: only this version's nodes are set up, not every version's.
+        # Configure on demand: set up only the projects for this version.
         run: |
           ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64 \
             ${TAG:+-Pmod_version=${TAG#v}} \
@@ -91,7 +91,7 @@ jobs:
         run: gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
 
   modrinth:
-    # Inactive until the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN exist.
+    # Runs only when the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN exist.
     if: startsWith(github.ref, 'refs/tags/v') && vars.MODRINTH_PROJECT_ID != ''
     needs: release
     runs-on: ubuntu-latest

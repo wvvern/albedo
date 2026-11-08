@@ -63,7 +63,7 @@ public final class Colors {
         } catch (NumberFormatException ignored) {
             // fall through
         }
-        throw new IllegalArgumentException("Not a color: '" + text + "' (use #RRGGBB, #AARRGGBB or a name)");
+        throw new IllegalArgumentException("Not a color: '" + text + "' (use #RGB, #RRGGBB, #AARRGGBB or a name)");
     }
 
     public static String format(int argb) {

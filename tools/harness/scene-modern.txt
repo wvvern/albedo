@@ -1,4 +1,4 @@
-# Test scene for 1.21+ (superflat: grass at y=-61, player stands at y=-60). Run by tools/screenshots.ps1.
+# Test scene for 1.21+ (superflat: grass at y=-61, player stands at y=-60). tools/screenshots.ps1 runs this file.
 # Let the first resource load finish before opening a world.
 wait 200
 world BlockPainterTest

@@ -114,7 +114,7 @@ public final class BlockPainter {
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
-            sc.platform.warn("Could not process " + key, e);
+            sc.platform.warn("Cannot change texture " + key, e);
             return false;
         }
     }
@@ -181,7 +181,7 @@ public final class BlockPainter {
             userTextures.put(name, img);
             return img;
         } catch (IOException e) {
-            platform.warn("Could not read texture " + f + " (falling back to the color)", e);
+            platform.warn("Cannot read texture " + f + ". The mod uses the color instead.", e);
             return null;
         }
     }
@@ -199,7 +199,7 @@ public final class BlockPainter {
             watchTexturesFolder();
             int transformed = transformedSinceSummary.getAndSet(0);
             if (transformed > 0) {
-                platform.info("Flattened " + transformed + " textures with profile '" + config.activeProfileName() + "'");
+                platform.info("Changed " + transformed + " textures with profile '" + config.activeProfileName() + "'");
             }
             if (configFile.lastModified() != lastModified) {
                 Config before = config;
@@ -259,7 +259,7 @@ public final class BlockPainter {
             setConfig(ConfigCodec.decode(read(configFile)));
             return true;
         } catch (Exception e) {
-            platform.warn("Invalid " + configFile + ", keeping the previous settings", e);
+            platform.warn("Config file " + configFile + " is not valid. The previous settings stay.", e);
             if (config != null) platform.showMessage(NAME + ": config error - " + e.getMessage());
             return false;
         }
@@ -271,7 +271,7 @@ public final class BlockPainter {
             Files.write(configFile.toPath(), ConfigCodec.encode(config).getBytes(StandardCharsets.UTF_8));
             lastModified = configFile.lastModified();
         } catch (IOException e) {
-            platform.warn("Could not save " + configFile, e);
+            platform.warn("Cannot save " + configFile, e);
         }
     }
 
