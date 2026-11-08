@@ -238,6 +238,7 @@ public final class Albedo {
         }
         long start = System.nanoTime();
         TextureStore.Result r = store.repaint(now, textureSource, userImagesChanged);
+        platform.finishRepaint();
         if (r.failed > 0) {
             platform.warn(r.failed + " textures cannot be repainted. Resources reload instead.", null);
             platform.reloadResources();

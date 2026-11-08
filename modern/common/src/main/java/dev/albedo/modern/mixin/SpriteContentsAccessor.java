@@ -9,4 +9,10 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface SpriteContentsAccessor {
     @Accessor("originalImage")
     NativeImage albedo$originalImage();
+
+    @Accessor("byMipLevel")
+    NativeImage[] albedo$byMipLevel();
+
+    @Accessor("byMipLevel")
+    void albedo$setByMipLevel(NativeImage[] images);
 }

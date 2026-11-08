@@ -23,6 +23,12 @@ public interface Platform {
     /** Reload all resources and rebuild chunks: the slow path, for what a repaint cannot reach. Client thread. */
     void reloadResources();
 
+    /**
+     * Called after each repaint, also when an upload failed. An adapter that collects uploads sends them to the GPU
+     * here, all at once. Client thread.
+     */
+    default void finishRepaint() {}
+
     /** Rebuild the chunk meshes, which hold block tints and lighting. Client thread. */
     void rebuildChunks();
 

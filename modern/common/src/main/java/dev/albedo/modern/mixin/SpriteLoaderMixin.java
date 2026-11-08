@@ -28,7 +28,6 @@ public abstract class SpriteLoaderMixin {
     @Inject(method = "stitch", at = @At("HEAD"))
     private void albedo$flatten(List<SpriteContents> sprites, int mipLevel, Executor executor,
                                      CallbackInfoReturnable<SpriteLoader.Preparations> cir) {
-        String atlas = String.valueOf(location);
-        for (SpriteContents sprite : sprites) ModernHooks.processSprite(atlas, sprite);
+        for (SpriteContents sprite : sprites) ModernHooks.processSprite(location, sprite);
     }
 }
