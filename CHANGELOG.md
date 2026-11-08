@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- feat: Add a Servers page that gives each multiplayer server its own profile or turns the mod off there
+- feat: Give back your own profile when you leave a server
+- feat: Keep a change with F6 or F7 on a server only until you leave it
+- feat: Show the reason in the message when Apply reloads all resources
+- fix: Keep a copy of a config file with an error, so that a save cannot delete your profiles
+- fix: Keep the open group when your change to a built-in profile makes a new copy
+- fix: Show the new look on a texture that loads during a settings change
+
 ## 0.1.0
 
 First release.
