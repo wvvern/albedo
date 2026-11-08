@@ -106,7 +106,7 @@ public final class Albedo {
         TextureKey key = TextureClassifier.classify(location);
         try {
             Appearance a = sc.policy.appearanceFor(key);
-            sc.store.record(key, image, upload, a);
+            sc.store.record(location, key, image, upload, a);
             boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;

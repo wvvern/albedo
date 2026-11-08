@@ -43,12 +43,14 @@ public final class TextureStore {
     }
 
     private static final class Entry {
+        final TextureKey key;
         final PixelBuffer.Heap original;
         final Upload upload;
         final int average;
         volatile Appearance applied;
 
-        Entry(PixelBuffer.Heap original, Upload upload, Appearance applied) {
+        Entry(TextureKey key, PixelBuffer.Heap original, Upload upload, Appearance applied) {
+            this.key = key;
             this.original = original;
             this.upload = upload;
             this.average = PixelTransformer.average(original);
@@ -62,7 +64,8 @@ public final class TextureStore {
     static final long DEFAULT_BUDGET = 128L << 20;
 
     private final long budget;
-    private final Map<TextureKey, Entry> entries = new ConcurrentHashMap<TextureKey, Entry>();
+    /** By texture name: some textures share a key, for example the OptiFine connected textures of one block. */
+    private final Map<String, Entry> entries = new ConcurrentHashMap<String, Entry>();
     private final AtomicLong bytes = new AtomicLong();
     private volatile boolean complete = true;
     /** Set on the thread that repaints, so an upload that runs a load hook is not recorded again. */
@@ -93,19 +96,21 @@ public final class TextureStore {
     /**
      * Keeps a copy of {@code image} (call it before the image is changed). {@code applied} is the look the caller
      * gives it now. Textures of {@link Category#OTHER} are not kept: no setting changes them. A null {@code upload}
-     * means that the texture cannot be repainted: it is not kept, and a kept texture with the same key stays.
+     * means that the texture cannot be repainted: it is not kept, and a kept texture with the same name stays.
+     *
+     * @param name the texture name, for example "minecraft:blocks/stone". A texture with the same name replaces it.
      */
-    public void record(TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
+    public void record(String name, TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
         if (key.category() == Category.OTHER || upload == null) return;
-        Entry next = new Entry(PixelBuffer.Heap.copyOf(image), upload, applied);
-        Entry before = entries.get(key);
+        Entry next = new Entry(key, PixelBuffer.Heap.copyOf(image), upload, applied);
+        Entry before = entries.get(name);
         long delta = next.bytes() - (before == null ? 0 : before.bytes());
         if (bytes.get() + delta > budget) {
             complete = false;
             return;
         }
         bytes.addAndGet(delta);
-        entries.put(key, next);
+        entries.put(name, next);
         if (before == null || before.average != next.average) version.incrementAndGet();
     }
 
@@ -117,10 +122,9 @@ public final class TextureStore {
         int repainted = 0, failed = 0;
         repainting.set(Boolean.TRUE);
         try {
-            for (Iterator<Map.Entry<TextureKey, Entry>> it = entries.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<TextureKey, Entry> e = it.next();
-                Entry entry = e.getValue();
-                Appearance want = policy.appearanceFor(e.getKey());
+            for (Iterator<Entry> it = entries.values().iterator(); it.hasNext();) {
+                Entry entry = it.next();
+                Appearance want = policy.appearanceFor(entry.key);
                 boolean userImage = userImagesChanged && want.mode() == Appearance.Mode.TEXTURE;
                 if (want.equals(entry.applied) && !userImage) continue;
                 PixelBuffer.Heap pixels = entry.original.copy();
@@ -153,8 +157,9 @@ public final class TextureStore {
         Map<String, Integer> view = views.get(category);
         if (view == null) {
             Map<String, Integer> out = new TreeMap<String, Integer>();
-            for (Map.Entry<TextureKey, Entry> e : entries.entrySet()) {
-                if (e.getKey().category() == category) out.put(e.getKey().id(), e.getValue().average);
+            // In name order, so that of the textures with one id the first name (the vanilla one) gives the color.
+            for (Entry e : new TreeMap<String, Entry>(entries).values()) {
+                if (e.key.category() == category && !out.containsKey(e.key.id())) out.put(e.key.id(), e.average);
             }
             view = Collections.unmodifiableMap(out);
             views.put(category, view);
