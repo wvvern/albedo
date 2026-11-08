@@ -142,13 +142,17 @@ public final class Harness {
         List<Rule> rules = settings.rules();
         int index = 0;
         while (index < rules.size() && !rules.get(index).name().equals(group.name())) index++;
-        return profile.with(category, index < rules.size() ? settings.withRule(index, group) : settings.withRuleAt(index, group));
+        if (index < rules.size()) return profile.with(category, settings.withRule(index, group));
+        return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
     }
 
     /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */
     private static Appearance look(String text) {
-        for (Appearance.Mode m : Appearance.Mode.values()) if (m.key().equals(text)) return Appearance.of(m);
-        return Appearance.solid(Colors.parse(text));
+        try {
+            return Appearance.of(Appearance.Mode.byKey(text));
+        } catch (IllegalArgumentException notAMode) {
+            return Appearance.solid(Colors.parse(text));
+        }
     }
 
     private void takeCommandFile() {

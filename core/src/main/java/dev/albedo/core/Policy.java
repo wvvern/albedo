@@ -7,6 +7,7 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.texture.Foliage;
+import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.TextureKey;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,17 +54,6 @@ public final class Policy {
         return a;
     }
 
-    /**
-     * The look of a tile of {@code sheet}, where a group of the sheet in the same category covers the tiles that no
-     * group names, so that a group made for the whole sheet keeps its effect.
-     */
-    public Appearance appearanceFor(TextureKey tile, TextureKey sheet) {
-        if (profile == null || tile.category() != sheet.category()) return appearanceFor(tile);
-        CategorySettings s = profile.get(tile.category());
-        if (s.ruleFor(tile.id()) == null && s.ruleFor(sheet.id()) != null) return appearanceFor(sheet);
-        return appearanceFor(tile);
-    }
-
     private Appearance resolve(TextureKey key) {
         Category c = key.category();
         if (c == Category.COLORMAPS) {
@@ -72,6 +62,9 @@ public final class Policy {
         }
         CategorySettings s = profile.get(c);
         Rule group = s.ruleFor(key.id());
+        TextureKey sheet = group == null ? Layout.sheetOf(key) : null;
+        // A group for a full 1.8.9 sheet, such as "particles", covers each tile that no group names.
+        if (sheet != null) group = s.ruleFor(sheet.id());
         if (group == null) {
             // Groups win; otherwise two world-wide decisions come before the category's look.
             if (c == Category.BLOCKS && !profile.is(Toggle.FOLIAGE) && Foliage.matches(key.id())) {

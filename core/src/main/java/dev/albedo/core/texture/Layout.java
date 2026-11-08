@@ -14,7 +14,7 @@ import java.util.List;
  */
 public final class Layout {
     /** A named rectangle in the cells of the grid of its texture. */
-    public static final class Tile {
+    static final class Tile {
         final TextureKey key;
         final int x;
         final int y;
@@ -29,7 +29,7 @@ public final class Layout {
             this.h = h;
         }
 
-        public TextureKey key() { return key; }
+        TextureKey key() { return key; }
     }
 
     private final TextureKey key;
@@ -40,16 +40,21 @@ public final class Layout {
     /** True when the tiles, which do not overlap, fill the whole grid. */
     private final boolean covered;
 
+    /** A texture without tiles. */
+    private Layout(TextureKey key) {
+        this.key = key;
+        this.cols = 1;
+        this.rows = 1;
+        this.tiles = Collections.emptyList();
+        this.catalogKeys = Collections.singletonList(key);
+        this.covered = false;
+    }
+
+    /** A sheet with tiles in a grid of {@code cols} x {@code rows} cells. */
     Layout(TextureKey key, int cols, int rows, List<Tile> tiles) {
         this.key = key;
         this.cols = cols;
         this.rows = rows;
-        if (tiles.isEmpty()) {
-            this.tiles = Collections.emptyList();
-            this.catalogKeys = Collections.singletonList(key);
-            this.covered = false;
-            return;
-        }
         this.tiles = Collections.unmodifiableList(new ArrayList<Tile>(tiles));
         List<TextureKey> keys = new ArrayList<TextureKey>();
         int cells = 0;
@@ -64,15 +69,20 @@ public final class Layout {
     /** The tiles of a known sheet, or a layout without tiles. */
     public static Layout of(TextureKey key) {
         Layout sheet = Sheets.get(key);
-        return sheet != null ? sheet : new Layout(key, 1, 1, Collections.<Tile>emptyList());
+        return sheet != null ? sheet : new Layout(key);
     }
 
-    public TextureKey key() { return key; }
+    /** The key of the sheet that has a tile with this key in the same category, or null. */
+    public static TextureKey sheetOf(TextureKey tile) {
+        return Sheets.sheetOf(tile);
+    }
 
-    public List<Tile> tiles() { return tiles; }
+    TextureKey key() { return key; }
+
+    List<Tile> tiles() { return tiles; }
 
     /** The keys that the texture list shows: the tiles, or the texture itself when it has no tiles. */
-    public List<TextureKey> catalogKeys() { return catalogKeys; }
+    List<TextureKey> catalogKeys() { return catalogKeys; }
 
     /**
      * The look of the texture, then the look of each tile in order, where the texture has no look of its own when its
@@ -82,7 +92,7 @@ public final class Layout {
         if (tiles.isEmpty()) return Collections.singletonList(policy.appearanceFor(key));
         List<Appearance> out = new ArrayList<Appearance>(tiles.size() + 1);
         out.add(covered ? Appearance.ORIGINAL : policy.appearanceFor(key));
-        for (Tile t : tiles) out.add(policy.appearanceFor(t.key, key));
+        for (Tile t : tiles) out.add(policy.appearanceFor(t.key));
         return Collections.unmodifiableList(out);
     }
 
@@ -92,7 +102,6 @@ public final class Layout {
      * @return true if the image was changed
      */
     public boolean paint(List<Appearance> looks, PixelBuffer img, PixelTransformer.TextureSource textures) {
-        if (tiles.isEmpty()) return PixelTransformer.apply(looks.get(0), img, textures);
         boolean sheetChanges = !looks.get(0).isOriginal();
         // A tile keeps its original pixels when neither the texture look nor its own look changes them.
         PixelBuffer.Heap[] parts = new PixelBuffer.Heap[tiles.size()];
@@ -110,7 +119,7 @@ public final class Layout {
     }
 
     /** The original average color for each of the {@link #catalogKeys}. */
-    public int[] averages(PixelBuffer original) {
+    int[] averages(PixelBuffer original) {
         if (tiles.isEmpty()) return new int[]{PixelTransformer.average(original)};
         int[] out = new int[tiles.size()];
         for (int i = 0; i < out.length; i++) out[i] = PixelTransformer.average(copy(original, tiles.get(i)));

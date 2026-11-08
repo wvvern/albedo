@@ -14,11 +14,18 @@ import java.util.Map;
  */
 final class Sheets {
     private static final Map<TextureKey, Layout> ALL;
+    /** The sheet of each tile that is in the category of its sheet. */
+    private static final Map<TextureKey, TextureKey> SHEET_OF;
 
     static {
         Map<TextureKey, Layout> m = new HashMap<TextureKey, Layout>();
-        for (Layout l : new Layout[]{particles(), paintings(), explosion()}) m.put(l.key(), l);
+        Map<TextureKey, TextureKey> sheetOf = new HashMap<TextureKey, TextureKey>();
+        for (Layout l : new Layout[]{particles(), paintings(), explosion()}) {
+            m.put(l.key(), l);
+            for (Layout.Tile t : l.tiles()) if (t.key.category() == l.key().category()) sheetOf.put(t.key, l.key());
+        }
         ALL = Collections.unmodifiableMap(m);
+        SHEET_OF = Collections.unmodifiableMap(sheetOf);
     }
 
     private Sheets() {}
@@ -26,6 +33,10 @@ final class Sheets {
     /** The layout of a sheet, or null for any other texture. */
     static Layout get(TextureKey key) {
         return ALL.get(key);
+    }
+
+    static TextureKey sheetOf(TextureKey tile) {
+        return SHEET_OF.get(tile);
     }
 
     /** The cell indices (row * 16 + column) are the arguments of setParticleTextureIndex in the 1.8.9 particle classes. */

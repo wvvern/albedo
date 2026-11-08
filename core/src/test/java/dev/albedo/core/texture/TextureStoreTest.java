@@ -41,9 +41,7 @@ class TextureStoreTest {
     }
 
     private static Policy blocks(Appearance look, Rule... groups) {
-        Config c = Config.defaults();
-        CategorySettings cs = new CategorySettings(look, false, java.util.Arrays.asList(groups));
-        return Policy.of(c.withProfile(c.activeProfile().with(Category.BLOCKS, cs)));
+        return LayoutTest.policy(Category.BLOCKS, look, groups);
     }
 
     private static void record(TextureStore store, String id, TextureStore.Upload upload, Policy policy) {

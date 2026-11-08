@@ -52,10 +52,15 @@ class LayoutTest {
         return 0xFF000000 | (col * 16 << 16) | (row * 16 << 8) | 0x40;
     }
 
-    static Policy particles(Appearance look, Rule... groups) {
+    /** The default profile with one category set to {@code look} and {@code groups}. */
+    static Policy policy(Category category, Appearance look, Rule... groups) {
         Config c = Config.defaults();
         CategorySettings cs = new CategorySettings(look, false, Arrays.asList(groups));
-        return Policy.of(c.withProfile(c.activeProfile().with(Category.PARTICLES, cs)));
+        return Policy.of(c.withProfile(c.activeProfile().with(category, cs)));
+    }
+
+    static Policy particles(Appearance look, Rule... groups) {
+        return policy(Category.PARTICLES, look, groups);
     }
 
     static Rule group(String pattern, Appearance look) {
@@ -196,6 +201,7 @@ class LayoutTest {
         assertEquals(RED, at(img, 1, 3), "lava takes the group of the sheet");
         assertEquals(RED, at(img, 0, 1), "so do the cells outside the tiles");
         assertEquals(cellColor(1, 2), at(img, 1, 2), "the fishing hook is in another category");
+        assertEquals(Appearance.solid(RED), policy.appearanceFor(tile(layout, "lava").key()), "the settings screen sees the same look");
     }
 
     @Test
