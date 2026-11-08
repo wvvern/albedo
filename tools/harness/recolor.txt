@@ -1,0 +1,39 @@
+# The Recolor style in a running game. Run it after the scene in place of shots.txt:
+#   ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots recolor.txt -OutDir build\recolor
+wait 60
+mod off
+wait 200
+screenshot c01-vanilla
+mod on
+wait 200
+screenshot c02-color-white
+settings open
+wait 20
+ui click Recolor
+wait 10
+ui click Apply
+wait 200
+ui pointer off
+wait 10
+screenshot c03-recolor-settings
+settings close
+wait 20
+screenshot c04-recolor-white
+settings open
+wait 20
+ui click #FFFFFF
+wait 5
+ui key BACKSPACE
+ui key BACKSPACE
+ui key BACKSPACE
+ui key BACKSPACE
+ui key BACKSPACE
+ui key BACKSPACE
+ui type 3A6EA5
+wait 5
+ui key ENTER
+wait 5
+ui click Done
+wait 200
+screenshot c05-recolor-blue
+quit

@@ -4,6 +4,7 @@ import dev.albedo.core.Category;
 
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +39,7 @@ public final class Presets {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
         // Solid leaves: through their holes you'd otherwise see darker back faces, which is exactly the noise to remove.
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
-                new Appearance(Appearance.Mode.SOLID, block, null, Appearance.Alpha.OPAQUE), false);
+                Appearance.ORIGINAL.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(Appearance.solid(block), true, Collections.singletonList(solidLeaves)));
         c.put(Category.BLOCK_ENTITIES, flat(block, false));
         c.put(Category.DECORATIONS, flat(decoration, false));

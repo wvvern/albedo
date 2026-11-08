@@ -36,7 +36,15 @@ import java.util.Set;
  * </pre>
  */
 public final class ConfigCodec {
-    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha");
+    private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
+    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha", "detail", "keepColors", "keepLight");
+    /** The JSON key of each look field, in the order of {@link Appearance.Field}. */
+    private static final Map<String, Appearance.Field> FIELD_KEYS = new LinkedHashMap<String, Appearance.Field>();
+
+    static {
+        Appearance.Field[] fields = Appearance.Field.values();
+        for (int i = 0; i < fields.length; i++) FIELD_KEYS.put(LOOK_KEYS.get(i), fields[i]);
+    }
     private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
     private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
     private static final List<String> CATEGORY_KEYS = plus(LOOK_KEYS, "removeTint", "onlyGroups", "groups");
@@ -153,9 +161,11 @@ public final class ConfigCodec {
                     String problem = Glob.problem(p);
                     if (problem != null) throw new IllegalArgumentException(at + ": \"" + p + "\" is not a valid pattern: " + problem);
                 }
-                Rule r = new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), false);
+                EnumSet<Appearance.Field> own = EnumSet.noneOf(Appearance.Field.class);
+                for (Map.Entry<String, Appearance.Field> f : FIELD_KEYS.entrySet()) if (rm.containsKey(f.getKey())) own.add(f.getValue());
                 // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
-                rules.add(onlyGroups && Collections.disjoint(rm.keySet(), LOOK_KEYS) ? r.withGlobalLook() : r);
+                if (own.isEmpty() && !onlyGroups) own = EnumSet.allOf(Appearance.Field.class);
+                rules.add(new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), own));
             }
         }
         return new CategorySettings(appearance, bool(map, "removeTint", false), onlyGroups, rules);
@@ -172,7 +182,12 @@ public final class ConfigCodec {
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
             String texture = map.containsKey("texture") ? str(map, "texture", "") : parent.texture();
             Appearance.Alpha alpha = map.containsKey("alpha") ? Appearance.Alpha.byKey(str(map, "alpha", "")) : parent.alpha();
-            return new Appearance(mode, color, texture == null || texture.isEmpty() ? null : texture, alpha);
+            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
+                throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
+            }
+            return new Appearance(mode, color, texture == null || texture.isEmpty() ? null : texture, alpha,
+                    percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
+                    percent(map, "keepLight", parent.keepLight()));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(where + ": " + e.getMessage(), e);
         }
@@ -206,7 +221,11 @@ public final class ConfigCodec {
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
             CategorySettings cs = e.getValue();
             Map<String, Object> m = new LinkedHashMap<String, Object>();
-            encodeAppearance(m, cs.appearance(), Appearance.ORIGINAL);
+            // Recolor fields only where a look uses them, so that a version without Recolor can still read the file.
+            boolean recolor = cs.appearance().mode() == Appearance.Mode.RECOLOR;
+            for (Rule r : cs.rules()) recolor |= cs.lookOf(r).mode() == Appearance.Mode.RECOLOR;
+            Appearance written = recolor ? cs.appearance() : withRecolorOf(cs.appearance(), Appearance.ORIGINAL);
+            encodeAppearance(m, written, Appearance.ORIGINAL);
             if (cs.removeTint()) m.put("removeTint", true);
             if (cs.onlyGroups()) m.put("onlyGroups", true);
             if (!cs.rules().isEmpty()) {
@@ -217,9 +236,10 @@ public final class ConfigCodec {
                     List<String> pats = r.patterns();
                     rm.put("match", pats.size() == 1 ? (Object) pats.get(0) : new ArrayList<Object>(pats));
                     if (!r.usesGlobalLook()) {
-                        encodeAppearance(rm, r.appearance(), cs.appearance());
+                        Appearance look = r.lookIn(written);
+                        encodeAppearance(rm, look.mode() == Appearance.Mode.RECOLOR ? look : withRecolorOf(look, written), written);
                         // No look field means "the category's look", so an own look equal to it is written out.
-                        if (Collections.disjoint(rm.keySet(), LOOK_KEYS)) rm.put("mode", r.appearance().mode().key());
+                        if (Collections.disjoint(rm.keySet(), LOOK_KEYS)) rm.put("mode", look.mode().key());
                     }
                     rules.add(rm);
                 }
@@ -238,6 +258,13 @@ public final class ConfigCodec {
             m.put("texture", a.texture() == null ? "" : a.texture());
         }
         if (a.alpha() != base.alpha()) m.put("alpha", a.alpha().key());
+        if (a.detail() != base.detail()) m.put("detail", a.detail());
+        if (a.keepColors() != base.keepColors()) m.put("keepColors", a.keepColors());
+        if (a.keepLight() != base.keepLight()) m.put("keepLight", a.keepLight());
+    }
+
+    private static Appearance withRecolorOf(Appearance a, Appearance from) {
+        return a.withRecolor(from.detail(), from.keepColors(), from.keepLight());
     }
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
@@ -270,6 +297,14 @@ public final class ConfigCodec {
         if (o == null) return def;
         if (!(o instanceof Boolean)) throw new IllegalArgumentException("'" + key + "' must be true or false");
         return (Boolean) o;
+    }
+
+    private static int percent(Map<String, Object> m, String key, int def) {
+        Object o = m.get(key);
+        if (o == null) return def;
+        double v = o instanceof Number ? ((Number) o).doubleValue() : Double.NaN;
+        if (v != Math.rint(v) || v < 0 || v > 100) throw new IllegalArgumentException("'" + key + "' must be a whole number from 0 to 100");
+        return (int) v;
     }
 
     private static String str(Map<String, Object> m, String key, String def) {

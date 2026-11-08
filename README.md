@@ -62,7 +62,8 @@ These three profiles are built in. You cannot rename, delete or change them. Whe
 - **Categories (left list):** each category has a color square that shows its current color.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
 - **Servers page:** a profile for each multiplayer server, for all profiles. On a server in the list, Albedo uses that profile, or is off. When you leave, your own profile comes back. If you push F6 or F7, or select a profile, on the server, your choice stays until you leave. A name also covers its subdomains: `hypixel.net` is also `mc.hypixel.net`. To add the server that you play on, push "Use ... here".
-- **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
+- **Look tab:** style (Vanilla, Color, Recolor, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
+- **Recolor:** changes the color and keeps the detail. The color is the average of the result. Detail sets how much of the light and dark pattern stays. Colors sets how much of the original color differences stays; strong specks, such as ores, always keep their color. Light sets how much of each texture's own lightness stays, so that dark blocks stay dark.
 - **Textures tab:** all loaded textures of the category. Type in the search field to find a texture. Click a texture to put it in a group.
 - **Groups tab:** a group is a named set of textures with its own look: blocks, particles, mobs or other textures of the category. Use the arrows to move a group up or down.
 
@@ -117,12 +118,13 @@ The settings are in `config/albedo/config.json`. You can edit this file by hand.
 - **`servers`:** a server name and the profile to use on it, or `false` to turn the mod off there. The file keeps your own profile in `activeProfile`. A Realm has no fixed address, so a rule cannot name it.
 - **Profile toggles:** `fullbright`, `shading`, `foliage`, `shadows`.
 - **Category keys:** `blocks`, `fluids`, `block_entities`, `decorations` (signs, banners, paintings, maps, item frames), `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds`, `weather`.
-- **Category fields:** `mode`, `color`, `texture`, `alpha`, `removeTint`, `onlyGroups`, `groups`.
-- **`mode`:** `original`, `solid`, `average`, `grayscale`, `texture` or `hidden`. Sky supports `original` and `solid`. Clouds support `original` and `hidden`. Weather supports `original`, `solid` and `hidden`.
+- **Category fields:** `mode`, `color`, `texture`, `alpha`, `detail`, `keepColors`, `keepLight`, `removeTint`, `onlyGroups`, `groups`.
+- **`mode`:** `original`, `solid`, `recolor`, `average`, `grayscale`, `texture` or `hidden`. Sky supports `original` and `solid`. Clouds support `original` and `hidden`. Weather supports `original`, `solid` and `hidden`.
 - **`color`:** `#RGB`, `#RRGGBB`, `#AARRGGBB` or a name such as `white`.
 - **`texture`:** a PNG file name in `config/albedo/textures/`.
 - **`alpha`:** `keep`, `binary` or `opaque`.
-- **Group fields:** `name`, `match` (a pattern or a list of patterns; a pattern between slashes is a regular expression), and `mode`, `color`, `texture`, `alpha`. A field that the group does not set comes from the category. A group with no look fields uses the category look.
+- **`detail`, `keepColors`, `keepLight`:** whole numbers from 0 to 100, for `recolor` only. The defaults are 100, 0 and 0. A file that uses them needs Albedo 0.2.0 or later.
+- **Group fields:** `name`, `match` (a pattern or a list of patterns; a pattern between slashes is a regular expression), and `mode`, `color`, `texture`, `alpha`, `detail`, `keepColors`, `keepLight`. A field that the group does not set comes from the category. A group with no look fields uses the category look.
 
 ## Building
 

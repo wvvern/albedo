@@ -26,9 +26,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -301,6 +303,57 @@ class SettingsEditorTest {
             playOn(null);
             sc.apply(Config.defaults());
         }
+    }
+
+    @Test
+    void aSliderDragDoesNotTakeGroupsAlong() {
+        Config c = withOwnProfile();
+        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, null, Appearance.Alpha.KEEP, 80, 0, 0);
+        Rule own = new Rule("Own", Collections.singletonList("stone"), look.withRecolor(60, 0, 0), false);
+        CategorySettings blocks = new CategorySettings(look, false, Collections.singletonList(own));
+        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(533, 300);
+            editor.render(canvas, 0, 0);
+            assertNotNull(canvas.find("Detail"), "Recolor shows its sliders: " + canvas.texts.keySet());
+            int[] value = canvas.find("80%");
+            assertNotNull(value, "the Detail value shows: " + canvas.texts.keySet());
+            int x = value[0] - 20, y = value[1];
+            editor.mousePressed(0);
+            for (int dx = 0; dx <= x; dx += 2) editor.render(canvas, x - dx, y); // through 60 on the way to 0
+            editor.mouseReleased(0);
+            render(editor, canvas);
+            click(editor, canvas, "Done");
+            CategorySettings saved = sc.config().activeProfile().get(Category.BLOCKS);
+            assertEquals(0, saved.appearance().detail());
+            assertEquals(60, saved.lookOf(saved.rules().get(0)).detail(), "the group keeps its own value");
+        } finally {
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void theRecolorLookFitsSmallWindows() {
+        Config c = withOwnProfile();
+        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, null, Appearance.Alpha.KEEP, 80, 20, 0);
+        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, new CategorySettings(look, false, Collections.<Rule>emptyList()))));
+        try {
+            for (int[] size : new int[][]{{320, 200}, {320, 240}, {427, 240}}) {
+                SettingsEditor editor = new SettingsEditor(sc);
+                RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
+                editor.render(canvas, 0, 0); // the canvas fails the test for anything drawn outside the screen
+                assertNotNull(canvas.find("Shape"), "the Shape row shows at " + size[0] + "x" + size[1] + ": " + canvas.texts.keySet());
+            }
+        } finally {
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void everyStyleHasItsOwnLabel() {
+        Set<String> labels = new HashSet<String>();
+        for (Appearance.Mode m : Appearance.Mode.values()) assertTrue(labels.add(Labels.mode(m)), "two styles show " + Labels.mode(m));
     }
 
     @Test

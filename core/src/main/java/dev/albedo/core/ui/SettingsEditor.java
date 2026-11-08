@@ -41,6 +41,15 @@ public final class SettingsEditor {
     };
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope"};
+    private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
+    private static final String[] RECOLOR_TIPS = {
+        "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
+        "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
+        "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
+    /** The height of the three Recolor sliders on their own rows. */
+    private static final int RECOLOR_H = RECOLOR_LABELS.length * (Ui.SLIDER_H + 3);
+    /** The height of the Remove biome tint switch. */
+    private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
     private static final int ROW = 11;
     private static final int GAP = 6;
@@ -189,6 +198,7 @@ public final class SettingsEditor {
         int w = canvas.width(), h = canvas.height();
         labelW = ui.width(Labels.members(page.category));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
+        for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -501,10 +511,17 @@ public final class SettingsEditor {
     private void lookTab(int x, int y, int w, int bottom, CategorySettings cs) {
         Category category = page.category;
         boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
-        int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? 12 : 0);
+        // Grass, leaves and water get the biome color on top of a recolor, which mixes it with the chosen color.
+        String tintHint = tint && !cs.removeTint() && cs.appearance().mode() == Appearance.Mode.RECOLOR
+                ? "Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color." : null;
+        int hintH = tintHint == null ? 0 : ui.paragraphHeight(tintHint, w) + GAP;
+        int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? TINT_ROW_H : 0) + hintH;
         int cy = lookEditor(x, y, w, bottom - below, cs, -1);
         if (cs.onlyGroups()) {
             cy += ui.paragraph("Only groups change (see Groups). Groups set to Global use this look.", x, cy, w, Ui.FAINT) + GAP;
+        }
+        if (tintHint != null && cy + hintH + TINT_ROW_H <= bottom) {
+            cy += ui.paragraph(tintHint, x, cy, w, Ui.FAINT) + GAP; // a short window keeps the switch and leaves out the hint
         }
         if (tint) {
             boolean remove = ui.toggleRow("tint", x - 4, cy, w + 4, "Remove biome tint", cs.removeTint(),
@@ -524,7 +541,7 @@ public final class SettingsEditor {
         Category category = page.category;
         Rule rule = index < 0 ? null : cs.rules().get(index);
         boolean global = rule != null && rule.usesGlobalLook();
-        Appearance target = rule == null ? cs.appearance() : rule.appearance();
+        Appearance target = cs.lookOf(rule);
         List<Appearance.Mode> modes = category.supportedModes();
         String[] labels = new String[modes.size()], tips = new String[modes.size()];
         int selected = 0;
@@ -557,13 +574,19 @@ public final class SettingsEditor {
         Appearance.Mode m = target.mode();
         boolean usesShape = m != Appearance.Mode.ORIGINAL && m != Appearance.Mode.HIDDEN
                 && category != Category.SKY && category != Category.CLOUDS;
+        boolean recolor = m == Appearance.Mode.RECOLOR;
         if (m == Appearance.Mode.TEXTURE) cy = imagePicker(x, cy, w, cs, index, target);
-        if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE) {
+        if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE || recolor) {
             ui.text("Color", x, cy + 3, Ui.MUTED);
-            if (m == Appearance.Mode.TEXTURE) ui.tip(x, cy, labelW, Ui.H, "The color to use when the image is not found");
+            ui.tip(x, cy, labelW, Ui.H, m == Appearance.Mode.TEXTURE ? "The color to use when the image is not found"
+                    : recolor ? "The average color of the result" : null);
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
-            int pickerH = Math.max(24, Math.min(44, bottom - cy - GAP - (usesShape ? Ui.H + GAP : 0)));
-            cy = colorPicker(lx, cy, cw, pickerH, cs, index, target);
+            int shapeH = usesShape ? Ui.H + GAP : 0;
+            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0);
+            if (room < 24) cy = compactColor(lx, cy, cw, cs, index, target);
+            else cy = colorPicker(lx, cy, cw, Math.min(44, room), cs, index, target);
+            // A very short window puts the three sliders on one row and names them in their tooltips.
+            if (recolor) cy = recolorSliders(x, cy, w, cs, index, target, bottom - cy - shapeH < RECOLOR_H);
         }
         if (usesShape) {
             String[] shapes = {"Keep", "Cut-out", "Solid"};
@@ -576,6 +599,26 @@ public final class SettingsEditor {
             cy += ui.segmentedHeight(shapes, cw) + GAP;
         }
         return cy;
+    }
+
+    /** The Detail, Colors and Light sliders of the Recolor style, on their own rows or on one row, and returns the next y. */
+    private int recolorSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
+        int n = RECOLOR_LABELS.length, lx = x + labelW, cw = w - labelW, partW = (cw - (n - 1) * GAP) / n;
+        int[] values = {target.detail(), target.keepColors(), target.keepLight()};
+        boolean changed = false;
+        if (oneRow) ui.text("Recolor", x, y + 2, Ui.MUTED);
+        for (int i = 0; i < n; i++) {
+            int sy = oneRow ? y : y + i * (Ui.SLIDER_H + 3);
+            if (!oneRow) {
+                ui.text(RECOLOR_LABELS[i], x, sy + 2, Ui.MUTED);
+                ui.tip(x, sy, labelW, Ui.SLIDER_H, RECOLOR_TIPS[i]);
+            }
+            int v = ui.slider("recolor." + i, oneRow ? lx + i * (partW + GAP) : lx, sy, oneRow ? partW : cw, values[i], RECOLOR_TIPS[i]);
+            changed |= v != values[i];
+            values[i] = v;
+        }
+        if (changed) setLook(cs, index, target.withRecolor(values[0], values[1], values[2]));
+        return y + (oneRow ? Ui.SLIDER_H : RECOLOR_H - 3) + GAP;
     }
 
     // ---------------------------------------------------------------- groups
@@ -990,6 +1033,26 @@ public final class SettingsEditor {
         return y + Ui.H + GAP;
     }
 
+    private void hexField(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
+        if (!ui.isFocused("hex")) hex.set(Colors.format(target.color()));
+        if (ui.textField("hex", hex, x, y, w, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
+            try {
+                int typed = Colors.parse(hex.text);
+                hsv.sync(typed);
+                setLook(cs, index, target.withColor(typed));
+            } catch (IllegalArgumentException ignored) {
+                // keep typing
+            }
+        }
+    }
+
+    /** One row with a swatch and the hex input, for a window too short for the full picker; returns the next y. */
+    private int compactColor(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
+        ui.swatch(x, y + 2, 10, 10, target.color());
+        hexField(x + 14, y, Math.min(62, w - 14), cs, index, target);
+        return y + Ui.H + GAP;
+    }
+
     /** Draws a saturation and brightness square, hue and opacity bars, a hex input and a palette, and returns the next y. */
     private int colorPicker(int x, int y, int w, int sqH, CategorySettings cs, int index, Appearance target) {
         int color = target.color();
@@ -1040,16 +1103,7 @@ public final class SettingsEditor {
         int px = ax + 14, pw = Math.max(40, x + w - px);
         int hexW = Math.min(62, pw), previewW = pw - hexW >= 22 ? 22 : 0;
         if (previewW > 0) ui.swatch(px, y, 18, 18, next);
-        if (!ui.isFocused("hex")) hex.set(Colors.format(color));
-        if (ui.textField("hex", hex, px + previewW, y + 2, hexW, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
-            try {
-                int typed = Colors.parse(hex.text);
-                hsv.sync(typed);
-                setLook(cs, index, target.withColor(typed));
-            } catch (IllegalArgumentException ignored) {
-                // keep typing
-            }
-        }
+        hexField(px + previewW, y + 2, hexW, cs, index, target);
         int sw = 9, perRow = Math.max(1, Math.min(8, (pw + 2) / (sw + 2)));
         for (int i = 0; i < PALETTE.length; i++) {
             int sx = px + (i % perRow) * (sw + 2), sy = y + 22 + (i / perRow) * (sw + 2);
@@ -1190,7 +1244,7 @@ public final class SettingsEditor {
     /** Sets the global look ({@code index} -1) or a group's own look. */
     private void setLook(CategorySettings cs, int index, Appearance a) {
         if (index < 0) setCategory(cs.withAppearance(a));
-        else setRule(cs, index, cs.rules().get(index).withAppearance(a));
+        else setRule(cs, index, cs.rules().get(index).withLook(a, cs.appearance()));
     }
 
     private void setRule(CategorySettings cs, int index, Rule r) {

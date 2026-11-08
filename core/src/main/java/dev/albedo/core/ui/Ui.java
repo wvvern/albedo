@@ -555,6 +555,22 @@ final class Ui {
         return new float[]{fx, fy};
     }
 
+    /** The height of a {@link #slider}. */
+    static final int SLIDER_H = 12;
+
+    /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
+    int slider(String id, int x, int y, int w, int value, String tipText) {
+        int textW = width("100%") + 6, trackW = Math.max(10, w - textW);
+        int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * value / 100;
+        fill(x, ty, trackW, 3, CARD);
+        fill(x, ty, knobX - x + 2, 3, ACCENT);
+        round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
+        text(value + "%", x + trackW + 6, y + 2, MUTED);
+        tip(x, y, w, SLIDER_H, tipText);
+        float[] at = dragArea(id, x, y, trackW, SLIDER_H);
+        return at == null ? value : Math.round(at[0] * 100);
+    }
+
     /** A single-line text input that returns true when the text changed this frame. */
     boolean textField(String id, TextField field, int x, int y, int w, int h, String placeholder, String tipText) {
         boolean focused = id.equals(focus);

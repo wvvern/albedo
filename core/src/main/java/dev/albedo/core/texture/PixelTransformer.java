@@ -24,6 +24,9 @@ public final class PixelTransformer {
             case SOLID:
                 fill(img, a.color(), a.alpha(), true);
                 return true;
+            case RECOLOR:
+                Recolor.apply(a, img);
+                return true;
             case AVERAGE:
                 fill(img, average(img), a.alpha(), true);
                 return true;
@@ -49,13 +52,26 @@ public final class PixelTransformer {
      * alpha per {@code alphaMode} (multiplied by the color's own alpha).
      */
     static void fill(PixelBuffer img, int color, Appearance.Alpha alphaMode, boolean respectShape) {
-        int colorAlpha = Colors.alpha(color);
         for (int y = 0; y < img.height(); y++) {
             for (int x = 0; x < img.width(); x++) {
                 int a = respectShape ? shapeAlpha(Colors.alpha(img.getArgb(x, y)), alphaMode) : 255;
-                img.setArgb(x, y, Colors.withAlpha(color, a * colorAlpha / 255));
+                img.setArgb(x, y, Colors.withAlpha(color, withColorAlpha(a, color)));
             }
         }
+    }
+
+    /** The output alpha of a pixel: its shape alpha times the alpha of the look's color. */
+    static int shapedAlpha(int srcAlpha, Appearance a) {
+        return withColorAlpha(shapeAlpha(srcAlpha, a.alpha()), a.color());
+    }
+
+    private static int withColorAlpha(int alpha, int color) {
+        return alpha * Colors.alpha(color) / 255;
+    }
+
+    /** The step of a grid of at most about 4096 samples, by area, so that a tall animation strip is sampled across its width too. */
+    static int sampleStep(PixelBuffer img) {
+        return Math.max(1, (int) Math.sqrt((double) img.width() * img.height() / 4096));
     }
 
     static int shapeAlpha(int srcAlpha, Appearance.Alpha mode) {
@@ -66,13 +82,10 @@ public final class PixelTransformer {
         }
     }
 
-    /**
-     * Opaque alpha-weighted average of the visible pixels (mid gray for a fully transparent image), sampled on a grid
-     * of at most about 64 x 64 pixels.
-     */
+    /** Opaque alpha-weighted average of the visible pixels, or mid gray for a fully transparent image. */
     public static int average(PixelBuffer img) {
         long r = 0, g = 0, b = 0, w = 0;
-        int step = Math.max(1, Math.max(img.width(), img.height()) / 64);
+        int step = sampleStep(img);
         for (int y = 0; y < img.height(); y += step) {
             for (int x = 0; x < img.width(); x += step) {
                 int p = img.getArgb(x, y);

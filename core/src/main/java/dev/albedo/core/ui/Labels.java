@@ -60,6 +60,7 @@ final class Labels {
         switch (m) {
             case ORIGINAL: return "Vanilla";
             case SOLID: return "Color";
+            case RECOLOR: return "Recolor";
             case AVERAGE: return "Average";
             case GRAYSCALE: return "Gray";
             case TEXTURE: return "Image";
@@ -71,6 +72,7 @@ final class Labels {
         switch (m) {
             case ORIGINAL: return "Do not change";
             case SOLID: return "One flat color";
+            case RECOLOR: return "Change the color and keep the detail";
             case AVERAGE: return "Each texture changes to its average color";
             case GRAYSCALE: return "Keep the detail and remove the color";
             case TEXTURE: return "A PNG image from config/albedo/textures";

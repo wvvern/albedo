@@ -151,7 +151,7 @@ class CoreTest {
 
         // The preset's solid-leaves rule follows a new blocks color but keeps its own (opaque) shape.
         CategorySettings red = c.activeProfile().get(Category.BLOCKS).withAppearance(Appearance.solid(0xFFFF0000));
-        Appearance leaves = red.ruleFor("minecraft:oak_leaves").appearance();
+        Appearance leaves = red.appearanceFor("minecraft:oak_leaves");
         assertEquals(0xFFFF0000, leaves.color());
         assertEquals(Appearance.Alpha.OPAQUE, leaves.alpha());
 
@@ -246,10 +246,10 @@ class CoreTest {
         assertTrue(typo.getMessage().contains("'rules'"), typo.getMessage());
 
         // A group's own "keep" shape survives a round trip under an "opaque" category.
-        Rule keep = new Rule("Glass", Collections.singletonList("*glass*"),
-                new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.KEEP), false);
-        CategorySettings opaque = new CategorySettings(new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.OPAQUE),
-                false, Collections.singletonList(keep));
+        Appearance opaqueLook = new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.OPAQUE);
+        Rule keep = new Rule("Glass", Collections.singletonList("*glass*"), opaqueLook, true)
+                .withLook(opaqueLook.withAlpha(Appearance.Alpha.KEEP), opaqueLook);
+        CategorySettings opaque = new CategorySettings(opaqueLook, false, Collections.singletonList(keep));
         Config c = Config.defaults();
         Config withKeep = c.withProfile(c.activeProfile().with(Category.BLOCKS, opaque));
         assertEquals(withKeep, ConfigCodec.decode(ConfigCodec.encode(withKeep)));

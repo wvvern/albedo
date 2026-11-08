@@ -2,8 +2,8 @@ package dev.albedo.core.config;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * One category's immutable global look, switches and ordered groups (first match wins), where a group overrides the
@@ -43,7 +43,7 @@ public final class CategorySettings {
 
     /** The look for a texture in {@code group}, or in no group when it's null. */
     public Appearance lookOf(Rule group) {
-        if (group != null) return group.usesGlobalLook() ? appearance : group.appearance();
+        if (group != null) return group.lookIn(appearance);
         return onlyGroups ? Appearance.ORIGINAL : appearance;
     }
 
@@ -60,14 +60,9 @@ public final class CategorySettings {
 
     public List<Rule> rules() { return rules; }
 
-    /**
-     * Group fields equal to the old global look follow the new one, because in the JSON a group stores only the fields
-     * that differ from its category.
-     */
+    /** The category with a new global look, which the groups follow in the fields they do not set. */
     public CategorySettings withAppearance(Appearance a) {
-        List<Rule> next = new ArrayList<Rule>();
-        for (Rule r : rules) next.add(r.usesGlobalLook() ? r : r.withAppearance(inherit(r.appearance(), appearance, a)));
-        return new CategorySettings(a, removeTint, onlyGroups, next);
+        return new CategorySettings(a, removeTint, onlyGroups, rules);
     }
 
     public CategorySettings withRemoveTint(boolean value) {
@@ -87,8 +82,9 @@ public final class CategorySettings {
      * otherwise it gets its own color from a rotating set so it stands out.
      */
     public Rule newGroup(String name, List<String> patterns) {
-        Rule r = new Rule(name, patterns, Appearance.solid(GROUP_COLORS[rules.size() % GROUP_COLORS.length]), false);
-        return onlyGroups ? r.withGlobalLook() : r;
+        if (onlyGroups) return new Rule(name, patterns, appearance, true);
+        Appearance look = appearance.withMode(Appearance.Mode.SOLID).withColor(GROUP_COLORS[rules.size() % GROUP_COLORS.length]);
+        return new Rule(name, patterns, look, EnumSet.of(Appearance.Field.MODE, Appearance.Field.COLOR));
     }
 
     public CategorySettings withRule(int index, Rule r) {
@@ -134,17 +130,9 @@ public final class CategorySettings {
      */
     public Rule blocksScopeSwitch() {
         for (Rule r : rules) {
-            if (onlyGroups ? r.usesGlobalLook() : !r.usesGlobalLook() && r.appearance().isOriginal()) return r;
+            if (onlyGroups ? r.usesGlobalLook() : !r.usesGlobalLook() && r.lookIn(appearance).isOriginal()) return r;
         }
         return null;
-    }
-
-    private static Appearance inherit(Appearance rule, Appearance oldParent, Appearance newParent) {
-        return new Appearance(
-                rule.mode() == oldParent.mode() ? newParent.mode() : rule.mode(),
-                rule.color() == oldParent.color() ? newParent.color() : rule.color(),
-                Objects.equals(rule.texture(), oldParent.texture()) ? newParent.texture() : rule.texture(),
-                rule.alpha() == oldParent.alpha() ? newParent.alpha() : rule.alpha());
     }
 
     @Override
