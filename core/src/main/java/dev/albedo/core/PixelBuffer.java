@@ -14,7 +14,6 @@ public interface PixelBuffer {
 
     void setArgb(int x, int y, int argb);
 
-    /** Simple heap-backed implementation, used for user textures and tests. */
     final class Heap implements PixelBuffer {
         private final int width;
         private final int height;

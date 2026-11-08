@@ -46,8 +46,6 @@ public final class ConfigCodec {
 
     private ConfigCodec() {}
 
-    // ---------------------------------------------------------------- profile files
-
     /**
      * One profile as a file to share, {@code {"albedoProfile": 1, "name": "my-profile", "profile": {...}}}, where the
      * "profile" object has the same keys as a profile in the config file.
@@ -77,8 +75,6 @@ public final class ConfigCodec {
         Object profile = root.get("profile");
         return decodeProfile(name, profile == null ? Collections.<String, Object>emptyMap() : object(profile, "profile", null));
     }
-
-    // ---------------------------------------------------------------- decode
 
     public static Config decode(String json) {
         Map<String, Object> root = object(Json.parse(json), "root", ROOT_KEYS);
@@ -156,8 +152,6 @@ public final class ConfigCodec {
         }
     }
 
-    // ---------------------------------------------------------------- encode
-
     public static String encode(Config config) {
         Map<String, Object> root = new LinkedHashMap<String, Object>();
         root.put("enabled", config.enabled());
@@ -213,8 +207,6 @@ public final class ConfigCodec {
         }
         if (a.alpha() != base.alpha()) m.put("alpha", a.alpha().key());
     }
-
-    // ---------------------------------------------------------------- helpers
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
     @SuppressWarnings("unchecked")

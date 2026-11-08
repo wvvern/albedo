@@ -133,7 +133,6 @@ public final class SettingsScreen extends Screen {
         return true;
     }
 
-    /** The drawing port, over this version's GUI graphics class. */
     private final class GraphicsCanvas implements Canvas {
         //? if >=26.1 {
         private final net.minecraft.client.gui.GuiGraphicsExtractor g;

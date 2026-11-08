@@ -6,7 +6,6 @@ import dev.albedo.core.PixelBuffer;
 /*import dev.albedo.core.Colors;
 *///?}
 
-/** Adapts Minecraft's NativeImage to the core's ARGB pixel view. */
 public final class NativeImagePixels implements PixelBuffer {
     private final NativeImage image;
 

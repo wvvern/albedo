@@ -79,8 +79,6 @@ public final class GuiSettings extends GuiScreen implements Canvas {
         if (!ctrl && c >= ' ' && key != UiKey.ESCAPE) editor.charTyped(c);
     }
 
-    // ---------------------------------------------------------------- Canvas
-
     @Override public int width() { return width; }
     @Override public int height() { return height; }
     @Override public void fill(int x0, int y0, int x1, int y1, int argb) { Gui.drawRect(x0, y0, x1, y1, argb); }

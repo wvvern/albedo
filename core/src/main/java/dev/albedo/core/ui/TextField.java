@@ -1,6 +1,5 @@
 package dev.albedo.core.ui;
 
-/** State of a single-line text input. */
 final class TextField {
     interface Filter {
         boolean accepts(char c);

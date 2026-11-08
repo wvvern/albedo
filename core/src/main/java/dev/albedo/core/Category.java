@@ -10,7 +10,6 @@ import java.util.Locale;
 public enum Category {
     /** Terrain block textures (stone, grass, leaves, glass...). */
     BLOCKS,
-    /** Water, lava and modded fluids. */
     FLUIDS,
     /** Things drawn with entity-style textures that are really scenery: chests, beds, bells, decorated pots. */
     BLOCK_ENTITIES,
@@ -18,18 +17,15 @@ public enum Category {
     DECORATIONS,
     /** Biome colormaps (grass/foliage), flattened together with BLOCKS when tint removal is on. */
     COLORMAPS,
-    /** Block breaking crack overlay. */
     BLOCK_BREAKING,
     ITEMS,
     /** Mobs, projectiles, armor, minecarts... */
     ENTITIES,
-    /** Player skins and the default skins. */
     PLAYERS,
     PARTICLES,
     /** Sky color, fog color, sun, moon, stars, end sky. */
     SKY,
     CLOUDS,
-    /** Rain and snow. */
     WEATHER,
     /** Everything unrecognised, which changes only when a profile explicitly configures it. */
     OTHER;

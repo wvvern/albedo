@@ -8,7 +8,6 @@ import java.util.Map;
 
 /** An immediate-mode GUI where each widget call draws the widget and returns what the user did to it since the last frame. */
 final class Ui {
-    // Theme
     static final int SCRIM = 0x99000000;
     static final int BG = 0xF2121519;
     static final int PANEL = 0xFF181C22;
@@ -55,7 +54,6 @@ final class Ui {
     /** The left button, whose press goes to the first widget under the pointer, which then owns the drag until release. */
     private static final class Pointer {
         int x = -1, y = -1;
-        /** The button is down now. */
         boolean held;
         /** A press that no widget has claimed yet. */
         boolean click;
@@ -287,7 +285,6 @@ final class Ui {
         fill(x + w - 1, y + 1, 1, h - 2, color);
     }
 
-    /** A bordered panel: {@code border} around a {@code body} color. */
     void panel(Rect r, int border, int body) {
         round(r.x, r.y, r.w, r.h, border);
         round(r.x + 1, r.y + 1, r.w - 2, r.h - 2, body);
@@ -322,10 +319,8 @@ final class Ui {
 
     int width(String s) { return c.textWidth(s); }
 
-    /** The width of a button that shows all of {@code label}. */
     int buttonWidth(String label) { return width(label) + 12; }
 
-    /** The width of the widest button for these labels. */
     int buttonWidth(String... labels) {
         int w = 0;
         for (String l : labels) w = Math.max(w, buttonWidth(l));
@@ -431,7 +426,6 @@ final class Ui {
         return true;
     }
 
-    /** The width of a {@link #chip}. */
     int chipWidth(String label, boolean hasSwatch) {
         return 4 + (hasSwatch ? 10 : 0) + width(label) + 12;
     }

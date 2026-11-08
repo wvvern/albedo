@@ -911,7 +911,6 @@ public final class SettingsEditor {
             hsv.val = 1 - sv[1];
         }
 
-        // hue bar
         int hx = x + sqW + 4;
         for (int yy = 0; yy < sqH; yy += 2) ui.fill(hx, y + yy, 8, Math.min(2, sqH - yy), Ui.hsv(yy / (float) sqH, 1, 1));
         ui.fill(hx - 1, y + Math.round(hsv.hue * (sqH - 1)), 10, 1, 0xFFFFFFFF);
@@ -919,7 +918,6 @@ public final class SettingsEditor {
         float[] hv = ui.dragArea("hue", hx, y, 8, sqH);
         if (hv != null) hsv.hue = Math.min(hv[1], 0.999f);
 
-        // opacity bar
         int ax = hx + 12;
         ui.checker(ax, y, 8, sqH);
         int rgb = Ui.hsv(hsv.hue, hsv.sat, hsv.val);
@@ -936,7 +934,6 @@ public final class SettingsEditor {
             setLook(cs, index, target.withColor(next));
         }
 
-        // preview, hex and palette
         // The large preview is left out when it would make the hex field too narrow to show a whole color.
         int px = ax + 14, pw = Math.max(40, x + w - px);
         int hexW = Math.min(62, pw), previewW = pw - hexW >= 22 ? 22 : 0;

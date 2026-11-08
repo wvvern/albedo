@@ -11,7 +11,6 @@ import java.util.Map;
 final class Labels {
     private Labels() {}
 
-    /** The words for one category. */
     private static final class Words {
         final String name, members, example, description;
 

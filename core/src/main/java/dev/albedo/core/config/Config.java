@@ -135,7 +135,6 @@ public final class Config {
         return names.get(((i + step) % names.size() + names.size()) % names.size());
     }
 
-    /** A name not used yet, based on {@code base}. */
     public String freeProfileName(String base) {
         return freeName(profiles, base);
     }

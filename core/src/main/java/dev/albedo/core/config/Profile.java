@@ -24,7 +24,6 @@ public final class Profile {
         this.on = Collections.unmodifiableSet(on.isEmpty() ? EnumSet.noneOf(Toggle.class) : EnumSet.copyOf(on));
     }
 
-    /** The toggles that are on by default. */
     public static Set<Toggle> defaultToggles() {
         Set<Toggle> s = EnumSet.noneOf(Toggle.class);
         for (Toggle t : Toggle.values()) if (t.defaultOn) s.add(t);

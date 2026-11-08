@@ -23,7 +23,6 @@ final class GroupMatches {
 
     /** What one pattern of a group matches. */
     static final class Chip {
-        /** Loaded textures the pattern matches. */
         final int matched;
         /** Of those, the textures the group really gets: no higher group took them. */
         final int effective;

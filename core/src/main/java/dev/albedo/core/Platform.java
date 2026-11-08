@@ -35,10 +35,8 @@ public interface Platform {
     /** Shows a short message to the player in the action bar, on the client thread. */
     void showMessage(String message);
 
-    /** Whether the key is held right now. */
     boolean isKeyDown(Keys.Key key);
 
-    /** Decode a PNG from disk into ARGB pixels, using whatever image class this version ships. */
     PixelBuffer readImage(File png) throws IOException;
 
     /** Shows the settings screen, a version screen that wraps {@link dev.albedo.core.ui.SettingsEditor}. */

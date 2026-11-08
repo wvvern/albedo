@@ -328,12 +328,12 @@ class SettingsEditorTest {
         SettingsEditor editor = new SettingsEditor(sc);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
-        click(editor, canvas, "Textures");   // the texture browser tab
+        click(editor, canvas, "Textures");
         click(editor, canvas, "stone");      // a row: starts a group with it
         click(editor, canvas, "Vanilla");    // the group's look: keep it vanilla
         editor.keyPressed(UiKey.ESCAPE, false); // back to the category
         render(editor, canvas);
-        click(editor, canvas, "World");      // the world page
+        click(editor, canvas, "World");
         click(editor, canvas, "Fullbright");
         click(editor, canvas, "Shading");
         click(editor, canvas, "Foliage");

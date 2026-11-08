@@ -5,13 +5,11 @@ import java.util.Locale;
 /** How a texture should look, as an immutable value. */
 public final class Appearance {
     public enum Mode {
-        /** Leave the texture alone. */
         ORIGINAL,
         /** Fill with {@link #color()}, keeping the texture's shape according to {@link #alpha()}. */
         SOLID,
         /** Fill with the texture's own average color: removes detail but keeps each block recognisable. */
         AVERAGE,
-        /** Desaturate, keeping detail. */
         GRAYSCALE,
         /** Replace with a user image (stretched to fit) from the config's textures folder; falls back to the color. */
         TEXTURE,

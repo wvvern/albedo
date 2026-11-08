@@ -75,7 +75,6 @@ public final class Policy {
         return s.lookOf(group);
     }
 
-    /** True when clouds should not be drawn at all. */
     public boolean cloudsHidden() {
         return profile != null && profile.get(Category.CLOUDS).appearance().mode() == Appearance.Mode.HIDDEN;
     }
@@ -110,7 +109,6 @@ public final class Policy {
         return profile == null || profile.is(Toggle.SHADING);
     }
 
-    /** False when entities should cast no shadows. */
     public boolean shadows() {
         return profile == null || profile.is(Toggle.SHADOWS);
     }

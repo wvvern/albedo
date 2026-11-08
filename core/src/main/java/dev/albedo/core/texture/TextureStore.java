@@ -30,7 +30,6 @@ public final class TextureStore {
         throw new IllegalStateException("a reload-only texture has no upload");
     };
 
-    /** What a repaint did. */
     public static final class Result {
         public final int repainted;
         /** Textures whose new look needs a resource reload, because their upload failed or is {@link #RELOAD_ONLY}. */

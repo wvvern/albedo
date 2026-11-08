@@ -36,7 +36,6 @@ final class BufferedImagePixels implements PixelBuffer {
         return out;
     }
 
-    /** A new ARGB image with the pixels of {@code pixels}, for a repaint. */
     static BufferedImage toImage(PixelBuffer pixels) {
         int w = pixels.width(), h = pixels.height();
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);

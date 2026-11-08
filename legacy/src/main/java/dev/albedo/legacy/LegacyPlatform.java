@@ -17,7 +17,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
-/** {@link Platform} for Minecraft 1.8.9 (Forge). */
 final class LegacyPlatform implements Platform {
     private static final Logger LOG = LogManager.getLogger("albedo");
 

@@ -28,8 +28,6 @@ public final class Json {
         return v;
     }
 
-    // ---------------------------------------------------------------- reading
-
     private Object value() {
         if (i >= s.length()) throw error("unexpected end of input");
         char c = s.charAt(i);
@@ -145,8 +143,6 @@ public final class Json {
         }
         return new IllegalArgumentException("JSON error at line " + line + ", column " + col + ": " + msg);
     }
-
-    // ---------------------------------------------------------------- writing
 
     public static String write(Object value) {
         StringBuilder sb = new StringBuilder();

@@ -82,8 +82,6 @@ public final class CategorySettings {
         return new CategorySettings(appearance, removeTint, onlyGroups, value);
     }
 
-    // ---------------------------------------------------------------- group edits
-
     /**
      * A new group in this scope: under "only groups" it takes the global look (so adding a block just switches it on),
      * otherwise it gets its own color from a rotating set so it stands out.

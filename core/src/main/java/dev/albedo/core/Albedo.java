@@ -140,7 +140,6 @@ public final class Albedo {
         return textureNames;
     }
 
-    /** Re-reads the textures folder when it changed, and repaints the textures that use an image from it. */
     private void watchTexturesFolder() {
         File folder = texturesFolder();
         File[] files = folder.listFiles();
