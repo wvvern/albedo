@@ -70,7 +70,7 @@ If a block is in two groups, the higher group in the list wins. Each category ha
 - **Everything:** the category look applies to all blocks, and groups change their blocks. A group set to Vanilla keeps its blocks unchanged.
 - **Only groups:** only blocks in groups change. A group set to Global uses the category look.
 
-The footer shows "Changes not saved" when there are changes. Apply saves and shows the result. Done or Esc saves and closes the screen. Discard closes the screen and does not save. Fullbright, shadows and sky color change immediately. Texture, shading and foliage changes reload resources.
+The footer shows "Changes not saved" when there are changes. Apply saves and shows the result. Done or Esc saves and closes the screen. Discard closes the screen and does not save. Fullbright, shadows and sky color change immediately. Texture, shading and foliage changes repaint only the changed textures. If a repaint is not possible, they reload resources.
 
 ## Config file
 
@@ -145,7 +145,8 @@ MIT. See [LICENSE](LICENSE).
 ## Known limits
 
 - Sodium and Embeddium: all features operate. Tests used Sodium 0.8.13 to 0.9.3 and Embeddium 1.0.15. A different version of these mods can stop the block tint change.
-- 1.8.9 with OptiFine: all features operate. Tests used OptiFine HD U M6 pre2. Shaders are not tested.
+- 1.8.9 with OptiFine: all features operate. Tests used OptiFine HD U M6 pre2 and HD U L5. Shaders are not tested.
+- 1.8.9: a settings change repaints the changed textures and, for tint and shading, rebuilds the chunks. This takes less than 0.1 s. With OptiFine shaders, with a texture type from a different mod, or with more than 128 MB of textures, the mod reloads all resources. On a slow computer this can take 20 s. A progress bar shows during the reload.
 - On 1.21.2 and later, you can only hide clouds.
 - Downloaded player skins do not change.
 - Hidden foliage also hides the items of those plants.

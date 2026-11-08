@@ -24,7 +24,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 | NativeImagePixels           |   | BufferedImagePixels         |
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
-| 17 mixins + 1 accessor      |   | 15 mixins, MixinPlugin      |
+| 17 mixins + 1 accessor      |   | 16 mixins, MixinPlugin      |
 +-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -56,7 +56,8 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
 | Fullbright | gamma read in `LightTexture`, 26.x `LightmapRenderStateExtractor` | gamma read in `EntityRenderer.updateLightmap` |
 | Shading: smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer` constructor and Sodium `LevelSlice.useAmbientOcclusion` | `Minecraft.isAmbientOcclusionEnabled` |
-| Shading: face shade | `ClientLevel.getShade`, 26.x `CardinalLighting.byFace` | `FaceBakery.getFaceBrightness` |
+| Shading: face shade | `ClientLevel.getShade`, 26.x `CardinalLighting.byFace` | quads into the chunk mesh: `BlockModelRenderer` `addVertexData`, Forge `VertexLighterFlat.updateColor` |
+| Full reload progress | - | `SimpleReloadableResourceManager.notifyReloadListeners` |
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
 | Clouds | `CloudRenderer.prepare` | - |
@@ -66,7 +67,19 @@ The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false`. Their 
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
-OptiFine on 1.8.9 changes `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`, and each OptiFine version uses different method names. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with OptiFine. `OptiFineRenderMixin` has no members. Its plugin step (`OptiFineRenderPatch`) finds the calls to `Block.colorMultiplier`, `CustomColors.getColorMultiplier` and `CustomColors.getFluidColor`, and the return of `getFaceBrightness`, by target and descriptor, and sends each result through `LegacyHooks`. The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace. `tools/optifine.ps1` runs the release jar with OptiFine in a production Forge client for tests.
+## Settings changes
+
+A settings change does not reload resources. `TextureStore` keeps the original pixels of each texture and an `Upload` from the adapter. `Albedo.refresh` paints again only the textures whose look changed. A change to tint or shading also rebuilds the chunks. On 1.8.9:
+
+- `SpriteUpload` (atlas sprites) calls `loadSprite` with the new strip and `generateMipmaps` with the mip levels of the atlas. Then it puts the current frame into the atlas at the origin of the sprite. The frame and tick counters stay, so water, lava and fire continue to animate. OptiFine does its own sprite work in `loadSprite` (transparent pixel color, the "Multitexture" copy), so the repaint gets it too.
+- `SimpleTextureUpload` writes the pixels into the GL texture with the blur and clamp of the first upload. A downloaded skin is not kept: its default skin placeholder must not take the place of the real default skin.
+- An upload returns false when a reload replaced the texture (stale handle). The store then forgets it.
+- `TextureStore` keeps the textures by name, because some textures share a key (the OptiFine connected textures of a block).
+- `rebuildChunks` marks the chunks in render distance for a new mesh (`markBlockRangeForRenderUpdate`). The old meshes stay on screen until the new ones are ready. `loadRenderers` is not used: with Patcher, Essential and OptiFine L5 the chunks sometimes stayed empty after it.
+- The models always keep the face shade. With shading off, `LegacyHooks.addQuad` and `vertexColor` put white in place of the shade grays when the quad goes into the chunk mesh. Thus a shading change only rebuilds the chunks.
+- A full reload occurs only when an upload fails (OptiFine shaders, an unknown `SimpleTexture` subclass) or the store is over its memory budget. `ReloadScreen` then draws a progress bar for each reload listener and texture.
+
+OptiFine on 1.8.9 changes `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`, and each OptiFine version uses different method names. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with OptiFine. `OptiFineRenderMixin` has no members. Its plugin step (`OptiFineRenderPatch`) finds the calls to `Block.colorMultiplier`, `CustomColors.getColorMultiplier`, `CustomColors.getFluidColor` and `FaceBakery.getFaceBrightness` (the OptiFine fluid renderer), by target and descriptor, and sends each result through `LegacyHooks`. It also changes the calls to `WorldRenderer.addVertexData` in `BlockModelRenderer` to `LegacyHooks.addQuad`. The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace. `tools/optifine.ps1` runs the release jar with OptiFine in a production Forge client for tests.
 
 The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API. Keys use the Minecraft key name (for example `key.keyboard.f6`), because the key codes are different in each era. The eras use LWJGL 2 on 1.8.9, GLFW on 1.21.x and SDL on 26.x.
 
@@ -102,6 +115,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 
 - `./gradlew :core:test` in `modern/` tests the config model and codec, texture classification, pixel transforms and the settings screen. A fake `Canvas` records the position of each label. The tests click the labels and examine the saved config. A fuzz test clicks across the full screen at five GUI sizes.
 - `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
+- `tools/harness/repaint-legacy.txt` changes the settings live on 1.8.9 and takes a screenshot after each change. Compare the images with the images of a start in the same state (`docs/screenshots/forge-1.8.9`). Only animated textures and particles can differ.
 
 ## Known gaps
 

@@ -1,0 +1,32 @@
+# Live settings changes on 1.8.9 after scene-legacy.txt, with a screenshot after each change. The game starts with the
+# default config (quake-white). Compare each image with the image of the same state from a fresh start
+# (docs/screenshots/forge-1.8.9). The game log has the time of each change ("Repainted N textures ... in X ms").
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots repaint-legacy.txt -OutDir build\repaint
+# ./tools/optifine.ps1 -Variants none,default -Shots repaint-legacy.txt -OutDir build\repaint-optifine
+wait 160
+screenshot r00-start-quake-white
+mod off
+wait 160
+screenshot r01-mod-off
+mod on
+wait 160
+screenshot r02-mod-on
+profile minimal
+wait 160
+screenshot r03-minimal
+profile quake-black
+wait 160
+screenshot r04-quake-black
+profile quake-white
+wait 160
+screenshot r05-quake-white
+shading off
+wait 160
+screenshot r06-shading-off
+shading on
+wait 160
+screenshot r07-shading-on
+mod off
+wait 160
+screenshot r08-mod-off
+quit
