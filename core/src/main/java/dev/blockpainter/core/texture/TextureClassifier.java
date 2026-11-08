@@ -16,7 +16,7 @@ public final class TextureClassifier {
     private TextureClassifier() {}
 
     public static TextureKey classify(String namespace, String path) {
-        String p = normalise(path);
+        String p = optiFine(normalise(path));
         int slash = p.indexOf('/');
         String folder = slash < 0 ? p : p.substring(0, slash);
         String rest = slash < 0 ? p : p.substring(slash + 1);
@@ -35,6 +35,34 @@ public final class TextureClassifier {
         if (p.startsWith("textures/")) p = p.substring("textures/".length());
         if (p.endsWith(".png")) p = p.substring(0, p.length() - 4);
         return p;
+    }
+
+    /**
+     * OptiFine (and MCPatcher before it) keeps its textures in {@code optifine/} and {@code mcpatcher/}. Gives the
+     * vanilla folder for each kind, so that these textures change with the textures they replace. A connected
+     * texture ({@code ctm/}) gets the id of its block: the OptiFine defaults by number, a resource pack by its folder.
+     */
+    static String optiFine(String path) {
+        String p;
+        if (path.startsWith("optifine/")) p = path.substring("optifine/".length());
+        else if (path.startsWith("mcpatcher/")) p = path.substring("mcpatcher/".length());
+        else return path;
+        if (p.startsWith("ctm/")) return "block/" + ctmBlock(p.substring("ctm/".length()));
+        if (p.startsWith("cit/")) return "item/" + p.substring("cit/".length());
+        if (p.startsWith("sky/")) return "environment/" + p;
+        if (p.startsWith("colormap/")) return p;
+        if (p.startsWith("random/entity/")) return p.substring("random/".length());
+        if (p.startsWith("mob/")) return "entity/" + p.substring("mob/".length());
+        return path;
+    }
+
+    private static String ctmBlock(String rest) {
+        String[] parts = rest.split("/");
+        if (parts.length == 1) return "ctm";
+        if (!parts[0].equals("default")) return parts[0];
+        if (parts.length > 2) return parts[1].replaceFirst("^[0-9]+_", ""); // default/0_glass_white/12
+        if (parts[1].matches("1[2-5]")) return "bookshelf";
+        return parts[1].equals("66") ? "sandstone_normal" : "glass";
     }
 
     private static Category category(String folder, String rest) {

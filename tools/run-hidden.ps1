@@ -1,16 +1,18 @@
 <#
 .SYNOPSIS
-Starts a Gradle run task on a hidden Windows desktop. The game window does not show, take focus or show in the taskbar.
-Prints the process id of the Gradle wrapper.
+Starts a Gradle run task (or a command line) on a hidden Windows desktop. The game window does not show, take focus or
+show in the taskbar. Prints the process id of the cmd.exe that runs it.
 
 .EXAMPLE
 ./tools/run-hidden.ps1 -Dir modern -Task ":fabric:26.3:runClient" -Harness C:\temp\harness -Log C:\temp\run.log
 ./tools/run-hidden.ps1 -Dir modern -Task ":fabric:26.3:runClient" -Harness C:\temp\harness -Compat sodium
+./tools/run-hidden.ps1 -Dir legacy -CommandLine "`"java.exe`" -cp ..." -Log C:\temp\run.log  # a command, not a Gradle task
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Dir,
-    [Parameter(Mandatory = $true)][string]$Task,
-    [Parameter(Mandatory = $true)][string]$Harness,
+    [string]$Task,
+    [string]$Harness,
+    [string]$CommandLine,
     [string]$Log = "$env:TEMP\blockpainter-hidden.log",
     # Optional. Adds a renderer mod to the dev run (-Pcompat, see modern/gradle/shared.gradle), for example sodium.
     [string]$Compat = ""
@@ -42,10 +44,13 @@ $desktop = [HiddenDesktop]::CreateDesktop($desktopName, [IntPtr]::Zero, [IntPtr]
 if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
 
 $Dir = (Resolve-Path $Dir).Path
-$gradlew = Join-Path $Dir "gradlew.bat"
-# --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
-$compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
-$commandLine = "cmd.exe /s /c `"`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg > `"$Log`" 2>&1`""
+if (-not $CommandLine) {
+    $gradlew = Join-Path $Dir "gradlew.bat"
+    # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
+    $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
+    $CommandLine = "`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg"
+}
+$commandLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 
 $si = New-Object HiddenDesktop+STARTUPINFO
 $si.cb = [Runtime.InteropServices.Marshal]::SizeOf($si)

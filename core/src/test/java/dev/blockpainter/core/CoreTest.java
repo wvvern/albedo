@@ -41,6 +41,23 @@ class CoreTest {
     }
 
     @Test
+    void classifiesOptiFinePaths() {
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:bookshelf"), TextureClassifier.classify("minecraft:mcpatcher/ctm/default/13"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:glass"), TextureClassifier.classify("minecraft:mcpatcher/ctm/default/5"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:sandstone_normal"), TextureClassifier.classify("minecraft:mcpatcher/ctm/default/66"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:glass_white"),
+                TextureClassifier.classify("minecraft:mcpatcher/ctm/default/0_glass_white/12"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:stonebrick"), TextureClassifier.classify("minecraft:optifine/ctm/stonebrick/3"));
+        assertEquals(Category.SKY, TextureClassifier.classify("minecraft:optifine/sky/world0/sky1.png").category());
+        assertEquals(Category.ITEMS, TextureClassifier.classify("minecraft:optifine/cit/swords/sword.png").category());
+        assertEquals(Category.COLORMAPS, TextureClassifier.classify("minecraft:mcpatcher/colormap/water.png").category());
+        assertEquals(new TextureKey(Category.ENTITIES, "minecraft:cow/cow2"),
+                TextureClassifier.classify("minecraft:optifine/random/entity/cow/cow2.png"));
+        assertEquals(new TextureKey(Category.ENTITIES, "minecraft:cow/cow2"), TextureClassifier.classify("minecraft:mcpatcher/mob/cow/cow2.png"));
+        assertEquals(Category.OTHER, TextureClassifier.classify("minecraft:optifine/anim/water.png").category());
+    }
+
+    @Test
     void atlasRestoresStrippedFolders() {
         assertEquals("minecraft:particle/flame", AtlasPaths.spriteLocation("minecraft:textures/atlas/particles.png", "minecraft:flame"));
         assertEquals("minecraft:block/stone", AtlasPaths.spriteLocation("minecraft:textures/atlas/blocks.png", "minecraft:block/stone"));

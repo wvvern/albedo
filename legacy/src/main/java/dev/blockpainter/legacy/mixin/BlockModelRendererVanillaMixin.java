@@ -9,9 +9,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/** Vanilla block tint call sites (grass, leaves, vines...). */
+/** Vanilla block tint call sites (grass, leaves, vines...). OptiFine changes these methods, see {@link OptiFineRenderMixin}. */
 @Mixin(BlockModelRenderer.class)
-public abstract class BlockModelRendererMixin {
+public abstract class BlockModelRendererVanillaMixin {
     @Redirect(method = {"renderModelAmbientOcclusionQuads", "renderModelStandardQuads"}, require = 0,
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/block/Block;colorMultiplier(Lnet/minecraft/world/IBlockAccess;Lnet/minecraft/util/BlockPos;I)I"))

@@ -36,8 +36,21 @@ public final class LegacyHooks {
         return BlockPainter.currentPolicy().removeTint(Category.BLOCKS) ? 0xFFFFFF : original;
     }
 
+    /** OptiFine CustomColors: -1 means "no custom color" and stays -1. */
+    public static int optiFineBlockTint(int original) {
+        return original == -1 ? -1 : blockTint(original);
+    }
+
     public static boolean removeFluidTint() {
         return BlockPainter.currentPolicy().removeTint(Category.FLUIDS);
+    }
+
+    public static int fluidTint(int original) {
+        return removeFluidTint() ? 0xFFFFFF : original;
+    }
+
+    public static float faceBrightness(float original) {
+        return shading() ? original : 1.0f;
     }
 
     public static void flattenColormap(int[] pixels) {
