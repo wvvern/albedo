@@ -1,0 +1,16 @@
+# Settings changes after a resource reload (as F3+T). The reload replaces the sprites and textures, so each repaint
+# must find the new ones. Run it after scene-modern.txt in place of shots.txt:
+#   ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots repaint-reload.txt -OutDir build\repaint-reload
+# Compare s01 with r03-minimal and s02 with r04-quake-black of repaint-modern.txt.
+wait 60
+reload
+wait 200
+profile minimal
+wait 200
+screenshot s01-minimal-after-reload
+reload
+wait 200
+profile quake-black
+wait 200
+screenshot s02-quake-black-after-reload
+quit

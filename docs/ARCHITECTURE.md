@@ -9,7 +9,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 |              Appearance, ConfigCodec, Json, Presets            |
 |   Policy             all render decisions, from one snapshot   |
 |   texture/           TextureClassifier, AtlasPaths, Foliage,   |
-|                      PixelTransformer                          |
+|                      PixelTransformer, TextureStore            |
 |   Albedo             init, processTexture, catalog, tick       |
 |   ui/                settings screen (SettingsEditor, Ui)      |
 |   dev/Harness        screenshot harness (development only)     |
@@ -24,7 +24,8 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 | NativeImagePixels           |   | BufferedImagePixels         |
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
-| 17 mixins + 1 accessor      |   | 15 mixins, MixinPlugin      |
+| TextureUploads              |   |                             |
+| 17 mixins + 4 accessors     |   | 15 mixins, MixinPlugin      |
 +-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -36,7 +37,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 
 - The core is plain Java 8. It compiles into every jar from `core/src`. It does not change for a new Minecraft version.
 - The core decides how everything looks: config, groups, matching, colors, pixel math, presets, keys and config reload.
-- `Platform` is the port for the game: config folder, logging, resource reload, messages, key state, PNG read, clipboard, the settings screen and the harness host.
+- `Platform` is the port for the game: config folder, logging, resource reload, chunk rebuild, repaint end, messages, key state, PNG read, clipboard, the settings screen and the harness host.
 - `Canvas` is the port for drawing: `width`, `height`, `fill`, `text` and `textWidth`.
 
 The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.
@@ -68,7 +69,31 @@ Foliage has no hook of its own. The texture hooks set the alpha of plant texture
 
 OptiFine on 1.8.9 changes `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`, and each OptiFine version uses different method names. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with OptiFine. `OptiFineRenderMixin` has no members. Its plugin step (`OptiFineRenderPatch`) finds the calls to `Block.colorMultiplier`, `CustomColors.getColorMultiplier` and `CustomColors.getFluidColor`, and the return of `getFaceBrightness`, by target and descriptor, and sends each result through `LegacyHooks`. The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace. `tools/optifine.ps1` runs the release jar with OptiFine in a production Forge client for tests.
 
-The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API. Keys use the Minecraft key name (for example `key.keyboard.f6`), because the key codes are different in each era. The eras use LWJGL 2 on 1.8.9, GLFW on 1.21.x and SDL on 26.x.
+The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API.
+
+## Settings changes
+
+A settings change (screen, key, harness or config file) goes to `Albedo.apply`. It saves the config, makes a new `Policy` and calls `Albedo.refresh`:
+
+1. Sky, fog, fullbright, entity shadows and clouds: the hooks read the policy in each frame. They need no other step.
+2. Textures: when a texture loads, its hook gives the core the original pixels and a `TextureStore.Upload`. `TextureStore.repaint` makes new pixels for each texture whose look changed, from its original, and calls its upload.
+3. `Platform.finishRepaint`: the adapter sends the uploads that it collected to the GPU, all at once.
+4. Block tints, fluid tints and shading are in the chunk meshes. If they change, `Platform.rebuildChunks` rebuilds the chunks.
+5. Only when the repaint cannot do the change, `Platform.reloadResources` reloads all resources: an upload fails, the store is over its memory limit, or the shading is in the block models (1.8.9).
+
+The log shows `Repainted N textures in X ms` for a repaint and `Reloaded resources in X ms` for a reload.
+
+Modern uploads are in `TextureUploads`:
+
+| Texture | Upload |
+|---------|--------|
+| Atlas sprite | The upload only examines the sprite and keeps the pixels. `finishRepaint` does the work for all sprites: in parallel, it writes the pixels into `SpriteContents.originalImage` (all animation frames) and makes the mip levels again with `increaseMipLevel`. Then 1.21.1 binds the atlas and calls `uploadFirstFrame`. On 1.21.11 and later, the atlas draws each sprite with a border of its edge pixels (the padding). Thus each still sprite gets this border on the CPU and goes into the atlas texture with `CommandEncoder.writeToTexture`, one write for each mip level. Each animated sprite gets a new `SpriteContents.AnimationState` with new frame textures. |
+| Stand-alone texture | Calls `ReloadableTexture.doLoad` (1.21.4 and later) or `SimpleTexture.doLoad` (1.21.1) with the new image, the same as a reload. |
+| Biome colormap | Writes into the array that the game keeps (core `TextureStore.intoArray`). |
+
+A resource reload (a resource pack change or F3+T) replaces sprites and textures. Thus each upload first finds the current object: the sprite in the atlas (`TextureAtlas.getSprite`) or the texture in `TextureManager`. If it is not the object that the hook saw, the upload returns false and the store forgets the texture. The reload records the new objects.
+
+Chunk rebuild: `LevelRenderer.allChanged` on 1.21.x, `LevelExtractor.allChanged` on 26.x. Sodium replaces the vanilla rebuild that these start with its own. Keys use the Minecraft key name (for example `key.keyboard.f6`), because the key codes are different in each era. The eras use LWJGL 2 on 1.8.9, GLFW on 1.21.x and SDL on 26.x.
 
 ## Builds
 
@@ -102,6 +127,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 
 - `./gradlew :core:test` in `modern/` tests the config model and codec, texture classification, pixel transforms and the settings screen. A fake `Canvas` records the position of each label. The tests click the labels and examine the saved config. A fuzz test clicks across the full screen at five GUI sizes.
 - `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
+- `tools/harness/repaint-modern.txt` changes the settings in a running game and takes a screenshot after each change. `repaint-reload.txt` does the same after a resource reload. Compare the screenshots with a run where each change reloads resources. Only animated textures, particles and clouds can differ.
 
 ## Known gaps
 
