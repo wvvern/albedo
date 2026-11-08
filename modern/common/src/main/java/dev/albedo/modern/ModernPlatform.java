@@ -53,13 +53,26 @@ final class ModernPlatform implements Platform {
 
     @Override
     public void reloadResources() {
-        Minecraft.getInstance().reloadResourcePacks();
+        long start = System.nanoTime();
+        Minecraft.getInstance().reloadResourcePacks()
+                .thenRun(() -> info("Reloaded resources in " + (System.nanoTime() - start) / 1000000 + " ms"));
+    }
+
+    @Override
+    public void finishRepaint() {
+        try {
+            TextureUploads.flush();
+        } catch (RuntimeException e) {
+            warn("Cannot draw the repainted sprites. Resources reload instead.", e);
+            reloadResources();
+        }
     }
 
     @Override
     public void rebuildChunks() {
+        // The same step as after a resource reload. Sodium replaces the rebuild that it starts with its own.
         //? if >=26.1 {
-        Minecraft.getInstance().reloadResourcePacks();
+        Minecraft.getInstance().levelExtractor.allChanged();
         //?} else {
         /*Minecraft.getInstance().levelRenderer.allChanged();
         *///?}

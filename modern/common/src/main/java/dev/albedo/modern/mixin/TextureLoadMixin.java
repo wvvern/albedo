@@ -19,7 +19,7 @@ public abstract class TextureLoadMixin {
                                             /*net.minecraft.resources.ResourceLocation location,
                                             *///?}
                                             CallbackInfoReturnable<net.minecraft.client.renderer.texture.TextureContents> cir) {
-        ModernHooks.processImage(String.valueOf(location), cir.getReturnValue().image());
+        ModernHooks.processTexture(location, cir.getReturnValue().image());
     }
 }
 //?} else {
@@ -32,7 +32,7 @@ public abstract class TextureLoadMixin {
     @Inject(method = "doLoad", at = @At("HEAD"))
     private void albedo$flatten(com.mojang.blaze3d.platform.NativeImage image, boolean blur, boolean clamp,
                                      org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        ModernHooks.processImage(String.valueOf(location), image);
+        ModernHooks.processTexture(location, image, (net.minecraft.client.renderer.texture.SimpleTexture) (Object) this, blur, clamp);
     }
 }
 *///?}

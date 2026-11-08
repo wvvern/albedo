@@ -27,25 +27,30 @@ public final class ModernHooks {
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
-    /** Atlas sprites, before mipmaps are generated. */
-    public static void processSprite(String atlas, SpriteContents sprite) {
+    /** Atlas sprites, before mipmaps are generated. {@code atlas} is the location of the atlas texture. */
+    public static void processSprite(Object atlas, SpriteContents sprite) {
         bootstrap();
         NativeImage image = ((SpriteContentsAccessor) sprite).albedo$originalImage();
-        processImage(AtlasPaths.spriteLocation(atlas, String.valueOf(sprite.name())), image);
+        processImage(AtlasPaths.spriteLocation(String.valueOf(atlas), String.valueOf(sprite.name())), image,
+                TextureUploads.sprite(atlas, sprite));
     }
 
-    /** Stand-alone textures (entities, environment, ...). */
-    public static void processImage(String location, NativeImage image) {
-        if (NativeImagePixels.supports(image)) Albedo.processTexture(location, new NativeImagePixels(image), NO_REPAINT);
+    //? if >=1.21.4 {
+    /** Stand-alone textures (entities, environment, ...), as TextureContents.load gives them. */
+    public static void processTexture(Object location, NativeImage image) {
+        processImage(String.valueOf(location), image, TextureUploads.texture(location));
     }
+    //?} else {
+    /*// Stand-alone textures (entities, environment, ...), as SimpleTexture uploads them.
+    public static void processTexture(Object location, NativeImage image, net.minecraft.client.renderer.texture.SimpleTexture texture,
+                                      boolean blur, boolean clamp) {
+        processImage(String.valueOf(location), image, TextureUploads.texture(location, texture, blur, clamp));
+    }
+    *///?}
 
-    /** Until each texture kind has its own upload, a repaint falls back to a resource reload. */
-    private static final TextureStore.Upload NO_REPAINT = new TextureStore.Upload() {
-        @Override
-        public boolean upload(dev.albedo.core.PixelBuffer pixels) {
-            throw new UnsupportedOperationException("no repaint yet");
-        }
-    };
+    private static void processImage(String location, NativeImage image, TextureStore.Upload upload) {
+        if (NativeImagePixels.supports(image)) Albedo.processTexture(location, new NativeImagePixels(image), upload);
+    }
 
     public static int blockTint(int original) {
         return Albedo.currentPolicy().removeTint(Category.BLOCKS) ? -1 : original;

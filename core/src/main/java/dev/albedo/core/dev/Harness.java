@@ -26,7 +26,7 @@ import java.util.Deque;
  *   <li>{@code run <command>}: a server command with operator rights, e.g. {@code run time set 6000}</li>
  *   <li>{@code mod on|off}, {@code profile <name>}, {@code <toggle> on|off} (fullbright, shading, foliage, shadows):
  *       change the config like a player would</li>
- *   <li>{@code settings open|close}, {@code hud on|off}</li>
+ *   <li>{@code settings open|close}, {@code hud on|off}, {@code reload} (all resources, as F3+T)</li>
  *   <li>{@code ui click <label>|type <text>|key <UiKey>|pointer off}: input for the open settings screen, to show
  *       each page (see {@link SettingsEditor#script}); put a short {@code wait} after each</li>
  *   <li>{@code wait <ticks>}, {@code screenshot <name>}, {@code quit}</li>
@@ -124,6 +124,7 @@ public final class Harness {
             else host.closeScreen();
         } else if (verb.equals("ui")) SettingsEditor.script(arg);
         else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
+        else if (verb.equals("reload")) platform.reloadResources();
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);

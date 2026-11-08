@@ -21,7 +21,10 @@
     "SodiumTintMixin",
     "SpriteContentsAccessor",
     "SpriteLoaderMixin",
-    "TextureLoadMixin"
+    "TextureAtlasAccessor",
+    "TextureLoadMixin",
+    "TextureManagerAccessor",
+    "TextureUploadInvoker"
   ],
   "injectors": {
     "defaultRequire": 1
