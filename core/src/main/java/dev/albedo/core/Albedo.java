@@ -6,6 +6,7 @@ import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.PixelTransformer;
 import dev.albedo.core.texture.TextureClassifier;
 import dev.albedo.core.texture.TextureKey;
@@ -123,14 +124,15 @@ public final class Albedo {
         TextureKey key = TextureClassifier.classify(location);
         try {
             Policy policy = sc.policy;
-            Appearance a = policy.appearanceFor(key);
-            sc.store.record(location, key, image, upload, a);
+            Layout layout = Layout.of(key);
+            List<Appearance> looks = layout.looks(policy);
+            sc.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
             if (sc.policy != policy) {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            boolean changed = PixelTransformer.apply(a, image, sc.textureSource);
+            boolean changed = layout.paint(looks, image, sc.textureSource);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {

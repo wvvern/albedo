@@ -5,8 +5,10 @@ import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -42,18 +44,19 @@ public final class TextureStore {
     }
 
     private static final class Entry {
-        final TextureKey key;
+        final Layout layout;
         final PixelBuffer.Heap original;
         final Upload upload;
-        final int average;
-        /** The look the texture has in the game, or null when it is not known. */
-        volatile Appearance applied;
+        /** The original average color of each catalog key of the layout. */
+        final int[] averages;
+        /** The looks the texture has in the game, as {@link Layout#looks} gives them, or null when they are not known. */
+        volatile List<Appearance> applied;
 
-        Entry(TextureKey key, PixelBuffer.Heap original, Upload upload, Appearance applied) {
-            this.key = key;
+        Entry(Layout layout, PixelBuffer.Heap original, Upload upload, List<Appearance> applied) {
+            this.layout = layout;
             this.original = original;
             this.upload = upload;
-            this.average = PixelTransformer.average(original);
+            this.averages = layout.averages(original);
             this.applied = applied;
         }
 
@@ -99,11 +102,11 @@ public final class TextureStore {
      *
      * @param name the texture name, for example "minecraft:blocks/stone", which replaces a kept texture of that name
      * @param upload null for a copy that must not replace the kept texture, for example a skin placeholder
-     * @param applied the look the caller gives the image now
+     * @param applied the looks the caller gives the image now, from {@link Layout#looks}
      */
-    public void record(String name, TextureKey key, PixelBuffer image, Upload upload, Appearance applied) {
-        if (key.category() == Category.OTHER || upload == null) return;
-        Entry next = new Entry(key, PixelBuffer.Heap.copyOf(image), upload, applied);
+    public void record(String name, Layout layout, PixelBuffer image, Upload upload, List<Appearance> applied) {
+        if (layout.key().category() == Category.OTHER || upload == null) return;
+        Entry next = new Entry(layout, PixelBuffer.Heap.copyOf(image), upload, applied);
         synchronized (this) { // worker threads record at the same time on modern versions
             Entry before = entries.get(name);
             long delta = next.bytes() - (before == null ? 0 : before.bytes());
@@ -114,7 +117,7 @@ public final class TextureStore {
             overBudget.remove(name);
             bytes.addAndGet(delta);
             entries.put(name, next);
-            if (before == null || before.average != next.average) version.incrementAndGet();
+            if (before == null || !Arrays.equals(before.averages, next.averages)) version.incrementAndGet();
         }
     }
 
@@ -131,8 +134,8 @@ public final class TextureStore {
         try {
             for (Map.Entry<String, Entry> e : entries.entrySet()) {
                 Entry entry = e.getValue();
-                Appearance want = policy.appearanceFor(entry.key);
-                boolean userImage = userImagesChanged && want.mode() == Appearance.Mode.TEXTURE;
+                List<Appearance> want = entry.layout.looks(policy);
+                boolean userImage = userImagesChanged && usesUserImage(want);
                 if (want.equals(entry.applied) && !userImage) continue;
                 if (entry.upload == RELOAD_ONLY) {
                     needReload++;
@@ -140,7 +143,7 @@ public final class TextureStore {
                 }
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
-                    PixelTransformer.apply(want, pixels, images);
+                    entry.layout.paint(want, pixels, images);
                     if (entry.upload.upload(pixels)) {
                         entry.applied = want;
                         repainted++;
@@ -155,6 +158,11 @@ public final class TextureStore {
             repainting.remove();
         }
         return new Result(repainted, needReload);
+    }
+
+    private static boolean usesUserImage(List<Appearance> looks) {
+        for (Appearance a : looks) if (a.mode() == Appearance.Mode.TEXTURE) return true;
+        return false;
     }
 
     /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */
@@ -177,7 +185,11 @@ public final class TextureStore {
             Map<String, Integer> out = new TreeMap<String, Integer>();
             // In name order, so that of the textures with one id the first name (the vanilla one) gives the color.
             for (Entry e : new TreeMap<String, Entry>(entries).values()) {
-                if (e.key.category() == category && !out.containsKey(e.key.id())) out.put(e.key.id(), e.average);
+                List<TextureKey> keys = e.layout.catalogKeys();
+                for (int i = 0; i < keys.size(); i++) {
+                    TextureKey k = keys.get(i);
+                    if (k.category() == category && !out.containsKey(k.id())) out.put(k.id(), e.averages[i]);
+                }
             }
             view = Collections.unmodifiableMap(out);
             views.put(category, view);

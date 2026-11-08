@@ -9,7 +9,8 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 |              Appearance, ConfigCodec, Json, Presets            |
 |   Policy             all render decisions, from one snapshot   |
 |   texture/           TextureClassifier, AtlasPaths, Foliage,   |
-|                      PixelTransformer, TextureStore            |
+|                      PixelTransformer, TextureStore,           |
+|                      Layout, Sheets                            |
 |   Albedo             init, processTexture, catalog, tick       |
 |   ui/                settings screen (SettingsEditor, Ui)      |
 |   dev/Harness        screenshot harness (development only)     |
@@ -43,6 +44,8 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.
 
 The Textures tab shows the catalog that the core records when it processes textures. Thus it needs no registry access, and it includes modded textures.
+
+Some 1.8.9 textures hold several things that later versions keep in separate textures, for example `particles.png`. `texture/Sheets` gives the tiles of each such texture, as cells of a grid with the later texture names. `texture/Layout` gives each tile the look of its own id, and the catalog shows the tiles in place of the texture. The pixels outside the tiles take the look of the texture. The grid is in fractions of the image, so resource packs of all sizes fit. The adapters do not know about tiles.
 
 ## Hooks
 

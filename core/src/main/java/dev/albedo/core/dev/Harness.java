@@ -1,8 +1,14 @@
 package dev.albedo.core.dev;
 
 import dev.albedo.core.Albedo;
+import dev.albedo.core.Category;
+import dev.albedo.core.Colors;
 import dev.albedo.core.Platform;
+import dev.albedo.core.config.Appearance;
+import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
+import dev.albedo.core.config.Profile;
+import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.ui.SettingsEditor;
 
@@ -12,7 +18,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * Development harness, created only with {@code -Dalbedo.harness=<directory>}, that runs the lines of
@@ -109,6 +118,7 @@ public final class Harness {
         else if (verb.equals("mod")) sc.apply(config.withEnabled(arg.equals("on")));
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
+        else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -118,6 +128,25 @@ public final class Harness {
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
+    }
+
+    /**
+     * Sets or replaces a group by name from {@code <category> <name> <color or mode> <pattern>...}, for example
+     * {@code group particles Fire #FF0000 flame lava}.
+     */
+    static Profile withGroup(Profile profile, String[] args) {
+        if (args.length < 4) throw new IllegalArgumentException("group <category> <name> <color or mode> <pattern>...");
+        Category category = Category.byKey(args[0]);
+        if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
+        Appearance look = args[2].startsWith("#") ? Appearance.solid(Colors.parse(args[2])) : Appearance.of(Appearance.Mode.byKey(args[2]));
+        Rule group = new Rule(args[1], Arrays.asList(args).subList(3, args.length), look, false);
+        CategorySettings settings = profile.get(category);
+        List<Rule> rules = new ArrayList<Rule>(settings.rules());
+        int index = 0;
+        while (index < rules.size() && !rules.get(index).name().equals(group.name())) index++;
+        if (index < rules.size()) rules.set(index, group);
+        else rules.add(group);
+        return profile.with(category, settings.withRules(rules));
     }
 
     private void takeCommandFile() {

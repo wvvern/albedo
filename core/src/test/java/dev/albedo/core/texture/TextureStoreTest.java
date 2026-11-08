@@ -52,7 +52,8 @@ class TextureStoreTest {
 
     private static void recordNamed(TextureStore store, String name, TextureStore.Upload upload, Policy policy) {
         TextureKey key = TextureClassifier.classify(name);
-        store.record(name, key, image(), upload, policy.appearanceFor(key));
+        Layout layout = Layout.of(key);
+        store.record(name, layout, image(), upload, layout.looks(policy));
     }
 
     @Test
@@ -156,13 +157,66 @@ class TextureStoreTest {
         assertEquals(1, store.catalog(Category.BLOCKS).size());
     }
 
+    private static void recordSheet(TextureStore store, PixelBuffer.Heap img, TextureStore.Upload upload, Policy policy) {
+        Layout layout = Layout.of(TextureClassifier.classify(LayoutTest.PARTICLES));
+        store.record(LayoutTest.PARTICLES, layout, img, upload, layout.looks(policy));
+    }
+
+    @Test
+    void theParticleSheetListsItsTilesInTheirOwnCategories() {
+        TextureStore store = new TextureStore();
+        recordSheet(store, LayoutTest.cells(128, 128), new FakeUpload(), Policy.DISABLED);
+        assertEquals(LayoutTest.cellColor(0, 3), (int) store.catalog(Category.PARTICLES).get("minecraft:flame"));
+        assertTrue(store.catalog(Category.PARTICLES).containsKey("minecraft:sga_z"));
+        assertFalse(store.catalog(Category.PARTICLES).containsKey("minecraft:particles"), "the sheet shows as its tiles");
+        assertFalse(store.catalog(Category.PARTICLES).containsKey("minecraft:fishing_hook"));
+        assertTrue(store.catalog(Category.ENTITIES).containsKey("minecraft:fishing_hook"));
+
+        // A resource pack with other pixels gives the texture list new colors.
+        PixelBuffer.Heap red = LayoutTest.cells(128, 128);
+        red.setArgb(0, 24, 0xFFFF0000);
+        recordSheet(store, red, new FakeUpload(), Policy.DISABLED);
+        assertTrue(store.catalog(Category.PARTICLES).get("minecraft:flame") != LayoutTest.cellColor(0, 3));
+    }
+
+    @Test
+    void aParticleGroupRepaintsOnlyItsTile() {
+        TextureStore store = new TextureStore();
+        FakeUpload sheet = new FakeUpload();
+        Policy white = LayoutTest.particles(Appearance.solid(0xFFFFFFFF));
+        recordSheet(store, LayoutTest.cells(128, 128), sheet, white);
+        assertEquals(0, store.repaint(white, null, false).repainted);
+
+        Policy fire = LayoutTest.particles(Appearance.solid(0xFFFFFFFF), LayoutTest.group("flame", Appearance.solid(0xFFFF0000)));
+        assertEquals(1, store.repaint(fire, null, false).repainted);
+        int[] pixels = sheet.uploads.get(0);
+        assertEquals(0xFFFF0000, pixels[24 * 128 + 4], "flame");
+        assertEquals(0xFFFFFFFF, pixels[24 * 128 + 12], "lava");
+        assertEquals(0, store.repaint(fire, null, false).repainted);
+
+        store.invalidate(LayoutTest.PARTICLES);
+        assertEquals(1, store.repaint(fire, null, false).repainted);
+    }
+
+    @Test
+    void aUserImageOnATileRepaintsWhenTheImageChanges() {
+        TextureStore store = new TextureStore();
+        Appearance image = new Appearance(Appearance.Mode.TEXTURE, 0xFFFFFFFF, "a.png", Appearance.Alpha.KEEP);
+        Policy policy = LayoutTest.particles(Appearance.solid(0xFFFFFFFF), LayoutTest.group("note", image));
+        recordSheet(store, LayoutTest.cells(128, 128), new FakeUpload(), policy);
+        assertEquals(1, store.repaint(policy, null, true).repainted);
+        Policy noImage = LayoutTest.particles(Appearance.solid(0xFFFFFFFF));
+        assertEquals(1, store.repaint(noImage, null, false).repainted);
+        assertEquals(0, store.repaint(noImage, null, true).repainted);
+    }
+
     @Test
     void colormapsAreChangedInTheGamesOwnArray() {
         TextureStore store = new TextureStore();
         int[] game = {GREEN, GREEN};
         TextureKey key = TextureClassifier.classify("minecraft:textures/colormap/grass.png");
-        store.record("minecraft:textures/colormap/grass.png", key, new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
-                Appearance.ORIGINAL);
+        store.record("minecraft:textures/colormap/grass.png", Layout.of(key), new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
+                Collections.singletonList(Appearance.ORIGINAL));
         Config c = Config.defaults();
         assertEquals(1, store.repaint(Policy.of(c), null, false).repainted);
         assertArrayEquals(new int[]{0xFFFFFFFF, 0xFFFFFFFF}, game, "quake-white removes biome tint");

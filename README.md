@@ -74,6 +74,8 @@ To add textures to a group, type a name. The input shows matching textures of th
 
 A pattern without `:` ignores the namespace: `stone` matches `minecraft:stone`.
 
+On 1.8.9, all particles are in one texture. The mod divides it into one texture for each particle, with the names of later versions (for example `flame`, `generic_0` or `sga_a`). Thus a group pattern is the same on all versions. The fishing hook is in the same texture, and it is in the Entities category, as on later versions.
+
 If a block is in two groups, the higher group in the list wins. Each category has a scope:
 
 - **Everything:** the category look applies to all blocks, and groups change their blocks. A group set to Vanilla keeps its blocks unchanged.
@@ -161,4 +163,3 @@ MIT. See [LICENSE](LICENSE).
 - On 1.21.2 and later, you can only hide clouds.
 - Downloaded player skins do not change.
 - Hidden foliage also hides the items of those plants.
-- On 1.8.9, all particles are one texture, so groups in the Particles category have no effect there.
