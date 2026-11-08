@@ -1,0 +1,80 @@
+# Screenshots of each settings page, for review. Run it after scene-*.txt in place of shots.txt.
+# It does not write the README screenshots. "ui" lines are input for the open settings screen.
+wait 60
+profile quake-white
+wait 200
+settings open
+wait 20
+ui pointer off
+wait 10
+screenshot p01-look-blocks
+ui click Groups
+wait 10
+ui pointer off
+wait 10
+screenshot p02-groups
+ui click + New group
+wait 10
+ui type grass
+wait 10
+screenshot p03-group-suggestions
+ui key ENTER
+wait 5
+ui type oak_log
+wait 5
+ui key ENTER
+wait 5
+ui key ESCAPE
+wait 5
+ui pointer off
+wait 10
+screenshot p04-group-chips
+ui key ESCAPE
+wait 10
+ui click Only groups
+wait 10
+ui click x
+wait 20
+screenshot p05-groups-only-armed-delete
+ui key ESCAPE
+wait 5
+ui click Textures
+wait 10
+ui click Search
+wait 5
+ui type oak
+wait 10
+ui pointer off
+wait 10
+screenshot p06-textures-search
+ui click Sky
+wait 10
+ui pointer off
+wait 10
+screenshot p07-sky
+ui click Weather
+wait 10
+ui pointer off
+wait 10
+screenshot p08-weather
+ui click World
+wait 10
+ui pointer off
+wait 10
+screenshot p09-world
+ui click Rename
+wait 10
+screenshot p10-rename
+ui key ESCAPE
+wait 5
+ui click Export
+wait 10
+screenshot p11-export
+ui click Items
+wait 5
+ui click Average
+wait 30
+screenshot p12-items-tooltip
+settings close
+wait 10
+quit
