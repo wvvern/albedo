@@ -16,7 +16,18 @@ import java.awt.image.BufferedImage;
 
 /** What the 1.8.9 mixins call: thin translations from 1.8.9 types to the core. */
 public final class LegacyHooks {
+    /** The host of the last connection to a server, which stays until the next connection. */
+    private static volatile String connectedHost;
+
     private LegacyHooks() {}
+
+    public static void connecting(String host) {
+        connectedHost = host;
+    }
+
+    static String connectedHost() {
+        return connectedHost;
+    }
 
     public static void bootstrap() {
         if (Albedo.get() == null) Albedo.init(new LegacyPlatform());

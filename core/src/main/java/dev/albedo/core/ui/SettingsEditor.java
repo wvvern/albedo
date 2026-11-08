@@ -13,6 +13,7 @@ import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.texture.PixelTransformer;
 import dev.albedo.core.texture.TextureKey;
@@ -57,30 +58,32 @@ public final class SettingsEditor {
         RENAME
     }
 
-    /** What the content area shows (the World page, a category tab or a group), which only {@link #go} changes. */
+    private enum View { CATEGORY, WORLD, SERVERS }
+
+    /** What the content area shows (a category tab, a group, the World or the Servers page), which only {@link #go} changes. */
     private static final class Page {
+        final View view;
         final Category category;
         final Tab tab;
-        final boolean world;
         /** The open group, or -1. */
         final int group;
 
-        private Page(Category category, Tab tab, boolean world, int group) {
+        private Page(View view, Category category, Tab tab, int group) {
+            this.view = view;
             this.category = category;
             this.tab = tab;
-            this.world = world;
             this.group = group;
         }
 
-        static Page of(Category c) { return new Page(c, Tab.LOOK, false, -1); }
+        static Page of(Category c) { return new Page(View.CATEGORY, c, Tab.LOOK, -1); }
 
-        /** The World page keeps the category, so that the sidebar can go back to it. */
-        Page toWorld() { return new Page(category, tab, true, -1); }
+        /** A page that is not a category keeps the category, so that the label column keeps its width. */
+        Page to(View v) { return new Page(v, category, tab, -1); }
 
-        Page withTab(Tab t) { return new Page(category, t, false, -1); }
+        Page withTab(Tab t) { return new Page(View.CATEGORY, category, t, -1); }
 
         /** Opens a group of the category, or with -1 goes back to the tab it was opened from. */
-        Page withGroup(int index) { return new Page(category, tab, world && index < 0, index); }
+        Page withGroup(int index) { return new Page(index < 0 ? view : View.CATEGORY, category, tab, index); }
 
         boolean inGroup() { return group >= 0; }
     }
@@ -141,6 +144,7 @@ public final class SettingsEditor {
     private final TextField groupName = new TextField(32, TextField.ANY);
     private final TextField rename = new TextField(32, c -> Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == ' ');
     private final TextField profileSearch = new TextField(32, TextField.ANY);
+    private final TextField serverName = new TextField(64, c -> Character.isLetterOrDigit(c) || ".-:[]".indexOf(c) >= 0);
 
     public SettingsEditor(final Albedo sc) {
         this.sc = sc;
@@ -241,13 +245,14 @@ public final class SettingsEditor {
     private void go(Page next) {
         Page prev = page;
         page = next;
-        if (next.group != prev.group || next.world != prev.world || next.category != prev.category) {
+        if (next.group != prev.group || next.view != prev.view || next.category != prev.category) {
             add.set("");
+            serverName.set("");
             suggestion = 0;
             ui.clearFocus();
         }
         boolean otherCategory = next.category != prev.category;
-        if (otherCategory || next.world != prev.world || next.tab != prev.tab) {
+        if (otherCategory || next.view != prev.view || next.tab != prev.tab) {
             search.set("");
             ui.resetScroll("list");
             notice = null;
@@ -395,30 +400,37 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- sidebar: categories, then the World page
+    // ---------------------------------------------------------------- sidebar: categories, then World and Servers
 
     private void sidebar(int x, int y, int w, int h) {
-        // Rows shrink a little on short windows so the World entry always shows.
-        int pitch = Math.max(10, Math.min(13, (h - 6) / (CATEGORIES.length + 1)));
+        // Rows shrink a little on short windows so that the World and Servers entries always show.
+        int pitch = Math.max(10, Math.min(13, (h - 11) / (CATEGORIES.length + 2)));
         int ry = y;
         for (Category c : CATEGORIES) {
             Appearance a = profile().get(c).appearance();
             String tip = Labels.description(c) + (a.isOriginal() ? " Now: vanilla." : "");
-            boolean active = !page.world && c == page.category;
+            boolean active = page.view == View.CATEGORY && c == page.category;
             if (sidebarRow("cat." + c.key(), x, ry, w, pitch - 1, Labels.name(c), tip, active, !a.isOriginal())) go(Page.of(c));
             lookIcon(x + 6, ry + (pitch - 9) / 2, a);
             ry += pitch;
         }
         ry += 5;
         ui.fill(x + 4, ry - 3, w - 8, 1, Ui.BORDER);
-        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage and shadows", page.world, true)) {
-            go(page.toWorld());
+        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage and shadows", page.view == View.WORLD, true)) {
+            go(page.to(View.WORLD));
         }
-        // a small sun as the World icon
         int iy = ry + (pitch - 9) / 2;
         ui.fill(x + 9, iy, 2, 8, Ui.MUTED);
         ui.fill(x + 6, iy + 3, 8, 2, Ui.MUTED);
         ui.fill(x + 8, iy + 2, 4, 4, Ui.TEXT);
+        ry += pitch;
+        if (sidebarRow("servers", x, ry, w, pitch - 1, "Servers", "The profile for each multiplayer server, for all profiles",
+                page.view == View.SERVERS, true)) {
+            go(page.to(View.SERVERS));
+        }
+        iy = ry + (pitch - 9) / 2;
+        ui.outline(x + 6, iy, 8, 4, Ui.MUTED);
+        ui.outline(x + 6, iy + 4, 8, 4, Ui.MUTED);
     }
 
     /** An 8x8 icon for a look: its color, or an empty outline for vanilla. */
@@ -446,8 +458,12 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- content
 
     private void content(int x, int y, int w, int h) {
-        if (page.world) {
+        if (page.view == View.WORLD) {
             worldPage(x, y, w, h);
+            return;
+        }
+        if (page.view == View.SERVERS) {
+            serversPage(x, y, w, h);
             return;
         }
         Category category = page.category;
@@ -461,10 +477,7 @@ public final class SettingsEditor {
             go(page.withGroup(-1));
         }
         String name = Labels.name(category);
-        ui.text(name, x, y, Ui.TEXT);
-        int nameW = ui.width(name) + 8;
-        ui.textFit(Labels.description(category), x + nameW, y, w - nameW, Ui.MUTED);
-        int cy = y + 13;
+        int cy = y + pageTitle(x, y, w, name, Labels.description(category));
         if (category.hasGroups()) {
             String[] labels = {"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()};
             int chosen = ui.tabs("tab", x, cy, w, labels, page.tab.ordinal(), new String[]{
@@ -603,11 +616,21 @@ public final class SettingsEditor {
                     : "There are no groups. All textures use the " + name + " look.", x, cy + 2, w, Ui.FAINT);
             return;
         }
-        int rowH = 16, lh = y + h - cy, visible = Math.max(1, lh / rowH);
-        int first = ui.scroll("groups", x, cy, w, lh, rules.size(), rowH);
-        int listW = rules.size() > visible ? w - 6 : w;
-        for (int i = first; i < Math.min(rules.size(), first + visible); i++) {
-            if (groupRow(x, cy + (i - first) * rowH, listW, rowH - 2, cs, i)) return;
+        rowList("groups", x, cy, w, y + h - cy, rules.size(), (i, rx, ry, rw, rh) -> groupRow(rx, ry, rw, rh, cs, i));
+    }
+
+    /** Draws one row of a {@link #rowList} and returns true when a click changed the list. */
+    private interface Row {
+        boolean draw(int index, int x, int y, int w, int h);
+    }
+
+    /** A scrolling list of panel rows, which stops drawing after a row that changed the list. */
+    private void rowList(String id, int x, int y, int w, int h, int count, Row row) {
+        int rowH = 16, visible = Math.max(1, h / rowH);
+        int first = ui.scroll(id, x, y, w, h, count, rowH);
+        int listW = count > visible ? w - 6 : w;
+        for (int i = first; i < Math.min(count, first + visible); i++) {
+            if (row.draw(i, x, y + (i - first) * rowH, listW, rowH - 2)) return;
         }
     }
 
@@ -846,13 +869,92 @@ public final class SettingsEditor {
         go(page.withGroup(0));
     }
 
+    // ---------------------------------------------------------------- servers page
+
+    private void serversPage(int x, int y, int w, int h) {
+        int cy = y + pageTitle(x, y, w, "Servers", "For all profiles") + 1;
+        cy += ui.paragraph("On a server in this list, Albedo uses its profile. F6 or F7 on the server changes it until you leave.",
+                x, cy, w, Ui.FAINT) + GAP;
+        String active = draft.activeProfileName();
+        String here = sc.server();
+        if (here != null) {
+            ServerRule rule = draft.serverRule(here);
+            String label = "This server: " + here;
+            ui.text(ui.ellipsize(label, w / 2), x, cy + 3, Ui.TEXT);
+            if (rule == null) {
+                String use = "Use " + active + " here";
+                int bw = Math.min(ui.buttonWidth(use), w / 2);
+                if (ui.button("server.here", x + w - bw, cy, bw, Ui.H, use, Ui.Style.PRIMARY, true, "Add " + here + " to the list")) {
+                    setDraft(draft.withServer(new ServerRule(here, active)));
+                }
+            } else {
+                ui.textFit("Uses " + profileLabel(rule) + " (rule " + rule.server() + ")", x + w / 2, cy + 3, w / 2, Ui.MUTED);
+            }
+            cy += Ui.H + GAP;
+        }
+        String add = "Add with " + active;
+        int bw = Math.min(ui.buttonWidth(add), w / 2);
+        // Taken before the field, which would end its input on Enter.
+        boolean enter = ui.isFocused("server.name") && ui.takeKey(UiKey.ENTER);
+        ui.textField("server.name", serverName, x, cy, w - bw - 4, Ui.H, "Server name, for example hypixel.net",
+                "A name also covers its subdomains: hypixel.net is also mc.hypixel.net");
+        String typed = ServerRule.host(serverName.text);
+        boolean replaces = draft.servers().containsKey(typed);
+        if (ui.button("server.add", x + w - bw, cy, bw, Ui.H, add, Ui.Style.NORMAL, !typed.isEmpty(),
+                replaces ? "Replace the profile of " + typed : "Add " + (typed.isEmpty() ? "the server" : typed) + " with this profile")
+                || enter && !typed.isEmpty()) {
+            setDraft(draft.withServer(new ServerRule(typed, active)));
+            serverName.set("");
+            if (replaces) say("The profile of " + typed + " is now " + active + ".");
+        }
+        cy += Ui.H + GAP;
+        List<ServerRule> rules = new ArrayList<ServerRule>(draft.servers().values());
+        if (rules.isEmpty()) {
+            ui.paragraph("No servers yet.", x, cy + 2, w, Ui.FAINT);
+            return;
+        }
+        rowList("servers", x, cy, w, y + h - cy, rules.size(), (i, rx, ry, rw, rh) -> serverRow(rx, ry, rw, rh, rules.get(i), active));
+    }
+
+    /** Draws a page title with a muted subtitle beside it when it fits, and returns the height it takes. */
+    private int pageTitle(int x, int y, int w, String title, String subtitle) {
+        ui.text(title, x, y, Ui.TEXT);
+        int nameW = ui.width(title) + 8;
+        ui.textFit(subtitle, x + nameW, y, w - nameW, Ui.MUTED);
+        return 13;
+    }
+
+    /** One server rule, which returns true when a click deleted it. */
+    private boolean serverRow(int x, int y, int w, int h, ServerRule r, String active) {
+        ui.round(x, y, w, h, Ui.PANEL);
+        String use = "Use " + active, off = "Off";
+        int useW = Math.min(ui.buttonWidth(use), w / 3), offW = ui.buttonWidth(off), bx = x + w - useW - offW - 22;
+        ui.text(ui.ellipsize(r.server(), (bx - x) / 2), x + 4, y + 3, Ui.TEXT);
+        ui.text(ui.ellipsize(profileLabel(r), (bx - x) / 2 - 8), x + (bx - x) / 2 + 4, y + 3, r.profile() == null ? Ui.MUTED : Ui.ACCENT);
+        if (ui.button("server.use." + r.server(), bx, y + 1, useW, 12, use, Ui.Style.GHOST, !active.equals(r.profile()),
+                "Use " + active + " on " + r.server())) {
+            setDraft(draft.withServer(r.withProfile(active)));
+        }
+        if (ui.button("server.off." + r.server(), bx + useW + 2, y + 1, offW, 12, off, Ui.Style.GHOST, r.profile() != null,
+                "Turn Albedo off on " + r.server())) {
+            setDraft(draft.withServer(r.withProfile(null)));
+        }
+        if (ui.confirmButton("server.del." + r.server(), x + w - 17, y + 1, 15, 12, "x", "Remove " + r.server(),
+                "Click again to remove " + r.server())) {
+            setDraft(draft.withoutServer(r.server()));
+            return true;
+        }
+        return false;
+    }
+
+    private static String profileLabel(ServerRule r) {
+        return r.profile() == null ? "Albedo off" : r.profile();
+    }
+
     // ---------------------------------------------------------------- world page
 
     private void worldPage(int x, int y, int w, int h) {
-        ui.text("World", x, y, Ui.TEXT);
-        int nameW = ui.width("World") + 8;
-        ui.textFit("These settings apply to all categories", x + nameW, y, w - nameW, Ui.MUTED);
-        int cy = y + 16;
+        int cy = y + pageTitle(x, y, w, "World", "These settings apply to all categories") + 3;
         // Each row shows its explanation when all rows fit with it; otherwise the explanation is the tooltip only.
         int need = 0;
         for (Toggle t : Toggle.values()) need += 18 + ui.paragraphHeight(Labels.explain(t), w - 12) + 4;
@@ -1035,16 +1137,28 @@ public final class SettingsEditor {
     }
 
     private void apply() {
-        RefreshResult r = sc.apply(draft);
-        saved = draft;
+        RefreshResult r = save();
+        // A server rule can make the state in effect differ from the draft, so the screen shows what is in effect.
+        saved = sc.config();
+        setDraft(saved);
         say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved");
     }
 
     private void done() {
         if (mode == Mode.RENAME) finishRename();
-        if (!draft.equals(saved)) sc.apply(draft);
-        saved = draft;
+        if (!draft.equals(saved)) save();
         closed = true;
+    }
+
+    /** Gives the draft to the core as the file stores it, with the on or off state and profile only if the player changed them. */
+    private RefreshResult save() {
+        Config.State stored = sc.storedConfig().state();
+        // A rename of the shown profile also renames the stored one when they are the same profile.
+        if (!draft.profiles().containsKey(stored.profile) && stored.profile.equals(saved.activeProfileName())) {
+            stored = new Config.State(stored.enabled, draft.activeProfileName());
+        }
+        Config.State shown = draft.state();
+        return sc.apply(draft.withState(stored), shown.equals(saved.state()) ? null : shown);
     }
 
     // ---------------------------------------------------------------- draft editing
@@ -1062,7 +1176,7 @@ public final class SettingsEditor {
         go(page.withGroup(-1));
     }
 
-    /** A change to a built-in profile goes into a new copy of it (see {@link Config}); the message says so. */
+    /** A change to a built-in profile goes into a new copy of it (see {@link Config}), and the message says so. */
     private void setProfile(Profile p) {
         String before = draft.activeProfileName();
         setDraft(draft.withProfile(p));

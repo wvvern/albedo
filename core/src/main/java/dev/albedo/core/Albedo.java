@@ -4,6 +4,7 @@ import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
+import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.texture.PixelTransformer;
 import dev.albedo.core.texture.TextureClassifier;
@@ -14,11 +15,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -34,8 +37,15 @@ public final class Albedo {
     private final File dir;
     private final File configFile;
     private final Harness harness;
+    /** The config as the file stores it. */
     private volatile Config config;
+    /** The config with the state of the current server, which {@link #update} keeps in step with its inputs. */
+    private volatile Config effective;
     private volatile Policy policy = Policy.DISABLED;
+    /** The host of the multiplayer server the player is on, or null. */
+    private String server;
+    /** The state the player chose on this server with F6, F7 or the settings, which lasts until the player leaves. */
+    private Config.State visitState;
     private final Map<String, PixelBuffer> userTextures = new ConcurrentHashMap<String, PixelBuffer>();
     private final TextureStore store = new TextureStore();
     private final PixelTransformer.TextureSource textureSource = this::userTexture;
@@ -60,8 +70,7 @@ public final class Albedo {
             Albedo sc = new Albedo(platform);
             sc.loadOrCreate();
             instance = sc;
-            platform.info(NAME + " ready on " + platform.describe() + ", profile '" + sc.config.activeProfileName()
-                    + "', " + (sc.config.enabled() ? "enabled" : "disabled"));
+            platform.info(NAME + " ready on " + platform.describe() + ", " + sc.config.state());
         }
         return instance;
     }
@@ -77,7 +86,25 @@ public final class Albedo {
         return sc == null ? Policy.DISABLED : sc.policy;
     }
 
-    public Config config() { return config; }
+    /** The config in effect, which on a server has the rule's state or the state the player chose there. */
+    public Config config() { return effective; }
+
+    /** The config as the file stores it, which is what {@link #apply} takes. */
+    public Config storedConfig() { return config; }
+
+    /** The host of the server the player is on, or null in single player and the menus. */
+    public String server() { return server; }
+
+    /** Recomputes the config in effect and its policy after a change to the config, the server or the visit state. */
+    private void update() {
+        Config c = config;
+        ServerRule rule = server == null ? null : c.serverRule(server);
+        if (visitState != null && c.profiles().containsKey(visitState.profile)) c = c.withState(visitState);
+        else if (rule != null && rule.profile() == null) c = c.withEnabled(false);
+        else if (rule != null) c = c.withState(new Config.State(true, rule.profile()));
+        effective = c;
+        policy = Policy.of(c);
+    }
 
     public Platform platform() { return platform; }
 
@@ -183,16 +210,17 @@ public final class Albedo {
 
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
     public void clientTick(boolean screenOpen) {
+        watchServer();
         Config.KeyBinds keys = config.keys();
-        if (pressed(0, keys.toggle, screenOpen)) apply(config.withEnabled(!config.enabled()));
-        if (pressed(1, keys.cycleProfile, screenOpen)) apply(config.withActiveProfile(config.profileNameAt(1)).withEnabled(true));
+        if (pressed(0, keys.toggle, screenOpen)) toggle();
+        if (pressed(1, keys.cycleProfile, screenOpen)) cycleProfile();
         if (pressed(2, keys.settings, screenOpen)) platform.openSettings();
 
         if (++ticks % WATCH_INTERVAL_TICKS == 0) {
             watchTexturesFolder();
             int transformed = transformedSinceSummary.getAndSet(0);
             if (transformed > 0) {
-                platform.info("Changed " + transformed + " textures with profile '" + config.activeProfileName() + "'");
+                platform.info("Changed " + transformed + " textures with profile '" + config().activeProfileName() + "'");
             }
             if (configFile.lastModified() != lastModified) {
                 Policy before = policy;
@@ -214,17 +242,56 @@ public final class Albedo {
         return edge;
     }
 
-    /** Swap config, persist it, tell the player what changed, and show the change in the world. */
+    public void toggle() {
+        apply(config, new Config.State(!effective.enabled(), effective.activeProfileName()));
+    }
+
+    public void cycleProfile() {
+        apply(config, new Config.State(true, effective.profileNameAt(1)));
+    }
+
+    /** Saves a config as the file stores it, and shows it in the world. */
     public RefreshResult apply(Config next) {
-        Config before = config;
-        if (next.equals(before)) return RefreshResult.painted(0, false, 0);
-        Policy old = policy;
-        setConfig(next);
-        save();
-        if (before.enabled() != next.enabled() || !before.activeProfileName().equals(next.activeProfileName())) {
-            platform.showMessage(NAME + ": " + (next.enabled() ? next.activeProfileName() : "off"));
+        return apply(next, null);
+    }
+
+    /**
+     * Saves a config as the file stores it, with a state the player chose, which lasts only for the visit on a server
+     * with a rule, and shows the result in the world.
+     *
+     * @param chosen the on or off state and profile that the player chose, or null to keep the state in effect
+     */
+    public RefreshResult apply(Config next, Config.State chosen) {
+        Config before = effective, previous = config;
+        Config saved = next;
+        if (chosen != null) {
+            if (server != null && next.serverRule(server) != null) visitState = chosen;
+            else saved = next.withState(chosen);
         }
+        Policy old = policy;
+        setConfig(saved);
+        if (effective.equals(before) && saved.equals(previous)) return RefreshResult.painted(0, false, 0);
+        save();
+        if (!effective.state().equals(before.state())) platform.showMessage(NAME + ": " + effective.state());
         return refresh(old, false);
+    }
+
+    /** Applies the rule of the server the player joins, and the stored state again when the player leaves. */
+    private void watchServer() {
+        String host = ServerRule.host(platform.currentServer());
+        String now = host.isEmpty() ? null : host;
+        if (Objects.equals(now, server)) return;
+        Config.State before = effective.state();
+        Policy old = policy;
+        server = now;
+        visitState = null;
+        update();
+        Config.State after = effective.state();
+        if (after.equals(before)) return;
+        // On leave there is no player to show a message to.
+        if (now != null) platform.showMessage(NAME + ": " + after + " on " + now);
+        else platform.info("Left the server, " + after);
+        refresh(old, false);
     }
 
     /** Shows the current policy in the world by the cheapest path that reaches all that changed from {@code old}. */
@@ -267,16 +334,28 @@ public final class Albedo {
 
     private void setConfig(Config c) {
         config = c;
-        policy = Policy.of(c);
+        update();
         userTextures.clear();
     }
 
     private void loadOrCreate() {
         if (configFile.isFile() && load()) return;
+        if (configFile.isFile()) backUpInvalidFile();
         setConfig(Config.defaults());
         if (!configFile.isFile()) {
             save();
             texturesFolder().mkdirs();
+        }
+    }
+
+    /** Keeps a copy of a config file that does not load, because the next save writes over it. */
+    private void backUpInvalidFile() {
+        File copy = new File(dir, "config.invalid.json");
+        try {
+            Files.copy(configFile.toPath(), copy.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            platform.warn("The config file is not valid. A copy is in " + copy + ".", null);
+        } catch (IOException e) {
+            platform.warn("Cannot copy " + configFile, e);
         }
     }
 

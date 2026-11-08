@@ -1,6 +1,7 @@
 package dev.albedo.core.config;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,31 +34,67 @@ public final class Config {
         public int hashCode() { return (toggle.hashCode() * 31 + cycleProfile.hashCode()) * 31 + settings.hashCode(); }
     }
 
+    /** Whether the mod is on and which profile is active. */
+    public static final class State {
+        public final boolean enabled;
+        public final String profile;
+
+        public State(boolean enabled, String profile) {
+            this.enabled = enabled;
+            this.profile = profile;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof State && ((State) o).enabled == enabled && ((State) o).profile.equals(profile);
+        }
+
+        @Override
+        public int hashCode() { return profile.hashCode() * 2 + (enabled ? 1 : 0); }
+
+        @Override
+        public String toString() { return enabled ? profile : "off"; }
+    }
+
     private final boolean enabled;
     private final String activeProfile;
     private final KeyBinds keys;
     private final Map<String, Profile> profiles;
+    private final Map<String, ServerRule> servers;
+
+    public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles) {
+        this(enabled, activeProfile, keys, profiles, Collections.<ServerRule>emptyList());
+    }
 
     /**
      * A profile with a built-in name that differs from the built-in one is kept as a new profile
-     * ("quake-white-custom"), which becomes active if the built-in one was.
+     * ("quake-white-custom"), which becomes active if the built-in one was and takes its server rules.
+     *
+     * @param servers server rules, where the last rule of a server wins and a rule for an unknown profile is dropped
      */
-    public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles) {
+    public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles, Collection<ServerRule> servers) {
         Map<String, Profile> all = new LinkedHashMap<String, Profile>(Presets.all());
         for (Profile p : profiles.values()) if (!isBuiltIn(p.name())) all.put(p.name(), p);
         // Changed built-in profiles last, so that their new names do not take a name that a user profile has.
         String active = activeProfile;
+        Collection<ServerRule> rules = servers;
         for (Profile p : profiles.values()) {
             if (isBuiltIn(p.name()) && !p.equals(Presets.all().get(p.name()))) {
                 String copy = freeName(all, p.name() + "-custom");
                 all.put(copy, p.renamed(copy));
                 if (p.name().equals(active)) active = copy;
+                rules = moved(rules, p.name(), copy);
             }
         }
         this.enabled = enabled;
         this.keys = keys;
         this.profiles = Collections.unmodifiableMap(all);
         this.activeProfile = all.containsKey(active) ? active : all.keySet().iterator().next();
+        Map<String, ServerRule> byServer = new LinkedHashMap<String, ServerRule>();
+        for (ServerRule r : rules) {
+            if (!r.server().isEmpty() && (r.profile() == null || all.containsKey(r.profile()))) byServer.put(r.server(), r);
+        }
+        this.servers = Collections.unmodifiableMap(byServer);
     }
 
     public static Config defaults() {
@@ -80,20 +117,53 @@ public final class Config {
     public Profile activeProfile() { return profiles.get(activeProfile); }
     public KeyBinds keys() { return keys; }
     public Map<String, Profile> profiles() { return profiles; }
+    /** The server rules by server name, in the order the player added them. */
+    public Map<String, ServerRule> servers() { return servers; }
+    public State state() { return new State(enabled, activeProfile); }
 
     public Config withEnabled(boolean value) {
-        return new Config(value, activeProfile, keys, profiles);
+        return withState(new State(value, activeProfile));
     }
 
     public Config withActiveProfile(String name) {
-        return new Config(enabled, name, keys, profiles);
+        return withState(new State(enabled, name));
+    }
+
+    /** The same config with another on or off state and active profile, where an unknown profile selects the first one. */
+    public Config withState(State s) {
+        return new Config(s.enabled, s.profile, keys, profiles, servers.values());
     }
 
     /** Replaces the profile with the same name, or appends it. */
     public Config withProfile(Profile p) {
         Map<String, Profile> next = new LinkedHashMap<String, Profile>(profiles);
         next.put(p.name(), p);
-        return new Config(enabled, activeProfile, keys, next);
+        return new Config(enabled, activeProfile, keys, next, servers.values());
+    }
+
+    /** The rule for a server address, where the longest matching server name wins, or null when no rule matches. */
+    public ServerRule serverRule(String address) {
+        String host = ServerRule.host(address);
+        if (host.isEmpty()) return null;
+        boolean ipAddress = ServerRule.isIpAddress(host);
+        ServerRule best = null;
+        for (ServerRule r : servers.values()) {
+            if (r.matches(host, ipAddress) && (best == null || r.server().length() > best.server().length())) best = r;
+        }
+        return best;
+    }
+
+    /** Replaces the rule for the same server, or appends it. */
+    public Config withServer(ServerRule rule) {
+        Map<String, ServerRule> next = new LinkedHashMap<String, ServerRule>(servers);
+        next.put(rule.server(), rule);
+        return new Config(enabled, activeProfile, keys, profiles, next.values());
+    }
+
+    public Config withoutServer(String server) {
+        Map<String, ServerRule> next = new LinkedHashMap<String, ServerRule>(servers);
+        next.remove(ServerRule.host(server));
+        return new Config(enabled, activeProfile, keys, profiles, next.values());
     }
 
     /** Profile names are lower-case words joined by "-", e.g. "my-profile". */
@@ -111,7 +181,13 @@ public final class Config {
         String to = freeProfileName(clean);
         Map<String, Profile> next = new LinkedHashMap<String, Profile>();
         for (Profile p : profiles.values()) next.put(p.name().equals(from) ? to : p.name(), p.name().equals(from) ? p.renamed(to) : p);
-        return new Config(enabled, activeProfile.equals(from) ? to : activeProfile, keys, next);
+        return new Config(enabled, activeProfile.equals(from) ? to : activeProfile, keys, next, moved(servers.values(), from, to));
+    }
+
+    private static List<ServerRule> moved(Collection<ServerRule> rules, String from, String to) {
+        List<ServerRule> out = new ArrayList<ServerRule>();
+        for (ServerRule r : rules) out.add(from.equals(r.profile()) ? r.withProfile(to) : r);
+        return out;
     }
 
     /** Adds an imported profile under a free name, so it never replaces an existing profile, and selects it. */
@@ -120,12 +196,12 @@ public final class Config {
         return withProfile(p.renamed(name)).withActiveProfile(name);
     }
 
-    /** No-op for a built-in profile. */
+    /** Deletes a user profile with its server rules, and does nothing for a built-in profile. */
     public Config withoutProfile(String name) {
         if (isBuiltIn(name)) return this;
         Map<String, Profile> next = new LinkedHashMap<String, Profile>(profiles);
         next.remove(name);
-        return new Config(enabled, activeProfile, keys, next);
+        return new Config(enabled, activeProfile, keys, next, servers.values());
     }
 
     /** The profile after the active one, wrapping around ({@code step} may be negative). */
@@ -149,7 +225,7 @@ public final class Config {
         if (!(o instanceof Config)) return false;
         Config c = (Config) o;
         return c.enabled == enabled && c.activeProfile.equals(activeProfile) && c.keys.equals(keys)
-                && c.profiles.equals(profiles);
+                && c.profiles.equals(profiles) && c.servers.equals(servers);
     }
 
     @Override

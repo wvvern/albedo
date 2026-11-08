@@ -37,6 +37,11 @@ public interface Platform {
 
     boolean isKeyDown(Keys.Key key);
 
+    /** The address of the multiplayer server the player is on, or null in single player and the menus. */
+    default String currentServer() {
+        return null;
+    }
+
     PixelBuffer readImage(File png) throws IOException;
 
     /** Shows the settings screen, a version screen that wraps {@link dev.albedo.core.ui.SettingsEditor}. */

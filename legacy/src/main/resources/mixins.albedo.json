@@ -16,6 +16,7 @@
     "ForgeBlockInfoMixin",
     "ForgeVertexLighterMixin",
     "FullbrightMixin",
+    "GuiConnectingMixin",
     "MinecraftMixin",
     "ReloadListenersMixin",
     "RenderGlobalMixin",

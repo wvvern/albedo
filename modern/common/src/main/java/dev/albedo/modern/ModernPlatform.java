@@ -8,6 +8,7 @@ import dev.albedo.core.Platform;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,6 +110,13 @@ final class ModernPlatform implements Platform {
         *///?} else {
         /*return InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), code);
         *///?}
+    }
+
+    @Override
+    public String currentServer() {
+        Minecraft mc = Minecraft.getInstance();
+        ServerData data = mc.getCurrentServer();
+        return mc.level == null || mc.isLocalServer() || data == null ? null : data.ip;
     }
 
     @Override

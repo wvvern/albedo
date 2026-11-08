@@ -9,8 +9,10 @@ import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
+import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.dev.Harness;
 import org.junit.jupiter.api.BeforeAll;
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -205,6 +209,98 @@ class SettingsEditorTest {
         assertTrue(editor.isClosed());
         assertEquals("quake-white-custom", sc.config().activeProfileName());
         sc.apply(Config.defaults());
+    }
+
+    private static Config saved() throws Exception {
+        return ConfigCodec.decode(new String(Files.readAllBytes(dir.resolve("albedo/config.json")), StandardCharsets.UTF_8));
+    }
+
+    private static void playOn(String server) {
+        ((FakePlatform) sc.platform()).server = server;
+        sc.clientTick(false);
+    }
+
+    @Test
+    void aServerRuleSetsTheProfileOnlyWhileThePlayerIsThere() throws Exception {
+        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        try {
+            playOn("mc.hypixel.net:25565");
+            assertEquals("quake-black", sc.config().activeProfileName());
+            assertEquals("test", saved().activeProfileName(), "the file keeps the player's own profile");
+
+            sc.apply(sc.storedConfig().withServer(new ServerRule("example.org", null)));
+            assertEquals("quake-black", sc.config().activeProfileName(), "an edit to the file keeps the rule");
+            assertEquals("test", saved().activeProfileName());
+
+            playOn(null);
+            assertEquals("test", sc.config().activeProfileName());
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void aProfileChoiceOnAServerLastsOnlyForTheVisit() throws Exception {
+        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        try {
+            playOn("mc.hypixel.net");
+            sc.apply(sc.storedConfig(), new Config.State(true, "minimal")); // F7 and the profile list do this
+            assertEquals("minimal", sc.config().activeProfileName());
+            sc.toggle();
+            assertFalse(sc.config().enabled(), "F6 also changes only the visit");
+            assertEquals("test", saved().activeProfileName(), "the file keeps the player's own profile");
+            assertTrue(saved().enabled());
+            playOn(null);
+            assertEquals("test", sc.config().activeProfileName());
+            assertTrue(sc.config().enabled());
+            playOn("mc.hypixel.net");
+            assertEquals("quake-black", sc.config().activeProfileName(), "the rule applies again on the next visit");
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void aNewRuleForTheCurrentServerAppliesAtOnce() throws Exception {
+        sc.apply(withOwnProfile());
+        try {
+            playOn("example.org");
+            sc.apply(sc.storedConfig().withServer(new ServerRule("example.org", null)));
+            assertFalse(sc.config().enabled(), "off on this server");
+            assertTrue(saved().enabled(), "and on everywhere else");
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void theServersPageAddsTheCurrentServer() {
+        sc.apply(Config.defaults());
+        try {
+            playOn("mc.hypixel.net");
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(533, 300);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "Servers");
+            assertNotNull(canvas.find("This server: mc.hypixel.net"), "shows the server: " + canvas.texts.keySet());
+            click(editor, canvas, "Use quake-white here");
+
+            click(editor, canvas, "Server name");
+            type(editor, canvas, "example.org");
+            editor.keyPressed(UiKey.ENTER, false);
+            render(editor, canvas);
+            assertNotNull(canvas.find("example.org"), "Enter adds the typed server: " + canvas.texts.keySet());
+            click(editor, canvas, "Off");
+            click(editor, canvas, "Done");
+            assertEquals("quake-white", sc.config().serverRule("mc.hypixel.net").profile());
+            assertNull(sc.config().serverRule("example.org").profile(), "Off turns the mod off there");
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
     }
 
     @Test
@@ -538,6 +634,9 @@ class SettingsEditorTest {
         @Override public void warn(String message, Throwable error) {}
         int reloads, rebuilds, uploads;
         boolean flushFails;
+        String server;
+
+        @Override public String currentServer() { return server; }
 
         void reset() { reloads = rebuilds = uploads = 0; }
 

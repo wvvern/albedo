@@ -75,6 +75,16 @@ wait 5
 ui click Average
 wait 30
 screenshot p12-items-tooltip
+ui click Servers
+wait 5
+ui click Server name
+wait 5
+ui type hypixel.net
+ui key ENTER
+wait 5
+ui pointer off
+wait 10
+screenshot p13-servers
 settings close
 wait 10
 quit

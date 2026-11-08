@@ -75,6 +75,12 @@ final class LegacyPlatform implements Platform {
     }
 
     @Override
+    public String currentServer() {
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc.theWorld == null || mc.isSingleplayer() ? null : LegacyHooks.connectedHost();
+    }
+
+    @Override
     public PixelBuffer readImage(File png) throws IOException {
         BufferedImage image = ImageIO.read(png);
         if (image == null) throw new IOException("Not an image: " + png);

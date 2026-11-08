@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +23,7 @@ import java.util.Set;
  *   "enabled": true,
  *   "activeProfile": "my-profile",
  *   "keys": { "toggle": "F6", "cycleProfile": "F7", "settings": "F9" },
+ *   "servers": { "hypixel.net": "quake-black", "example.org": false },
  *   "profiles": {
  *     "my-profile": {
  *       "fullbright": true, "shading": true, "foliage": false,
@@ -35,7 +37,7 @@ import java.util.Set;
  */
 public final class ConfigCodec {
     private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha");
-    private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "profiles");
+    private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
     private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
     private static final List<String> CATEGORY_KEYS = plus(LOOK_KEYS, "removeTint", "onlyGroups", "groups");
     private static final List<String> GROUP_KEYS = plus(LOOK_KEYS, "name", "match");
@@ -90,7 +92,31 @@ public final class ConfigCodec {
                 profiles.put(e.getKey(), decodeProfile(e.getKey(), object(e.getValue(), "profiles." + e.getKey(), null)));
             }
         }
-        return new Config(bool(root, "enabled", true), str(root, "activeProfile", ""), binds, profiles);
+        Set<String> profileNames = new LinkedHashSet<String>(Presets.all().keySet());
+        profileNames.addAll(profiles.keySet());
+        List<ServerRule> servers = new ArrayList<ServerRule>();
+        Object rawServers = root.get("servers");
+        if (rawServers != null) {
+            Map<String, String> written = new LinkedHashMap<String, String>();
+            for (Map.Entry<String, Object> e : object(rawServers, "servers", null).entrySet()) {
+                ServerRule r = decodeServer(e.getKey(), e.getValue(), profileNames);
+                String first = written.put(r.server(), e.getKey());
+                if (first != null) throw new IllegalArgumentException("servers." + e.getKey() + ": the same server as \"" + first + "\"");
+                servers.add(r);
+            }
+        }
+        return new Config(bool(root, "enabled", true), str(root, "activeProfile", ""), binds, profiles, servers);
+    }
+
+    /** A rule such as {@code "hypixel.net": "quake-black"}, where {@code false} turns the mod off on the server. */
+    private static ServerRule decodeServer(String server, Object value, Set<String> profiles) {
+        String where = "servers." + server;
+        if (ServerRule.host(server).isEmpty()) throw new IllegalArgumentException(where + ": the server name is empty");
+        if (Boolean.FALSE.equals(value)) return new ServerRule(server, null);
+        if (!(value instanceof String) || !profiles.contains(value)) {
+            throw new IllegalArgumentException(where + ": set a profile name (" + profiles + ") or false");
+        }
+        return new ServerRule(server, (String) value);
     }
 
     static Profile decodeProfile(String name, Map<String, Object> map) {
@@ -161,6 +187,12 @@ public final class ConfigCodec {
         keys.put("cycleProfile", config.keys().cycleProfile);
         keys.put("settings", config.keys().settings);
         root.put("keys", keys);
+        // Only when there are rules, so that an older version of the mod can still read the file.
+        if (!config.servers().isEmpty()) {
+            Map<String, Object> servers = new LinkedHashMap<String, Object>();
+            for (ServerRule r : config.servers().values()) servers.put(r.server(), r.profile() == null ? (Object) false : r.profile());
+            root.put("servers", servers);
+        }
         Map<String, Object> profiles = new LinkedHashMap<String, Object>();
         // Built-in profiles come from the code, so the file holds only the user's own.
         for (Profile p : config.userProfiles().values()) profiles.put(p.name(), encodeProfile(p));

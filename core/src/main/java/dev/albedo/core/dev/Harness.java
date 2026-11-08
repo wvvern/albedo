@@ -100,7 +100,7 @@ public final class Harness {
         String verb = space < 0 ? line : line.substring(0, space);
         String arg = space < 0 ? "" : line.substring(space + 1).trim();
         Albedo sc = Albedo.get();
-        Config config = sc.config();
+        Config config = sc.storedConfig();
         Toggle toggle = Toggle.byKey(verb);
         if (verb.equals("world")) host.openWorld(arg);
         else if (verb.equals("waitworld")) waitingForWorld = true;

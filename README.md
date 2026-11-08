@@ -61,6 +61,7 @@ These three profiles are built in. You cannot rename, delete or change them. Whe
 - **Export and Import:** Export saves the profile to `config/albedo/profiles/<name>.json` and copies it to the clipboard. To add a profile, copy the text of a profile file and push Import. Import never replaces a profile. If the name is in use, it adds a number. The result shows in a message box for some seconds. A click closes it.
 - **Categories (left list):** each category has a color square that shows its current color.
 - **World page:** Fullbright, Shading (smooth lighting and darker block sides), Foliage (grass, flowers, ferns, vines and other small plants) and Entity shadows.
+- **Servers page:** a profile for each multiplayer server, for all profiles. On a server in the list, Albedo uses that profile, or is off. When you leave, your own profile comes back. If you push F6 or F7, or select a profile, on the server, your choice stays until you leave. A name also covers its subdomains: `hypixel.net` is also `mc.hypixel.net`. To add the server that you play on, push "Use ... here".
 - **Look tab:** style (Vanilla, Color, Average, Gray, Image, Hide), color picker with hex field and palette, shape (Keep, Cut-out, Solid), and Remove biome tint for blocks and fluids.
 - **Textures tab:** all loaded textures of the category. Type in the search field to find a texture. Click a texture to put it in a group.
 - **Groups tab:** a group is a named set of textures with its own look: blocks, particles, mobs or other textures of the category. Use the arrows to move a group up or down.
@@ -88,6 +89,7 @@ The settings are in `config/albedo/config.json`. You can edit this file by hand.
   "enabled": true,
   "activeProfile": "my-profile",
   "keys": { "toggle": "F6", "cycleProfile": "F7", "settings": "F9" },
+  "servers": { "hypixel.net": "quake-black", "example.org": false },
   "profiles": {
     "my-profile": {
       "fullbright": true,
@@ -112,6 +114,7 @@ The settings are in `config/albedo/config.json`. You can edit this file by hand.
 }
 ```
 
+- **`servers`:** a server name and the profile to use on it, or `false` to turn the mod off there. The file keeps your own profile in `activeProfile`. A Realm has no fixed address, so a rule cannot name it.
 - **Profile toggles:** `fullbright`, `shading`, `foliage`, `shadows`.
 - **Category keys:** `blocks`, `fluids`, `block_entities`, `decorations` (signs, banners, paintings, maps, item frames), `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds`, `weather`.
 - **Category fields:** `mode`, `color`, `texture`, `alpha`, `removeTint`, `onlyGroups`, `groups`.
