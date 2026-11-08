@@ -34,4 +34,4 @@ Example:
 
 CI signs each jar with a GitHub build attestation and adds a `gh attestation verify` command to the end of the GitHub notes. Do not write it in the changelog.
 
-`bash tools/release-notes.sh X.Y.Z` prints the section as CI uses it. The release job fails when the section is missing.
+`bash tools/release-notes.sh X.Y.Z` prints the section as CI uses it. When the section is missing, the `Check` job fails and CI makes no release.

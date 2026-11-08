@@ -1,7 +1,6 @@
 name: CI
 
-# Builds and tests all targets on each push and pull request.
-# Push a tag such as v1.2.0 to make a GitHub release. Modrinth upload needs the setup below.
+# Builds all jars and runs the checks on every push and pull request, and makes a release for a tag such as v1.2.0 (docs/RELEASING.md).
 on:
   push:
     branches: [master]
@@ -11,135 +10,155 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 permissions:
   contents: read
 
 env:
-  # Set on tag builds only. The jars then use the tag version, not the version in gradle.properties.
+  # The tag on release builds and empty otherwise, so that a release gets the tag version, not the one in gradle.properties.
   TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
 
 jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - run: bash tools/lint.sh
+      - run: ./gradlew --configure-on-demand :core:check
+        working-directory: modern
+      - name: Release notes
+        # A tag without its CHANGELOG.md section fails here, so no release is made.
+        if: env.TAG != ''
+        id: notes
+        run: |
+          notes="$(bash tools/release-notes.sh "$TAG")"
+          printf 'notes<<EOF\n%s\nEOF\n' "$notes" >> "$GITHUB_OUTPUT"
+
   modern:
-    name: ${{ matrix.mc }}
+    name: Build ${{ matrix.target.mc }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        mc: ['1.21.1', '1.21.11', '26.3']
+        # To add a Minecraft version, add its folder in modern/versions, its entry in modern/settings.gradle, and a line here.
+        target: &modern
+          - { mc: '1.21.1', game_versions: '1.21, 1.21.1' }
+          - { mc: '1.21.11', game_versions: '1.21.11' }
+          - { mc: '26.3', game_versions: '26.3' }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
             21
             25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - name: Build
         working-directory: modern
-        # Configure on demand: set up only the projects for this version.
+        env:
+          MC: ${{ matrix.target.mc }}
+        # Configure on demand so that Gradle sets up only the projects of this version.
         run: |
           ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64 \
-            ${TAG:+-Pmod_version=${TAG#v}} \
-            ${{ matrix.mc == '26.3' && ':core:check' || '' }} \
-            :fabric:$MC:releaseJar :neoforge:$MC:releaseJar
-          mkdir -p ../dist && cp {fabric,neoforge}/versions/$MC/build/libs/albedo-*+$MC.jar ../dist/
-        env:
-          MC: ${{ matrix.mc }}
-      - uses: actions/upload-artifact@v4
+            ${TAG:+-Pmod_version=${TAG#v}} :fabric:$MC:releaseJar :neoforge:$MC:releaseJar
+          mkdir -p ../dist
+          cp {fabric,neoforge}/versions/$MC/build/libs/albedo-*+$MC.jar ../dist/
+      - uses: actions/upload-artifact@v7
         with:
-          name: jars-${{ matrix.mc }}
+          name: jars-${{ matrix.target.mc }}
           path: dist/*.jar
           if-no-files-found: error
 
   legacy:
-    name: '1.8.9'
+    name: Build 1.8.9
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
             8
             21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - name: Build
         working-directory: legacy
         run: ./gradlew -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 ${TAG:+-Pversion=${TAG#v}+1.8.9} build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: jars-1.8.9
           path: legacy/build/libs/albedo-*.jar
           if-no-files-found: error
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: bash tools/lint.sh
-      - name: Release notes
-        # A tag needs its CHANGELOG.md section (docs/RELEASING.md). Without it, no release is made.
-        if: env.TAG != ''
-        run: bash tools/release-notes.sh "$TAG"
-
   release:
+    name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [modern, legacy, lint]
+    needs: [check, modern, legacy]
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/*.jar
-      - env:
+      - name: Create the GitHub release
+        env:
           GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ needs.check.outputs.notes }}
         run: |
-          bash tools/release-notes.sh "$TAG" > notes.md
-          jar="$(basename "$(ls dist/albedo-fabric-*.jar | sort | tail -1)")"
-          printf '\nTo make sure that a jar comes from this repository, run this command in its folder. Use the name of your jar.\n\n```\ngh attestation verify %s -R %s\n```\n' "$jar" "$GITHUB_REPOSITORY" >> notes.md
+          jar="$(cd dist && ls albedo-fabric-*.jar | tail -1)"
+          cat > notes.md <<EOF
+          $NOTES
+
+          To make sure that a jar comes from this repository, run this command in its folder. Use the name of your jar.
+
+          ~~~
+          gh attestation verify $jar -R $GITHUB_REPOSITORY
+          ~~~
+          EOF
           gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "Albedo ${TAG#v}" --notes-file notes.md
 
   modrinth:
-    # Runs only when the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN exist.
-    if: startsWith(github.ref, 'refs/tags/v') && vars.MODRINTH_PROJECT_ID != ''
-    needs: release
+    name: Modrinth ${{ matrix.loader }} ${{ matrix.target.mc }}
+    # Needs the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN.
+    if: vars.MODRINTH_PROJECT_ID != ''
+    needs: [check, release]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        target: *modern
+        loader: [fabric, neoforge]
         include:
-          - { target: '1.21.1', loader: fabric, mc: '1.21, 1.21.1' }
-          - { target: '1.21.1', loader: neoforge, mc: '1.21, 1.21.1' }
-          - { target: '1.21.11', loader: fabric, mc: '1.21.11' }
-          - { target: '1.21.11', loader: neoforge, mc: '1.21.11' }
-          - { target: '26.3', loader: fabric, mc: '26.3' }
-          - { target: '26.3', loader: neoforge, mc: '26.3' }
-          - { target: '1.8.9', loader: forge, mc: '1.8.9' }
+          - { target: { mc: '1.8.9', game_versions: '1.8.9' }, loader: forge }
     steps:
-      - uses: actions/checkout@v4
-      - run: bash tools/release-notes.sh "$TAG" > notes.md
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: jars-${{ matrix.target }}
+          name: jars-${{ matrix.target.mc }}
           path: dist
-      - uses: Kir-Antipov/mc-publish@v3.3
+      - uses: Kir-Antipov/mc-publish@v3
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: dist/albedo-${{ matrix.loader }}-*.jar
-          name: Albedo ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target }}
-          version: ${{ env.TAG }}+${{ matrix.loader }}-${{ matrix.target }}
+          name: Albedo ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target.mc }}
+          version: ${{ env.TAG }}+${{ matrix.loader }}-${{ matrix.target.mc }}
           loaders: ${{ matrix.loader }}
-          game-versions: ${{ matrix.mc }}
-          changelog-file: notes.md
+          game-versions: ${{ matrix.target.game_versions }}
+          changelog: ${{ needs.check.outputs.notes }}
