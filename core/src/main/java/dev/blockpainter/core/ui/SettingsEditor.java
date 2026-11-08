@@ -766,10 +766,12 @@ public final class SettingsEditor {
         return new Suggestion(pattern, count, color, owner);
     }
 
-    /** "grass_block_top" -> "grass_block"; names without a face suffix are their own stem. */
+    /** "grass_block_side_overlay" -> "grass_block"; names without a face suffix are their own stem. */
     private static String stem(String id) {
-        int u = id.lastIndexOf('_');
-        return u > 0 && FACE_SUFFIXES.contains(id.substring(u + 1)) ? id.substring(0, u) : id;
+        for (int u = id.lastIndexOf('_'); u > 0 && FACE_SUFFIXES.contains(id.substring(u + 1)); u = id.lastIndexOf('_')) {
+            id = id.substring(0, u);
+        }
+        return id;
     }
 
     /**
