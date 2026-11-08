@@ -19,7 +19,7 @@ The section is a summary of the net change since the previous tag. It is not a l
 2. Keep only changes that users see: features, fixes of bugs that a released version had, performance, compatibility, config changes. Remove refactors, tests, CI, docs and tool changes.
 3. Remove a bug that was added and fixed between the two tags. Its net change is zero.
 4. Merge commits that change the same thing into one line. Describe the result, not the steps.
-5. Write each line as a Conventional Commit title in ASD-STE100 Simplified Technical English: `type: Verb ...`, one sentence, no period, ASCII only. Types, in this order: `feat`, `fix`, `perf`, `compat`, `config` (a change that needs users to edit their config). Mark a breaking change with `!` after the type, for example `config!: Rename the category key "entities" to "mobs"`.
+5. Write each line as a Conventional Commit title in ASD-STE100 Simplified Technical English: `type: Verb ...`, one sentence, no period, ASCII only. The colon after the type is the only colon. Do not use semicolons. Write for a player, not a developer. Types, in this order: `feat`, `fix`, `perf`, `compat`, `config` (a change that needs users to edit their config). Mark a breaking change with `!` after the type, for example `config!: Rename the category key "entities" to "mobs"`.
 6. Start the section with `## X.Y.Z`. Optional: one short sentence under it (for example, "First release.").
 
 Example:

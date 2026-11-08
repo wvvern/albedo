@@ -6,7 +6,8 @@ First release.
 
 - feat: Change blocks, fluids, block entities, decorations, items, mobs, players, particles and mining cracks to one flat color, their average color, gray, your own PNG, or hide them
 - feat: Change the sky and fog to one color, and hide clouds and weather
-- feat: Add the built-in profiles quake-white, quake-black and minimal; a change to one makes your own copy
+- feat: Add the built-in profiles quake-white, quake-black and minimal
+- feat: Put your changes to a built-in profile in a new copy
 - feat: Add groups that give a set of textures their own look, with name patterns and regular expressions
 - feat: Add a settings screen (F9) with a searchable profile list, a color picker and texture search
 - feat: Add fullbright, shading, foliage and entity shadow options
