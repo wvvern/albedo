@@ -33,18 +33,32 @@ public final class SkyDesign {
         public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
+    /** Whether the GPU draws the sky sharp for each screen pixel when it can, or always from the baked image, which costs less. */
+    public enum Render {
+        SHARP, FAST;
+
+        public String key() { return name().toLowerCase(Locale.ROOT); }
+    }
+
     public static final SkyDesign NONE = new SkyDesign(Collections.<SkyLayer>emptyList(), Celestial.SHOW, Light.FIXED, Extent.HORIZON);
 
     private final List<SkyLayer> layers;
     private final Celestial celestial;
     private final Light light;
     private final Extent extent;
+    private final Render render;
 
+    /** A design with the sharp render. */
     public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent) {
+        this(layers, celestial, light, extent, Render.SHARP);
+    }
+
+    public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent, Render render) {
         this.layers = Collections.unmodifiableList(new ArrayList<SkyLayer>(layers));
         this.celestial = celestial;
         this.light = light;
         this.extent = extent;
+        this.render = render;
     }
 
     /** From the bottom layer up. */
@@ -56,17 +70,21 @@ public final class SkyDesign {
 
     public Extent extent() { return extent; }
 
+    public Render render() { return render; }
+
     public boolean isEmpty() { return layers.isEmpty(); }
 
     public boolean isFull() { return layers.size() >= MAX_LAYERS; }
 
-    public SkyDesign withLayers(List<SkyLayer> next) { return new SkyDesign(next, celestial, light, extent); }
+    public SkyDesign withLayers(List<SkyLayer> next) { return new SkyDesign(next, celestial, light, extent, render); }
 
-    public SkyDesign withCelestial(Celestial c) { return new SkyDesign(layers, c, light, extent); }
+    public SkyDesign withCelestial(Celestial c) { return new SkyDesign(layers, c, light, extent, render); }
 
-    public SkyDesign withLight(Light l) { return new SkyDesign(layers, celestial, l, extent); }
+    public SkyDesign withLight(Light l) { return new SkyDesign(layers, celestial, l, extent, render); }
 
-    public SkyDesign withExtent(Extent e) { return new SkyDesign(layers, celestial, light, e); }
+    public SkyDesign withExtent(Extent e) { return new SkyDesign(layers, celestial, light, e, render); }
+
+    public SkyDesign withRender(Render r) { return new SkyDesign(layers, celestial, light, extent, r); }
 
     /** The design with only what changes textures (the sun and moon), for a texture comparison. */
     public SkyDesign texturesOnly() { return NONE.withCelestial(celestial); }
@@ -136,9 +154,11 @@ public final class SkyDesign {
     public boolean equals(Object o) {
         if (!(o instanceof SkyDesign)) return false;
         SkyDesign d = (SkyDesign) o;
-        return d.celestial == celestial && d.light == light && d.extent == extent && d.layers.equals(layers);
+        return d.celestial == celestial && d.light == light && d.extent == extent && d.render == render && d.layers.equals(layers);
     }
 
     @Override
-    public int hashCode() { return ((layers.hashCode() * 31 + celestial.ordinal()) * 31 + light.ordinal()) * 31 + extent.ordinal(); }
+    public int hashCode() {
+        return (((layers.hashCode() * 31 + celestial.ordinal()) * 31 + light.ordinal()) * 31 + extent.ordinal()) * 31 + render.ordinal();
+    }
 }

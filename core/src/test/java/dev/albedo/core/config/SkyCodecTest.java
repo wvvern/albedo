@@ -60,6 +60,17 @@ class SkyCodecTest {
     }
 
     @Test
+    void theRenderIsWrittenOnlyForTheFastSky() {
+        SkyDesign sharp = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        assertFalse(ConfigCodec.encode(withSky(layers(sharp))).contains("render"));
+        SkyDesign fast = sharp.withRender(SkyDesign.Render.FAST);
+        Config c = withSky(layers(fast));
+        assertTrue(ConfigCodec.encode(c).contains("\"render\": \"fast\""));
+        assertEquals(fast, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertEquals("night.sky.render: use one of [sharp, fast]", error("{\"mode\": \"layers\", \"render\": \"slow\", \"layers\": []}"));
+    }
+
+    @Test
     void transformsAreWrittenOnlyForTheAxesOfTheKind() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         d = d.withLayer(0, d.layers().get(0).withTransform(new Transform(90, 20, 0, 150)));

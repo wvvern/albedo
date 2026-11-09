@@ -101,9 +101,11 @@ public final class SkyGenerator {
             if (!m.isNone() && design.indexOf(m.layer()) >= 0 && design.indexOf(m.layer()) < i) lastUse.put(planeKey(m), i);
         }
         Map<Integer, float[]> planes = new HashMap<Integer, float[]>();
+        // The layer numbers do not depend on the horizon colors, which are known only after the layers.
+        float[] block = SkyProgram.of(design, new float[SkyImage.RING * 3]).block();
         for (int i = 0; i < layers.size(); i++) {
             SkyLayer layer = layers.get(i);
-            Layer ctx = new Layer(layer);
+            Layer ctx = new Layer(layer, block, i);
             float[] light = lastUse.containsKey(layer.id() * 2) ? new float[w * h] : null;
             float[] dark = lastUse.containsKey(layer.id() * 2 + 1) ? new float[w * h] : null;
             float[] mask = layer.mask().isNone() ? null : planes.get(planeKey(layer.mask()));
@@ -125,7 +127,7 @@ public final class SkyGenerator {
         if (!rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
-        return new SkyImage(argb, w, h, design, ring);
+        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring));
     }
 
     /** Mixes the sky near the horizon, and below it when the sky stops there, into the horizon color (the fog color) of each direction. */
@@ -249,24 +251,29 @@ public final class SkyGenerator {
         final float alpha1, alpha2, amount, height;
         final int seed;
 
-        Layer(SkyLayer layer) {
+        /** Reads the numbers of layer {@code index} from the program, the same numbers that the sky shader reads. */
+        Layer(SkyLayer layer, float[] block, int index) {
             this.layer = layer;
-            this.opacity = layer.opacity() / 100f;
-            double[] rot = layer.transform().rotation();
-            for (int i = 0; i < 9; i++) r[i] = (float) rot[i];
-            scale = layer.transform().scale() / 100f;
-            int c1 = layer.param(SkyLayer.Param.COLOR_1), c2 = layer.param(SkyLayer.Param.COLOR_2);
-            color1 = Oklab.linear(c1);
-            color2 = Oklab.linear(c2);
-            alpha1 = (c1 >>> 24) / 255f;
-            alpha2 = (c2 >>> 24) / 255f;
-            lab1 = new float[3];
-            lab2 = new float[3];
-            Oklab.fromLinear(color1[0], color1[1], color1[2], lab1);
-            Oklab.fromLinear(color2[0], color2[1], color2[2], lab2);
-            amount = layer.param(SkyLayer.Param.AMOUNT) / 100f;
-            height = layer.param(SkyLayer.Param.HEIGHT) / 100f;
-            seed = layer.param(SkyLayer.Param.SEED);
+            opacity = block[SkyProgram.at(index, SkyProgram.OPACITY)];
+            for (int row = 0; row < 3; row++) {
+                for (int c = 0; c < 3; c++) r[c * 3 + row] = block[SkyProgram.at(index, SkyProgram.LOCAL + row * 4 + c)];
+            }
+            scale = block[SkyProgram.at(index, SkyProgram.SCALE)];
+            color1 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_1));
+            color2 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_2));
+            lab1 = slice(block, SkyProgram.at(index, SkyProgram.LAB_1));
+            lab2 = slice(block, SkyProgram.at(index, SkyProgram.LAB_2));
+            alpha1 = block[SkyProgram.at(index, SkyProgram.ALPHA_1)];
+            alpha2 = block[SkyProgram.at(index, SkyProgram.ALPHA_2)];
+            amount = block[SkyProgram.at(index, SkyProgram.AMOUNT)];
+            height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
+            seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
+        }
+
+        private static float[] slice(float[] block, int from) {
+            float[] out = new float[3];
+            System.arraycopy(block, from, out, 0, 3);
+            return out;
         }
 
         /** The layer frame direction of a sky direction: the transposed rotation times it. */

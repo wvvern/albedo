@@ -21,7 +21,7 @@ import static dev.albedo.core.config.ConfigCodec.object;
  */
 final class SkyCodec {
     /** The keys of the sky category that exist only with the style "layers". */
-    static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "layers");
+    static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "layers");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
             "amount", "height", "seed", "transform");
     private static final List<String> MASK_KEYS = Arrays.asList("layer", "mode");
@@ -44,6 +44,7 @@ final class SkyCodec {
         SkyDesign.Celestial celestial = choice(category, "celestial", SkyDesign.Celestial.SHOW, where);
         SkyDesign.Light light = choice(category, "light", SkyDesign.Light.FIXED, where);
         SkyDesign.Extent extent = choice(category, "extent", SkyDesign.Extent.HORIZON, where);
+        SkyDesign.Render render = choice(category, "render", SkyDesign.Render.SHARP, where);
         Object raw = category.get("layers");
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         if (raw != null) {
@@ -60,7 +61,7 @@ final class SkyCodec {
                 layers.add(layer);
             }
         }
-        return new SkyDesign(layers, celestial, light, extent);
+        return new SkyDesign(layers, celestial, light, extent, render);
     }
 
     /** One layer, whose mask may name only an id in {@code below}. */
@@ -123,6 +124,7 @@ final class SkyCodec {
         if (design.celestial() != SkyDesign.Celestial.SHOW) out.put("celestial", design.celestial().key());
         if (design.light() != SkyDesign.Light.FIXED) out.put("light", design.light().key());
         if (design.extent() != SkyDesign.Extent.HORIZON) out.put("extent", design.extent().key());
+        if (design.render() != SkyDesign.Render.SHARP) out.put("render", design.render().key());
         List<Object> layers = new ArrayList<Object>();
         for (SkyLayer l : design.layers()) layers.add(encode(l));
         out.put("layers", layers);

@@ -24,15 +24,20 @@ public final class SkyImage {
     private final SkyDesign design;
     /** The mean linear {r, g, b} of each sector from 0 to 6 degrees of elevation, from north toward east. */
     private final float[] ring;
+    private final SkyProgram program;
     private final long serial = SERIALS.incrementAndGet();
 
-    SkyImage(int[] argb, int width, int height, SkyDesign design, float[] ring) {
+    SkyImage(int[] argb, int width, int height, SkyDesign design, float[] ring, SkyProgram program) {
         this.argb = argb;
         this.width = width;
         this.height = height;
         this.design = design;
         this.ring = ring;
+        this.program = program;
     }
+
+    /** The numbers of the design and its horizon colors, for the sky shader. */
+    public SkyProgram program() { return program; }
 
     /** The pixels, row by row from the top, which the caller must not change. */
     public int[] argb() { return argb; }
