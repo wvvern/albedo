@@ -128,11 +128,13 @@ public final class ModernHooks {
 
     /** The flat sky color, or the custom sky near the horizon where the camera looks, so that the fog meets the sky. */
     public static void overrideFog(Vector4f color) {
+        long start = dev.albedo.core.dev.SkyCpuTime.start();
         SkyImage img = Albedo.skyImage();
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
         if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
         float[] rgb = img != null ? img.fogRgb(ModernSky.turn(img), ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
         if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
+        dev.albedo.core.dev.SkyCpuTime.add(start);
     }
 
     /** Only the brightness option is changed; the mixin wraps every option read in the lightmap code. */

@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.dev.SkyCpuTime;
 import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
@@ -211,12 +212,23 @@ public final class ModernSky {
     public static void beforePass() {
         SkyImage img = Albedo.skyImage();
         if (img == null) return;
+        long start = SkyCpuTime.start();
         prepare(img);
         SharpSky.prepare(img);
+        SkyCpuTime.add(start);
     }
 
     // Draws the last uploaded image in the shared sky pass, also when a newer one waits for the next frame, and returns false when there is no custom sky.
     public static boolean draw(com.mojang.renderpearl.api.commands.RenderPass pass) {
+        long start = SkyCpuTime.start();
+        try {
+            return drawInPass(pass);
+        } finally {
+            SkyCpuTime.add(start);
+        }
+    }
+
+    private static boolean drawInPass(com.mojang.renderpearl.api.commands.RenderPass pass) {
         SkyImage img = Albedo.skyImage();
         if (img == null || texture == null || sphere == null || uploaded < 0) return false;
         float k = brightness(img);
@@ -253,6 +265,15 @@ public final class ModernSky {
 
     // Draws the sky in its own render pass in place of the vanilla disc, and returns false when there is no custom sky.
     public static boolean draw() {
+        long start = SkyCpuTime.start();
+        try {
+            return drawPass();
+        } finally {
+            SkyCpuTime.add(start);
+        }
+    }
+
+    private static boolean drawPass() {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
@@ -294,6 +315,15 @@ public final class ModernSky {
 
     // Draws the sky with the matrices of the vanilla disc, and returns false when there is no custom sky.
     public static boolean draw(org.joml.Matrix4f skyModelView, org.joml.Matrix4f projection) {
+        long start = SkyCpuTime.start();
+        try {
+            return drawGl(skyModelView, projection);
+        } finally {
+            SkyCpuTime.add(start);
+        }
+    }
+
+    private static boolean drawGl(org.joml.Matrix4f skyModelView, org.joml.Matrix4f projection) {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);

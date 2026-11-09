@@ -116,7 +116,7 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 
 - Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A `*-modern.txt` file has a `*-legacy.txt` copy for 1.8.9, which the script takes.
-- Key harness commands: `sky <preset> [layers]`, `skycompare`, `skytime` (GPU time of the sharp sky), `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
+- Key harness commands: `sky <preset> [layers]`, `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate and CPU time of the sky), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
 - `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 - After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
 

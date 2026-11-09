@@ -2,6 +2,7 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.dev.SkyCpuTime;
 import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.legacy.mixin.MinecraftAccessor;
@@ -62,11 +63,14 @@ public final class LegacySky {
 
     /** The fog color {r, g, b} near the horizon where the camera looks, or null without a custom sky. */
     public static float[] fogRgb() {
+        long start = SkyCpuTime.start();
         SkyImage img = image();
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         World world = Minecraft.getMinecraft().theWorld;
-        if (img == null || view == null || world == null || !world.provider.isSurfaceWorld()) return null;
-        return img.fogRgb(turn(img), view.rotationYaw, brightness(img));
+        float[] rgb = img == null || view == null || world == null || !world.provider.isSurfaceWorld() ? null
+                : img.fogRgb(turn(img), view.rotationYaw, brightness(img));
+        SkyCpuTime.add(start);
+        return rgb;
     }
 
     /** Records the day time at the end of each client tick, for the frames until the next tick. */
@@ -88,6 +92,15 @@ public final class LegacySky {
      * @return false when there is no custom sky, so that the vanilla disc draws
      */
     private static boolean draw() {
+        long start = SkyCpuTime.start();
+        try {
+            return drawImage();
+        } finally {
+            SkyCpuTime.add(start);
+        }
+    }
+
+    private static boolean drawImage() {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);

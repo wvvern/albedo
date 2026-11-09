@@ -209,14 +209,14 @@ final class PrecompiledSharpSky {
         }
     }
 
-    // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives
-    // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
-    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    // Draws the program and the term images of a sky repeat times into an image of this size, the equirectangular image when
+    // view is null, then gives the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, false);
         GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
-        GpuBuffer quad = quad();
+        GpuBuffer quad = quad(view);
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         GpuQuery timer = null;
         try {
@@ -275,12 +275,17 @@ final class PrecompiledSharpSky {
         return true;
     }
 
-    // Two triangles over the whole image, with texture coordinates from the top left corner.
-    private static GpuBuffer quad() {
+    // Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null.
+    private static GpuBuffer quad(float[] view) {
         float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
+        int[] corner = {0, 1, 2, 0, 2, 3};
         try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(corners.length * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
             BufferBuilder b = new BufferBuilder(bytes, VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-            for (float[] c : corners) b.addVertex(0, 0, 0).setUv(c[0], c[1]);
+            for (int i = 0; i < corners.length; i++) {
+                int c = corner[i] * 3;
+                if (view == null) b.addVertex(0, 0, 0).setUv(corners[i][0], corners[i][1]);
+                else b.addVertex(view[c], view[c + 1], view[c + 2]).setUv(corners[i][0], corners[i][1]);
+            }
             try (MeshData mesh = b.buildOrThrow()) {
                 return RenderSystem.getDevice().createBuffer(() -> "Albedo sky compare quad", GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
             }

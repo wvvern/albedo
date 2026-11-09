@@ -211,14 +211,15 @@ final class LegacySharpSky {
     }
 
     /**
-     * Draws the program and the term images of a sky {@code repeat} times into an equirectangular image of this size, then
-     * gives the pixels and the GPU time of one draw.
+     * Draws the program and the term images of a sky {@code repeat} times into an image of this size, then gives the
+     * pixels and the GPU time of one draw.
      *
      * @param time the time of the layers that move, or {@link SkyProgram#STILL}
+     * @param view the sky directions of the corners of a camera view, or null for the equirectangular image
      * @param png a file for the image, or null
      * @return false when the shader cannot compile
      */
-    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         int texture = uploadTerms(sky);
         Framebuffer target = new Framebuffer(width, height, false);
@@ -232,7 +233,7 @@ final class LegacySharpSky {
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        for (int i = 0; i < repeat; i++) quad();
+        for (int i = 0; i < repeat; i++) quad(view);
         long nanos = -1;
         if (timed) {
             GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
@@ -267,12 +268,17 @@ final class LegacySharpSky {
         return true;
     }
 
-    /** Two triangles over the whole image, with texture coordinates from the top left corner. */
-    private static void quad() {
+    /** Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null. */
+    private static void quad(float[] view) {
         float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
+        int[] corner = {0, 1, 2, 0, 2, 3};
         WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
         r.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX);
-        for (float[] c : corners) r.pos(0, 0, 0).tex(c[0], c[1]).endVertex();
+        for (int i = 0; i < corners.length; i++) {
+            int c = corner[i] * 3;
+            if (view == null) r.pos(0, 0, 0).tex(corners[i][0], corners[i][1]).endVertex();
+            else r.pos(view[c], view[c + 1], view[c + 2]).tex(corners[i][0], corners[i][1]).endVertex();
+        }
         Tessellator.getInstance().draw();
     }
 }

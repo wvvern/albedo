@@ -215,13 +215,58 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, float[] view, File png,
+                                Harness.SkyDone done) {
         //? if >=26.1 {
-        return SharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        return SharpSky.drawEquirect(sky, time, width, height, repeat, view, png, done);
         //?} elif >=1.21.11 {
-        /*return PrecompiledSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        /*return PrecompiledSharpSky.drawEquirect(sky, time, width, height, repeat, view, png, done);
         *///?} else {
-        /*return GlSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        /*return GlSharpSky.drawEquirect(sky, time, width, height, repeat, view, png, done);
         *///?}
+    }
+
+    @Override
+    public int framesPerSecond() {
+        return Minecraft.getInstance().getFps();
+    }
+
+    @Override
+    public void uncapFrameRate() {
+        Options o = Minecraft.getInstance().options;
+        // The option value 260 is "Unlimited".
+        o.framerateLimit().set(260);
+        o.enableVsync().set(false);
+        //? if >=1.21.2 {
+        o.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+        //?}
+    }
+
+    @Override
+    public void resizeWindow(int width, int height) {
+        var window = Minecraft.getInstance().getWindow();
+        // With no border the frame can be as large as the screen.
+        //? if >=26.1 {
+        long handle = window.handle();
+        org.lwjgl.sdl.SDLVideo.SDL_SetWindowBordered(handle, false);
+        org.lwjgl.sdl.SDLVideo.SDL_SetWindowPosition(handle, 0, 0);
+        org.lwjgl.sdl.SDLVideo.SDL_SetWindowSize(handle, width, height);
+        //?} elif >=1.21.11 {
+        /*long handle = window.handle();
+        org.lwjgl.glfw.GLFW.glfwSetWindowAttrib(handle, org.lwjgl.glfw.GLFW.GLFW_DECORATED, org.lwjgl.glfw.GLFW.GLFW_FALSE);
+        org.lwjgl.glfw.GLFW.glfwSetWindowPos(handle, 0, 0);
+        org.lwjgl.glfw.GLFW.glfwSetWindowSize(handle, width, height);
+        *///?} else {
+        /*long handle = window.getWindow();
+        org.lwjgl.glfw.GLFW.glfwSetWindowAttrib(handle, org.lwjgl.glfw.GLFW.GLFW_DECORATED, org.lwjgl.glfw.GLFW.GLFW_FALSE);
+        org.lwjgl.glfw.GLFW.glfwSetWindowPos(handle, 0, 0);
+        org.lwjgl.glfw.GLFW.glfwSetWindowSize(handle, width, height);
+        *///?}
+    }
+
+    @Override
+    public int[] frameSize() {
+        var window = Minecraft.getInstance().getWindow();
+        return new int[]{window.getWidth(), window.getHeight()};
     }
 }

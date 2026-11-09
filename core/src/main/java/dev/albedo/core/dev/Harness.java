@@ -92,16 +92,29 @@ public final class Harness {
         void look(float yaw, float pitch);
 
         /**
-         * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
-         * equirectangular image of this size, and later gives its pixels and the GPU time of one draw to {@code done}.
+         * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an image of
+         * this size, and later gives its pixels and the GPU time of one draw to {@code done}.
          *
          * @param time the time in seconds of the layers that move, or {@link SkyProgram#STILL}
+         * @param view the sky directions of the corners of a camera view ({@link #viewCorners}), or null for the equirectangular image
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, File png, SkyDone done) {
+        default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, SkyDone done) {
             return false;
         }
+
+        /** The frames of the last full second, as the debug screen shows them. */
+        int framesPerSecond();
+
+        /** Removes the frame limit, the vertical sync and the limit of a window with no focus, so that the frame rate shows the cost of a frame. */
+        void uncapFrameRate();
+
+        /** Sets the size of the game window in pixels, with no border, which the game can apply some frames later. */
+        void resizeWindow(int width, int height);
+
+        /** The width and the height of the frame that the game draws. */
+        int[] frameSize();
     }
 
     /** Receives the image of {@link Host#drawSharpSky}. */
@@ -112,8 +125,14 @@ public final class Harness {
 
     /** The size of the image that {@code skycompare} draws on the GPU and bakes on the CPU. */
     private static final int COMPARE_W = 512, COMPARE_H = 256;
-    /** The size and the count of the draws that {@code skytime} measures, about the pixels of the harness window. */
+    /** The size and the count of the draws that {@code skytime} measures when the command gives no size. */
     private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
+    /** The camera of {@code skytime} when the command gives none: the yaw, the pitch and the vertical field of view in degrees. */
+    private static final float TIME_YAW = 180, TIME_PITCH = -20, TIME_FOV = 70;
+    /** The ticks between two samples of {@code fps}, and the ticks before the first sample, so that the new frame limit is in effect. */
+    private static final int FPS_TICKS = 20, FPS_SETTLE = 40;
+    /** The samples of {@code fps} when the command gives no count. */
+    private static final int FPS_DEFAULT = 10;
     /** The ticks that a sky command waits for the shader to compile. */
     private static final int SKY_TRIES = 200;
     /** The lowest elevation in degrees of the meteor that {@code meteor} looks at. */
@@ -136,6 +155,10 @@ public final class Harness {
     private int[] pressedAt;
     /** The CPU bake of the last {@code skycompare}, which its tries share. */
     private SkyImage compareCpu;
+    /** The samples that {@code fps} still takes, which hold the next commands. */
+    private int fpsLeft;
+    /** The samples of the running {@code fps}. */
+    private int[] fpsSamples = new int[0];
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -167,7 +190,11 @@ public final class Harness {
             waitTicks--;
             return;
         }
-        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld) {
+        if (fpsLeft > 0) {
+            sampleFps();
+            return;
+        }
+        while (!queue.isEmpty() && waitTicks == 0 && fpsLeft == 0 && !waitingForWorld) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             log("> " + line);
@@ -219,7 +246,9 @@ public final class Harness {
         else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
         else if (verb.equals("skyturn")) sc.apply(config.withProfile(withSkyTurning(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
-        else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
+        else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? new String[0] : arg.split("\\s+"));
+        else if (verb.equals("fps")) startFps(arg.isEmpty() ? FPS_DEFAULT : Integer.parseInt(arg));
+        else if (verb.equals("window")) resizeWindow(arg.split("\\s+"));
         else if (verb.equals("skyclock")) skyClock(arg);
         else if (verb.equals("skypartial")) skyPartial(arg);
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
@@ -385,25 +414,98 @@ public final class Harness {
         }
         if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
         SkyImage cpu = compareCpu;
-        boolean started = host.drawSharpSky(cpu, SkyProgram.STILL, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
+        boolean started = host.drawSharpSky(cpu, SkyProgram.STILL, COMPARE_W, COMPARE_H, 1, null, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
             double[] d = difference(cpu.argb(), gpu);
             log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H, d[0], d[1], d[2],
                     d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
         });
-        if (!started) again("skycompare", tries);
+        if (!started) again("skycompare " + (tries - 1), tries);
     }
 
-    /** Draws the world sky with the sharp sky shader at about the size of the harness window and logs the GPU time of one draw. */
-    private void skyTime(int tries) {
+    /**
+     * Draws the world sky with the sharp sky shader into a camera view full of sky and logs the GPU time of one draw, from
+     * {@code skytime [width height [yaw pitch fov]] [tries]}.
+     */
+    private void skyTime(String[] args) {
         SkyImage world = Albedo.skyImage();
         if (world == null || !world.program().drawsSharp()) {
             log("! skytime: the sky is not a custom sky that the shader can draw");
             return;
         }
-        boolean started = host.drawSharpSky(world, SkyClock.seconds(), TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
+        int given = args.length >= 5 ? 5 : args.length >= 2 ? 2 : 0;
+        int width = given > 0 ? Integer.parseInt(args[0]) : TIME_W, height = given > 0 ? Integer.parseInt(args[1]) : TIME_H;
+        float yaw = given == 5 ? Float.parseFloat(args[2]) : TIME_YAW, pitch = given == 5 ? Float.parseFloat(args[3]) : TIME_PITCH;
+        float fov = given == 5 ? Float.parseFloat(args[4]) : TIME_FOV;
+        int tries = args.length > given ? Integer.parseInt(args[given]) : SKY_TRIES;
+        float[] view = viewCorners(yaw, pitch, fov, (float) width / height);
+        boolean started = host.drawSharpSky(world, SkyClock.seconds(), width, height, TIME_REPEAT, view, null, (gpu, nanos) ->
                 log(nanos < 0 ? "! skytime: the GPU gave no time"
-                        : String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
-        if (!started) again("skytime", tries);
+                        : String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", width, height, nanos / 1e6)));
+        if (started) return;
+        StringBuilder line = new StringBuilder("skytime");
+        for (int i = 0; i < given; i++) line.append(' ').append(args[i]);
+        again(line.append(' ').append(tries - 1).toString(), tries);
+    }
+
+    /**
+     * The sky directions of the corners of a camera view, top left, bottom left, bottom right and top right, as x, y and z
+     * each, on the plane one unit in front of the camera.
+     *
+     * @param yaw the Minecraft yaw in degrees, where 0 looks south and 90 looks west
+     * @param pitch the Minecraft pitch in degrees, where a negative pitch looks up
+     * @param fov the vertical field of view in degrees
+     * @param aspect the width over the height
+     */
+    static float[] viewCorners(float yaw, float pitch, float fov, float aspect) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        double[] forward = {-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p)};
+        double[] right = {-Math.cos(y), 0, -Math.sin(y)};
+        double[] up = {right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
+            right[0] * forward[1] - right[1] * forward[0]};
+        double ty = Math.tan(Math.toRadians(fov) / 2), tx = ty * aspect;
+        double[][] corners = {{-1, 1}, {-1, -1}, {1, -1}, {1, 1}};
+        float[] out = new float[12];
+        for (int c = 0; c < 4; c++) {
+            for (int k = 0; k < 3; k++) out[c * 3 + k] = (float) (forward[k] + corners[c][0] * tx * right[k] + corners[c][1] * ty * up[k]);
+        }
+        return out;
+    }
+
+    /** Removes the frame limit and logs the mean frames per second over some seconds, which holds the next commands. */
+    private void startFps(int seconds) {
+        host.uncapFrameRate();
+        fpsLeft = seconds;
+        fpsSamples = new int[seconds];
+        waitTicks = FPS_SETTLE;
+    }
+
+    /** Takes one sample of {@code fps} each second, and logs the result after the last one. */
+    private void sampleFps() {
+        // The sky CPU time starts with the first sample, so that it covers the frames of the samples.
+        if (fpsLeft == fpsSamples.length) SkyCpuTime.take();
+        fpsSamples[fpsSamples.length - fpsLeft] = host.framesPerSecond();
+        fpsLeft--;
+        if (fpsLeft > 0) {
+            waitTicks = FPS_TICKS - 1;
+            return;
+        }
+        long cpu = SkyCpuTime.take();
+        int[] s = fpsSamples.clone();
+        Arrays.sort(s);
+        double sum = 0;
+        for (int v : s) sum += v;
+        double mean = sum / s.length;
+        // The first sample opens the time of the CPU, so the frames of the samples after it count.
+        double frames = mean * (s.length - 1);
+        int[] size = host.frameSize();
+        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame, %.1f us of sky CPU for each frame",
+                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean, frames > 0 ? cpu / 1e3 / frames : 0));
+    }
+
+    /** Sets the window size from {@code window <width> <height>}. */
+    private void resizeWindow(String[] args) {
+        if (args.length != 2) throw new IllegalArgumentException("window <width> <height>");
+        host.resizeWindow(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
     }
 
     /**
@@ -442,13 +544,13 @@ public final class Harness {
         host.look((float) yaw, (float) pitch);
     }
 
-    /** Runs a sky command again on the next tick, until no tries are left. */
-    private void again(String verb, int tries) {
+    /** Runs a sky command line again on the next tick, until no tries are left. */
+    private void again(String line, int tries) {
         if (tries <= 0) {
-            log("! " + verb + ": this version has no sharp sky shader, or it does not compile");
+            log("! " + line.split(" ")[0] + ": this version has no sharp sky shader, or it does not compile");
             return;
         }
-        queue.addFirst(verb + " " + (tries - 1));
+        queue.addFirst(line);
         waitTicks = 1;
     }
 

@@ -120,6 +120,18 @@ class HarnessTest {
     }
 
     @Test
+    void theViewCornersOfSkyTimeLookWhereTheCameraLooks() {
+        // Yaw 180 looks north (-z), and pitch -90 looks straight up.
+        float[] north = Harness.viewCorners(180, 0, 90, 2);
+        assertEquals(0, (north[0] + north[3] + north[6] + north[9]) / 4, 1e-5, "the view is centered on the north");
+        assertEquals(-1, (north[2] + north[5] + north[8] + north[11]) / 4, 1e-5, "the center is 1 to the north");
+        assertEquals(1, north[1], 1e-5, "the top edge is tan(45) up");
+        assertEquals(-2, north[0], 1e-5, "the left edge at aspect 2 is to the west, the left of a camera that looks north");
+        float[] up = Harness.viewCorners(0, -90, 70, 1);
+        assertEquals(4, (up[1] + up[4] + up[7] + up[10]), 1e-5, "each corner of a view straight up is 1 up");
+    }
+
+    @Test
     void aSkinHashIsHexAndDiffersForACape() {
         byte[] png = {1, 2, 3};
         String skin = Harness.skinHash(png, false);

@@ -128,7 +128,40 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
-        return LegacySharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, float[] view, File png,
+                                Harness.SkyDone done) {
+        return LegacySharpSky.drawEquirect(sky, time, width, height, repeat, view, png, done);
+    }
+
+    @Override
+    public int framesPerSecond() {
+        return Minecraft.getDebugFPS();
+    }
+
+    @Override
+    public void uncapFrameRate() {
+        Minecraft mc = Minecraft.getMinecraft();
+        // The option value 260 is "Unlimited".
+        mc.gameSettings.limitFramerate = 260;
+        mc.gameSettings.enableVsync = false;
+        org.lwjgl.opengl.Display.setVSyncEnabled(false);
+    }
+
+    @Override
+    public void resizeWindow(int width, int height) {
+        Minecraft mc = Minecraft.getMinecraft();
+        try {
+            org.lwjgl.opengl.Display.setLocation(0, 0);
+            org.lwjgl.opengl.Display.setDisplayMode(new org.lwjgl.opengl.DisplayMode(width, height));
+        } catch (org.lwjgl.LWJGLException e) {
+            Harness.log("! cannot resize the window: " + e);
+        }
+        ((dev.albedo.legacy.mixin.MinecraftAccessor) mc).albedo$resize(org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
+    }
+
+    @Override
+    public int[] frameSize() {
+        Minecraft mc = Minecraft.getMinecraft();
+        return new int[]{mc.displayWidth, mc.displayHeight};
     }
 }
