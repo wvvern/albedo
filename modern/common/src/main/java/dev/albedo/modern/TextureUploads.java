@@ -57,8 +57,9 @@ final class TextureUploads {
      */
     static TextureStore.Upload sprite(Object atlasId, SpriteContents contents) {
         TextureStore.Upload upload = spriteUpload(atlasId, contents);
-        // An animated sprite gets a new animation state that starts again at its first frame, so its Chroma colors stay still.
-        boolean animated = ((SpriteContentsAccessor) contents).albedo$originalImage().getHeight() > contents.height();
+        NativeImage original = ((SpriteContentsAccessor) contents).albedo$originalImage();
+        // An animated sprite, whose frames can lie in a grid, starts again at its first frame on each upload, so its Chroma colors stay still.
+        boolean animated = original.getWidth() > contents.width() || original.getHeight() > contents.height();
         return animated ? upload : TextureStore.inPlace(upload);
     }
 

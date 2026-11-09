@@ -171,9 +171,12 @@ public final class ConfigCodec {
                 }
                 EnumSet<Appearance.Field> own = EnumSet.noneOf(Appearance.Field.class);
                 for (Map.Entry<String, Appearance.Field> f : FIELD_KEYS.entrySet()) if (rm.containsKey(f.getKey())) own.add(f.getValue());
+                Appearance look = decodeAppearance(category, at, rm, appearance);
+                // Chroma options left in a group whose Chroma is off are ignored, so they do not make Chroma its own field.
+                if (!rm.containsKey("chroma") && !look.chroma().isOn()) own.remove(Appearance.Field.CHROMA);
                 // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
                 if (own.isEmpty() && !onlyGroups) own = EnumSet.allOf(Appearance.Field.class);
-                rules.add(new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), own));
+                rules.add(new Rule(str(rm, "name", ""), patterns, look, own));
             }
         }
         SkyDesign sky = category == Category.SKY ? SkyCodec.decode(where, map, appearance.mode() == Appearance.Mode.LAYERS) : SkyDesign.NONE;

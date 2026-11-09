@@ -57,6 +57,12 @@ class ChromaCodecTest {
         // A hand edit that turns Chroma off but keeps an option must not reset all settings.
         Appearance a = blocks("{ \"mode\": \"solid\", \"chroma\": 0, \"chromaSpeed\": 80 }");
         assertEquals(Chroma.OFF, a.chroma());
+
+        // An ignored option also does not make Chroma a field of its own, so the group keeps following its category.
+        Rule group = ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"groups\": "
+                + "[ { \"match\": \"stone\", \"mode\": \"recolor\", \"chromaSpeed\": 80 } ] } } }, \"activeProfile\": \"x\" }")
+                .activeProfile().get(Category.BLOCKS).rules().get(0);
+        assertEquals(EnumSet.of(Appearance.Field.MODE), group.ownFields());
     }
 
     @Test

@@ -114,6 +114,13 @@ public final class Layout {
         return out;
     }
 
+    /** Whether {@code phases} are the {@link #phases} of {@code looks} at {@code timeMs}, with no new array on each tick. */
+    static boolean atPhases(List<Appearance> looks, long timeMs, int[] phases) {
+        if (phases.length != looks.size()) return false;
+        for (int i = 0; i < phases.length; i++) if (looks.get(i).chromaPhase(timeMs) != phases[i]) return false;
+        return true;
+    }
+
     /**
      * Gives the image the looks from {@link #looks}, where each tile changes from its original pixels.
      *

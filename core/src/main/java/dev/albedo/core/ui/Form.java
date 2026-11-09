@@ -66,7 +66,7 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
-    /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
+    /** The height of {@link #sliders}, {@link #rows} or {@link #withDependents} for {@code n} slider rows, the gap below them included. */
     static int slidersHeight(int n, boolean oneRow) {
         return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
     }
@@ -102,21 +102,22 @@ final class Form {
         return y + slidersHeight(n, true);
     }
 
-    /** The height of {@code n} slider rows from {@link #rows} or {@link #withDependents}, the gap below them included. */
-    static int rowsHeightWithGap(int n) {
-        return rowsHeight(n) - 3 + GAP;
-    }
-
     /**
      * Sliders on their own rows, which change {@code values} in place.
      *
      * @return the y below the last row
      */
     int rows(Slider[] sliders, int[] values, int y) {
+        return rows(sliders, values, 0, y);
+    }
+
+    /** Sliders on their own rows, which change {@code values} in place from index {@code from}, and return the y below the last row. */
+    private int rows(Slider[] sliders, int[] values, int from, int y) {
         for (int i = 0; i < sliders.length; i++) {
             Slider s = sliders[i];
+            int v = values[from + i];
             label(y + rowsHeight(i), Ui.SLIDER_H, s.label, s.tip);
-            values[i] = ui.slider(s.id, lx(), y + rowsHeight(i), cw(), values[i], s.text.apply(values[i]), s.tip);
+            values[from + i] = ui.slider(s.id, lx(), y + rowsHeight(i), cw(), v, s.text.apply(v), s.tip);
         }
         return y + rowsHeight(sliders.length);
     }
@@ -129,16 +130,10 @@ final class Form {
      */
     int withDependents(Slider main, Slider[] dependents, int[] values, int y) {
         boolean shown = values[0] > 0;
-        int[] mainValue = {values[0]};
-        int next = rows(new Slider[]{main}, mainValue, y);
-        values[0] = mainValue[0];
+        int next = rows(new Slider[]{main}, values, 0, y);
         if (!shown) return next;
-        int[] rest = new int[dependents.length];
-        System.arraycopy(values, 1, rest, 0, rest.length);
         guide(next, rowsHeight(dependents.length) - 3);
-        next = indented().rows(dependents, rest, next);
-        System.arraycopy(rest, 0, values, 1, rest.length);
-        return next;
+        return indented().rows(dependents, values, 1, next);
     }
 
     /** The number of rows that {@link #withDependents} draws for a main value. */

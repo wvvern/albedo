@@ -206,4 +206,19 @@ class ChromaAnimatorTest {
         assertTrue(report.startsWith("Chroma tick: 1 moving textures") && report.contains("p95 0.30 ms"), report);
         assertNull(animator.report(), "each report covers new ticks");
     }
+
+    @Test
+    void ticksWithoutReportsKeepGoing() {
+        Clock clock = new Clock();
+        TextureStore store = new TextureStore();
+        Policy policy = moving(100);
+        record(store, "minecraft:block/stone", upload(clock, new ArrayList<String>(), "stone"), policy);
+        ChromaAnimator animator = new ChromaAnimator(() -> clock.nanos);
+        // Outside a development run nothing calls report.
+        for (int i = 0; i < 3 * ChromaAnimator.REPORT_TICKS; i++) {
+            clock.nanos += STEP_NANOS;
+            animator.tick(store, policy, () -> true);
+        }
+        assertNotNull(animator.report());
+    }
 }

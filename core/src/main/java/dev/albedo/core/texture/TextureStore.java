@@ -291,11 +291,11 @@ public final class TextureStore {
                 Moving m = moving.get(cursor);
                 Entry entry = entries.get(m.name);
                 // A texture with an unknown or older look waits for the repaint that the next tick does.
-                int[] want = Layout.phases(m.looks, timeMs);
-                if (entry == null || !m.looks.equals(entry.applied) || Arrays.equals(want, entry.phases)) {
+                if (entry == null || !m.looks.equals(entry.applied) || Layout.atPhases(m.looks, timeMs, entry.phases)) {
                     cursor++;
                     continue;
                 }
+                int[] want = Layout.phases(m.looks, timeMs);
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
                     entry.layout.paint(m.looks, want, pixels);

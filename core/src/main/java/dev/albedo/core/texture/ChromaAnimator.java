@@ -93,6 +93,8 @@ public final class ChromaAnimator {
 
     /** Adds a tick with moving colors to the next {@link #report}. */
     private void count(Tick t) {
+        // Outside a development run nothing calls report, so a full window stops counting instead of overflowing.
+        if (reportTicks == REPORT_TICKS) return;
         paintTimes[reportTicks] = t.paintNanos;
         uploadTimes[reportTicks] = t.uploadNanos;
         totalTimes[reportTicks] = t.paintNanos + t.uploadNanos;

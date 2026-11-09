@@ -708,8 +708,8 @@ public final class SettingsEditor {
         Chroma chroma = target.chroma();
         int chromaRows = Form.dependentRows(chroma.strength(), CHROMA_OPTIONS.length);
         // Two items, so that a short window scrolls to Bevel and Outline, with one guide line through both.
-        int chromaH = edges ? Form.rowsHeight(chromaRows) : Form.rowsHeightWithGap(chromaRows);
-        int edgesH = Form.rowsHeightWithGap(EDGE_EFFECTS.length);
+        int chromaH = edges ? Form.rowsHeight(chromaRows) : Form.slidersHeight(chromaRows, false);
+        int edgesH = Form.slidersHeight(EDGE_EFFECTS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
             String tip = (open ? "Hide" : "Show") + " the effects: " + (edges ? "Chroma, Bevel, Outline" : "Chroma");
@@ -750,7 +750,7 @@ public final class SettingsEditor {
     private void groupsTab(int x, int y, int w, int h, CategorySettings cs) {
         String name = Labels.name(page.category);
         String[] scopes = {"Everything", "Only groups"};
-        Form form = new Form(ui, x, w, labelW);
+        Form form = form(x, w);
         form.label(y, Ui.H, "Scope", null);
         int scope = ui.segmented("scope", form.lx(), y, form.cw(), scopes, cs.onlyGroups() ? 1 : 0, new String[]{
                 "The " + name + " look applies to all. Groups change their own blocks.",
@@ -853,7 +853,7 @@ public final class SettingsEditor {
         Category category = page.category;
         Map<String, Integer> catalog = sc.catalog(category);
         String members = Labels.members(category);
-        Form form = new Form(ui, x, w, labelW);
+        Form form = form(x, w);
         form.label(y, Ui.H, members, null);
         int fx = form.lx(), fw = form.cw();
         // Keys the list reacts to are taken before the field would (Enter would unfocus it); typing goes to the field.
