@@ -129,12 +129,19 @@ public final class SkyShaderSource {
         String frame = "albedoFrame(" + layer + ", dir)";
         int flags = flags(b, layer);
         int kind = (int) b[SkyProgram.at(layer, SkyProgram.KIND)];
+        // A cloud or fractal layer with a field image reads its slow noise from there.
+        int slot = (int) b[SkyProgram.at(layer, SkyProgram.TERM_SLOT)];
+        String field = slot >= 0 ? "albedoField(" + slot + ", dir)" : null;
         switch (kind) {
             case SkyProgram.KIND_GRADIENT: return "albedoGradient(" + layer + ", " + frame + ")";
             case SkyProgram.KIND_GLOW: return "albedoGlow(" + layer + ", " + frame + ")";
             case SkyProgram.KIND_STARS: return "albedoStars(" + layer + ", " + frame + ", footprint, " + flags + ")";
-            case SkyProgram.KIND_NOISE: return "albedoClouds(" + layer + ", " + frame + ", " + flags + ")";
-            case SkyProgram.KIND_FRACTAL: return "albedoFractal(" + layer + ", " + frame + ", " + flags + ")";
+            case SkyProgram.KIND_NOISE:
+                if (field == null) field = "albedoCloudsField(" + layer + ", " + frame + ", " + flags + ")";
+                return "albedoClouds(" + layer + ", " + field + ", " + flags + ")";
+            case SkyProgram.KIND_FRACTAL:
+                if (field == null) field = "albedoFractalField(" + layer + ", " + frame + ", " + flags + ")";
+                return "albedoFractal(" + layer + ", " + frame + ", " + field + ", " + flags + ")";
             case SkyProgram.KIND_GALAXY: return "albedoGalaxy(" + layer + ", " + frame + ", footprint, " + flags + ")";
             case SkyProgram.KIND_METEORS: return "albedoMeteors(" + layer + ", " + frame + ", footprint)";
             case SkyProgram.KIND_AURORA: return "albedoAurora(" + layer + ", " + frame + ", footprint)";

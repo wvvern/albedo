@@ -137,6 +137,7 @@ public final class SkyGenerator {
             boolean ok;
             if (layer.kind().role() == SkyLayer.Role.GENERATOR) {
                 ok = rows.run(used, y -> generatorRow(ctx, y, show, mask, light, dark));
+                if (ok && ctx.termSlot >= 0) ok = rows.run(termH, ty -> fieldRow(ctx, ty));
             } else {
                 if (tmp == null) tmp = new float[w * h * 4];
                 ok = filter(ctx) && rows.run(used, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
@@ -383,6 +384,42 @@ public final class SkyGenerator {
         }
         System.arraycopy(l.color1, 0, out, 0, 3);
         out[3] = (float) (across * along) * l.alpha1;
+    }
+
+    /**
+     * Writes one row of the field image of a cloud or fractal layer, the values of {@code albedoCloudsField} or
+     * {@code albedoFractalField} at the texel centers, which the sky shader reads with linear filters in place of that noise.
+     */
+    private void fieldRow(Layer l, int ty) {
+        double el = Math.toRadians(SkyImage.TOP - (ty + 0.5) / termH * RANGE);
+        float cos = (float) Math.cos(el), sin = (float) Math.sin(el);
+        float[] local = new float[3], f = new float[4];
+        int base = (l.termSlot * termH + ty) * termW * 4;
+        for (int tx = 0; tx < termW; tx++) {
+            double lon = (tx + 0.5) / termW * 2 * Math.PI;
+            l.local(cos * (float) Math.sin(lon), sin, -cos * (float) Math.cos(lon), local);
+            field(l, local, f);
+            for (int c = 0; c < 4; c++) terms[base + tx * 4 + c] = signedHalf(f[c]);
+        }
+    }
+
+    /** The smooth values of a cloud layer (its value and its pulse noise) or a fractal layer (its bend and its pulse noise). */
+    private static void field(Layer l, float[] p, float[] out) {
+        boolean pulse = l.block[SkyProgram.at(l.index, SkyProgram.PULSE)] > 0;
+        float g = 1.6f / l.scale;
+        out[3] = 0;
+        if (l.layer.kind() == SkyLayer.Kind.NOISE) {
+            float f = 2.5f / l.scale;
+            out[0] = Noise.fbm(p[0] * f, p[1] * f, p[2] * f, l.seed, 6) * 0.5f + 0.5f;
+            out[1] = pulse ? Noise.noise(p[0] * g, p[1] * g, p[2] * g, l.seed + 71) : 0;
+            out[2] = 0;
+            return;
+        }
+        float x = p[0] * g, y = p[1] * g, z = p[2] * g;
+        out[0] = Noise.fbm(x + 5.2f, y + 1.3f, z + 2.8f, l.seed + 11, 4);
+        out[1] = Noise.fbm(x + 1.7f, y + 9.2f, z + 4.4f, l.seed + 23, 4);
+        out[2] = Noise.fbm(x + 8.3f, y + 2.8f, z + 7.1f, l.seed + 37, 4);
+        out[3] = pulse ? Noise.noise(x, y, z, l.seed + 71) : 0;
     }
 
     /** Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover. */
@@ -711,6 +748,11 @@ public final class SkyGenerator {
             }
             terms[base + tx * 4 + 3] = half(1);
         }
+    }
+
+    /** The IEEE half float bits of a value that can be negative, limited to the range from -65504 to 65504. */
+    static short signedHalf(float v) {
+        return v < 0 ? (short) (half(-v) | 0x8000) : half(v);
     }
 
     /** The IEEE half float bits of a value, which is limited to the range from 0 to 65504 and rounded to the nearest half float. */

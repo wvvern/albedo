@@ -343,13 +343,12 @@ class SkyGeneratorTest {
         int w = 128, h = 64;
         SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
         SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4)), w, h);
-        assertEquals(0, below.terms().length);
-        assertEquals(1, below.termTextureWidth() * below.termTextureHeight(), "one texel for the sampler");
+        assertEquals(w / 2 * h / 2 * 4, below.terms().length, "the field image of the noise");
         assertEquals(w / 2, full.termTextureWidth());
-        assertEquals(h / 2, full.termTextureHeight());
+        assertEquals(h, full.termTextureHeight(), "the bloom term over the field image");
         assertEquals(w / 2, full.termWidth());
         assertEquals(h / 2, full.termHeight());
-        assertEquals(w / 2 * h / 2 * 4, full.terms().length, "one term image of half float RGBA");
+        assertEquals(w / 2 * h / 2 * 4 * 2, full.terms().length, "two images of half float RGBA");
         double error = 0, glow = 0;
         int count = 0;
         for (int y = 0; y < h; y++) {
@@ -370,7 +369,35 @@ class SkyGeneratorTest {
 
     static float fromHalf(short bits) {
         int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
-        return exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
+        float v = exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
+        return (bits & 0x8000) != 0 ? -v : v;
+    }
+
+    @Test
+    void theFieldImagesHoldTheSmoothNoiseAtTheTexelCenters() {
+        int w = 64, h = 32;
+        SkyLayer clouds = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.PULSE, 50);
+        SkyLayer fractal = layer(2, SkyLayer.Kind.FRACTAL);
+        SkyImage img = SkyGenerator.bake(of(clouds, fractal), w, h);
+        assertEquals(0, img.program().termSlot(0));
+        assertEquals(1, img.program().termSlot(1));
+        int tw = img.termWidth(), th = img.termHeight();
+        boolean negative = false;
+        for (int ty = 0; ty < th; ty += 5) {
+            for (int tx = 0; tx < tw; tx += 7) {
+                // The texel center in the mapping of albedoField, where the layers have no turn.
+                double el = Math.toRadians(90 - (ty + 0.5) * 180 / th), lon = (tx + 0.5) / tw * 2 * Math.PI;
+                float x = (float) (Math.cos(el) * Math.sin(lon)), y = (float) Math.sin(el), z = (float) (-Math.cos(el) * Math.cos(lon));
+                int noise = (ty * tw + tx) * 4, bend = ((th + ty) * tw + tx) * 4;
+                assertEquals(Noise.fbm(x * 2.5f, y * 2.5f, z * 2.5f, 1, 6) * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f);
+                assertEquals(Noise.noise(x * 1.6f, y * 1.6f, z * 1.6f, 1 + 71), fromHalf(img.terms()[noise + 1]), 1e-3f, "the pulse noise");
+                float bendX = Noise.fbm(x * 1.6f + 5.2f, y * 1.6f + 1.3f, z * 1.6f + 2.8f, 1 + 11, 4);
+                assertEquals(bendX, fromHalf(img.terms()[bend]), 2e-3f, "the bend of the fractal");
+                assertEquals(0f, fromHalf(img.terms()[bend + 3]), "a fractal with no pulse");
+                negative |= bendX < -0.01f;
+            }
+        }
+        assertTrue(negative, "a bend can be negative");
     }
 
     @Test

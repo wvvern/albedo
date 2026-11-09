@@ -25,6 +25,11 @@ public final class SkyProgram {
 
     /** The largest number of term images of one design. */
     public static final int MAX_TERMS = 4;
+    /**
+     * The largest number of term and field images of one design, where a field image holds the smooth noise of a cloud or
+     * fractal layer at the half size of the bake, so that the sky shader reads it in place of most noise octaves.
+     */
+    public static final int MAX_SLOTS = 6;
     /** The vec4 values of each layer. */
     public static final int LAYER_VEC4S = 10;
     /** The float index of the first layer, after the header vec4. */
@@ -138,6 +143,14 @@ public final class SkyProgram {
                 for (int c = 0; c < 3; c++) block[base + LOCAL + row * 4 + c] = (float) r[c * 3 + row];
             }
         }
+        // The cloud and fractal layers that show or mask get the free slots up to MAX_SLOTS for their field images, in their order.
+        for (int i = 0; i < layers.size(); i++) {
+            SkyLayer.Kind kind = layers.get(i).kind();
+            int base = LAYERS + i * LAYER_VEC4S * 4;
+            if ((kind == SkyLayer.Kind.NOISE || kind == SkyLayer.Kind.FRACTAL) && block[base + USE] != USE_NONE && slots < MAX_SLOTS) {
+                block[base + TERM_SLOT] = slots++;
+            }
+        }
         terms = slots;
         moves = anyMoves;
         block[2] = slots;
@@ -200,10 +213,10 @@ public final class SkyProgram {
         return steps;
     }
 
-    /** The number of term images, from 0 to {@link #MAX_TERMS}. */
+    /** The number of term and field images, from 0 to {@link #MAX_SLOTS}. */
     public int terms() { return terms; }
 
-    /** The term image of a layer, or -1 when it has none. */
+    /** The term image of a filter or the field image of a cloud or fractal layer, or -1 when it has none. */
     public int termSlot(int layer) {
         return (int) block[at(layer, TERM_SLOT)];
     }

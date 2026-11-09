@@ -509,13 +509,17 @@ vec4 albedoStars(int layer, vec3 p, float footprint, int flags) {
     return vec4(a > 0.0 ? light / a : albedoLayer(layer, 3).rgb, a * shape.z);
 }
 
-// SkyGenerator.pulse: the factor of the color of a cloud layer that gets brighter and darker in some regions, each at its own phase.
-float albedoPulse(int layer, vec3 p, float v) {
+// The slow noise of SkyGenerator.pulse that sets the regions of a cloud layer and their phases.
+float albedoPulseNoise(int layer, vec3 p) {
+    vec4 shape = albedoLayer(layer, 2);
+    return albedoNoise(p * (1.6 / shape.x), int(shape.y) + 71);
+}
+
+// SkyGenerator.pulse: the factor of the color of a cloud layer that gets brighter and darker in some regions, each at its own phase,
+// from the pulse noise n.
+float albedoPulse(int layer, float n, float v) {
     float amount = albedoLayer(layer, 4).w;
     if (amount <= 0.0) return 1.0;
-    vec4 shape = albedoLayer(layer, 2);
-    int seed = int(shape.y);
-    float n = albedoNoise(p * (1.6 / shape.x), seed + 71);
     float region = albedoSmooth(-0.1, 0.25, n);
     if (region <= 0.0) return 1.0;
     // One slow noise sets the regions, their phases and the weights of the three waves, so that each region has its own rhythm.
@@ -527,31 +531,46 @@ float albedoPulse(int layer, vec3 p, float v) {
     return 1.0 + amount * 0.7 * region * wave * (0.4 + 0.6 * v);
 }
 
-// Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover.
-vec4 albedoClouds(int layer, vec3 p, int flags) {
-    vec4 values = albedoLayer(layer, 1);
+// The smooth values of a cloud layer that do not change in time, which its field image holds when it has one: the cloud value and
+// the pulse noise.
+vec4 albedoCloudsField(int layer, vec3 p, int flags) {
     vec4 shape = albedoLayer(layer, 2);
     float v = albedoFbm(p * (2.5 / shape.x), int(shape.y), 6) * 0.5 + 0.5;
+    return vec4(v, (flags & ALBEDO_FLAG_PULSE) != 0 ? albedoPulseNoise(layer, p) : 0.0, 0.0, 0.0);
+}
+
+// Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover, from albedoCloudsField.
+vec4 albedoClouds(int layer, vec4 field, int flags) {
+    vec4 values = albedoLayer(layer, 1);
+    float v = field.x;
     vec4 c = albedoMix(layer, v);
     float edge = 1.0 - values.z * 1.2;
     c.a *= albedoSmooth(edge - 0.12, edge + 0.12, v);
-    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, p, v);
+    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, field.y, v);
     return c;
 }
 
-// Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend.
-vec4 albedoFractal(int layer, vec3 p, int flags) {
-    vec4 values = albedoLayer(layer, 1);
+// The smooth values of a fractal layer, which its field image holds when it has one: the bend of the ridges and the pulse noise.
+vec4 albedoFractalField(int layer, vec3 p, int flags) {
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
     vec3 q = p * (1.6 / shape.x);
     vec3 bend = vec3(albedoFbm(q + vec3(5.2, 1.3, 2.8), seed + 11, 4), albedoFbm(q + vec3(1.7, 9.2, 4.4), seed + 23, 4),
             albedoFbm(q + vec3(8.3, 2.8, 7.1), seed + 37, 4));
-    float v = albedoRidged(q + values.z * 1.6 * bend, seed, 6);
+    return vec4(bend, (flags & ALBEDO_FLAG_PULSE) != 0 ? albedoPulseNoise(layer, p) : 0.0);
+}
+
+// Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend, with the sharp ridges for each pixel
+// and the smooth values from albedoFractalField.
+vec4 albedoFractal(int layer, vec3 p, vec4 field, int flags) {
+    vec4 values = albedoLayer(layer, 1);
+    vec4 shape = albedoLayer(layer, 2);
+    vec3 q = p * (1.6 / shape.x);
+    float v = albedoRidged(q + values.z * 1.6 * field.xyz, int(shape.y), 6);
     v = v * v;
     vec4 c = albedoMix(layer, v);
     c.a *= clamp(v * 1.6, 0.0, 1.0);
-    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, p, v);
+    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, field.w, v);
     return c;
 }
 
@@ -1081,13 +1100,18 @@ vec3 albedoRing(float azimuth) {
     return mix(SkyRing[i0].rgb, SkyRing[i1].rgb, at - base);
 }
 
-// The linear color of a term image in a sky direction, where the rows stop half a texel inside the image of the slot.
-vec3 albedoTerm(int slot, vec3 dir) {
+// The texels of the term or field image of a slot in a sky direction, where the rows stop half a texel inside the image of the slot.
+vec4 albedoField(int slot, vec3 dir) {
     float rows = ALBEDO_TERM_ROWS;
     float slotRows = rows / max(1.0, SkyHeader.z);
     float u = atan(dir.x, -dir.z) / (2.0 * ALBEDO_PI);
     float y = clamp((0.5 - asin(clamp(dir.y, -1.0, 1.0)) / ALBEDO_PI) * slotRows, 0.5, slotRows - 0.5);
-    return ALBEDO_TERM_READ(vec2(u, (float(slot) * slotRows + y) / rows)).rgb;
+    return ALBEDO_TERM_READ(vec2(u, (float(slot) * slotRows + y) / rows));
+}
+
+// The linear color of a term image in a sky direction.
+vec3 albedoTerm(int slot, vec3 dir) {
+    return albedoField(slot, dir).rgb;
 }
 
 // One linear channel in sRGB from 0 to 255, as Oklab.toSrgb.
