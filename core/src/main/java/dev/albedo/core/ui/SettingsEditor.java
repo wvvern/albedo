@@ -40,7 +40,7 @@ public final class SettingsEditor {
             0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF8E24AA,
     };
     /** The labels left of controls; the label column is as wide as the widest. */
-    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope", "Recolor", "Effects"};
+    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor", "Effects"};
     /** In the order the effects apply; categories without edge effects show only the first. */
     private static final String[] EFFECT_LABELS = {"Chroma", "Bevel", "Outline"};
     private static final String[] EFFECT_TIPS = {
@@ -600,11 +600,9 @@ public final class SettingsEditor {
         boolean effects = target.changesPixels() && category.hasChroma();
         int shapeH = usesShape ? Ui.H + GAP : 0;
         int effectsH = effects ? slidersH(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
-        if (m == Appearance.Mode.TEXTURE) cy = imagePicker(x, cy, w, cs, index, target);
-        if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE || recolor) {
+        if (m == Appearance.Mode.SOLID || recolor) {
             ui.text("Color", x, cy + 3, Ui.MUTED);
-            ui.tip(x, cy, labelW, Ui.H, m == Appearance.Mode.TEXTURE ? "The color to use when the image is not found"
-                    : recolor ? "The average color of the result" : null);
+            ui.tip(x, cy, labelW, Ui.H, recolor ? "The average color of the result" : null);
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
             int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH;
             if (room < 24) cy = compactColor(lx, cy, cw, cs, index, target);
@@ -1063,25 +1061,7 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- color and image pickers
-
-    private int imagePicker(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
-        List<String> names = sc.userTextureNames();
-        ui.text("Image", x, y + 3, Ui.MUTED);
-        int lx = x + labelW, lw = w - labelW;
-        if (names.isEmpty()) {
-            return y + ui.paragraph("No images. Put PNG files in config/albedo/textures.", lx, y + 3, lw, Ui.FAINT) + 3 + GAP;
-        }
-        int i = Math.max(0, names.indexOf(target.texture()));
-        boolean many = names.size() > 1;
-        if (ui.button("tex.prev", lx, y, 13, Ui.H, "<", Ui.Style.GHOST, many, "Previous image")) i = (i + names.size() - 1) % names.size();
-        if (ui.button("tex.next", lx + lw - 13, y, 13, Ui.H, ">", Ui.Style.GHOST, many, "Next image")) i = (i + 1) % names.size();
-        ui.round(lx + 14, y, lw - 28, Ui.H, Ui.CARD);
-        ui.textCentered(ui.ellipsize(names.get(i), lw - 32), lx + lw / 2, y + 3, Ui.TEXT);
-        ui.tip(lx + 14, y, lw - 28, Ui.H, names.get(i) + " (" + (i + 1) + " of " + names.size() + ")");
-        if (!names.get(i).equals(target.texture())) setLook(cs, index, target.withTexture(names.get(i)));
-        return y + Ui.H + GAP;
-    }
+    // ---------------------------------------------------------------- color picker
 
     private void hexField(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
         if (!ui.isFocused("hex")) hex.set(Colors.format(target.color()));

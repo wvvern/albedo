@@ -60,7 +60,6 @@ Each part of the world has a style:
 - **Recolor** changes the color of each texture but keeps its detail. Use the Detail, Colors and Light sliders to tune how much of the original texture stays.
 - **Average** gives each texture its own average color.
 - **Gray** removes the color and keeps the detail.
-- **Image** uses a PNG of your own from `config/albedo/textures/`.
 - **Hide** makes the textures invisible.
 
 ### Groups
@@ -111,7 +110,7 @@ All settings are saved in `config/albedo/config.json`. You can also edit this fi
 }
 ```
 
-The parts of the world are `blocks`, `fluids`, `block_entities`, `decorations`, `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds` and `weather`. The styles are `original`, `solid`, `recolor`, `average`, `grayscale`, `texture` and `hidden`.
+The parts of the world are `blocks`, `fluids`, `block_entities`, `decorations`, `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds` and `weather`. The styles are `original`, `solid`, `recolor`, `average`, `grayscale` and `hidden`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 

@@ -1,7 +1,6 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Keys;
-import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Platform;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
@@ -12,10 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 
 final class LegacyPlatform implements Platform {
     private static final Logger LOG = LogManager.getLogger("albedo");
@@ -78,13 +74,6 @@ final class LegacyPlatform implements Platform {
     public String currentServer() {
         Minecraft mc = Minecraft.getMinecraft();
         return mc.theWorld == null || mc.isSingleplayer() ? null : LegacyHooks.connectedHost();
-    }
-
-    @Override
-    public PixelBuffer readImage(File png) throws IOException {
-        BufferedImage image = ImageIO.read(png);
-        if (image == null) throw new IOException("Not an image: " + png);
-        return PixelBuffer.Heap.copyOf(new BufferedImagePixels(BufferedImagePixels.toArgb(image)));
     }
 
     @Override

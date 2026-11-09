@@ -308,7 +308,7 @@ class SettingsEditorTest {
     @Test
     void aSliderDragDoesNotTakeGroupsAlong() {
         Config c = withOwnProfile();
-        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, null, Appearance.Alpha.KEEP, 80, 0, 0);
+        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, Appearance.Alpha.KEEP, 80, 0, 0);
         Rule own = new Rule("Own", Collections.singletonList("stone"), look.withRecolor(60, 0, 0), false);
         CategorySettings blocks = new CategorySettings(look, false, Collections.singletonList(own));
         sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
@@ -336,7 +336,7 @@ class SettingsEditorTest {
     @Test
     void theRecolorLookFitsSmallWindows() {
         Config c = withOwnProfile();
-        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, null, Appearance.Alpha.KEEP, 80, 20, 0);
+        Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, Appearance.Alpha.KEEP, 80, 20, 0);
         sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, new CategorySettings(look, false, Collections.<Rule>emptyList()))));
         try {
             for (int[] size : new int[][]{{320, 200}, {320, 240}, {427, 240}}) {
@@ -597,7 +597,7 @@ class SettingsEditorTest {
         SettingsEditor editor = new SettingsEditor(sc);
         RecordingCanvas canvas = new RecordingCanvas(320, 200);
         editor.render(canvas, 0, 0);
-        for (String label : new String[]{"World", "Weather", "Vanilla", "Average", "Image", "Hide", "Done", "Apply"}) {
+        for (String label : new String[]{"World", "Weather", "Vanilla", "Average", "Gray", "Hide", "Done", "Apply"}) {
             assertNotNull(canvas.texts.get(label), "drawn whole: " + label + " in " + canvas.texts.keySet());
         }
     }
@@ -715,7 +715,6 @@ class SettingsEditorTest {
         @Override public void rebuildChunks() { rebuilds++; }
         @Override public void showMessage(String message) {}
         @Override public boolean isKeyDown(Keys.Key key) { return false; }
-        @Override public PixelBuffer readImage(File png) { return null; }
         @Override public void openSettings() {}
         String clipboard = "#123456";
 

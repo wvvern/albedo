@@ -33,12 +33,12 @@ class RecolorTest {
     }
 
     private static Appearance recolor(int color, int detail, int keepColors, int keepLight) {
-        return new Appearance(Appearance.Mode.RECOLOR, color, null, Appearance.Alpha.KEEP, detail, keepColors, keepLight);
+        return new Appearance(Appearance.Mode.RECOLOR, color, Appearance.Alpha.KEEP, detail, keepColors, keepLight);
     }
 
     private static PixelBuffer.Heap apply(Appearance a, PixelBuffer.Heap img) {
         PixelBuffer.Heap copy = img.copy();
-        PixelTransformer.apply(a, copy, null);
+        PixelTransformer.apply(a, copy);
         return copy;
     }
 

@@ -37,7 +37,7 @@ final class Effects {
     }
 
     /** The height of one frame: a block animation is a strip of square frames, so its height is a multiple of its width. */
-    static int frameHeight(PixelBuffer img) {
+    private static int frameHeight(PixelBuffer img) {
         int w = img.width(), h = img.height();
         return h > w && h % w == 0 ? w : h;
     }

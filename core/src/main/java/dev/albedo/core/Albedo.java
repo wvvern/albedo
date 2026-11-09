@@ -7,7 +7,6 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.texture.Layout;
-import dev.albedo.core.texture.PixelTransformer;
 import dev.albedo.core.texture.TextureStore;
 
 import java.io.File;
@@ -15,13 +14,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** The one entry point of the core for the adapters, which hold the config, watch its file, read the keys and change textures. */
@@ -45,9 +40,7 @@ public final class Albedo {
     private String server;
     /** The state the player chose on this server with F6, F7 or the settings, which lasts until the player leaves. */
     private Config.State visitState;
-    private final Map<String, PixelBuffer> userTextures = new ConcurrentHashMap<String, PixelBuffer>();
     private final TextureStore store = new TextureStore();
-    private final PixelTransformer.TextureSource textureSource = this::userTexture;
 
     private long lastModified;
     private int ticks;
@@ -129,7 +122,7 @@ public final class Albedo {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            boolean changed = layout.paint(looks, image, sc.textureSource);
+            boolean changed = layout.paint(looks, image);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
@@ -158,53 +151,6 @@ public final class Albedo {
         return store.catalog(category);
     }
 
-    private volatile List<String> textureNames = Collections.emptyList();
-    private long texturesModified = -1;
-
-    /** PNG names in the user textures folder, for the TEXTURE mode picker (refreshed by the file watcher). */
-    public List<String> userTextureNames() {
-        return textureNames;
-    }
-
-    private void watchTexturesFolder() {
-        File folder = texturesFolder();
-        File[] files = folder.listFiles();
-        // The folder's own time changes when a file is added or removed; a file's time when it is saved again.
-        long modified = folder.lastModified();
-        if (files != null) for (File f : files) modified = Math.max(modified, f.lastModified());
-        if (modified == texturesModified) return;
-        boolean first = texturesModified == -1;
-        texturesModified = modified;
-        List<String> names = new ArrayList<String>();
-        if (files != null) {
-            for (File f : files) if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".png")) names.add(f.getName());
-        }
-        Collections.sort(names);
-        textureNames = Collections.unmodifiableList(names);
-        userTextures.clear();
-        if (!first) refresh(policy, true);
-    }
-
-    public File texturesFolder() {
-        return new File(dir, "textures");
-    }
-
-    private PixelBuffer userTexture(String name) {
-        PixelBuffer cached = userTextures.get(name);
-        if (cached != null) return cached;
-        File folder = texturesFolder();
-        File f = new File(folder, name);
-        try {
-            if (!f.getCanonicalPath().startsWith(folder.getCanonicalPath() + File.separator)) return null;
-            PixelBuffer img = platform.readImage(f);
-            userTextures.put(name, img);
-            return img;
-        } catch (IOException e) {
-            platform.warn("Cannot read texture " + f + ". The mod uses the color instead.", e);
-            return null;
-        }
-    }
-
     // ---------------------------------------------------------------- tick: keys, file watching, harness
 
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
@@ -216,7 +162,6 @@ public final class Albedo {
         if (pressed(2, keys.settings, screenOpen)) platform.openSettings();
 
         if (++ticks % WATCH_INTERVAL_TICKS == 0) {
-            watchTexturesFolder();
             int transformed = transformedSinceSummary.getAndSet(0);
             if (transformed > 0) {
                 platform.info("Changed " + transformed + " textures with profile '" + config().activeProfileName() + "'");
@@ -225,11 +170,11 @@ public final class Albedo {
                 Policy before = policy;
                 if (load()) {
                     platform.showMessage(NAME + ": config reloaded");
-                    refresh(before, false);
+                    refresh(before);
                 }
             }
         }
-        if (stale) refresh(policy, false);
+        if (stale) refresh(policy);
         if (harness != null) harness.tick();
     }
 
@@ -272,7 +217,7 @@ public final class Albedo {
         if (effective.equals(before) && saved.equals(previous)) return RefreshResult.painted(0, false, 0);
         save();
         if (!effective.state().equals(before.state())) platform.showMessage(NAME + ": " + effective.state());
-        return refresh(old, false);
+        return refresh(old);
     }
 
     /** Applies the rule of the server the player joins, and the stored state again when the player leaves. */
@@ -290,14 +235,14 @@ public final class Albedo {
         // On leave there is no player to show a message to.
         if (now != null) platform.showMessage(NAME + ": " + after + " on " + now);
         else platform.info("Left the server, " + after);
-        refresh(old, false);
+        refresh(old);
     }
 
     /** Shows the current policy in the world by the cheapest path that reaches all that changed from {@code old}. */
-    private RefreshResult refresh(Policy old, boolean userImagesChanged) {
+    private RefreshResult refresh(Policy old) {
         stale = false; // before the policy is read, so that a texture recorded after this point sets it again
         Policy now = policy;
-        RefreshResult result = paint(old, now, userImagesChanged);
+        RefreshResult result = paint(old, now);
         String line = result.describe();
         if (result.outcome == RefreshResult.Outcome.RELOADED) {
             platform.warn(line, null);
@@ -309,15 +254,15 @@ public final class Albedo {
     }
 
     /** Repaints textures and rebuilds chunk meshes, which hold tints and shading, or asks for a reload. */
-    private RefreshResult paint(Policy old, Policy now, boolean userImagesChanged) {
-        if (!store.complete() && (userImagesChanged || !old.sameTextures(now))) {
+    private RefreshResult paint(Policy old, Policy now) {
+        if (!store.complete() && !old.sameTextures(now)) {
             return RefreshResult.reloaded("the resource packs have more textures than the mod keeps");
         }
         long start = System.nanoTime();
         TextureStore.Result r;
         boolean flushed;
         try {
-            r = store.repaint(now, textureSource, userImagesChanged);
+            r = store.repaint(now);
         } finally {
             flushed = platform.finishRepaint();
         }
@@ -334,17 +279,13 @@ public final class Albedo {
     private void setConfig(Config c) {
         config = c;
         update();
-        userTextures.clear();
     }
 
     private void loadOrCreate() {
         if (configFile.isFile() && load()) return;
         if (configFile.isFile()) backUpInvalidFile();
         setConfig(Config.defaults());
-        if (!configFile.isFile()) {
-            save();
-            texturesFolder().mkdirs();
-        }
+        if (!configFile.isFile()) save();
     }
 
     /** Keeps a copy of a config file that does not load, because the next save writes over it. */

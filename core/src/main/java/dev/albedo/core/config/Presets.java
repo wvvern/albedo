@@ -69,13 +69,13 @@ public final class Presets {
     /** A soft world where each kind of block has its own pastel color and mobs and players keep their textures. */
     static Profile pastel() {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, null, Appearance.Alpha.KEEP, 60, 0, 35, 30, 0, 55);
+        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, Appearance.Alpha.KEEP, 60, 0, 35, 30, 0, 55);
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(blocks, true, Collections.singletonList(solidLeaves)));
         c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, 55), false));
-        c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, null, Appearance.Alpha.KEEP, 85, 40, 30), false));
-        c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, null, Appearance.Alpha.KEEP, 70, 0, 0), true));
+        c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, Appearance.Alpha.KEEP, 85, 40, 30), false));
+        c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, Appearance.Alpha.KEEP, 70, 0, 0), true));
         c.put(Category.SKY, flat(0xFFF9D4E6, false));
         Set<Toggle> on = Profile.defaultToggles();
         on.add(Toggle.FULLBRIGHT);

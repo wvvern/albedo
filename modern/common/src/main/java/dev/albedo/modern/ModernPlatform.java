@@ -1,9 +1,7 @@
 package dev.albedo.modern;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.Keys;
-import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Platform;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
@@ -14,9 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -117,14 +112,6 @@ final class ModernPlatform implements Platform {
         Minecraft mc = Minecraft.getInstance();
         ServerData data = mc.getCurrentServer();
         return mc.level == null || mc.isLocalServer() || data == null ? null : data.ip;
-    }
-
-    @Override
-    public PixelBuffer readImage(File png) throws IOException {
-        try (InputStream in = new FileInputStream(png); NativeImage image = NativeImage.read(in)) {
-            if (!NativeImagePixels.supports(image)) throw new IOException(png + " must be an RGBA PNG");
-            return PixelBuffer.Heap.copyOf(new NativeImagePixels(image));
-        }
     }
 
     @Override

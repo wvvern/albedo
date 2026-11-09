@@ -16,8 +16,6 @@ public final class Appearance {
         /** Fill with the texture's own average color: removes detail but keeps each block recognisable. */
         AVERAGE,
         GRAYSCALE,
-        /** Replace with a user image (stretched to fit) from the config's textures folder; falls back to the color. */
-        TEXTURE,
         /** Fully transparent: the thing disappears (useful for clouds, weather, particles). */
         HIDDEN;
 
@@ -44,22 +42,21 @@ public final class Appearance {
     }
 
     /** The fields of a look, which a group sets for itself or takes from its category. */
-    public enum Field { MODE, COLOR, TEXTURE, ALPHA, DETAIL, KEEP_COLORS, KEEP_LIGHT, BEVEL, OUTLINE, CHROMA }
+    public enum Field { MODE, COLOR, ALPHA, DETAIL, KEEP_COLORS, KEEP_LIGHT, BEVEL, OUTLINE, CHROMA }
 
     public static final int DEFAULT_DETAIL = 100, DEFAULT_KEEP_COLORS = 0, DEFAULT_KEEP_LIGHT = 0;
-    public static final Appearance ORIGINAL = new Appearance(Mode.ORIGINAL, 0xFFFFFFFF, null, Alpha.KEEP);
+    public static final Appearance ORIGINAL = new Appearance(Mode.ORIGINAL, 0xFFFFFFFF, Alpha.KEEP);
 
     private final Mode mode;
     private final int color;
-    private final String texture;
     private final Alpha alpha;
     private final int detail, keepColors, keepLight;
     /** Effect strengths in percent, where 0 is off. */
     private final int bevel, outline, chroma;
 
     /** A look with the default recolor fields and no effects. */
-    public Appearance(Mode mode, int color, String texture, Alpha alpha) {
-        this(mode, color, texture, alpha, DEFAULT_DETAIL, DEFAULT_KEEP_COLORS, DEFAULT_KEEP_LIGHT);
+    public Appearance(Mode mode, int color, Alpha alpha) {
+        this(mode, color, alpha, DEFAULT_DETAIL, DEFAULT_KEEP_COLORS, DEFAULT_KEEP_LIGHT);
     }
 
     /**
@@ -67,8 +64,8 @@ public final class Appearance {
      * @param keepColors percent of the color differences between pixels that a recolor keeps
      * @param keepLight percent of the texture's own lightness that a recolor keeps instead of the color's lightness
      */
-    public Appearance(Mode mode, int color, String texture, Alpha alpha, int detail, int keepColors, int keepLight) {
-        this(mode, color, texture, alpha, detail, keepColors, keepLight, 0, 0, 0);
+    public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight) {
+        this(mode, color, alpha, detail, keepColors, keepLight, 0, 0, 0);
     }
 
     /**
@@ -76,11 +73,10 @@ public final class Appearance {
      * @param outline percent of the line around each block
      * @param chroma percent of the rainbow color that each kind of texture gets
      */
-    public Appearance(Mode mode, int color, String texture, Alpha alpha, int detail, int keepColors, int keepLight,
+    public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight,
                       int bevel, int outline, int chroma) {
         this.mode = mode;
         this.color = color;
-        this.texture = texture;
         this.alpha = alpha;
         this.detail = detail;
         this.keepColors = keepColors;
@@ -91,16 +87,15 @@ public final class Appearance {
     }
 
     public static Appearance solid(int argb) {
-        return new Appearance(Mode.SOLID, argb, null, Alpha.KEEP);
+        return new Appearance(Mode.SOLID, argb, Alpha.KEEP);
     }
 
     public static Appearance of(Mode mode) {
-        return new Appearance(mode, 0xFFFFFFFF, null, Alpha.KEEP);
+        return new Appearance(mode, 0xFFFFFFFF, Alpha.KEEP);
     }
 
     public Mode mode() { return mode; }
     public int color() { return color; }
-    public String texture() { return texture; }
     public Alpha alpha() { return alpha; }
     public int detail() { return detail; }
     public int keepColors() { return keepColors; }
@@ -122,7 +117,6 @@ public final class Appearance {
         return new Appearance(
                 fields.contains(Field.MODE) ? from.mode : mode,
                 fields.contains(Field.COLOR) ? from.color : color,
-                fields.contains(Field.TEXTURE) ? from.texture : texture,
                 fields.contains(Field.ALPHA) ? from.alpha : alpha,
                 fields.contains(Field.DETAIL) ? from.detail : detail,
                 fields.contains(Field.KEEP_COLORS) ? from.keepColors : keepColors,
@@ -137,7 +131,6 @@ public final class Appearance {
         EnumSet<Field> out = EnumSet.noneOf(Field.class);
         if (mode != other.mode) out.add(Field.MODE);
         if (color != other.color) out.add(Field.COLOR);
-        if (!Objects.equals(texture, other.texture)) out.add(Field.TEXTURE);
         if (alpha != other.alpha) out.add(Field.ALPHA);
         if (detail != other.detail) out.add(Field.DETAIL);
         if (keepColors != other.keepColors) out.add(Field.KEEP_COLORS);
@@ -148,30 +141,29 @@ public final class Appearance {
         return out;
     }
 
-    public Appearance withMode(Mode m) { return new Appearance(m, color, texture, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
-    public Appearance withColor(int c) { return new Appearance(mode, c, texture, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
-    public Appearance withTexture(String t) { return new Appearance(mode, color, t, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
-    public Appearance withAlpha(Alpha a) { return new Appearance(mode, color, texture, a, detail, keepColors, keepLight, bevel, outline, chroma); }
+    public Appearance withMode(Mode m) { return new Appearance(m, color, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
+    public Appearance withColor(int c) { return new Appearance(mode, c, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
+    public Appearance withAlpha(Alpha a) { return new Appearance(mode, color, a, detail, keepColors, keepLight, bevel, outline, chroma); }
 
     public Appearance withRecolor(int newDetail, int newKeepColors, int newKeepLight) {
-        return new Appearance(mode, color, texture, alpha, newDetail, newKeepColors, newKeepLight, bevel, outline, chroma);
+        return new Appearance(mode, color, alpha, newDetail, newKeepColors, newKeepLight, bevel, outline, chroma);
     }
 
     public Appearance withEffects(int newBevel, int newOutline, int newChroma) {
-        return new Appearance(mode, color, texture, alpha, detail, keepColors, keepLight, newBevel, newOutline, newChroma);
+        return new Appearance(mode, color, alpha, detail, keepColors, keepLight, newBevel, newOutline, newChroma);
     }
 
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Appearance)) return false;
         Appearance a = (Appearance) o;
-        return mode == a.mode && color == a.color && alpha == a.alpha && Objects.equals(texture, a.texture)
+        return mode == a.mode && color == a.color && alpha == a.alpha
                 && detail == a.detail && keepColors == a.keepColors && keepLight == a.keepLight
                 && bevel == a.bevel && outline == a.outline && chroma == a.chroma;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mode, color, texture, alpha, detail, keepColors, keepLight, bevel, outline, chroma);
+        return Objects.hash(mode, color, alpha, detail, keepColors, keepLight, bevel, outline, chroma);
     }
 }

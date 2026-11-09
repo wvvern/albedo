@@ -106,7 +106,7 @@ public final class Layout {
      *
      * @return true if the image was changed
      */
-    public boolean paint(List<Appearance> looks, PixelBuffer img, PixelTransformer.TextureSource textures) {
+    public boolean paint(List<Appearance> looks, PixelBuffer img) {
         boolean sheetChanges = !looks.get(0).isOriginal();
         // A tile keeps its original pixels when neither the texture look nor its own look changes them.
         PixelBuffer.Heap[] parts = new PixelBuffer.Heap[tiles.size()];
@@ -114,10 +114,10 @@ public final class Layout {
             if (sheetChanges || !looks.get(i + 1).isOriginal()) parts[i] = copy(img, tiles.get(i));
         }
         // A sheet with tiles gets its edge effects on each tile, not around the whole sheet.
-        boolean changed = look(looks.get(0), img, textures, key, tiles.isEmpty() && !connected);
+        boolean changed = look(looks.get(0), img, key, tiles.isEmpty() && !connected);
         for (int i = 0; i < parts.length; i++) {
             if (parts[i] == null) continue;
-            boolean tileChanged = look(looks.get(i + 1), parts[i], textures, tiles.get(i).key, true);
+            boolean tileChanged = look(looks.get(i + 1), parts[i], tiles.get(i).key, true);
             if (changed || tileChanged) paste(parts[i], img, tiles.get(i));
             changed |= tileChanged;
         }
@@ -125,8 +125,8 @@ public final class Layout {
     }
 
     /** The style of a look and then its effects, where only block and fluid tiles get edge effects. */
-    private static boolean look(Appearance a, PixelBuffer img, PixelTransformer.TextureSource textures, TextureKey key, boolean edges) {
-        boolean changed = PixelTransformer.apply(a, img, textures);
+    private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges) {
+        boolean changed = PixelTransformer.apply(a, img);
         return Effects.apply(a, img, key.id(), edges && key.category().hasEdgeEffects()) || changed;
     }
 

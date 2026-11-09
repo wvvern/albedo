@@ -63,7 +63,6 @@ final class Labels {
             case RECOLOR: return "Recolor";
             case AVERAGE: return "Average";
             case GRAYSCALE: return "Gray";
-            case TEXTURE: return "Image";
             default: return "Hide";
         }
     }
@@ -75,7 +74,6 @@ final class Labels {
             case RECOLOR: return "Change the color and keep the detail";
             case AVERAGE: return "Each texture changes to its average color";
             case GRAYSCALE: return "Keep the detail and remove the color";
-            case TEXTURE: return "A PNG image from config/albedo/textures";
             default: return "Do not show";
         }
     }

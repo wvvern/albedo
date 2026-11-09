@@ -6,15 +6,10 @@ import dev.albedo.core.config.Appearance;
 
 /** Applies an {@link Appearance} to an image in place, as a pure function of its inputs. */
 public final class PixelTransformer {
-    /** Supplies user images for {@link Appearance.Mode#TEXTURE}, or null when the file is missing. */
-    public interface TextureSource {
-        PixelBuffer load(String name);
-    }
-
     private PixelTransformer() {}
 
     /** @return true if the image was changed */
-    public static boolean apply(Appearance a, PixelBuffer img, TextureSource textures) {
+    public static boolean apply(Appearance a, PixelBuffer img) {
         switch (a.mode()) {
             case ORIGINAL:
                 return false;
@@ -33,15 +28,6 @@ public final class PixelTransformer {
             case GRAYSCALE:
                 grayscale(img, a.alpha());
                 return true;
-            case TEXTURE: {
-                PixelBuffer src = textures == null ? null : textures.load(a.texture());
-                if (src == null || src.width() == 0 || src.height() == 0) {
-                    fill(img, a.color(), a.alpha(), true);
-                } else {
-                    stretch(src, img, a.alpha());
-                }
-                return true;
-            }
             default:
                 return false;
         }
@@ -51,7 +37,7 @@ public final class PixelTransformer {
     public static int preview(Appearance a, int original, String id) {
         PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
         Appearance opaque = a.withAlpha(Appearance.Alpha.OPAQUE);
-        apply(opaque, pixel, null);
+        apply(opaque, pixel);
         if (id != null) Effects.apply(opaque, pixel, id, false);
         return pixel.getArgb(0, 0);
     }
@@ -116,24 +102,6 @@ public final class PixelTransformer {
                 int p = img.getArgb(x, y);
                 int l = (Colors.red(p) * 299 + Colors.green(p) * 587 + Colors.blue(p) * 114) / 1000;
                 img.setArgb(x, y, Colors.argb(shapeAlpha(Colors.alpha(p), alphaMode), l, l, l));
-            }
-        }
-    }
-
-    /**
-     * Nearest-neighbour stretch of {@code src} over {@code dst} that gives tall animation strips (height a multiple of
-     * width) the image once per square frame, so that every frame looks the same.
-     */
-    static void stretch(PixelBuffer src, PixelBuffer dst, Appearance.Alpha alphaMode) {
-        int frameH = Effects.frameHeight(dst);
-        for (int y = 0; y < dst.height(); y++) {
-            int fy = y % frameH;
-            int sy = fy * src.height() / frameH;
-            for (int x = 0; x < dst.width(); x++) {
-                int sx = x * src.width() / dst.width();
-                int s = src.getArgb(sx, sy);
-                int shape = shapeAlpha(Colors.alpha(dst.getArgb(x, y)), alphaMode);
-                dst.setArgb(x, y, Colors.withAlpha(s, Colors.alpha(s) * shape / 255));
             }
         }
     }

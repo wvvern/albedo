@@ -38,7 +38,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 
 - The core is plain Java 8. It compiles into every jar from `core/src`. It does not change for a new Minecraft version.
 - The core decides how everything looks: config, groups, matching, colors, pixel math, presets, keys and config reload.
-- `Platform` is the port for the game: config folder, logging, resource reload, chunk rebuild, repaint end, messages, key state, PNG read, clipboard, the settings screen and the harness host.
+- `Platform` is the port for the game: config folder, logging, resource reload, chunk rebuild, repaint end, messages, key state, clipboard, the settings screen and the harness host.
 - `Canvas` is the port for drawing: `width`, `height`, `fill`, `text` and `textWidth`.
 
 The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.

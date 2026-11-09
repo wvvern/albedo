@@ -38,7 +38,7 @@ class EffectsTest {
     private static PixelBuffer.Heap painted(Appearance a, String location, int w, int h) {
         PixelBuffer.Heap img = filled(w, h, GRAY);
         Layout layout = Layout.of(location);
-        layout.paint(Collections.singletonList(a), img, null);
+        layout.paint(Collections.singletonList(a), img);
         return img;
     }
 
@@ -103,7 +103,7 @@ class EffectsTest {
     @Test
     void effectsKeepAlphaAndSkipVanillaAndHide() {
         PixelBuffer.Heap img = filled(16, 16, 0x80808080);
-        Layout.of("minecraft:block/glass").paint(Collections.singletonList(solid(WHITE, 100, 100, 100)), img, null);
+        Layout.of("minecraft:block/glass").paint(Collections.singletonList(solid(WHITE, 100, 100, 100)), img);
         assertEquals(0x80, Colors.alpha(img.getArgb(0, 0)));
         assertFalse(Appearance.ORIGINAL.withEffects(100, 100, 100).hasEffects());
         assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, 100).hasEffects());
@@ -115,7 +115,7 @@ class EffectsTest {
     void editsKeepTheEffects() {
         Appearance a = solid(GRAY, 10, 20, 30);
         for (Appearance b : new Appearance[]{a.withMode(Appearance.Mode.RECOLOR), a.withColor(WHITE), a.withAlpha(Appearance.Alpha.OPAQUE),
-                a.withTexture("x.png"), a.withRecolor(50, 50, 50)}) {
+                a.withRecolor(50, 50, 50)}) {
             assertEquals(Arrays.asList(10, 20, 30), Arrays.asList(b.bevel(), b.outline(), b.chroma()));
         }
         assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, 30)));
@@ -170,9 +170,9 @@ class EffectsTest {
         Layout layout = Layout.of(name);
         Policy plain = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 0, 0, 0));
         store.record(name, layout, filled(16, 16, GRAY), upload, layout.looks(plain));
-        assertEquals(0, store.repaint(plain, null, false).repainted);
+        assertEquals(0, store.repaint(plain).repainted);
         Policy bevel = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 50, 0, 0));
-        assertEquals(1, store.repaint(bevel, null, false).repainted);
-        assertEquals(0, store.repaint(bevel, null, false).repainted);
+        assertEquals(1, store.repaint(bevel).repainted);
+        assertEquals(0, store.repaint(bevel).repainted);
     }
 }

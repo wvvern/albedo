@@ -3,7 +3,6 @@ package dev.albedo.core;
 import dev.albedo.core.dev.Harness;
 
 import java.io.File;
-import java.io.IOException;
 
 /** The port each loader and version adapter implements, which is the only way the core reaches the game. */
 public interface Platform {
@@ -41,8 +40,6 @@ public interface Platform {
     default String currentServer() {
         return null;
     }
-
-    PixelBuffer readImage(File png) throws IOException;
 
     /** Shows the settings screen, a version screen that wraps {@link dev.albedo.core.ui.SettingsEditor}. */
     void openSettings();

@@ -127,23 +127,22 @@ public final class TextureStore {
         if (e != null) e.applied = null;
     }
 
-    /** Gives each kept texture the look {@code policy} wants, and repaints user images again when they changed. */
-    public Result repaint(Policy policy, PixelTransformer.TextureSource images, boolean userImagesChanged) {
+    /** Gives each kept texture the look {@code policy} wants. */
+    public Result repaint(Policy policy) {
         int repainted = 0, needReload = 0;
         repainting.set(Boolean.TRUE);
         try {
             for (Map.Entry<String, Entry> e : entries.entrySet()) {
                 Entry entry = e.getValue();
                 List<Appearance> want = entry.layout.looks(policy);
-                boolean userImage = userImagesChanged && usesUserImage(want);
-                if (want.equals(entry.applied) && !userImage) continue;
+                if (want.equals(entry.applied)) continue;
                 if (entry.upload == RELOAD_ONLY) {
                     needReload++;
                     continue;
                 }
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
-                    entry.layout.paint(want, pixels, images);
+                    entry.layout.paint(want, pixels);
                     if (entry.upload.upload(pixels)) {
                         entry.applied = want;
                         repainted++;
@@ -158,11 +157,6 @@ public final class TextureStore {
             repainting.remove();
         }
         return new Result(repainted, needReload);
-    }
-
-    private static boolean usesUserImage(List<Appearance> looks) {
-        for (Appearance a : looks) if (a.mode() == Appearance.Mode.TEXTURE) return true;
-        return false;
     }
 
     /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */

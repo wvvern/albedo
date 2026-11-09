@@ -39,7 +39,7 @@ import java.util.function.Predicate;
 public final class ConfigCodec {
     private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
     private static final List<String> EDGE_KEYS = Arrays.asList("bevel", "outline");
-    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha", "detail", "keepColors", "keepLight",
+    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "alpha", "detail", "keepColors", "keepLight",
             "bevel", "outline", "chroma");
     /** The JSON key of each look field, in the order of {@link Appearance.Field}. */
     private static final Map<String, Appearance.Field> FIELD_KEYS = new LinkedHashMap<String, Appearance.Field>();
@@ -183,7 +183,6 @@ public final class ConfigCodec {
                         + keys(category.supportedModes()));
             }
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
-            String texture = map.containsKey("texture") ? str(map, "texture", "") : parent.texture();
             Appearance.Alpha alpha = map.containsKey("alpha") ? Appearance.Alpha.byKey(str(map, "alpha", "")) : parent.alpha();
             if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
@@ -194,7 +193,7 @@ public final class ConfigCodec {
             if (!category.hasChroma() && map.containsKey("chroma")) {
                 throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
             }
-            return new Appearance(mode, color, texture == null || texture.isEmpty() ? null : texture, alpha,
+            return new Appearance(mode, color, alpha,
                     percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
                     percent(map, "keepLight", parent.keepLight()), percent(map, "bevel", parent.bevel()),
                     percent(map, "outline", parent.outline()), percent(map, "chroma", parent.chroma()));
@@ -261,13 +260,10 @@ public final class ConfigCodec {
         return out;
     }
 
-    /** Writes every field that differs from {@code base}; a missing texture against one that has it is written as "". */
+    /** Writes every field that differs from {@code base}. */
     private static void encodeAppearance(Map<String, Object> m, Appearance a, Appearance base) {
         if (a.mode() != base.mode()) m.put("mode", a.mode().key());
         if (a.color() != base.color()) m.put("color", Colors.format(a.color()));
-        if (a.texture() == null ? base.texture() != null : !a.texture().equals(base.texture())) {
-            m.put("texture", a.texture() == null ? "" : a.texture());
-        }
         if (a.alpha() != base.alpha()) m.put("alpha", a.alpha().key());
         if (a.detail() != base.detail()) m.put("detail", a.detail());
         if (a.keepColors() != base.keepColors()) m.put("keepColors", a.keepColors());

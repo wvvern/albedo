@@ -79,30 +79,17 @@ class CoreTest {
     @Test
     void transformsKeepShapeAndHide() {
         PixelBuffer.Heap img = new PixelBuffer.Heap(2, 1, new int[]{0xFF123456, 0x00ABCDEF});
-        PixelTransformer.apply(Appearance.solid(0xFFFFFFFF), img, null);
+        PixelTransformer.apply(Appearance.solid(0xFFFFFFFF), img);
         assertEquals(0xFFFFFFFF, img.getArgb(0, 0));
         assertEquals(0x00FFFFFF, img.getArgb(1, 0));
 
-        PixelTransformer.apply(new Appearance(Appearance.Mode.SOLID, 0xFF808080, null, Appearance.Alpha.OPAQUE), img, null);
+        PixelTransformer.apply(new Appearance(Appearance.Mode.SOLID, 0xFF808080, Appearance.Alpha.OPAQUE), img);
         assertEquals(0xFF808080, img.getArgb(1, 0));
 
-        PixelTransformer.apply(Appearance.of(Appearance.Mode.HIDDEN), img, null);
+        PixelTransformer.apply(Appearance.of(Appearance.Mode.HIDDEN), img);
         assertEquals(0, Colors.alpha(img.getArgb(0, 0)));
 
         assertEquals(0xFF7F7F7F, PixelTransformer.average(new PixelBuffer.Heap(2, 1, new int[]{0xFF000000, 0xFFFFFFFF})));
-    }
-
-    @Test
-    void textureModeStretchesAndFallsBack() {
-        PixelBuffer.Heap user = new PixelBuffer.Heap(1, 1, new int[]{0xFFFF0000});
-        PixelBuffer.Heap img = new PixelBuffer.Heap(2, 2, new int[]{0xFF000000, 0xFF000000, 0xFF000000, 0x00000000});
-        PixelTransformer.apply(new Appearance(Appearance.Mode.TEXTURE, 0, "red.png", Appearance.Alpha.KEEP), img, n -> user);
-        assertEquals(0xFFFF0000, img.getArgb(0, 0));
-        assertEquals(0x00FF0000, img.getArgb(1, 1));
-
-        PixelBuffer.Heap missing = new PixelBuffer.Heap(1, 1, new int[]{0xFF000000});
-        PixelTransformer.apply(new Appearance(Appearance.Mode.TEXTURE, 0xFF00FF00, null, Appearance.Alpha.KEEP), missing, n -> null);
-        assertEquals(0xFF00FF00, missing.getArgb(0, 0));
     }
 
     @Test
@@ -244,9 +231,15 @@ class CoreTest {
         IllegalArgumentException typo = assertThrows(IllegalArgumentException.class,
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"rules\": [] } } } }"));
         assertTrue(typo.getMessage().contains("'rules'"), typo.getMessage());
+        IllegalArgumentException mode = assertThrows(IllegalArgumentException.class,
+                () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"texture\" } } } }"));
+        assertTrue(mode.getMessage().startsWith("x.blocks: "), mode.getMessage());
+        IllegalArgumentException key = assertThrows(IllegalArgumentException.class,
+                () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"texture\": \"a.png\" } } } }"));
+        assertTrue(key.getMessage().contains("x.blocks: unknown setting 'texture'"), key.getMessage());
 
         // A group's own "keep" shape survives a round trip under an "opaque" category.
-        Appearance opaqueLook = new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, null, Appearance.Alpha.OPAQUE);
+        Appearance opaqueLook = new Appearance(Appearance.Mode.SOLID, 0xFFFFFFFF, Appearance.Alpha.OPAQUE);
         Rule keep = new Rule("Glass", Collections.singletonList("*glass*"), opaqueLook, true)
                 .withLook(opaqueLook.withAlpha(Appearance.Alpha.KEEP), opaqueLook);
         CategorySettings opaque = new CategorySettings(opaqueLook, false, Collections.singletonList(keep));

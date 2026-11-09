@@ -64,14 +64,14 @@ class TextureStoreTest {
         // A new group for dirt repaints dirt only, from its original pixels; transparent pixels stay transparent.
         Rule red = new Rule("Ground", Collections.singletonList("dirt"), Appearance.solid(0xFFFF0000), false);
         Policy withGroup = blocks(Appearance.solid(0xFFFFFFFF), red);
-        TextureStore.Result r = store.repaint(withGroup, null, false);
+        TextureStore.Result r = store.repaint(withGroup);
         assertEquals(1, r.repainted);
         assertEquals(0, stone.uploads.size());
         assertArrayEquals(new int[]{0xFFFF0000, 0x00FF0000}, dirt.uploads.get(0));
 
         // The same policy again does nothing; turning the mod off gives back the originals.
-        assertEquals(0, store.repaint(withGroup, null, false).repainted);
-        assertEquals(2, store.repaint(Policy.DISABLED, null, false).repainted);
+        assertEquals(0, store.repaint(withGroup).repainted);
+        assertEquals(2, store.repaint(Policy.DISABLED).repainted);
         assertArrayEquals(image().argb(), stone.uploads.get(0));
         assertEquals(GREEN, (int) store.catalog(Category.BLOCKS).get("minecraft:stone") | 0, "catalog has the original average");
     }
@@ -84,7 +84,7 @@ class TextureStoreTest {
         record(store, "dirt", broken, Policy.DISABLED);
         gone.gone = true;
         broken.broken = true;
-        TextureStore.Result r = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false);
+        TextureStore.Result r = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)));
         assertEquals(0, r.repainted);
         assertEquals(1, r.needReload);
         assertFalse(store.catalog(Category.BLOCKS).containsKey("minecraft:stone"), "a gone texture leaves the store");
@@ -96,7 +96,7 @@ class TextureStoreTest {
         FakeUpload stone = new FakeUpload();
         record(store, "stone", stone, Policy.DISABLED);
         record(store, "stone", null, Policy.DISABLED);
-        assertEquals(1, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(1, store.repaint(blocks(Appearance.solid(0xFFFFFFFF))).repainted);
         assertEquals(1, stone.uploads.size());
         assertTrue(store.complete());
     }
@@ -111,14 +111,14 @@ class TextureStoreTest {
         assertTrue(store.complete());
         assertTrue(store.catalog(Category.ENTITIES).containsKey(TextureClassifier.classify(modded).id()), "the texture list shows it");
 
-        TextureStore.Result blocksOnly = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false);
+        TextureStore.Result blocksOnly = store.repaint(blocks(Appearance.solid(0xFFFFFFFF)));
         assertEquals(1, blocksOnly.repainted);
         assertEquals(0, blocksOnly.needReload, "a change to other textures repaints them");
 
         Config c = Config.defaults();
         CategorySettings green = new CategorySettings(Appearance.solid(0xFF00FF00), false, Collections.<Rule>emptyList());
         Policy mobs = Policy.of(c.withProfile(c.activeProfile().with(Category.ENTITIES, green)));
-        assertEquals(1, store.repaint(mobs, null, false).needReload);
+        assertEquals(1, store.repaint(mobs).needReload);
     }
 
     @Test
@@ -127,7 +127,7 @@ class TextureStoreTest {
         FakeUpload stone = new FakeUpload();
         record(store, "stone", stone, Policy.DISABLED);
         store.invalidate("minecraft:block/stone");
-        assertEquals(1, store.repaint(Policy.DISABLED, null, false).repainted);
+        assertEquals(1, store.repaint(Policy.DISABLED).repainted);
     }
 
     @Test
@@ -138,7 +138,7 @@ class TextureStoreTest {
         recordNamed(store, "minecraft:blocks/bookshelf", vanilla, Policy.DISABLED);
         recordNamed(store, "minecraft:optifine/ctm/default/12", tile, Policy.DISABLED);
         assertEquals(TextureClassifier.classify("minecraft:blocks/bookshelf"), TextureClassifier.classify("minecraft:optifine/ctm/default/12"));
-        assertEquals(2, store.repaint(blocks(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(2, store.repaint(blocks(Appearance.solid(0xFFFFFFFF))).repainted);
         assertEquals(1, vanilla.uploads.size());
         assertEquals(1, tile.uploads.size());
         assertEquals(1, store.catalog(Category.BLOCKS).size());
@@ -182,29 +182,17 @@ class TextureStoreTest {
         FakeUpload sheet = new FakeUpload();
         Policy white = LayoutTest.particles(Appearance.solid(0xFFFFFFFF));
         recordSheet(store, LayoutTest.cells(128, 128), sheet, white);
-        assertEquals(0, store.repaint(white, null, false).repainted);
+        assertEquals(0, store.repaint(white).repainted);
 
         Policy fire = LayoutTest.particles(Appearance.solid(0xFFFFFFFF), LayoutTest.group("flame", Appearance.solid(0xFFFF0000)));
-        assertEquals(1, store.repaint(fire, null, false).repainted);
+        assertEquals(1, store.repaint(fire).repainted);
         int[] pixels = sheet.uploads.get(0);
         assertEquals(0xFFFF0000, pixels[24 * 128 + 4], "flame");
         assertEquals(0xFFFFFFFF, pixels[24 * 128 + 12], "lava");
-        assertEquals(0, store.repaint(fire, null, false).repainted);
+        assertEquals(0, store.repaint(fire).repainted);
 
         store.invalidate(LayoutTest.PARTICLES);
-        assertEquals(1, store.repaint(fire, null, false).repainted);
-    }
-
-    @Test
-    void aUserImageOnATileRepaintsWhenTheImageChanges() {
-        TextureStore store = new TextureStore();
-        Appearance image = new Appearance(Appearance.Mode.TEXTURE, 0xFFFFFFFF, "a.png", Appearance.Alpha.KEEP);
-        Policy policy = LayoutTest.particles(Appearance.solid(0xFFFFFFFF), LayoutTest.group("note", image));
-        recordSheet(store, LayoutTest.cells(128, 128), new FakeUpload(), policy);
-        assertEquals(1, store.repaint(policy, null, true).repainted);
-        Policy noImage = LayoutTest.particles(Appearance.solid(0xFFFFFFFF));
-        assertEquals(1, store.repaint(noImage, null, false).repainted);
-        assertEquals(0, store.repaint(noImage, null, true).repainted);
+        assertEquals(1, store.repaint(fire).repainted);
     }
 
     @Test
@@ -215,7 +203,7 @@ class TextureStoreTest {
         store.record(grass, Layout.of(grass), new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
                 Collections.singletonList(Appearance.ORIGINAL));
         Config c = Config.defaults();
-        assertEquals(1, store.repaint(Policy.of(c), null, false).repainted);
+        assertEquals(1, store.repaint(Policy.of(c)).repainted);
         assertArrayEquals(new int[]{0xFFFFFFFF, 0xFFFFFFFF}, game, "quake-white removes biome tint");
     }
 }
