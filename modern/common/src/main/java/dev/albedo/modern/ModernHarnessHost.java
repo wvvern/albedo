@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.modern.mixin.MouseHandlerInvoker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
 import net.minecraft.client.Options;
@@ -108,7 +109,7 @@ final class ModernHarnessHost implements Harness.Host {
     public boolean mouseButton(int guiX, int guiY, boolean down) {
         Minecraft mc = Minecraft.getInstance();
         var window = mc.getWindow();
-        var mouse = (dev.albedo.modern.mixin.MouseHandlerInvoker) mc.mouseHandler;
+        var mouse = (MouseHandlerInvoker) mc.mouseHandler;
         // The center of the GUI pixel, in window pixels, which the handler scales back to GUI pixels.
         double x = (guiX + 0.5) * window.getScreenWidth() / window.getGuiScaledWidth();
         double y = (guiY + 0.5) * window.getScreenHeight() / window.getGuiScaledHeight();
