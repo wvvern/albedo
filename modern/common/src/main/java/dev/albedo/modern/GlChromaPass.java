@@ -3,7 +3,9 @@ package dev.albedo.modern;
 //? if <1.21.11 {
 /*import com.mojang.blaze3d.platform.GlStateManager;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -166,7 +168,7 @@ final class GlChromaPass implements ChromaBackend {
         private final int texels;
         private final int[] widths;
         private final int[] heights;
-        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(ChromaAtlases.TURN_FLOATS * 4);
+        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(Chroma.TURN_FLOATS * 4);
 
         Target(int live, int[] size) {
             this.live = live;
@@ -217,8 +219,7 @@ final class GlChromaPass implements ChromaBackend {
             for (int level = 0; level < widths.length; level++) {
                 ByteBuffer bytes = MemoryUtil.memAlloc(widths[level] * heights[level] * 4);
                 try {
-                    for (int c : levels[level]) bytes.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));
-                    bytes.flip();
+                    ChromaTexels.rgba(levels[level], bytes);
                     GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, 0, 0, widths[level], heights[level], GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
                 } finally {
                     MemoryUtil.memFree(bytes);
@@ -238,7 +239,7 @@ final class GlChromaPass implements ChromaBackend {
             GlStateManager._glUseProgram(program);
             turnBytes.clear();
             turnBytes.asFloatBuffer().put(turns);
-            GL20.nglUniform4fv(turnsUniform, ChromaAtlases.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
+            GL20.nglUniform4fv(turnsUniform, Chroma.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
             GlStateManager._glBindVertexArray(vertexArray);
             GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, drawFbo);
             for (int level = 0; level < widths.length; level++) {

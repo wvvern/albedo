@@ -7,6 +7,8 @@ public final class Chroma {
     public static final int DEFAULT_SPEED = 30, DEFAULT_SATURATION = 50, DEFAULT_BRIGHTNESS = 50;
     /** The highest speed, and the last index of the array that {@link #turns} fills. */
     public static final int MAX_SPEED = 100;
+    /** The floats of the turns block of a GPU pass: one for each speed from 0 to {@link #MAX_SPEED}, in whole vec4 values. */
+    public static final int TURN_FLOATS = (MAX_SPEED / 4 + 1) * 4;
     /** The time of one turn around the colors at speed 1 and at speed 100, in milliseconds. */
     static final long SLOWEST_PERIOD_MS = 120_000, FASTEST_PERIOD_MS = 10_000;
     public static final Chroma OFF = new Chroma(0, DEFAULT_SPEED, DEFAULT_SATURATION, DEFAULT_BRIGHTNESS);
@@ -47,20 +49,10 @@ public final class Chroma {
         return new Chroma(strength, newSpeed, newSaturation, newBrightness);
     }
 
-    /** The time of one turn around the colors, from 120 s at speed 1 down to 10 s at speed 100 on a log scale. */
-    public double periodMs() {
-        return periodMs(speed);
-    }
-
-    /** The time in milliseconds of one turn around the colors at a speed from 1 to {@link #MAX_SPEED}. */
+    /** The time in milliseconds of one turn around the colors, from 120 s at speed 1 down to 10 s at speed 100 on a log scale. */
     static double periodMs(int speed) {
         double t = (Math.max(1, Math.min(MAX_SPEED, speed)) - 1) / 99.0;
         return SLOWEST_PERIOD_MS * Math.pow((double) FASTEST_PERIOD_MS / SLOWEST_PERIOD_MS, t);
-    }
-
-    /** The part from 0 to 1 of one turn around the colors at a time in seconds, which is always 0 when the colors do not move. */
-    public double turn(double seconds) {
-        return moves() ? turn(speed, seconds) : 0;
     }
 
     private static double turn(int speed, double seconds) {

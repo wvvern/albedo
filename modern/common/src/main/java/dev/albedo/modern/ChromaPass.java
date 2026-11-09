@@ -18,6 +18,8 @@ import com.mojang.renderpearl.api.textures.GpuSampler;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.config.Chroma;
+import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
@@ -89,7 +91,7 @@ final class ChromaPass implements ChromaBackend {
         private final GpuTextureView[] pristineViews;
         private final GpuTextureView[] texelViews;
         private final GpuBuffer turns;
-        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(ChromaAtlases.TURN_FLOATS * 4);
+        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(Chroma.TURN_FLOATS * 4);
         private final int levels;
 
         Target(GpuTexture live, int levels) {
@@ -122,11 +124,9 @@ final class ChromaPass implements ChromaBackend {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
             for (int level = 0; level < levels; level++) {
                 int w = texels.getWidth(level), h = texels.getHeight(level);
-                int[] argb = texelLevels[level];
                 ByteBuffer bytes = MemoryUtil.memAlloc(w * h * 4);
                 try {
-                    for (int c : argb) bytes.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));
-                    bytes.flip();
+                    ChromaTexels.rgba(texelLevels[level], bytes);
                     encoder.writeToTexture(texels, bytes, level, 0, 0, 0, w, h);
                 } finally {
                     MemoryUtil.memFree(bytes);

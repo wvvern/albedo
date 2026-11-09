@@ -2,6 +2,8 @@ package dev.albedo.core.texture;
 
 import dev.albedo.core.Albedo;
 
+import java.nio.ByteBuffer;
+
 /**
  * The texels that tell the GPU pass of Chroma how to turn the colors of an atlas in each frame: the speed, the hue of
  * the kind of texture and the chroma to add, as ARGB values that an adapter uploads as RGBA8.
@@ -11,6 +13,12 @@ public final class ChromaTexels {
     public static final double MAX_AMOUNT = Effects.MAX_CHROMA;
 
     private ChromaTexels() {}
+
+    /** Puts the texels of one level into {@code out} as RGBA8 bytes from its position, and makes {@code out} ready to read. */
+    public static void rgba(int[] texels, ByteBuffer out) {
+        for (int c : texels) out.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));
+        out.flip();
+    }
 
     /** Puts the texels of the sprites of one atlas into one image of the size of the atlas, for the GPU pass. */
     public static final class Atlas {

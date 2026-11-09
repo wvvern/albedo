@@ -10,27 +10,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChromaTest {
+    /** The turn of one speed at a time in seconds, from {@link Chroma#turns}. */
+    private static double turn(int speed, double seconds) {
+        float[] turns = new float[Chroma.TURN_FLOATS];
+        Chroma.turns(seconds, turns);
+        return turns[speed];
+    }
+
     @Test
     void oneTurnTakesFrom120SecondsDownTo10() {
-        assertEquals(120_000, new Chroma(100, 1, 50, 50).periodMs(), 1e-6);
-        assertEquals(10_000, new Chroma(100, 100, 50, 50).periodMs(), 1e-6);
-        assertTrue(new Chroma(100, 30, 50, 50).periodMs() < new Chroma(100, 29, 50, 50).periodMs());
+        assertEquals(120_000, Chroma.periodMs(1), 1e-6);
+        assertEquals(10_000, Chroma.periodMs(100), 1e-6);
+        assertTrue(Chroma.periodMs(30) < Chroma.periodMs(29));
     }
 
     @Test
     void theTurnMovesInEqualSmallStepsWithNoSteps() {
-        Chroma c = new Chroma(100, 100, 50, 50);
         Set<Double> seen = new HashSet<Double>();
         for (int frame = 1; frame < 600; frame++) {
-            double before = c.turn((frame - 1) / 60.0), now = c.turn(frame / 60.0);
+            double before = turn(100, (frame - 1) / 60.0), now = turn(100, frame / 60.0);
             double step = now - before + (now < before ? 1 : 0);
-            assertEquals(1 / 600.0, step, 1e-9, "60 frames each second for 10 s give one turn");
+            assertEquals(1 / 600.0, step, 1e-6, "60 frames each second for 10 s give one turn");
             seen.add(now);
         }
         assertEquals(599, seen.size(), "each frame has its own turn");
-        assertEquals(0, c.turn(10), 1e-9, "one turn ends where it started");
-        assertEquals(0, new Chroma(100, 0, 50, 50).turn(3.3), "speed 0 stays still");
-        assertEquals(0, new Chroma(0, 50, 50, 50).turn(3.3), "Chroma off stays still");
+        assertEquals(0, turn(100, 10), 1e-6, "one turn ends where it started");
+        assertEquals(0, turn(0, 3.3), "speed 0 stays still");
     }
 
     @Test
@@ -39,16 +44,21 @@ class ChromaTest {
         for (Category category : new Category[]{Category.BLOCKS, Category.BLOCK_ENTITIES}) {
             Chroma c = pastel.get(category).appearance().chroma();
             assertTrue(c.moves(), category + " colors move");
-            assertTrue(c.periodMs() >= 90_000, category + " colors take at least 90 s for one turn");
+            assertTrue(Chroma.periodMs(c.speed()) >= 90_000, category + " colors take at least 90 s for one turn");
             assertTrue(c.strength() <= 60 && c.saturation() <= Chroma.DEFAULT_SATURATION, category + " colors stay soft");
         }
     }
 
     @Test
-    void turnsGivesTheTurnOfEachSpeed() {
-        float[] turns = new float[Chroma.MAX_SPEED / 4 * 4 + 4];
+    void turnsGivesTheTurnOfEachSpeedInWholeVec4Values() {
+        assertEquals(0, Chroma.TURN_FLOATS % 4);
+        assertTrue(Chroma.TURN_FLOATS > Chroma.MAX_SPEED);
+        float[] turns = new float[Chroma.TURN_FLOATS];
         Chroma.turns(7.25, turns);
         assertEquals(0, turns[0]);
-        for (int s = 1; s <= Chroma.MAX_SPEED; s++) assertEquals(new Chroma(100, s, 50, 50).turn(7.25), turns[s], 1e-6, "speed " + s);
+        for (int s = 1; s <= Chroma.MAX_SPEED; s++) {
+            double t = 7.25 * 1000 / Chroma.periodMs(s);
+            assertEquals(t - Math.floor(t), turns[s], 1e-6, "speed " + s);
+        }
     }
 }

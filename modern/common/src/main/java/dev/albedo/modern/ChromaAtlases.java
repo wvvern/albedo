@@ -34,14 +34,11 @@ final class ChromaAtlases {
     /*private static final ChromaBackend BACKEND = new GlChromaPass();
     *///?}
 
-    /** The number of floats of the turns block: one for each speed from 0 to 100, in whole vec4 values. */
-    static final int TURN_FLOATS = (Chroma.MAX_SPEED / 4 + 1) * 4;
-
     /** The atlases whose sprites can have their hue from the pass, by location, which the sprite loaders add on worker threads. */
     private static final Set<Object> ATLASES = ConcurrentHashMap.newKeySet();
     /** The GPU target of each atlas with moving texels, by location. */
     private static final Map<Object, ChromaBackend.Target> TARGETS = new HashMap<>();
-    private static final float[] TURNS = new float[TURN_FLOATS];
+    private static final float[] TURNS = new float[Chroma.TURN_FLOATS];
     /** The texture paints of the core when the texels were made, so that a change makes them again. */
     private static int paints = Integer.MIN_VALUE;
     /** True from the pass at the start of a frame until the atlases get back their painted colors. */

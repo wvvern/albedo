@@ -37,9 +37,6 @@ import java.util.Locale;
  * frame the atlas gets back the colors that Albedo painted, so that the game and Albedo always write into those colors.
  */
 public final class LegacyChroma {
-    /** The number of floats of the turns block: one for each speed from 0 to 100, in whole vec4 values. */
-    private static final int TURN_FLOATS = (Chroma.MAX_SPEED / 4 + 1) * 4;
-
     /** The state of the compile of the program. */
     private enum Compile { NOT_STARTED, READY, FAILED }
 
@@ -48,8 +45,8 @@ public final class LegacyChroma {
     private static int turnsUniform;
     private static int sizeUniform;
     private static int framebuffer;
-    private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(TURN_FLOATS);
-    private static final float[] TURN_VALUES = new float[TURN_FLOATS];
+    private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(Chroma.TURN_FLOATS);
+    private static final float[] TURN_VALUES = new float[Chroma.TURN_FLOATS];
 
     /** The GL texture of the atlas and its size, and the pristine copy and the texels, or 0 without moving texels. */
     private static int live;
@@ -174,8 +171,7 @@ public final class LegacyChroma {
                 GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
                 for (int level = 0; level < size[2]; level++) {
                     ByteBuffer bytes = BufferUtils.createByteBuffer(levels[level].length * 4);
-                    for (int c : levels[level]) bytes.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));
-                    bytes.flip();
+                    ChromaTexels.rgba(levels[level], bytes);
                     GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, 0, 0, width(level), height(level), GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
                 }
             }

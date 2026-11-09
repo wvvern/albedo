@@ -19,7 +19,9 @@ import com.mojang.blaze3d.textures.TextureFormat;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
@@ -111,7 +113,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
         private final GpuTextureView[] pristineViews;
         private final GpuTextureView[] texelViews;
         private final GpuBuffer turns;
-        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(ChromaAtlases.TURN_FLOATS * 4);
+        private final ByteBuffer turnBytes = MemoryUtil.memAlloc(Chroma.TURN_FLOATS * 4);
         private final int levels;
 
         Target(GpuTexture live, int levels) {
@@ -146,8 +148,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
                 int w = texels.getWidth(level), h = texels.getHeight(level);
                 ByteBuffer bytes = MemoryUtil.memAlloc(w * h * 4);
                 try {
-                    for (int c : texelLevels[level]) bytes.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));
-                    bytes.flip();
+                    ChromaTexels.rgba(texelLevels[level], bytes);
                     encoder.writeToTexture(texels, bytes, NativeImage.Format.RGBA, level, 0, 0, 0, w, h);
                 } finally {
                     MemoryUtil.memFree(bytes);
