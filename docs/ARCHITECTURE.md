@@ -65,12 +65,16 @@ Traps:
 
 `sky/SkyGenerator` bakes a `SkyDesign` into an equirectangular `SkyImage` on the CPU (`SkyBaker`, in the background). `sky/SkyProgram` puts the layer numbers into one block of floats. The sky shader (`core/src/main/resources/assets/albedo/shaders`) reads the same block and draws each screen pixel ("Sharp render"). The baked texture is the fallback.
 
+- Each sky gets its own shader. `SkyShaderSource.layerSteps` writes `ALBEDO_LAYER_STEPS`: a direct call of the function of the kind of each layer, with its blend, mask and parts (twinkle, trails, spikes, pulse, dust, jets) as constants. The values stay in the block, so a shader compiles again only when the steps change. Each adapter keeps the shaders of the last skies (`SkyShaderCache`).
+- The term texture also holds field images: the smooth noise of each cloud and fractal layer (cloud value, bend of the ridges, pulse noise) that the bake writes at the texel centers. The shader reads them with linear filters, and calculates only the sharp ridges of a fractal for each pixel.
+
 Invariants:
 
 - The CPU bake and the GPU shader must give the same sky. They use the same integer hashes and noise. Java copies of the shader parts (`SkyStars`, `SkyMeteors`, `Aurora`) must change together with the GLSL. The harness command `skycompare` draws the shader sky into an image and logs `DIFFERENT` when its mean OKLab distance from the bake is at or above `Harness.COMPARE_LIMIT`. Run it after each sky change.
 - `SkyGeneratorTest.thePresetsKeepTheirPixels` keeps a hash of the bake of each preset. If a change of the pixels is intentional, update the hashes in the same commit. Else, find the change.
 - One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` use the time 0 (`SkyProgram.STILL`). Meteors draw only in the shader.
-- A design has a maximum of `SkyProgram.MAX_TERMS` term filters (blur, bloom, pixelate, crystallize, swirl). A design with more draws from the baked image.
+- A design has a maximum of `SkyProgram.MAX_TERMS` term filters (blur, bloom, pixelate, crystallize, swirl). A design with more draws from the baked image. Field images use the free slots up to `SkyProgram.MAX_SLOTS`; a cloud or fractal layer with no slot calculates its noise for each pixel.
+- Do not let a layer step dispatch on its kind at run time. The NVIDIA compiler inlines before it removes the dead kinds, and with seven or more such steps it stops to inline and the sky gets about 60 percent slower. Do not index a constant array with a value that changes for each pixel: the compiler puts the array in local memory for each pixel. Measure a shader change with `skytime 3840 2160` on 26.3; the shader of 26.x goes through SPIR-V, so its speed can differ from the GL programs of the other versions.
 - A change of only the render mode or the turning does not bake again (`SkyDesign.baked`), except the star trails, which the bake draws.
 
 Traps per version:
