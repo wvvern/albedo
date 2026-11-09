@@ -219,6 +219,54 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void halfFloatsRoundToTheNearestAndStayInRange() {
+        assertEquals(0x3C00, SkyGenerator.half(1f));
+        assertEquals(0x3800, SkyGenerator.half(0.5f));
+        assertEquals(0x3C01, SkyGenerator.half(1.0009766f));
+        assertEquals(0x3555, SkyGenerator.half(1f / 3));
+        assertEquals(0x7BFF, SkyGenerator.half(65504f));
+        assertEquals(0x7BFF, SkyGenerator.half(1e9f), "the largest half float");
+        assertEquals(0, SkyGenerator.half(-1f), "no negative glow");
+        assertEquals(1, SkyGenerator.half(5.9604645e-8f), "the smallest subnormal");
+        assertEquals(0x0200, SkyGenerator.half(3.0517578e-5f), "a subnormal");
+        for (float v = 1e-6f; v < 60000; v *= 1.37f) assertEquals(v, fromHalf(SkyGenerator.half(v)), v / 1024 + 6e-8f, "" + v);
+    }
+
+    @Test
+    void theBloomTermHoldsOnlyTheGlowThatTheBloomAdds() {
+        int w = 128, h = 64;
+        SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
+        SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4)), w, h);
+        assertEquals(0, below.terms().length);
+        assertEquals(w / 2, full.termWidth());
+        assertEquals(h / 2, full.termHeight());
+        assertEquals(w / 2 * h / 2 * 4, full.terms().length, "one term image of half float RGBA");
+        double error = 0, glow = 0;
+        int count = 0;
+        for (int y = 0; y < h; y++) {
+            // The horizon colors of the two skies differ, so the rows near the horizon are not compared.
+            if (Math.abs(90 - (y + 0.5) * 180 / h) < 6) continue;
+            for (int x = 0; x < w; x++) {
+                for (int c = 0; c < 3; c++) {
+                    int shift = 16 - 8 * c;
+                    float added = Oklab.toLinear(full.argb()[y * w + x] >> shift) - Oklab.toLinear(below.argb()[y * w + x] >> shift);
+                    float term = fromHalf(full.terms()[((y / 2) * (w / 2) + x / 2) * 4 + c]);
+                    error += Math.abs(added - term);
+                    glow = Math.max(glow, term);
+                    count++;
+                }
+            }
+        }
+        assertTrue(glow > 0.02, "the galaxy core glows: " + glow);
+        assertTrue(error / count < 0.004, "the term is the added glow: " + error / count);
+    }
+
+    private static float fromHalf(short bits) {
+        int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
+        return exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
+    }
+
+    @Test
     void daylightFollowsTheVanillaSky() {
         assertEquals(1f, SkyLight.brightness(6000, 0, 0), 1e-4f);
         assertEquals(0.04f, SkyLight.brightness(18000, 0, 0), 1e-4f);

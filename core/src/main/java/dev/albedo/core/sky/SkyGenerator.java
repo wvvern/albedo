@@ -39,6 +39,10 @@ public final class SkyGenerator {
     private final float texel;
     private final float[] img;
     private float[] tmp;
+    /** The size of each term image, half the size of the image. */
+    private final int termW, termH;
+    /** The term images as half float RGBA, see {@link SkyImage#terms}. */
+    private short[] terms;
 
     private SkyGenerator(SkyDesign design, int w, int h, Rows rows) {
         this.design = design;
@@ -66,6 +70,8 @@ public final class SkyGenerator {
         used = filled;
         texel = (float) (2 * Math.PI / w);
         img = new float[w * h * 4];
+        termW = Math.max(1, w / 2);
+        termH = Math.max(1, h / 2);
     }
 
     /** Bakes on the calling thread. */
@@ -102,7 +108,9 @@ public final class SkyGenerator {
         }
         Map<Integer, float[]> planes = new HashMap<Integer, float[]>();
         // The layer numbers do not depend on the horizon colors, which are known only after the layers.
-        float[] block = SkyProgram.of(design, new float[SkyImage.RING * 3]).block();
+        SkyProgram layout = SkyProgram.of(design, new float[SkyImage.RING * 3]);
+        float[] block = layout.block();
+        terms = new short[termW * termH * layout.terms() * 4];
         for (int i = 0; i < layers.size(); i++) {
             SkyLayer layer = layers.get(i);
             Layer ctx = new Layer(layer, block, i);
@@ -127,7 +135,7 @@ public final class SkyGenerator {
         if (!rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
-        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring));
+        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
     }
 
     /** Mixes the sky near the horizon, and below it when the sky stops there, into the horizon color (the fog color) of each direction. */
@@ -250,6 +258,7 @@ public final class SkyGenerator {
         final float[] color1, color2, lab1, lab2;
         final float alpha1, alpha2, amount, height;
         final int seed;
+        final int termSlot;
 
         /** Reads the numbers of layer {@code index} from the program, the same numbers that the sky shader reads. */
         Layer(SkyLayer layer, float[] block, int index) {
@@ -268,6 +277,7 @@ public final class SkyGenerator {
             amount = block[SkyProgram.at(index, SkyProgram.AMOUNT)];
             height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
             seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
+            termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
         }
 
         private static float[] slice(float[] block, int from) {
@@ -526,6 +536,7 @@ public final class SkyGenerator {
         });
         if (!ok || !blur(tmp, 6f)) return false;
         float strength = l.amount * 2.5f;
+        if (l.termSlot >= 0 && !rows.run(termH, ty -> termRow(l.termSlot, ty, strength))) return false;
         return rows.run(used, y -> {
             for (int x = 0; x < w; x++) {
                 int i = (y * w + x) * 4;
@@ -533,6 +544,34 @@ public final class SkyGenerator {
                 tmp[i + 3] = 1;
             }
         });
+    }
+
+    /** Writes one row of a term image: the mean of 2 x 2 texels of {@code tmp} times {@code k}, where the unfilled rows are 0. */
+    private void termRow(int slot, int ty, float k) {
+        int base = (slot * termH + ty) * termW * 4;
+        for (int tx = 0; tx < termW; tx++) {
+            for (int c = 0; c < 3; c++) {
+                float sum = 0;
+                for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
+                    if (y >= used) continue;
+                    for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += tmp[(y * w + Math.min(w - 1, x)) * 4 + c];
+                }
+                terms[base + tx * 4 + c] = half(sum / 4 * k);
+            }
+            terms[base + tx * 4 + 3] = half(1);
+        }
+    }
+
+    /** The IEEE half float bits of a value, which is limited to the range from 0 to 65504 and rounded to the nearest half float. */
+    static short half(float v) {
+        int bits = Float.floatToIntBits(Math.max(0f, Math.min(65504f, v)));
+        int exp = (bits >>> 23) - 127 + 15;
+        int mantissa = bits & 0x7FFFFF;
+        if (exp > 0) return (short) (((exp << 10) | (mantissa >> 13)) + ((mantissa >> 12) & 1));
+        // A value below the smallest normal half float is a subnormal: its mantissa with the hidden bit, moved right.
+        if (exp < -10) return 0;
+        int shift = 14 - exp;
+        return (short) (((mantissa | 0x800000) + (1 << (shift - 1))) >> shift);
     }
 
     /** Cells of equal size in degrees in the layer frame, in rows whose cell count follows the width of the sky at their height. */

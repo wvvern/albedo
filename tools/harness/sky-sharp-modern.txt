@@ -1,4 +1,4 @@
-# Dusk, and the generators of Galaxy and Nebula, with the Sharp render on and off at a field of view of 30 and 70, each with the GPU sky compared with the CPU bake and the GPU time of the sharp sky. Run it after scene-modern.txt:
+# Dusk, the generators of Galaxy and Nebula, and the full Galaxy with its bloom, with the Sharp render on and off at a field of view of 30 and 70, each with the GPU sky compared with the CPU bake and the GPU time of the sharp sky. Run it after scene-modern.txt:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots sky-sharp-modern.txt -OutDir build\sky-sharp
 wait 60
 profile minimal
@@ -70,4 +70,18 @@ wait 160
 run tp @p 0 3000 0 -45 -40
 wait 40
 screenshot sharp-11-galaxy-off-fov30
+# The full Galaxy, where the shader adds the glow of the bloom from its term image.
+sky galaxy
+skyrender sharp
+wait 160
+run tp @p 0 3000 0 -45 -40
+wait 40
+screenshot sharp-12-galaxy-bloom-on-fov30
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+screenshot sharp-13-galaxy-bloom-off-fov30
 quit

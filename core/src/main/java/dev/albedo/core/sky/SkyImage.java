@@ -25,19 +25,38 @@ public final class SkyImage {
     /** The mean linear {r, g, b} of each sector from 0 to 6 degrees of elevation, from north toward east. */
     private final float[] ring;
     private final SkyProgram program;
+    private final int termWidth, termHeight;
+    /** The half float RGBA texels of the term images, one under the other in the order of their slots. */
+    private final short[] terms;
     private final long serial = SERIALS.incrementAndGet();
 
-    SkyImage(int[] argb, int width, int height, SkyDesign design, float[] ring, SkyProgram program) {
+    SkyImage(int[] argb, int width, int height, SkyDesign design, float[] ring, SkyProgram program, int termWidth, int termHeight,
+            short[] terms) {
         this.argb = argb;
         this.width = width;
         this.height = height;
         this.design = design;
         this.ring = ring;
         this.program = program;
+        this.termWidth = termWidth;
+        this.termHeight = termHeight;
+        this.terms = terms;
     }
 
     /** The numbers of the design and its horizon colors, for the sky shader. */
     public SkyProgram program() { return program; }
+
+    /**
+     * The term images of {@link SkyProgram#terms} for the sky shader, which have the mapping of this image at half its size, as
+     * IEEE half float RGBA texels row by row, one image under the other; the caller must not change them.
+     */
+    public short[] terms() { return terms; }
+
+    /** The width of each term image. */
+    public int termWidth() { return termWidth; }
+
+    /** The height of each term image. */
+    public int termHeight() { return termHeight; }
 
     /** The pixels, row by row from the top, which the caller must not change. */
     public int[] argb() { return argb; }

@@ -194,8 +194,8 @@ final class ModernHarnessHost implements Harness.Host {
 
     //? if >=26.1 {
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyProgram program, int width, int height, int repeat, File png, Harness.SkyDone done) {
-        return SharpSky.drawEquirect(program, width, height, repeat, png, done);
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        return SharpSky.drawEquirect(sky, width, height, repeat, png, done);
     }
     //?}
 }

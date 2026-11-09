@@ -13,6 +13,7 @@
 #define ALBEDO_KIND_NOISE 4
 #define ALBEDO_KIND_FRACTAL 5
 #define ALBEDO_KIND_GALAXY 6
+#define ALBEDO_KIND_BLOOM 7
 
 #define ALBEDO_BLEND_NORMAL 0
 #define ALBEDO_BLEND_ADD 1
@@ -24,12 +25,15 @@
 #define ALBEDO_USE_SHOW 2
 
 layout(std140) uniform AlbedoSky {
-    // The layer count and the extent (1 for the full sphere).
+    // The layer count, the extent (1 for the full sphere) and the term count.
     vec4 SkyHeader;
     vec4 SkyLayers[ALBEDO_MAX_LAYERS * ALBEDO_LAYER_VEC4S];
     // The linear horizon color of each azimuth sector, from north toward east.
     vec4 SkyRing[ALBEDO_RING];
 };
+
+// The equirectangular term images of the CPU bake in linear light, one under the other in the order of their slots.
+uniform sampler2D AlbedoTerms;
 
 const float ALBEDO_PI = 3.14159265358979;
 // The star grid density per radian at which the star sizes are set.
@@ -293,6 +297,15 @@ vec3 albedoRing(float azimuth) {
     return mix(SkyRing[i0].rgb, SkyRing[i1].rgb, at - base);
 }
 
+// The linear color of a term image in a sky direction, where the rows stop half a texel inside the image of the slot.
+vec3 albedoTerm(int slot, vec3 dir) {
+    float rows = float(textureSize(AlbedoTerms, 0).y);
+    float slotRows = rows / max(1.0, SkyHeader.z);
+    float u = atan(dir.x, -dir.z) / (2.0 * ALBEDO_PI);
+    float y = clamp((0.5 - asin(clamp(dir.y, -1.0, 1.0)) / ALBEDO_PI) * slotRows, 0.5, slotRows - 0.5);
+    return textureLod(AlbedoTerms, vec2(u, (float(slot) * slotRows + y) / rows), 0.0).rgb;
+}
+
 // The linear color of the sky in a unit direction, where the footprint is the width of the pixel in radians.
 vec3 albedoSky(vec3 dir, float footprint) {
     int count = int(SkyHeader.x);
@@ -310,8 +323,15 @@ vec3 albedoSky(vec3 dir, float footprint) {
             vec4 head = albedoLayer(i, 0);
             int use = int(head.z);
             if (use == ALBEDO_USE_NONE) continue;
-            vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
-            vec4 s = albedoGenerate(i, int(head.x), p, footprint);
+            int kind = int(head.x);
+            vec4 s;
+            if (kind == ALBEDO_KIND_BLOOM) {
+                // The term holds only the glow that the bloom adds to the sky below it.
+                s = vec4(img + albedoTerm(int(albedoLayer(i, 3).w), dir), 1.0);
+            } else {
+                vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
+                s = albedoGenerate(i, kind, p, footprint);
+            }
             float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);
             float a = clamp(s.a, 0.0, 1.0);
             maskLight[i] = lightness * a;

@@ -21,6 +21,10 @@ import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.renderpearl.api.pipeline.ShaderSource;
 import com.mojang.renderpearl.api.pipeline.ShaderType;
 import com.mojang.renderpearl.api.pipeline.UniformType;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.dev.Harness;
@@ -114,8 +118,46 @@ final class SharpSky {
         }
     }
 
-    /** The uniform block of the sky shader, in the layout of {@link SkyProgram}. */
-    private static final BindGroupLayout SKY_BLOCK = BindGroupLayout.builder().withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER).build();
+    /** The term images of a sky on the GPU, as one half float texture with the images one under the other. */
+    private static final class Terms implements AutoCloseable {
+        final GpuTexture texture;
+        final GpuTextureView view;
+
+        private Terms(GpuTexture texture, GpuTextureView view) {
+            this.texture = texture;
+            this.view = view;
+        }
+
+        /** Sends the term images of a sky to a new texture, which has one texel of 0 when the sky has no terms. */
+        static Terms upload(SkyImage img, String label) {
+            int count = img.program().terms();
+            int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
+            GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label, GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
+                    GpuFormat.RGBA16_FLOAT, width, height, 1, 1);
+            ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
+            if (count > 0) bytes.asShortBuffer().put(img.terms());
+            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, bytes, 0, 0, 0, 0, width, height);
+            return new Terms(texture, RenderSystem.getDevice().createTextureView(texture));
+        }
+
+        /** Binds the texture to the sampler of the sky shader, with linear filters, and with wrap only around the sky. */
+        void bind(RenderPass pass) {
+            pass.setUniform("AlbedoTerms", view, RenderSystem.getSamplerCache().getSampler(AddressMode.REPEAT, AddressMode.CLAMP_TO_EDGE,
+                    FilterMode.LINEAR, FilterMode.LINEAR, false));
+        }
+
+        @Override
+        public void close() {
+            view.close();
+            texture.close();
+        }
+    }
+
+    /** The uniform block of the sky shader in the layout of {@link SkyProgram}, and its term images. */
+    private static final BindGroupLayout SKY_BLOCK = BindGroupLayout.builder()
+            .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
+            .withUniform("AlbedoTerms", UniformType.COMBINED_IMAGE_SAMPLER)
+            .build();
 
     // The sky on the sphere with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
     private static final Pipeline SHARP = new Pipeline(RenderPipeline.builder()
@@ -146,6 +188,7 @@ final class SharpSky {
             .build());
 
     private static GpuBuffer block;
+    private static Terms terms;
     private static long blockSerial = -1;
     private static Method irisInUse;
     private static Object iris;
@@ -155,14 +198,16 @@ final class SharpSky {
 
     /** True when the image must draw sharp in this frame, before the compile and the upload. */
     private static boolean wanted(SkyImage img) {
-        return img.design().render() == SkyDesign.Render.SHARP && img.program().allPixel() && !shaderPackInUse();
+        return img.design().render() == SkyDesign.Render.SHARP && img.program().drawsSharp() && !shaderPackInUse();
     }
 
-    /** Starts the compile and sends the numbers of a new image to the GPU, before the sky pass opens. */
+    /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
     static void prepare(SkyImage img) {
         if (!wanted(img) || SHARP.get() == null || blockSerial == img.serial()) return;
         if (block != null) block.close();
+        if (terms != null) terms.close();
         block = upload(img.program(), "Albedo sky block");
+        terms = Terms.upload(img, "Albedo sky terms");
         blockSerial = img.serial();
     }
 
@@ -174,6 +219,7 @@ final class SharpSky {
         RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
         pass.setUniform("AlbedoSky", block);
+        terms.bind(pass);
         pass.setVertexBuffer(0, sphere.slice());
         pass.draw(vertexCount, 1, 0, 0);
         pass.popDebugGroup();
@@ -210,16 +256,17 @@ final class SharpSky {
     }
 
     /**
-     * Draws a program {@code repeat} times into an equirectangular image of this size, then gives the pixels and the GPU time
-     * of one draw, and returns false while the shader compiles or when it cannot compile.
+     * Draws the program and the term images of a sky {@code repeat} times into an equirectangular image of this size, then
+     * gives the pixels and the GPU time of one draw, and returns false while the shader compiles or when it cannot compile.
      *
      * @param png a file for the image, or null
      */
-    static boolean drawEquirect(SkyProgram program, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
         CompiledRenderPipeline pipeline = EQUIRECT.get();
         if (pipeline == null) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
-        GpuBuffer uniforms = upload(program, "Albedo sky compare block");
+        GpuBuffer uniforms = upload(sky.program(), "Albedo sky compare block");
+        Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad();
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         GpuQueryPool timer = RenderSystem.getDevice().createTimestampQueryPool(2);
@@ -229,6 +276,7 @@ final class SharpSky {
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", target.getColorTextureView(), Optional.empty())) {
                     pass.setPipeline(pipeline);
                     pass.setUniform("AlbedoSky", uniforms);
+                    skyTerms.bind(pass);
                     pass.setVertexBuffer(0, quad.slice());
                     pass.draw(6, 1, 0, 0);
                 }
@@ -238,6 +286,7 @@ final class SharpSky {
             timer.close();
             target.destroyBuffers();
             uniforms.close();
+            skyTerms.close();
             quad.close();
             throw e;
         }
@@ -260,6 +309,7 @@ final class SharpSky {
             timer.close();
             target.destroyBuffers();
             uniforms.close();
+            skyTerms.close();
             quad.close();
             done.accept(argb, nanos);
         });

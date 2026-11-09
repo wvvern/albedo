@@ -8,6 +8,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +31,7 @@ class SkyProgramTest {
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
             "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
             "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
+            "KIND_BLOOM " + SkyProgram.KIND_BLOOM,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
             "USE_SHOW " + SkyProgram.USE_SHOW};
@@ -37,6 +40,8 @@ class SkyProgramTest {
         assertEquals(4, SkyProgram.MASK_DARK);
         assertEquals(8, SkyProgram.SCALE);
         assertEquals(12, SkyProgram.COLOR_1);
+        assertEquals(15, SkyProgram.TERM_SLOT);
+        assertTrue(glsl.contains("int(albedoLayer(i, 3).w)"), "the term slot is the last value of slot 3");
         assertEquals(20, SkyProgram.LAB_1);
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
@@ -51,20 +56,38 @@ class SkyProgramTest {
     }
 
     @Test
-    void theGeneratorsDrawSharpAndTheFiltersDoNot() {
+    void theGeneratorsAndTheBloomDrawSharpAndTheOtherFiltersDoNot() {
         SkyProgram dusk = SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program();
-        assertTrue(dusk.allPixel());
-        assertFalse(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program().allPixel());
-        assertFalse(SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program().allPixel());
-        SkyDesign generators = SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4));
-        SkyProgram galaxy = SkyGenerator.bake(generators, 64, 32).program();
-        assertTrue(galaxy.allPixel(), "gradient, noise, stars and galaxy");
+        assertTrue(dusk.drawsSharp());
+        assertEquals(0, dusk.terms());
+        assertFalse(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program().drawsSharp());
+        SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
+        assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy and the bloom term");
         assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.at(3, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.at(4, SkyProgram.KIND)]);
+        assertEquals(1, galaxy.terms());
+        assertEquals(1, galaxy.block()[2], "the header has the term count");
+        assertEquals(-1, galaxy.termSlot(3));
+        assertEquals(0, galaxy.termSlot(4));
         for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
-            SkyProgram.Path expected = kind.role() == SkyLayer.Role.GENERATOR ? SkyProgram.Path.PIXEL : SkyProgram.Path.TERM;
+            SkyProgram.Path expected = kind.role() == SkyLayer.Role.GENERATOR ? SkyProgram.Path.PIXEL
+                    : kind == SkyLayer.Kind.BLOOM ? SkyProgram.Path.TERM : SkyProgram.Path.BAKED;
             assertEquals(expected, SkyProgram.path(kind), kind.name());
         }
+    }
+
+    @Test
+    void aBloomAfterTheLastTermSlotIsBaked() {
+        List<SkyLayer> layers = new ArrayList<SkyLayer>();
+        layers.add(SkyLayer.of(1, SkyLayer.Kind.GRADIENT));
+        for (int i = 0; i <= SkyProgram.MAX_TERMS; i++) layers.add(SkyLayer.of(i + 2, SkyLayer.Kind.BLOOM));
+        SkyProgram p = SkyProgram.of(SkyPresets.GALAXY.withLayers(layers), new float[SkyImage.RING * 3]);
+        assertEquals(SkyProgram.MAX_TERMS, p.terms());
+        assertEquals(SkyProgram.MAX_TERMS - 1, p.termSlot(SkyProgram.MAX_TERMS));
+        assertEquals(SkyProgram.Path.BAKED, p.path(SkyProgram.MAX_TERMS + 1));
+        assertEquals(-1, p.termSlot(SkyProgram.MAX_TERMS + 1));
+        assertFalse(p.drawsSharp());
     }
 
     @Test
