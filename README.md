@@ -79,4 +79,4 @@ To build the mod or work on it, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

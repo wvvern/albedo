@@ -5,7 +5,7 @@
   "name": "${mod_name}",
   "description": "Paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.",
   "authors": [],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "environment": "client",
   "entrypoints": {
     "client": ["dev.albedo.fabric.AlbedoFabric"],
