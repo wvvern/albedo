@@ -73,7 +73,12 @@ screenshot p11-export
 ui click Items
 wait 5
 ui click Average
-wait 30
+# A click hides the tooltip until the pointer moves, so move it off and hover again (a wheel step of 0).
+wait 5
+ui pointer off
+wait 5
+ui scroll 0 Average
+wait 40
 screenshot p12-items-tooltip
 ui click Servers
 wait 5
