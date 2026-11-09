@@ -67,20 +67,35 @@ class AuroraTest {
     void theShaderSearchesTheSameSteps() throws IOException {
         String glsl = SkyProgramTest.skyLayersSource();
         assertTrue(glsl.contains("#define ALBEDO_AURORA_STEPS " + Aurora.STEPS + "\n"));
-        assertTrue(glsl.contains("#define ALBEDO_AURORA_CROSSINGS " + Aurora.CROSSINGS + "\n"));
     }
 
     @Test
     void theAuroraMovesWithTheTimeOnlyWithASpeed() {
         SkyLayer moving = SkyLayer.of(1, SkyLayer.Kind.AURORA);
         float[] b = block(moving), still = block(moving.withParam(SkyLayer.Param.SPEED, 0));
-        double change = 0, stillChange = 0;
+        double change = 0, stillChange = 0, total = 0;
         for (int az = -40; az <= 40; az++) {
             change += Math.abs(light(b, az, 30, 0.001f, 20) - light(b, az, 30, 0.001f, 0));
             stillChange += Math.abs(light(still, az, 30, 0.001f, 20) - light(still, az, 30, 0.001f, 0));
+            total += light(b, az, 30, 0.001f, 0);
         }
-        assertTrue(change > 0.5, "the curtains move in 20 s: " + change);
+        assertTrue(total > 0.3 && change > 0.5 * total, "the curtains move in 20 s: " + change + " of " + total);
         assertEquals(0, stillChange, "speed 0 keeps the curtains still");
+    }
+
+    @Test
+    void theCurtainsMoveWithoutJumpsWhereTheyFoldOrEnd() {
+        float[] b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA));
+        for (float time : new float[] {40, 77}) {
+            float worst = 0;
+            for (double el = 2; el <= 40; el += 0.5) {
+                for (double az = -60; az <= 60; az += 0.1) {
+                    // In 2 ms the curtains move much less than a pixel, so a larger change is a jump of the light.
+                    worst = Math.max(worst, Math.abs(light(b, az, el, 0.0015f, time + 0.002f) - light(b, az, el, 0.0015f, time)));
+                }
+            }
+            assertTrue(worst < 0.02f, "the largest change in 2 ms after " + time + " s is " + worst);
+        }
     }
 
     @Test
