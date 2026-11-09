@@ -741,7 +741,7 @@ public final class SkyGenerator {
         }
     }
 
-    private static float smooth(float a, float b, float t) {
+    static float smooth(float a, float b, float t) {
         float x = clamp01((t - a) / (b - a));
         return x * x * (3 - 2 * x);
     }

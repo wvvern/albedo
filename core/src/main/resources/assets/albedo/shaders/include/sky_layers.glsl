@@ -375,11 +375,12 @@ vec3 albedoCurtain(float a, float el, float cosEl, float footprint, float t, flo
 // Aurora.sample: two curtains of light along an arc around the layer center, which move with albedoTime.
 vec4 albedoAurora(int layer, vec3 p, float footprint) {
     float el = degrees(asin(clamp(p.y, -1.0, 1.0)));
-    if (el < -9.0) return vec4(0.0);
+    float cosEl = sqrt(max(0.0, 1.0 - p.y * p.y));
+    // The pole of the layer has no azimuth, and atan of two zeros has no defined value in GLSL.
+    if (el < -9.0 || cosEl < 1e-4) return vec4(0.0);
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
-    float cosEl = sqrt(max(0.0, 1.0 - p.y * p.y));
     float a = atan(p.x, -p.z);
     float t = albedoTime * albedoLayer(layer, 4).w * 2.0;
     float height = 4.0 + 30.0 * values.w;

@@ -1,5 +1,7 @@
 package dev.albedo.core.sky;
 
+import static dev.albedo.core.sky.SkyGenerator.smooth;
+
 /**
  * The aurora generator, which the sky shader repeats in {@code albedoAurora}: two curtains of light along an arc around
  * the layer center, each with a sharp lower edge, rays that go up and fade from COLOR_1 to COLOR_2, a faint blue-violet
@@ -20,7 +22,7 @@ final class Aurora {
     /** The frequency, the size and the speed in radians for each second of the three waves that fold a curtain. */
     private static final float[] FOLD_K = {2.3f, 5.1f, 9.7f}, FOLD_AMP = {0.2f, 0.08f, 0.035f}, FOLD_RATE = {0.03f, -0.05f, 0.08f};
     /** The sum of the fold sizes, which makes the move toward the viewer go from -1 to 1. */
-    private static final float FOLD_SUM = 0.315f;
+    private static final float FOLD_SUM = FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2];
     /** The linear color of the nitrogen glow under the lower edge. */
     private static final float[] VIOLET = {0.16f, 0.05f, 0.5f};
 
@@ -39,27 +41,27 @@ final class Aurora {
         out[1] = 0;
         out[2] = 0;
         out[3] = 0;
-        float el = (float) Math.toDegrees(Math.asin(clamp(p[1], -1, 1)));
-        if (el < -9) return;
+        float el = (float) Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, p[1]))));
         float cosEl = (float) Math.sqrt(Math.max(0, 1 - p[1] * p[1]));
+        // The pole of the layer has no azimuth, and the aurora is never below 9 degrees under the horizon.
+        if (el < -9 || cosEl < 1e-4f) return;
         float a = (float) Math.atan2(p[0], -p[2]);
         float t = time * block[SkyProgram.at(layer, SkyProgram.SPEED)] * 2;
         float height = 4 + 30 * block[SkyProgram.at(layer, SkyProgram.HEIGHT)];
         float scale = block[SkyProgram.at(layer, SkyProgram.SCALE)];
         int seed = (int) block[SkyProgram.at(layer, SkyProgram.SEED)];
-        float[] low = new float[3], high = new float[3];
-        for (int c = 0; c < 3; c++) {
-            low[c] = block[SkyProgram.at(layer, SkyProgram.COLOR_1) + c] * block[SkyProgram.at(layer, SkyProgram.ALPHA_1)];
-            high[c] = block[SkyProgram.at(layer, SkyProgram.COLOR_2) + c] * block[SkyProgram.at(layer, SkyProgram.ALPHA_2)];
-        }
-        float[] e = new float[3];
-        View view = new View(a, el, cosEl, footprint, t, scale, height, low, high);
-        view.curtain(seed, EDGE, 1f, NEAR_SOFT, e);
-        view.curtain(seed + 1, EDGE + FAR_EDGE, FAR_GAIN, FAR_SOFT, e);
+        // The light of COLOR_1, of COLOR_2 and of the violet glow, summed over both curtains.
+        float[] light = new float[3];
+        View view = new View(a, el, cosEl, footprint, t, scale, height);
+        view.curtain(seed, EDGE, 1f, NEAR_SOFT, light);
+        view.curtain(seed + 1, EDGE + FAR_EDGE, FAR_GAIN, FAR_SOFT, light);
         float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2;
+        float alpha1 = block[SkyProgram.at(layer, SkyProgram.ALPHA_1)], alpha2 = block[SkyProgram.at(layer, SkyProgram.ALPHA_2)];
+        float[] e = new float[3];
         float m = 0;
         for (int c = 0; c < 3; c++) {
-            e[c] *= bright;
+            e[c] = bright * (block[SkyProgram.at(layer, SkyProgram.COLOR_1) + c] * alpha1 * light[0]
+                    + block[SkyProgram.at(layer, SkyProgram.COLOR_2) + c] * alpha2 * light[1] + VIOLET[c] * light[2]);
             m = Math.max(m, e[c]);
         }
         if (m <= 0) return;
@@ -73,9 +75,8 @@ final class Aurora {
     /** The values of one direction that both curtains use. */
     private static final class View {
         final float a, el, cosEl, footprint, t, scale, height;
-        final float[] low, high;
 
-        View(float a, float el, float cosEl, float footprint, float t, float scale, float height, float[] low, float[] high) {
+        View(float a, float el, float cosEl, float footprint, float t, float scale, float height) {
             this.a = a;
             this.el = el;
             this.cosEl = cosEl;
@@ -83,12 +84,10 @@ final class Aurora {
             this.t = t;
             this.scale = scale;
             this.height = height;
-            this.low = low;
-            this.high = high;
         }
 
-        /** Adds the light of the curtain of a seed whose lower edge is {@code edge} degrees high at the center. */
-        void curtain(int seed, float edge, float gain, float edgeSoft, float[] e) {
+        /** Adds the three lights of the curtain of a seed whose lower edge is {@code edge} degrees high at the center. */
+        void curtain(int seed, float edge, float gain, float edgeSoft, float[] light) {
             float u = a / scale;
             float env = (float) Math.exp(-(u / 1.25f) * (u / 1.25f)) * (1 - smooth(0.8f * PI, PI, Math.abs(a)));
             if (env < 0.002f) return;
@@ -132,7 +131,9 @@ final class Aurora {
             // Some parts of the arc are bright and some are almost dark.
             float strength = 0.08f + 1.3f * smooth(0.2f, 0.85f, value(along * 2.2f, t * 0.01f, seed + 31));
             float k = gain * env * dense * strength * (1 + 0.3f * near);
-            for (int c = 0; c < 3; c++) e[c] += k * (low[c] * green + high[c] * red + VIOLET[c] * glow);
+            light[0] += k * green;
+            light[1] += k * red;
+            light[2] += k * glow;
         }
     }
 
@@ -146,23 +147,10 @@ final class Aurora {
     static float value(float x, float y, int seed) {
         float fx = (float) Math.floor(x), fy = (float) Math.floor(y);
         int xi = (int) fx, yi = (int) fy;
-        float u = fade(x - fx), v = fade(y - fy);
+        float u = Noise.fade(x - fx), v = Noise.fade(y - fy);
         float a = Noise.unit(Noise.hash(xi, yi, 0, seed)), b = Noise.unit(Noise.hash(xi + 1, yi, 0, seed));
         float c = Noise.unit(Noise.hash(xi, yi + 1, 0, seed)), d = Noise.unit(Noise.hash(xi + 1, yi + 1, 0, seed));
         float top = a + (b - a) * u, bottom = c + (d - c) * u;
         return top + (bottom - top) * v;
-    }
-
-    private static float fade(float t) {
-        return t * t * t * (t * (t * 6 - 15) + 10);
-    }
-
-    private static float smooth(float a, float b, float t) {
-        float x = Math.max(0, Math.min(1, (t - a) / (b - a)));
-        return x * x * (3 - 2 * x);
-    }
-
-    private static float clamp(float v, float lo, float hi) {
-        return v < lo ? lo : v > hi ? hi : v;
     }
 }
