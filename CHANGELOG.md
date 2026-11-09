@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1
+
+- feat: Show sky stars with the colors of real stars, many faint stars and few bright stars
+- feat: Give bright stars a sharp core, a soft glow and thin lines of light
+- feat: Add a Spikes slider to the Stars layer to set the lines of light on bright stars
+- feat: Keep the size of the stars when you change Count in a Stars layer
+- feat: Change the Galaxy preset to a tilted galaxy with dark dust lanes and two blue jets
+- feat: Add Tilt, Dust, Jets and a jet color to the Galaxy layer
+- feat: Show the Nebula stars sharp in all areas of the sky
+- fix: Stop the cut edges on large stars in the sharp sky
+
 ## 0.4.0
 
 - feat: Draw the custom sky sharp at all zoom levels, with stars and clouds that stay smooth on all versions
