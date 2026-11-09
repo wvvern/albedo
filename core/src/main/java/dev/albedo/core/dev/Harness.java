@@ -278,6 +278,7 @@ public final class Harness {
     static Profile withEffects(Profile profile, String[] args) {
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
+        if (!category.hasEdgeEffects()) throw new IllegalArgumentException("only blocks and fluids have effects");
         if (args.length % 2 == 0) throw new IllegalArgumentException("effects <category> [bevel N] [outline N]");
         int bevel = 0, outline = 0;
         for (int i = 1; i < args.length; i += 2) {

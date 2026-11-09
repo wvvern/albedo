@@ -38,11 +38,11 @@ public final class SettingsEditor {
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
     /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
-    /** The sliders under the Effects heading, which only blocks and fluids have. */
-    private static final Form.Slider[] EFFECT_SLIDERS = {
-        new Form.Slider("effects.bevel", "Bevel",
-                "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart."),
-        new Form.Slider("effects.outline", "Outline", "Outline: a line around each block.")};
+    /** The effects under the Effects heading in the order they apply, which only blocks and fluids have. */
+    private static final String[] EFFECT_LABELS = {"Bevel", "Outline"};
+    private static final String[] EFFECT_TIPS = {
+        "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
+        "Outline: a line around each block."};
     private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
     private static final String[] RECOLOR_TIPS = {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
@@ -214,7 +214,7 @@ public final class SettingsEditor {
         for (Category c : CATEGORIES) labelW = Math.max(labelW, ui.width(Labels.members(c)));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
         for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
-        for (Form.Slider s : EFFECT_SLIDERS) labelW = Math.max(labelW, ui.width(s.label) + Form.INDENT);
+        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l) + Form.INDENT);
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -696,21 +696,21 @@ public final class SettingsEditor {
     /** The Effects heading, and under it when it is open the Bevel and Outline sliders. */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
         boolean open = sections.isOpen(EFFECTS);
-        int edgesH = Form.slidersHeight(EFFECT_SLIDERS.length, false);
+        int bodyH = Form.slidersHeight(EFFECT_LABELS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
-            String tip = (open ? "Hide" : "Show") + " the effects: Bevel, Outline";
+            String tip = (open ? "Hide" : "Show") + " the effects: " + String.join(", ", EFFECT_LABELS);
             if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target), open, tip) == open) return false;
             sections = sections.toggled(EFFECTS);
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
-        items.add(Column.of(edgesH, (x, y, w) -> {
+        items.add(Column.of(bodyH, (x, y, w) -> {
             Form form = form(x, w);
-            form.guide(y, edgesH - GAP);
+            form.guide(y, bodyH - GAP);
             int[] e = {target.bevel(), target.outline()};
-            form.indented().rows(EFFECT_SLIDERS, e, y);
+            form.indented().sliders(EFFECTS, "Effects", EFFECT_LABELS, EFFECT_TIPS, e, y, false);
             if (e[0] != target.bevel() || e[1] != target.outline()) setLook(cs, index, target.withEffects(e[0], e[1]));
             return false;
         }));

@@ -6,19 +6,6 @@ final class Form {
     static final int INDENT = 8;
     private static final int GAP = 6;
 
-    /** A labelled percent slider on its own row, with an id that does not change when other rows come or go. */
-    static final class Slider {
-        final String id;
-        final String label;
-        final String tip;
-
-        Slider(String id, String label, String tip) {
-            this.id = id;
-            this.label = label;
-            this.tip = tip;
-        }
-    }
-
     private final Ui ui;
     private final int x, w, labelW;
 
@@ -56,13 +43,13 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
-    /** The height of {@link #sliders} or {@link #rows} for {@code n} slider rows, the gap below them included. */
+    /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
     static int slidersHeight(int n, boolean oneRow) {
         return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
     }
 
-    /** The height of {@code n} sliders on their own rows, with the small gap after each but not the gap below a group. */
-    static int rowsHeight(int n) {
+    /** The height of {@code n} sliders on their own rows, without the gap after the last. */
+    private static int rowsHeight(int n) {
         return n * (Ui.SLIDER_H + 3);
     }
 
@@ -90,18 +77,5 @@ final class Form {
             values[i] = ui.slider(id + "." + i, sx + nameW, y, sw - nameW, values[i], tips[i]);
         }
         return y + slidersHeight(n, true);
-    }
-
-    /**
-     * Sliders on their own rows, which change {@code values} in place.
-     *
-     * @return the y below the last row
-     */
-    int rows(Slider[] sliders, int[] values, int y) {
-        for (int i = 0; i < sliders.length; i++) {
-            Slider s = sliders[i];
-            values[i] = slider(s.id, y + rowsHeight(i), s.label, s.tip, values[i]);
-        }
-        return y + rowsHeight(sliders.length);
     }
 }

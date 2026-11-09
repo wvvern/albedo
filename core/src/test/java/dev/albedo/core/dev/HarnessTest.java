@@ -67,6 +67,7 @@ class HarnessTest {
         p = Harness.withEffects(p, "blocks outline 70".split(" "));
         assertEquals(before.withEffects(0, 70), p.get(Category.BLOCKS).appearance());
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks chroma 5".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "items bevel 5".split(" ")));
     }
 
     @Test
