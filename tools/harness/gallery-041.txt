@@ -1,9 +1,11 @@
-# Store page images for 0.4.1, all with a level camera: a split of vanilla, the Aurora sky and quake-white, the turning
-# Galaxy, the Nebula, the sky editor, Bevel and Outline, and the minimal profile. Run it after scene-modern.txt:
+# Store page images for 0.4.1, all with a level camera: a split of vanilla, the turned Galaxy and quake-white, the star
+# trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and the minimal profile. Run it after
+# scene-modern.txt:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery-041.txt -GuiScale 2 -OutDir build\gallery-041
 # Then put the three split shots side by side and frame all images with tools/gallery.py.
 wait 60
-run gamerule doMobSpawning false
+# 26.3 has no gamerule doMobSpawning, so peaceful keeps monsters off the horizon at night.
+run difficulty peaceful
 # A lantern in place of the torch and water in place of the lava, because their smoke drifts through the sky.
 run setblock 0 -59 -6 lantern
 run fill 4 -61 -4 6 -61 -3 water
@@ -34,7 +36,8 @@ run setblock 9 -59 -6 sponge
 run setblock 10 -59 -6 yellow_wool
 run setblock 11 -59 -6 redstone_block
 run setblock 12 -59 -6 note_block
-# The mobs of each set have the tag g, so that a kill command can remove the animals of new chunks and keep them.
+# The mobs of each set have the tag g, so that a command can remove the animals of new chunks and keep them. The command
+# moves the animals into the void: a kill leaves death clouds and dropped items, which show as specks on the horizon.
 run kill @e[type=!player]
 # One mob in each outer strip of the split and two in the middle strip, away from the lines.
 run summon pig -3.2 -60 -1 {NoAI:1b,Rotation:[0f,0f],Tags:["g"]}
@@ -192,77 +195,99 @@ run setblock 8 -59 58 lantern
 run setblock 8 -59 63 lantern
 run summon cow 10.5 -60 56.5 {NoAI:1b,Rotation:[110f,0f],Tags:["g"]}
 run summon sheep 10.8 -60 65.2 {NoAI:1b,Color:0,Rotation:[70f,0f],Tags:["g"]}
-# 1. The split: the same view in the same session, with vanilla, the minimal profile with the Aurora sky and quake-white.
+# 1. The split: the same view in the same session, with vanilla, the minimal profile with the Galaxy sky and quake-white.
+# With the pole at 75 degrees, the Galaxy turns through the north, and at the time 9000 it is in the middle strip.
 fov 70
+run time set 9000
 run tp @p 0.5 -60 4.5 180 -6
 wait 100
-run kill @e[type=!player,tag=!g]
+run tp @e[type=!player,tag=!g] 0 -300 0
 mod off
 wait 160
-run kill @e[type=!player,tag=!g]
-wait 10
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
 screenshot g01-split-vanilla
 profile minimal
-sky aurora
+sky galaxy
+skyturn 100 height 75
 wait 200
-screenshot g01-split-aurora
+run time set 9000
+wait 20
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g01-split-galaxy
 profile quake-white
 wait 200
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
 screenshot g01-split-white
-# 2. The Galaxy turns with the time of the world, and in the night it rises in the east.
+# 2. The star trails of the Trails preset over the shops at night, with the pole in the north.
+profile minimal
+sky trails
+run time set 18000
+fov 85
+run tp @p -39.5 -60 10.5 180 0
+wait 300
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 20
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g02-trails
+fov 70
+# 3. The Galaxy turns with the time of the world, and in the night it rises in the east.
 profile minimal
 sky galaxy
 skyturn 100
 run tp @p 0.5 -60 60.5 -90 -10
 wait 100
-run kill @e[type=!player,tag=!g]
+run tp @e[type=!player,tag=!g] 0 -300 0
 run time set 15500
 wait 160
 run time set 15500
-run kill @e[type=!player,tag=!g]
-wait 20
-screenshot g02-galaxy
-# 3. The Nebula over the cottage at night.
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g03-galaxy
+# 4. The Nebula over the cottage at night.
 sky nebula
 run time set 18000
 run tp @p 40.5 -60 15.5 180 -10
 wait 100
-run kill @e[type=!player,tag=!g]
+run tp @e[type=!player,tag=!g] 0 -300 0
 wait 160
-run kill @e[type=!player,tag=!g]
-wait 10
-screenshot g03-nebula
-# 4. The sky editor with the layers of the Aurora and the preview.
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g04-nebula
+# 5. The sky editor with the layers of the Galaxy and the preview.
 run time set 6000
-sky aurora
+sky galaxy
 run tp @p 0.5 -60 4.5 180 -8
 wait 160
-run kill @e[type=!player,tag=!g]
+run tp @e[type=!player,tag=!g] 0 -300 0
 settings open
 wait 20
 ui click Sky
 wait 60
 ui pointer off
 wait 10
-screenshot g04-sky-editor
+screenshot g05-sky-editor
 settings close
 wait 10
-# 5. Bevel and Outline on the quake-black profile.
+# 6. Bevel and Outline on the quake-black profile.
 profile quake-black
 effects blocks bevel 50 outline 50
 run tp @p 40.5 -60 15.5 180 -4
 wait 200
-run kill @e[type=!player,tag=!g]
-wait 10
-screenshot g05-bevel-outline
-# 6. The minimal profile on the shops.
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g06-bevel-outline
+# 7. The minimal profile on the shops.
 profile minimal
 sky off
 run tp @p -39.5 -60 10.5 180 -4
 wait 100
-run kill @e[type=!player,tag=!g]
+run tp @e[type=!player,tag=!g] 0 -300 0
 wait 160
-run kill @e[type=!player,tag=!g]
-wait 10
-screenshot g06-minimal
+run tp @e[type=!player,tag=!g] 0 -300 0
+wait 3
+screenshot g07-minimal
 quit
