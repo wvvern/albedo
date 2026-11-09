@@ -6,17 +6,21 @@ import dev.albedo.core.Colors;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
+import dev.albedo.core.sky.SkyClock;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMeteors;
 import dev.albedo.core.sky.SkyPresets;
+import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.ui.SettingsEditor;
 
 import java.io.File;
@@ -76,22 +80,26 @@ public final class Harness {
         void showTexture(String id);
 
         /**
-         * Mutes sound, disables the narrator and keeps the game running without focus, and must be cheap because it
-         * runs every tick.
+         * Mutes sound, disables the narrator, keeps the game running without focus and keeps the camera where the harness
+         * aims it, and must be cheap because it runs every tick.
          */
         void quiet();
 
         /** Sets the field of view in degrees, in the range of the game option. */
         void setFov(int degrees);
 
+        /** Turns the camera of the player at once to a yaw and a pitch in degrees, with no command to the server. */
+        void look(float yaw, float pitch);
+
         /**
          * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
          * equirectangular image of this size, and later gives its pixels and the GPU time of one draw to {@code done}.
          *
+         * @param time the time in seconds of the layers that move, or {@link SkyProgram#STILL}
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, int width, int height, int repeat, File png, SkyDone done) {
+        default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, File png, SkyDone done) {
             return false;
         }
     }
@@ -108,6 +116,8 @@ public final class Harness {
     private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
     /** The ticks that a sky command waits for the shader to compile. */
     private static final int SKY_TRIES = 200;
+    /** The lowest elevation in degrees of the meteor that {@code meteor} looks at. */
+    private static final int METEOR_ELEVATION = 30;
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
 
@@ -206,8 +216,13 @@ public final class Harness {
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
+        else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
+        else if (verb.equals("skyturn")) sc.apply(config.withProfile(withSkyTurning(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
+        else if (verb.equals("skyclock")) skyClock(arg);
+        else if (verb.equals("skypartial")) skyPartial(arg);
+        else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
@@ -275,32 +290,21 @@ public final class Harness {
         return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
     }
 
-    /**
-     * Sets the effects of a category's look from
-     * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]}, where a missing
-     * effect is off and a missing Chroma option has its default.
-     */
+    /** Sets the effects of a category's look from {@code <category> [bevel N] [outline N]}, where a missing effect is off. */
     static Profile withEffects(Profile profile, String[] args) {
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
-        if (args.length % 2 == 0) {
-            throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]");
-        }
-        int bevel = 0, outline = 0, chroma = 0;
-        int speed = Chroma.DEFAULT_SPEED, saturation = Chroma.DEFAULT_SATURATION, brightness = Chroma.DEFAULT_BRIGHTNESS;
+        if (!category.hasEdgeEffects()) throw new IllegalArgumentException("only blocks and fluids have effects");
+        if (args.length % 2 == 0) throw new IllegalArgumentException("effects <category> [bevel N] [outline N]");
+        int bevel = 0, outline = 0;
         for (int i = 1; i < args.length; i += 2) {
             int value = Integer.parseInt(args[i + 1]);
             if (args[i].equals("bevel")) bevel = value;
             else if (args[i].equals("outline")) outline = value;
-            else if (args[i].equals("chroma")) chroma = value;
-            else if (args[i].equals("speed")) speed = value;
-            else if (args[i].equals("saturation")) saturation = value;
-            else if (args[i].equals("brightness")) brightness = value;
             else throw new IllegalArgumentException("unknown effect: " + args[i]);
         }
         CategorySettings settings = profile.get(category);
-        Chroma c = new Chroma(chroma, speed, saturation, brightness);
-        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, c)));
+        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline)));
     }
 
     /**
@@ -340,6 +344,35 @@ public final class Harness {
         return profile.with(Category.SKY, sky.withSky(sky.sky().withRender(r)));
     }
 
+    /** Sets the extent of the custom sky to {@code sphere} ("Full sphere" on) or {@code horizon} (off). */
+    static Profile withSkyExtent(Profile profile, String extent) {
+        CategorySettings sky = profile.get(Category.SKY);
+        SkyDesign.Extent e = SkyDesign.Extent.valueOf(extent.trim().toUpperCase(Locale.ROOT));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withExtent(e)));
+    }
+
+    /**
+     * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]},
+     * where a missing option keeps its default ({@code skyturn 100 speed 10 trails 45 real}).
+     */
+    static Profile withSkyTurning(Profile profile, String[] args) {
+        SkyTurning t = SkyTurning.NONE.withAmount(Integer.parseInt(args[0]));
+        for (int i = 1; i < args.length; i++) {
+            if (args[i].equals("reverse")) t = t.withDirection(SkyTurning.Direction.REVERSE);
+            else if (args[i].equals("real")) t = t.withClock(SkyTurning.Clock.REAL);
+            else if (i + 1 >= args.length) {
+                throw new IllegalArgumentException("skyturn <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]");
+            } else if (args[i].equals("speed")) t = t.withSpeed(Integer.parseInt(args[++i]));
+            else if (args[i].equals("height")) t = t.withPoleHeight(Integer.parseInt(args[++i]));
+            else if (args[i].equals("pole")) t = t.withPole(Integer.parseInt(args[++i]));
+            else if (args[i].equals("trails")) t = t.withTrails(Integer.parseInt(args[++i]));
+            else if (args[i].equals("light")) t = t.withTrailLight(Integer.parseInt(args[++i]));
+            else throw new IllegalArgumentException("unknown skyturn option: " + args[i]);
+        }
+        CategorySettings sky = profile.get(Category.SKY);
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withTurning(t)));
+    }
+
     /**
      * Bakes the current sky design on the CPU, draws the same program with the sharp sky shader, and logs how far apart
      * the two images are; while the shader compiles, it runs again on the next tick.
@@ -352,7 +385,7 @@ public final class Harness {
         }
         if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
         SkyImage cpu = compareCpu;
-        boolean started = host.drawSharpSky(cpu, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
+        boolean started = host.drawSharpSky(cpu, SkyProgram.STILL, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
             double[] d = difference(cpu.argb(), gpu);
             log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H, d[0], d[1], d[2],
                     d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
@@ -367,9 +400,46 @@ public final class Harness {
             log("! skytime: the sky is not a custom sky that the shader can draw");
             return;
         }
-        boolean started = host.drawSharpSky(world, TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
-                log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
+        boolean started = host.drawSharpSky(world, SkyClock.seconds(), TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
+                log(nanos < 0 ? "! skytime: the GPU gave no time"
+                        : String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
         if (!started) again("skytime", tries);
+    }
+
+    /**
+     * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
+     * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
+     */
+    private static void skyClock(String arg) {
+        if (arg.equals("run")) SkyClock.run();
+        else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
+        else SkyClock.hold(Float.parseFloat(arg));
+    }
+
+    /** Holds the frames at a partial tick between the last two ticks ({@code skypartial 0.5}), or lets them move ({@code skypartial run}). */
+    private static void skyPartial(String arg) {
+        if (arg.equals("run")) SkyDayTime.run();
+        else SkyDayTime.hold(Float.parseFloat(arg));
+    }
+
+    /**
+     * Holds the clock at the next meteor of the world sky that is at its brightest above an elevation in degrees, and
+     * turns the camera to its head, so that a screenshot shows a meteor in flight.
+     */
+    private void meteor(int elevation) {
+        SkyImage world = Albedo.skyImage();
+        float[] peak = world == null ? null : SkyMeteors.nextPeak(world.program(), SkyClock.seconds(), elevation);
+        if (peak == null) {
+            log("! meteor: the sky has no meteors");
+            return;
+        }
+        SkyClock.hold(peak[0]);
+        // The camera yaw is 0 to the south and 90 to the west, and a negative pitch looks up.
+        double yaw = Math.toDegrees(Math.atan2(peak[1], -peak[3])) + 180;
+        double pitch = -Math.toDegrees(Math.asin(peak[2]));
+        log(String.format(Locale.ROOT, "meteor at %.3f s, yaw %.1f, pitch %.1f", peak[0], yaw, pitch));
+        // A tp command with a relative place does not turn a falling player on 1.8.9, so the client turns the camera.
+        host.look((float) yaw, (float) pitch);
     }
 
     /** Runs a sky command again on the next tick, until no tries are left. */

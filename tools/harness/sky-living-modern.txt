@@ -1,0 +1,59 @@
+# The twinkle of the stars and the pulse of the clouds: Nebula and Galaxy at a field of view of 30 with the sky clock held at times some seconds apart, the GPU sky compared with the CPU bake at time 0, and the GPU time of the sharp sky of each preset. Run it after scene-modern.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots sky-living-modern.txt -OutDir build\sky-living
+wait 60
+profile minimal
+run time set 18000
+wait 40
+sky nebula
+wait 160
+fov 30
+run tp @p 0 3000 0 135.4 -42.9
+wait 40
+skyclock 0
+wait 10
+screenshot living-01-nebula-0s
+skyclock 0.3
+wait 10
+screenshot living-02-nebula-0.3s
+skyclock 6
+wait 10
+screenshot living-03-nebula-6s
+skyclock 12
+wait 10
+screenshot living-04-nebula-12s
+skycompare
+wait 40
+skytime
+wait 40
+# Stars near the horizon twinkle more than stars high in the sky.
+sky galaxy
+wait 160
+run tp @p 0 3000 0 90 -4
+wait 40
+skyclock 0
+wait 10
+screenshot living-05-galaxy-low-0s
+skyclock 0.3
+wait 10
+screenshot living-06-galaxy-low-0.3s
+skyclock 2
+wait 10
+screenshot living-07-galaxy-low-2s
+skycompare
+wait 40
+skytime
+wait 40
+sky meteors
+wait 160
+skytime
+wait 40
+sky aurora
+wait 160
+skytime
+wait 40
+sky dusk
+wait 160
+skytime
+wait 40
+skyclock run
+quit

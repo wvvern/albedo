@@ -41,7 +41,7 @@ final class Noise {
         }
     }
 
-    private static float fade(float t) {
+    static float fade(float t) {
         return t * t * t * (t * (t * 6 - 15) + 10);
     }
 
@@ -64,14 +64,27 @@ final class Noise {
 
     /** Fractal sum of {@code octaves} noise layers, each at twice the frequency and half the weight, from about -1 to 1. */
     static float fbm(float x, float y, float z, int seed, int octaves) {
-        float sum = 0, amp = 1, norm = 0;
+        return fbmSoft(x, y, z, seed, octaves, 0);
+    }
+
+    /**
+     * {@link #fbm} where each octave fades out as its cell comes near the size of a pixel, so that it does not alias.
+     *
+     * @param footprint the width of one pixel in noise units at the first octave
+     */
+    static float fbmSoft(float x, float y, float z, int seed, int octaves, float footprint) {
+        // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
+        float sum = 0, amp = 1, norm = 2 - 2 * (float) Math.pow(0.5, octaves), f = footprint;
         for (int o = 0; o < octaves; o++) {
-            sum += noise(x, y, z, seed + o * 1013) * amp;
-            norm += amp;
+            float t = Math.max(0f, Math.min(1f, (f - 0.25f) / 0.25f));
+            // Each finer octave has a larger footprint, so all octaves from here are gone.
+            if (t >= 1) break;
+            sum += noise(x, y, z, seed + o * 1013) * amp * (1 - t * t * (3 - 2 * t));
             amp *= 0.5f;
             x *= 2.03f;
             y *= 2.03f;
             z *= 2.03f;
+            f *= 2.03f;
         }
         return sum / norm * 1.6f;
     }

@@ -28,11 +28,6 @@ class LayoutTest {
     private static final int WHITE = 0xFFFFFFFF;
     private static final int RED = 0xFFFF0000;
 
-    /** Paints with still Chroma colors. */
-    static boolean paint(Layout layout, List<Appearance> looks, PixelBuffer img) {
-        return layout.paint(looks, new int[looks.size()], img);
-    }
-
     static Layout sheet(String location) {
         Layout layout = Layout.of(location);
         assertFalse(layout.tiles().isEmpty(), location + " is a sheet");
@@ -150,7 +145,7 @@ class LayoutTest {
             Layout layout = sheet(PARTICLES);
             PixelBuffer.Heap img = cells(size, size);
             Policy policy = particles(Appearance.solid(WHITE), group("flame", Appearance.solid(RED)));
-            assertTrue(paint(layout, layout.looks(policy), img));
+            assertTrue(layout.paint(layout.looks(policy), img));
             assertEquals(RED, at(img, 0, 3), "flame");
             assertEquals(WHITE, at(img, 1, 3), "lava takes the category look");
             assertEquals(WHITE, at(img, 0, 1), "a cell outside the tiles takes the look of the sheet");
@@ -162,7 +157,7 @@ class LayoutTest {
         Layout layout = sheet(PARTICLES);
         PixelBuffer.Heap img = cells(128, 128);
         Policy policy = particles(Appearance.of(Appearance.Mode.HIDDEN), group("heart", Appearance.ORIGINAL));
-        paint(layout, layout.looks(policy), img);
+        layout.paint(layout.looks(policy), img);
         assertEquals(cellColor(0, 5), at(img, 0, 5));
         assertEquals(0, at(img, 1, 5) >>> 24, "the angry villager is hidden");
     }
@@ -172,7 +167,7 @@ class LayoutTest {
         Layout layout = sheet(PARTICLES);
         PixelBuffer.Heap img = cells(128, 128);
         Policy policy = particles(Appearance.of(Appearance.Mode.AVERAGE), group("note", Appearance.solid(0xFF0000FF)));
-        paint(layout, layout.looks(policy), img);
+        layout.paint(layout.looks(policy), img);
         assertEquals(cellColor(0, 3), at(img, 0, 3), "the average of one uniform cell is its color");
         assertEquals(0xFF0000FF, at(img, 0, 4), "the group of the note tile gives its own look");
         int[] averages = layout.averages(cells(128, 128));
@@ -186,11 +181,11 @@ class LayoutTest {
         Policy policy = particles(Appearance.solid(WHITE), group("flame", Appearance.solid(RED)));
         for (int[] size : new int[][]{{1, 1}, {8, 8}, {100, 60}, {128, 256}}) {
             PixelBuffer.Heap img = cells(size[0], size[1]);
-            paint(layout, layout.looks(policy), img);
+            layout.paint(layout.looks(policy), img);
             assertNotNull(layout.averages(img));
         }
         PixelBuffer.Heap tall = cells(128, 256);
-        paint(layout, layout.looks(policy), tall);
+        layout.paint(layout.looks(policy), tall);
         assertEquals(RED, at(tall, 0, 3), "a sheet that is not square keeps the same grid");
     }
 
@@ -199,7 +194,7 @@ class LayoutTest {
         Layout layout = sheet(PARTICLES);
         PixelBuffer.Heap img = cells(128, 128);
         Policy policy = particles(Appearance.solid(WHITE), group("flame", Appearance.solid(0xFF00FF00)), group("particles", Appearance.solid(RED)));
-        paint(layout, layout.looks(policy), img);
+        layout.paint(layout.looks(policy), img);
         assertEquals(0xFF00FF00, at(img, 0, 3), "the group of the tile wins");
         assertEquals(RED, at(img, 1, 3), "lava takes the group of the sheet");
         assertEquals(RED, at(img, 0, 1), "so do the cells outside the tiles");
@@ -214,14 +209,14 @@ class LayoutTest {
         CategorySettings red = new CategorySettings(Appearance.solid(RED), false, Collections.<Rule>emptyList());
         Policy mobs = Policy.of(c.withProfile(c.activeProfile().with(Category.ENTITIES, red)));
         assertEquals(Appearance.ORIGINAL, layout.looks(mobs).get(0));
-        assertFalse(paint(layout, layout.looks(mobs), cells(128, 128)), "the Entities look does not reach the explosion");
+        assertFalse(layout.paint(layout.looks(mobs), cells(128, 128)), "the Entities look does not reach the explosion");
     }
 
     @Test
     void withTheModOffNothingChanges() {
         Layout layout = sheet(PARTICLES);
         PixelBuffer.Heap img = cells(128, 128);
-        assertFalse(paint(layout, layout.looks(Policy.DISABLED), img));
+        assertFalse(layout.paint(layout.looks(Policy.DISABLED), img));
         assertArrayEquals(cells(128, 128).argb(), img.argb());
     }
 
@@ -233,7 +228,7 @@ class LayoutTest {
         PixelBuffer.Heap img = cells(16, 16), expected = cells(16, 16);
         Appearance white = Appearance.solid(WHITE);
         List<Appearance> looks = Collections.singletonList(white);
-        paint(layout, looks, img);
+        layout.paint(looks, img);
         PixelTransformer.apply(white, expected);
         assertArrayEquals(expected.argb(), img.argb());
     }

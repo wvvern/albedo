@@ -2,8 +2,11 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.legacy.mixin.MinecraftAccessor;
 import dev.albedo.core.sky.SkyLight;
+import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
@@ -11,10 +14,14 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+
+import java.nio.FloatBuffer;
 
 /**
  * Draws the custom sky on a sphere in place of the 1.8.9 sky disc, with {@link LegacySharpSky} when it can, else from
@@ -26,12 +33,15 @@ public final class LegacySky {
     private static long uploaded = -1;
     /** The display list of the sphere, or -1 before the first draw. */
     private static int sphere = -1;
+    /** The matrix of a turning sky for the GL, which each frame fills again. */
+    private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
 
     private LegacySky() {}
 
-    /** The custom sky to draw, or null; OptiFine changes the sky renderer, so the custom sky is off with it. */
+    /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack). */
     public static SkyImage image() {
-        return MixinPlugin.optiFine() ? null : Albedo.skyImage();
+        SkyImage img = Albedo.skyImage();
+        return img == null || !LegacySkyPatch.hooked() || !OptiFine.drawsSky() ? null : img;
     }
 
     public static boolean active() {
@@ -56,7 +66,20 @@ public final class LegacySky {
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         World world = Minecraft.getMinecraft().theWorld;
         if (img == null || view == null || world == null || !world.provider.isSurfaceWorld()) return null;
-        return img.fogRgb(view.rotationYaw, brightness(img));
+        return img.fogRgb(turn(img), view.rotationYaw, brightness(img));
+    }
+
+    /** Records the day time at the end of each client tick, for the frames until the next tick. */
+    static void tick() {
+        World world = Minecraft.getMinecraft().theWorld;
+        if (world != null) SkyDayTime.tick(world.getWorldTime());
+    }
+
+    /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
+    private static SkyTurn turn(SkyImage img) {
+        Minecraft mc = Minecraft.getMinecraft();
+        float partialTick = ((MinecraftAccessor) mc).albedo$timer().renderPartialTicks;
+        return SkyTurn.at(img.design().turning(), mc.theWorld == null ? 0 : SkyDayTime.at(partialTick));
     }
 
     /**
@@ -64,23 +87,32 @@ public final class LegacySky {
      *
      * @return false when there is no custom sky, so that the vanilla disc draws
      */
-    public static boolean draw() {
+    private static boolean draw() {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);
         LegacySharpSky.prepare(img);
         float k = brightness(img);
-        if (LegacySharpSky.draw(img, sphere, k)) return true;
-        GlStateManager.enableTexture2D();
-        GlStateManager.disableFog();
-        GlStateManager.disableCull();
-        GlStateManager.color(k, k, k, 1f);
-        GlStateManager.bindTexture(texture.getGlTextureId());
-        GlStateManager.callList(sphere);
-        GlStateManager.enableCull();
-        GlStateManager.enableFog();
-        GlStateManager.disableTexture2D();
-        GlStateManager.color(1f, 1f, 1f, 1f);
+        SkyTurn turn = turn(img);
+        GlStateManager.pushMatrix();
+        if (!turn.still()) {
+            TURN.clear();
+            TURN.put(turn.matrix()).flip();
+            GL11.glMultMatrix(TURN);
+        }
+        if (!LegacySharpSky.draw(img, sphere, k)) {
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableFog();
+            GlStateManager.disableCull();
+            GlStateManager.color(k, k, k, 1f);
+            GlStateManager.bindTexture(texture.getGlTextureId());
+            GlStateManager.callList(sphere);
+            GlStateManager.enableCull();
+            GlStateManager.enableFog();
+            GlStateManager.disableTexture2D();
+            GlStateManager.color(1f, 1f, 1f, 1f);
+        }
+        GlStateManager.popMatrix();
         return true;
     }
 
@@ -113,9 +145,44 @@ public final class LegacySky {
         }
     }
 
-    /** Ends a mesh that vanilla built for a draw that the custom sky leaves out, so that the next mesh can start. */
-    public static void discard(Tessellator tessellator) {
+    /** Draws the sky disc of renderSky, or the custom sky in its place. */
+    public static void drawSky(VertexBuffer buffer, int mode) {
+        if (!draw()) buffer.drawArrays(mode);
+    }
+
+    public static void drawSky(int list) {
+        if (!draw()) GlStateManager.callList(list);
+    }
+
+    public static void drawStars(VertexBuffer buffer, int mode) {
+        if (!hidesStars()) buffer.drawArrays(mode);
+    }
+
+    public static void drawStars(int list) {
+        if (!hidesStars()) GlStateManager.callList(list);
+    }
+
+    /** Draws a dark disc below the horizon, which the custom sky leaves out. */
+    public static void drawDark(VertexBuffer buffer, int mode) {
+        if (!active()) buffer.drawArrays(mode);
+    }
+
+    public static void drawDark(int list) {
+        if (!active()) GlStateManager.callList(list);
+    }
+
+    /** Draws the sunrise fan or the box below the horizon, or ends the mesh when the custom sky leaves it out. */
+    public static void drawMesh(Tessellator tessellator) {
+        if (!active()) {
+            tessellator.draw();
+            return;
+        }
         tessellator.getWorldRenderer().finishDrawing();
         tessellator.getWorldRenderer().reset();
+    }
+
+    /** Whether the sky of an OptiFine resource pack hides the stars, which it does not when the custom sky replaces it. */
+    public static boolean customSkyLayers(boolean layers) {
+        return layers && !active();
     }
 }

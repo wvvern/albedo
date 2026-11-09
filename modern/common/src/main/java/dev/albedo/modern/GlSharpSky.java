@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -117,10 +118,10 @@ final class GlSharpSky {
             Albedo.get().platform().info("Compiled the sharp sky shader " + name);
         }
 
-        // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
-        void use(Block block, int termTexture, float brightness) {
+        // Puts the program in use with the numbers of a sky, the time of the layers that move, its term texture on unit 0 and a brightness.
+        void use(Block block, float time, int termTexture, float brightness) {
             GlStateManager._glUseProgram(id);
-            GL20.glUniform4fv(header, block.header);
+            GL20.glUniform4f(header, block.header[0], block.header[1], block.header[2], time);
             GL20.glUniform4fv(layers, block.layers);
             GL20.glUniform4fv(ring, block.ring);
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
@@ -151,7 +152,7 @@ final class GlSharpSky {
     // Draws the image sharp on the sphere and returns true, or returns false when the baked texture must draw it.
     static boolean draw(SkyImage img, VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
         if (!ModernSky.wantsSharp(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, termTexture, brightness);
+        SHARP.use(block, SkyClock.seconds(), termTexture, brightness);
         GL20.glUniformMatrix4fv(SHARP.modelView, false, modelView.get(new float[16]));
         GL20.glUniformMatrix4fv(SHARP.projection, false, projection.get(new float[16]));
         RenderSystem.disableCull();
@@ -209,7 +210,7 @@ final class GlSharpSky {
 
     // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives
     // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
-    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         int texture = uploadTerms(sky);
         VertexBuffer quad = quad();
@@ -218,7 +219,7 @@ final class GlSharpSky {
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
-        EQUIRECT.use(new Block(sky.program()), texture, 1f);
+        EQUIRECT.use(new Block(sky.program()), time, texture, 1f);
         boolean timed = GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);

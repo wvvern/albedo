@@ -35,6 +35,21 @@ class SkyCodecTest {
     }
 
     @Test
+    void anOldGalaxyLayerLoadsWithTheDefaultsOfTheNewValues() {
+        String json = "{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\","
+                + " \"color1\": \"#9FB4FF\", \"color2\": \"#FFE7B0\", \"amount\": 55, \"seed\": 4}]}}}}";
+        SkyLayer l = ConfigCodec.decode(json).profiles().get("night").get(Category.SKY).sky().layers().get(0);
+        for (SkyLayer.Param p : new SkyLayer.Param[]{SkyLayer.Param.COLOR_3, SkyLayer.Param.TILT, SkyLayer.Param.DUST, SkyLayer.Param.JETS}) {
+            assertEquals(SkyLayer.Kind.GALAXY.defaultValue(p), l.param(p), p.key);
+        }
+        assertEquals(55, l.param(SkyLayer.Param.AMOUNT));
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\", \"tilt\": 91}]}")
+                .endsWith("tilt: use a whole number from 0 to 90"));
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"jets\": 50}]}")
+                .contains("'jets' has no meaning for stars"));
+    }
+
+    @Test
     void aFileWithoutLayersIsWrittenAsBefore() {
         Config c = withSky(CategorySettings.UNTOUCHED.withAppearance(Appearance.solid(0xFF203040)));
         String text = ConfigCodec.encode(c);
@@ -71,6 +86,59 @@ class SkyCodecTest {
     }
 
     @Test
+    void theTurningIsWrittenOnlyWhenItIsNotTheDefaultAndAnOldFileLoadsStill() {
+        SkyDesign still = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        assertFalse(ConfigCodec.encode(withSky(layers(still))).contains("turning"));
+        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
+                + "[{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(SkyTurning.NONE, old.turning(), "a file from before turning loads with a still sky");
+
+        SkyDesign turning = still.withTurning(new SkyTurning(40, 3, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.REVERSE, 270));
+        Config c = withSky(layers(turning));
+        String text = ConfigCodec.encode(c);
+        assertTrue(text.contains("\"amount\": 40") && text.contains("\"clock\": \"real\"") && text.contains("\"pole\": 270"), text);
+        assertEquals(turning, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        String amountOnly = ConfigCodec.encode(withSky(layers(still.withTurning(SkyTurning.NONE.withAmount(30)))));
+        assertTrue(amountOnly.contains("\"turning\": {\n          \"amount\": 30\n        },"), "only the values that differ: " + amountOnly);
+
+        assertEquals("night.sky.turning.height: use a whole number from 0 to 90",
+                error("{\"mode\": \"layers\", \"turning\": {\"height\": 91}, \"layers\": []}"));
+        assertEquals("night.sky.turning.clock: use one of [world, real]",
+                error("{\"mode\": \"layers\", \"turning\": {\"clock\": \"moon\"}, \"layers\": []}"));
+        assertTrue(error("{\"mode\": \"layers\", \"turning\": {\"tilt\": 3}, \"layers\": []}").contains("unknown setting 'tilt'"));
+        assertEquals("night.sky: 'turning' works only with \"mode\": \"layers\"",
+                error("{\"mode\": \"solid\", \"turning\": {\"amount\": 50}}"));
+    }
+
+    @Test
+    void theTrailsAreOffByDefaultAndAreWrittenOnlyWhenTheyAreNotTheDefault() {
+        assertEquals(0, SkyTurning.NONE.trails());
+        assertEquals(SkyTurning.TRAIL_LIGHT, SkyTurning.NONE.trailLight());
+        assertFalse(SkyTurning.NONE.withTrails(40).showsTrails(), "a still sky has no trails");
+        assertTrue(SkyTurning.NONE.withAmount(10).withTrails(40).showsTrails());
+        SkyDesign stars = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        SkyTurning turning = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 45, SkyTurning.Direction.NORMAL, 0);
+        String plain = ConfigCodec.encode(withSky(layers(stars.withTurning(turning))));
+        assertFalse(plain.contains("trails") || plain.contains("trailLight"), "a turning with no trails is written as before: " + plain);
+        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"turning\": {\"amount\": 100},"
+                + " \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(0, old.turning().trails(), "a file from before trails loads with no trails");
+        assertEquals(SkyTurning.TRAIL_LIGHT, old.turning().trailLight());
+
+        SkyDesign trails = stars.withTurning(turning.withTrails(45).withTrailLight(70));
+        String text = ConfigCodec.encode(withSky(layers(trails)));
+        assertTrue(text.contains("\"trails\": 45") && text.contains("\"trailLight\": 70"), text);
+        assertEquals(trails, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        String lengthOnly = ConfigCodec.encode(withSky(layers(stars.withTurning(turning.withTrails(30)))));
+        assertTrue(lengthOnly.contains("\"trails\": 30") && !lengthOnly.contains("trailLight"), "only the values that differ: " + lengthOnly);
+
+        assertEquals("night.sky.turning.trails: use a whole number from 0 to 90",
+                error("{\"mode\": \"layers\", \"turning\": {\"trails\": 91}, \"layers\": []}"));
+        assertEquals("night.sky.turning.trailLight: use a whole number from 0 to 100",
+                error("{\"mode\": \"layers\", \"turning\": {\"trailLight\": -1}, \"layers\": []}"));
+    }
+
+    @Test
     void transformsAreWrittenOnlyForTheAxesOfTheKind() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         d = d.withLayer(0, d.layers().get(0).withTransform(new Transform(90, 20, 0, 150)));
@@ -78,6 +146,34 @@ class SkyCodecTest {
         assertTrue(text.contains("\"yaw\": 90") && text.contains("\"scale\": 150") && !text.contains("\"roll\""), text);
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"blur\", \"transform\": {\"yaw\": 3}}]}")
                 .startsWith("night.sky.layers[0].transform: 'yaw' has no meaning for blur"));
+    }
+
+    @Test
+    void theSpeedIsAValueOnlyOfTheLayersThatMove() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.AURORA);
+        d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.SPEED, 80));
+        Config c = withSky(layers(d));
+        assertTrue(ConfigCodec.encode(c).contains("\"speed\": 80"));
+        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"speed\": 3}]}")
+                .startsWith("night.sky.layers[0]: 'speed' has no meaning for stars"));
+        SkyDesign noSpeed = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
+                + "[{\"id\": 1, \"kind\": \"aurora\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(50, noSpeed.layers().get(0).param(SkyLayer.Param.SPEED), "a file with no speed takes the default");
+    }
+
+    @Test
+    void aTwinkleAndAPulseAreWrittenOnlyWhenTheyAreOn() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS).withAdded(SkyLayer.Kind.FRACTAL);
+        String still = ConfigCodec.encode(withSky(layers(d)));
+        assertFalse(still.contains("twinkle") || still.contains("pulse"), still);
+        d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.TWINKLE, 40));
+        d = d.withLayer(1, d.layers().get(1).withParam(SkyLayer.Param.PULSE, 70));
+        Config c = withSky(layers(d));
+        assertTrue(ConfigCodec.encode(c).contains("\"twinkle\": 40") && ConfigCodec.encode(c).contains("\"pulse\": 70"));
+        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"gradient\", \"pulse\": 3}]}")
+                .startsWith("night.sky.layers[0]: 'pulse' has no meaning for gradient"));
     }
 
     @Test

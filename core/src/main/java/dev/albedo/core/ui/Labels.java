@@ -4,6 +4,7 @@ import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.config.Transform;
 
@@ -91,6 +92,8 @@ final class Labels {
             case FRACTAL: return "Fractal";
             case GALAXY: return "Galaxy";
             case STARS: return "Stars";
+            case METEORS: return "Meteors";
+            case AURORA: return "Aurora";
             case BLUR: return "Blur";
             case CRYSTALLIZE: return "Crystallize";
             case PIXELATE: return "Pixelate";
@@ -108,8 +111,11 @@ final class Labels {
             case GLOW: return "A band of light along the horizon, as at sunset";
             case NOISE: return "Soft clouds of two colors";
             case FRACTAL: return "Thin bright lines of gas, as in a nebula";
-            case GALAXY: return "A spiral galaxy";
+            case GALAXY: return "A spiral galaxy with dust and two jets from its black hole";
             case STARS: return "Small points of light";
+            case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them, not the preview. "
+                    + "Blur, Pixelate, Crystallize and Swirl above them hide them.";
+            case AURORA: return "Curtains of northern light that move slowly";
             case BLUR: return "Makes the layers below soft";
             case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
             case PIXELATE: return "Breaks the layers below into square cells";
@@ -126,12 +132,23 @@ final class Labels {
         switch (p) {
             case COLOR_1:
                 return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : "Color";
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : k == SkyLayer.Kind.AURORA ? "Bottom" : "Color";
             case COLOR_2:
-                return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : "Light";
+                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
+                        : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
+            case COLOR_3: return "Jet color";
             case HEIGHT:
-                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold" : "Height";
+                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
+                        : k == SkyLayer.Kind.STARS ? "Spikes" : "Height";
+            case TILT: return "Tilt";
+            case DUST: return "Dust";
+            case JETS: return "Jets";
             case SEED: return "Seed";
+            case SPEED: return "Speed";
+            case LENGTH: return "Length";
+            case SHOWER: return "Shower";
+            case TWINKLE: return "Twinkle";
+            case PULSE: return "Pulse";
             default: return amount(k);
         }
     }
@@ -144,6 +161,8 @@ final class Labels {
             case FRACTAL: return "Warp";
             case GALAXY: case SWIRL: return "Twist";
             case STARS: return "Count";
+            case METEORS: return "Amount";
+            case AURORA: return "Brightness";
             case BLUR: return "Radius";
             case POSTERIZE: return "Levels";
             case HUE_SHIFT: return "Hue";
@@ -210,14 +229,11 @@ final class Labels {
         return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
     }
 
-    /** The effects that are on, such as "Chroma 60%, Bevel 20%", or "Off". */
-    static String effects(Appearance a, boolean edges) {
+    /** The effects that are on, such as "Bevel 20%, Outline 50%", or "Off". */
+    static String effects(Appearance a) {
         StringBuilder s = new StringBuilder();
-        effect(s, "Chroma", a.chroma().strength());
-        if (edges) {
-            effect(s, "Bevel", a.bevel());
-            effect(s, "Outline", a.outline());
-        }
+        effect(s, "Bevel", a.bevel());
+        effect(s, "Outline", a.outline());
         return s.length() == 0 ? "Off" : s.toString();
     }
 
@@ -225,6 +241,33 @@ final class Labels {
         if (percent <= 0) return;
         if (s.length() > 0) s.append(", ");
         s.append(name).append(' ').append(percent).append('%');
+    }
+
+    static final String TURNING_TIP = "Turning: the full sky turns around the pole, as the real night sky does. "
+            + "0% stops it. 100% gives the full Speed. The preview turns in real time.";
+    static final String TURNING_SPEED_TIP = "Speed: the number of turns in one Minecraft day (20 minutes) at a Turning of 100%. "
+            + "1x turns at the speed of the sun and moon. With Pole height 0 and Pole 0, the sky also turns on their path.";
+    static final String TURNING_FOLLOW_TIP = "On: the sky turns with the time of the world, as the sun and moon do, and stops when "
+            + "the daylight cycle stops. At midnight, the sky is as you made it. Off: the sky turns at a steady speed in real time.";
+    static final String POLE_HEIGHT_TIP = "Pole height: the angle of the pole above the horizon. 0 is on the horizon, 90 is the top "
+            + "of the sky. Set Full sphere on, so that the part below the horizon also has layers when it comes up.";
+    static final String POLE_TIP = "Pole: the compass direction of the pole. 0 is north, 90 is east.";
+    static final String TRAILS_TIP = "Trails: each bright star draws an arc behind it, as in a long photo of the night sky. "
+            + "The value is the length of the arc in degrees. 0 stops the trails.";
+    static final String TRAIL_LIGHT_TIP = "Trail light: how bright the star trails are.";
+
+    /** The turning of a sky, such as "Turning 50%", or "Off". */
+    static String turning(SkyTurning t) {
+        return t.turns() ? "Turning " + t.amount() + "%" : "Off";
+    }
+
+    static String direction(SkyTurning.Direction d) {
+        return d == SkyTurning.Direction.REVERSE ? "Reverse" : "Normal";
+    }
+
+    static String directionTip(SkyTurning.Direction d) {
+        return d == SkyTurning.Direction.REVERSE ? "The sky turns the other way: up in the west and down in the east"
+                : "The sky turns as the sun does: up in the east and down in the west";
     }
 
     static String axis(Transform.Axis a) {

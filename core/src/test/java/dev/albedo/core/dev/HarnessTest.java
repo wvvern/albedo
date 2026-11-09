@@ -3,12 +3,12 @@ package dev.albedo.core.dev;
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +41,25 @@ class HarnessTest {
     }
 
     @Test
+    void theSkyExtentCommandSetsTheExtent() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
+        assertEquals(SkyDesign.Extent.SPHERE, Harness.withSkyExtent(p, "sphere").get(Category.SKY).sky().extent());
+        assertEquals(SkyDesign.Extent.HORIZON, Harness.withSkyExtent(p, "Horizon").get(Category.SKY).sky().extent());
+    }
+
+    @Test
+    void theSkyTurnCommandSetsTheTurning() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
+        SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
+        assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
+        assertEquals(SkyTurning.NONE.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
+        assertEquals(SkyTurning.NONE.withAmount(100).withTrails(45).withTrailLight(80),
+                Harness.withSkyTurning(p, "100 trails 45 light 80".split(" ")).get(Category.SKY).sky().turning());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 speed".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 fast 2".split(" ")));
+    }
+
+    @Test
     void theGroupCommandSetsOrReplacesAGroupByName() {
         Profile p = Config.defaults().activeProfile();
         p = Harness.withGroup(p, "particles Fire #FF0000 flame lava".split(" "));
@@ -63,13 +82,12 @@ class HarnessTest {
     void theEffectsCommandSetsTheEffectsOfACategoryAndTurnsOffTheOthers() {
         Profile p = Config.defaults().profiles().get("quake-white");
         Appearance before = p.get(Category.BLOCKS).appearance();
-        p = Harness.withEffects(p, "blocks chroma 100 bevel 50".split(" "));
-        assertEquals(before.withEffects(50, 0, Chroma.of(100)), p.get(Category.BLOCKS).appearance());
-        p = Harness.withEffects(p, "blocks chroma 80 speed 100 saturation 70 brightness 40".split(" "));
-        assertEquals(before.withEffects(0, 0, new Chroma(80, 100, 70, 40)), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "blocks bevel 50".split(" "));
+        assertEquals(before.withEffects(50, 0), p.get(Category.BLOCKS).appearance());
         p = Harness.withEffects(p, "blocks outline 70".split(" "));
-        assertEquals(before.withEffects(0, 70, Chroma.OFF), p.get(Category.BLOCKS).appearance());
-        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
+        assertEquals(before.withEffects(0, 70), p.get(Category.BLOCKS).appearance());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks chroma 5".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "items bevel 5".split(" ")));
     }
 
     @Test

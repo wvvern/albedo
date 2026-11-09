@@ -3,6 +3,8 @@ package dev.albedo.core.sky;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -35,6 +37,37 @@ class SkyShaderSourceTest {
     @Test
     void aMissingFileIsAnError() {
         assertThrows(IOException.class, () -> SkyShaderSource.read("core/none.fsh"));
+        assertThrows(IOException.class, () -> SkyShaderSource.readInclude("minecraft:projection.glsl"));
+    }
+
+    @Test
+    void inlineReplacesEachIncludeLineAlsoInAnIncludeAndKeepsTheLineNumbers() throws IOException {
+        Map<String, String> files = new HashMap<String, String>();
+        files.put("a:outer.glsl", "outer\n#include <a:inner.glsl>\n");
+        files.put("a:inner.glsl", "inner\n");
+        String text = SkyShaderSource.inline("#version 330\n  #include <a:outer.glsl> // note\n# include \"a:inner.glsl\"\nmain\n", files::get);
+        assertEquals("#version 330\nouter\ninner\n#line 3\n#line 3\ninner\n#line 4\nmain\n", text);
+    }
+
+    @Test
+    void aMissingIncludeOrALoopOfIncludesIsAnError() {
+        Map<String, String> files = new HashMap<String, String>();
+        files.put("a:loop.glsl", "#include <a:loop.glsl>\n");
+        assertThrows(IOException.class, () -> SkyShaderSource.inline("#include <a:none.glsl>\n", files::get));
+        assertThrows(IOException.class, () -> SkyShaderSource.inline("#include <a:loop.glsl>\n", files::get));
+    }
+
+    @Test
+    void eachSharpShaderOf26HasNoIncludeLineAfterInline() throws IOException {
+        Map<String, String> game = new HashMap<String, String>();
+        game.put("minecraft:dynamictransforms.glsl", "uniform DynamicTransforms;\n");
+        game.put("minecraft:projection.glsl", "uniform Projection;\n");
+        for (String path : new String[] {"core/sky_sharp.vsh", "core/sky_sharp.fsh", "core/sky_equirect.vsh", "core/sky_equirect.fsh"}) {
+            String text = SkyShaderSource.inline(SkyShaderSource.read(path),
+                    id -> game.containsKey(id) ? game.get(id) : SkyShaderSource.readInclude(id));
+            assertFalse(text.contains("#include"), path);
+            assertEquals(path.endsWith(".fsh"), text.contains("vec3 albedoSky(vec3 dir, float footprint)"), path);
+        }
     }
 
     private static int count(String text, String part) {

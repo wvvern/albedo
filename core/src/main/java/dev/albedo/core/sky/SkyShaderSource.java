@@ -1,15 +1,25 @@
 package dev.albedo.core.sky;
 
+import dev.albedo.core.Albedo;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * The text of the sky shaders from the jar of the mod, which the adapters give to the GL themselves, because a Fabric
- * game without Fabric API does not load the assets of a mod and only 26.x has an include step for the shaders of a mod.
+ * The text of the sky shaders from the jar of the mod with their includes in them, which the adapters give to the GPU
+ * themselves, because a Fabric game without Fabric API does not load the assets of a mod.
  */
 public final class SkyShaderSource {
+    /** Gives the text of one include from its id, for example {@code minecraft:projection.glsl}. */
+    public interface Includes {
+        /** The text of the include, or an exception when there is no include with this id. */
+        String read(String id) throws IOException;
+    }
+
     /** The GLSL version and the defines of the classic sky shaders for one kind of GL context. */
     public enum Dialect {
         /** 1.21.11: GLSL 3.30 core, with the transforms in the uniform blocks of the game and the sky in its own block. */
@@ -38,7 +48,10 @@ public final class SkyShaderSource {
     public static final String EQUIRECT = "core/sky_equirect_classic";
 
     private static final String FOLDER = "/assets/albedo/shaders/";
-    private static final String INCLUDE = "#include <albedo:sky_layers.glsl>";
+    /** An include line, with the id between angle brackets or quotes. */
+    private static final Pattern INCLUDE = Pattern.compile("\\s*#\\s*include\\s*[<\"]([^>\"]+)[>\"].*");
+    /** The include depth that stops a loop of includes. */
+    private static final int MAX_INCLUDE_DEPTH = 10;
 
     private SkyShaderSource() {}
 
@@ -61,8 +74,41 @@ public final class SkyShaderSource {
      * @param vertex true for the vertex shader, false for the fragment shader
      */
     public static String classic(String name, boolean vertex, Dialect dialect) throws IOException {
-        String body = read(name + (vertex ? ".vsh" : ".fsh"));
-        if (body.contains(INCLUDE)) body = body.replace(INCLUDE, read("include/sky_layers.glsl"));
-        return dialect.header() + body;
+        return dialect.header() + inline(read(name + (vertex ? ".vsh" : ".fsh")), SkyShaderSource::readInclude);
+    }
+
+    /** An include of the mod, for example {@code albedo:sky_layers.glsl}, or an exception for the id of an other namespace. */
+    public static String readInclude(String id) throws IOException {
+        String prefix = Albedo.MOD_ID + ":";
+        if (!id.startsWith(prefix)) throw new IOException("no include " + id);
+        return read("include/" + id.substring(prefix.length()));
+    }
+
+    /**
+     * The text of a shader with the text of each include in place of its include line, as the include step of the compiler
+     * does it, so that the compiler never calls back into Java for an include.
+     */
+    public static String inline(String text, Includes includes) throws IOException {
+        StringBuilder out = new StringBuilder(text.length());
+        inline(text, includes, 0, out);
+        return out.toString();
+    }
+
+    private static void inline(String text, Includes includes, int depth, StringBuilder out) throws IOException {
+        String[] lines = text.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            Matcher include = INCLUDE.matcher(lines[i]);
+            if (!include.matches()) {
+                out.append(lines[i]).append('\n');
+                continue;
+            }
+            String id = include.group(1);
+            if (depth >= MAX_INCLUDE_DEPTH) throw new IOException("includes too deep at " + id);
+            String body = includes.read(id);
+            if (body == null) throw new IOException("no include " + id);
+            inline(body, includes, depth + 1, out);
+            // The lines after the include keep their numbers in the messages of the compiler.
+            out.append("#line ").append(i + 2).append('\n');
+        }
     }
 }

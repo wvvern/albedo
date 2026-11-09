@@ -4,9 +4,9 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.shaders.UniformType;
@@ -26,13 +26,13 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Screenshot;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
 
@@ -84,11 +84,10 @@ final class PrecompiledSharpSky {
         // Sends the term images of a sky to a new texture, which has one texel of 0 when the sky has no terms.
         static Terms upload(SkyImage img, String label) {
             int width = img.termTextureWidth(), height = img.termTextureHeight();
-            GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label, GpuTexture.USAGE_TEXTURE_BINDING, TextureFormat.RGBA8,
-                    width, height, 1, 1);
-            // The game has no half float format, so the GL gets the level again in half floats.
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(((GlTexture) texture).glId());
+            GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label,
+                    GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST, TextureFormat.RGBA8, width, height, 1, 1);
+            // The game has no half float format, so the GL gets the level again in half floats on the texture that this write binds.
+            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, ONE_TEXEL, NativeImage.Format.RGBA, 0, 0, 0, 0, 1, 1);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
@@ -146,6 +145,10 @@ final class PrecompiledSharpSky {
             .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES)
             .build());
 
+    // The bytes of the time for writeTime, which the write copies at once, so one buffer serves all frames.
+    private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
+    // One texel of 0 for the write that binds a new term texture.
+    private static final ByteBuffer ONE_TEXEL = MemoryUtil.memCalloc(4);
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
@@ -164,12 +167,21 @@ final class PrecompiledSharpSky {
 
     // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens.
     static void prepare(SkyImage img) {
-        if (!ModernSky.wantsSharp(img) || !SHARP.ready() || blockSerial == img.serial()) return;
-        if (block != null) block.close();
-        if (terms != null) terms.close();
-        block = upload(img.program(), "Albedo sky block");
-        terms = Terms.upload(img, "Albedo sky terms");
-        blockSerial = img.serial();
+        if (!ModernSky.wantsSharp(img) || !SHARP.ready()) return;
+        if (blockSerial != img.serial()) {
+            if (block != null) block.close();
+            if (terms != null) terms.close();
+            block = upload(img.program(), SkyProgram.STILL, "Albedo sky block");
+            terms = Terms.upload(img, "Albedo sky terms");
+            blockSerial = img.serial();
+        }
+        if (img.program().moves()) writeTime(block, SkyClock.seconds());
+    }
+
+    // Writes the time of the layers that move into the header of a block, outside a render pass.
+    private static void writeTime(GpuBuffer target, float time) {
+        TIME_BYTES.putFloat(0, time);
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
     }
 
     // Draws the image sharp in the sky pass and returns true, or returns false when the baked texture must draw it.
@@ -185,13 +197,13 @@ final class PrecompiledSharpSky {
         return true;
     }
 
-    // A uniform buffer with the block of a program.
-    private static GpuBuffer upload(SkyProgram program, String label) {
+    // A uniform buffer with the block of a program at a time, which writeTime can change.
+    private static GpuBuffer upload(SkyProgram program, float time, String label) {
         float[] values = program.block();
         ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
         try {
-            bytes.asFloatBuffer().put(values);
-            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+            bytes.asFloatBuffer().put(values).put(SkyProgram.TIME, time);
+            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, bytes);
         } finally {
             MemoryUtil.memFree(bytes);
         }
@@ -199,10 +211,10 @@ final class PrecompiledSharpSky {
 
     // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives
     // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
-    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, false);
-        GpuBuffer uniforms = upload(sky.program(), "Albedo sky compare block");
+        GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad();
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
@@ -247,6 +259,11 @@ final class PrecompiledSharpSky {
             }
             image.close();
             OptionalLong t = query == null ? OptionalLong.empty() : query.getValue();
+            // The screenshot can come back before the GPU has the time, as on NeoForge, so the GL then waits for the draws to end.
+            if (query != null && !t.isPresent()) {
+                GL11.glFinish();
+                t = query.getValue();
+            }
             long nanos = t.isPresent() ? t.getAsLong() / repeat : -1;
             if (query != null) query.close();
             target.destroyBuffers();

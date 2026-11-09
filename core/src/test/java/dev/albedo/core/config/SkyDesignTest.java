@@ -88,6 +88,19 @@ class SkyDesignTest {
     }
 
     @Test
+    void theBakeReadsTheTrailsButNotTheSpeedOrTheClock() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        SkyTurning turning = new SkyTurning(60, 3, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.NORMAL, 10);
+        assertEquals(d.baked(), d.withTurning(turning).baked(), "a turning with no trails does not bake again");
+        SkyDesign trails = d.withTurning(turning.withTrails(40));
+        assertEquals(trails.baked(), trails.withTurning(trails.turning().withSpeed(7).withAmount(100).withClock(SkyTurning.Clock.WORLD))
+                .baked(), "the speed, the amount and the clock do not change the trails");
+        assertNotEquals(trails.baked(), trails.withTurning(trails.turning().withPole(200)).baked(), "the pole moves the trails");
+        assertNotEquals(trails.baked(), trails.withTurning(trails.turning().withTrailLight(90)).baked());
+        assertEquals(d.baked(), trails.withTurning(trails.turning().withAmount(0)).baked(), "a still sky has no trails");
+    }
+
+    @Test
     void yawWrapsAndTheRotationPointsTheCenter() {
         assertEquals(new Transform(0, 0, 0, 100), new Transform(360, 0, 0, 100));
         double[] r = new Transform(90, 30, 0, 100).rotation();

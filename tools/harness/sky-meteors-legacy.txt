@@ -1,0 +1,63 @@
+# The same shots as sky-meteors-modern.txt for 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-meteors-modern.txt -OutDir build\meteors (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 6000
+run tp @p 0 3000 0 0 -60
+wait 40
+sky meteors
+wait 160
+fov 70
+meteor
+wait 10
+screenshot meteors-01-fov70-peak
+skyclock add -0.15
+wait 5
+screenshot meteors-02-fov70-early
+# The head of the shortest meteor goes out 0.09 s after its peak, so the later shots are 0.08 s after the peak.
+skyclock add 0.23
+wait 5
+screenshot meteors-03-fov70-late
+meteor
+wait 10
+screenshot meteors-04-fov70
+meteor
+wait 10
+screenshot meteors-05-fov70
+meteor 50
+wait 10
+screenshot meteors-06-fov70-high
+fov 30
+meteor
+wait 10
+screenshot meteors-07-fov30-peak
+skyclock add 0.08
+wait 5
+screenshot meteors-08-fov30-later
+meteor
+wait 10
+screenshot meteors-09-fov30
+# The clock runs on from a moment before the next meteor, so that the shots show it move across the sky.
+fov 70
+meteor
+wait 10
+skyclock add -0.3
+skyclock run
+screenshot meteors-10-running-a
+wait 3
+screenshot meteors-11-running-b
+wait 3
+screenshot meteors-12-running-c
+wait 3
+screenshot meteors-13-running-d
+skycompare
+wait 40
+skytime
+wait 40
+# The fast render draws the baked image, which has no meteors.
+skyrender fast
+wait 160
+meteor
+wait 10
+screenshot meteors-14-fast-none
+quit

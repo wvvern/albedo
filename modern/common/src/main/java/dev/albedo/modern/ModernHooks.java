@@ -25,6 +25,7 @@ public final class ModernHooks {
     }
 
     public static void clientTick() {
+        ModernSky.tick();
         Albedo sc = Albedo.get();
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
@@ -130,7 +131,7 @@ public final class ModernHooks {
         SkyImage img = Albedo.skyImage();
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
         if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
-        float[] rgb = img != null ? img.fogRgb(ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
+        float[] rgb = img != null ? img.fogRgb(ModernSky.turn(img), ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
         if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
     }
 

@@ -7,7 +7,6 @@ import dev.albedo.core.Policy;
 import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -39,19 +38,11 @@ public final class SettingsEditor {
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
     /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
-    /** The first effect under the Effects heading, which all categories with effects have. */
-    private static final Form.Slider CHROMA = Form.Slider.percent("effects.chroma", "Chroma",
-            "Chroma: each kind of texture gets its own rainbow color, and the colors go around at the Speed below.");
-    /** The Chroma options, which show under Chroma only while it is on, with short labels that fit the second indent. */
-    private static final Form.Slider[] CHROMA_OPTIONS = {
-        new Form.Slider("effects.chromaSpeed", "Speed", "Speed: how fast the colors go around. 0 stops them.", v -> v == 0 ? "Still" : v + "%"),
-        Form.Slider.percent("effects.chromaSaturation", "Vivid", "Vivid (saturation): how strong the colors are."),
-        Form.Slider.percent("effects.chromaBrightness", "Bright", "Bright (brightness): how light the colors are.")};
-    /** The effects after Chroma, which only blocks and fluids have. */
-    private static final Form.Slider[] EDGE_EFFECTS = {
-        Form.Slider.percent("effects.bevel", "Bevel",
-                "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart."),
-        Form.Slider.percent("effects.outline", "Outline", "Outline: a line around each block.")};
+    /** The effects under the Effects heading in the order they apply, which only blocks and fluids have. */
+    private static final String[] EFFECT_LABELS = {"Bevel", "Outline"};
+    private static final String[] EFFECT_TIPS = {
+        "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
+        "Outline: a line around each block."};
     private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
     private static final String[] RECOLOR_TIPS = {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
@@ -223,9 +214,7 @@ public final class SettingsEditor {
         for (Category c : CATEGORIES) labelW = Math.max(labelW, ui.width(Labels.members(c)));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
         for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
-        labelW = Math.max(labelW, ui.width(CHROMA.label) + Form.INDENT);
-        for (Form.Slider s : EDGE_EFFECTS) labelW = Math.max(labelW, ui.width(s.label) + Form.INDENT);
-        for (Form.Slider s : CHROMA_OPTIONS) labelW = Math.max(labelW, ui.width(s.label) + 2 * Form.INDENT);
+        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l) + Form.INDENT);
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -477,7 +466,7 @@ public final class SettingsEditor {
     /** An 8x8 icon for a look: its color, or an empty outline for vanilla. */
     private void lookIcon(int x, int y, Appearance a) {
         if (a.isOriginal()) ui.outline(x, y, 8, 8, Ui.FAINT);
-        else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080, null));
+        else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080));
     }
 
     /** A sidebar entry that returns true when clicked, with room at x + 6 for the icon of the caller. */
@@ -560,9 +549,8 @@ public final class SettingsEditor {
         // The tint hint is last and not in the budget of the color picker, so a short window scrolls to it.
         boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
         Appearance look = cs.appearance();
-        // Grass, leaves and water get the biome color on top of a recolor or Chroma, which mixes it with the chosen color.
-        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma().isOn();
-        if (tint && !cs.removeTint() && mixes) {
+        // Grass, leaves and water get the biome color on top of a recolor, which mixes it with the chosen color.
+        if (tint && !cs.removeTint() && look.mode() == Appearance.Mode.RECOLOR) {
             items.add(note("Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color."));
         }
         Column.draw(ui, "look", new Rect(x, y, w, bottom - y), items);
@@ -645,7 +633,7 @@ public final class SettingsEditor {
         if (global) {
             items.add(Column.of(Ui.H + GAP, (x, y, iw) -> {
                 Form form = form(x, iw);
-                ui.swatch(form.lx(), y + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080, null));
+                ui.swatch(form.lx(), y + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080));
                 String text = Labels.modeTip(cs.appearance().mode()) + " (the " + Labels.name(category) + " look)";
                 ui.text(ui.ellipsize(text, form.cw() - 14), form.lx() + 13, y + 3, Ui.MUTED);
                 return false;
@@ -655,7 +643,7 @@ public final class SettingsEditor {
         Appearance.Mode m = target.mode();
         boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
         boolean recolor = m == Appearance.Mode.RECOLOR;
-        boolean effects = target.changesPixels() && category.hasChroma();
+        boolean effects = target.changesPixels() && category.hasEdgeEffects();
         String shapeNote = usesShape && category == Category.PLAYERS
                 ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
         Appearance.Alpha[] shapes = Appearance.Alpha.values();
@@ -705,49 +693,27 @@ public final class SettingsEditor {
         return items;
     }
 
-    /**
-     * The Effects heading, and under it when it is open Chroma with its options while it is on, then Bevel and Outline
-     * for blocks and fluids.
-     */
+    /** The Effects heading, and under it when it is open the Bevel and Outline sliders. */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
-        boolean edges = page.category.hasEdgeEffects(), open = sections.isOpen(EFFECTS);
-        Chroma chroma = target.chroma();
-        int chromaRows = Form.dependentRows(chroma.strength(), CHROMA_OPTIONS.length);
-        // Two items, so that a short window scrolls to Bevel and Outline, with one guide line through both.
-        int chromaH = edges ? Form.rowsHeight(chromaRows) : Form.slidersHeight(chromaRows, false);
-        int edgesH = Form.slidersHeight(EDGE_EFFECTS.length, false);
+        boolean open = sections.isOpen(EFFECTS);
+        int bodyH = Form.slidersHeight(EFFECT_LABELS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
-            String tip = (open ? "Hide" : "Show") + " the effects: " + (edges ? "Chroma, Bevel, Outline" : "Chroma");
-            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
+            String tip = (open ? "Hide" : "Show") + " the effects: " + String.join(", ", EFFECT_LABELS);
+            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target), open, tip) == open) return false;
             sections = sections.toggled(EFFECTS);
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
-        items.add(Column.of(chromaH, (x, y, w) -> {
+        items.add(Column.of(bodyH, (x, y, w) -> {
             Form form = form(x, w);
-            form.guide(y, edges ? chromaH : chromaH - GAP);
-            int[] c = {chroma.strength(), chroma.speed(), chroma.saturation(), chroma.brightness()};
-            form.indented().withDependents(CHROMA, CHROMA_OPTIONS, c, y);
-            Chroma next = new Chroma(c[0], c[1], c[2], c[3]);
-            if (next.equals(chroma)) return false;
-            setLook(cs, index, target.withEffects(target.bevel(), target.outline(), next));
-            return Form.dependentRows(c[0], CHROMA_OPTIONS.length) != chromaRows; // the rows under it move
+            form.guide(y, bodyH - GAP);
+            int[] e = {target.bevel(), target.outline()};
+            form.indented().sliders(EFFECTS, "Effects", EFFECT_LABELS, EFFECT_TIPS, e, y, false);
+            if (e[0] != target.bevel() || e[1] != target.outline()) setLook(cs, index, target.withEffects(e[0], e[1]));
+            return false;
         }));
-        if (edges) {
-            items.add(Column.of(edgesH, (x, y, w) -> {
-                Form form = form(x, w);
-                form.guide(y, edgesH - GAP);
-                int[] e = {target.bevel(), target.outline()};
-                form.indented().rows(EDGE_EFFECTS, e, y);
-                if (e[0] != target.bevel() || e[1] != target.outline()) setLook(cs, index, target.withEffects(e[0], e[1], chroma));
-                return false;
-            }));
-        }
-        if (chroma.moves() && sc.chromaStill()) {
-            items.add(note("Some textures keep still colors, because they cannot change here. OptiFine shaders can cause this."));
-        }
         return items;
     }
 
@@ -1012,7 +978,7 @@ public final class SettingsEditor {
             int original = catalog.get(id);
             ui.swatch(x + 5, ry + 2, 7, 7, original);
             ui.text(">", x + 14, ry + 1, Ui.FAINT);
-            ui.swatch(x + 20, ry + 2, 7, 7, chipColor(preview.appearanceFor(new TextureKey(category, id)), original, id));
+            ui.swatch(x + 20, ry + 2, 7, 7, chipColor(preview.appearanceFor(new TextureKey(category, id)), original));
             String tag = owner == null ? "" : owner.displayName();
             int tagW = tag.isEmpty() ? 0 : Math.min(ui.width(tag), w / 3) + 6;
             ui.text(ui.ellipsize(shortId(id), w - 46 - tagW), x + 31, ry + 1, owner == null ? Ui.MUTED : Ui.TEXT);
@@ -1260,8 +1226,8 @@ public final class SettingsEditor {
         setCategory(cs.withRule(index, r));
     }
 
-    /** The real transform on one pixel of the {@code original} average color with the Chroma hue of {@code id}, or null for hidden. */
-    private static Integer chipColor(Appearance a, int original, String id) {
-        return a.mode() == Appearance.Mode.HIDDEN ? null : PixelTransformer.preview(a, original, id);
+    /** The real transform on one pixel of the {@code original} average color, or null for hidden. */
+    private static Integer chipColor(Appearance a, int original) {
+        return a.mode() == Appearance.Mode.HIDDEN ? null : PixelTransformer.preview(a, original);
     }
 }

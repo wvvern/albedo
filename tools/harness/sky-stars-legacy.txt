@@ -1,0 +1,62 @@
+# The same shots as sky-stars-modern.txt for 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-stars-modern.txt -OutDir build\sky-stars (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 6000
+wait 40
+sky dusk
+wait 160
+fov 30
+run tp @p 0 3000 0 122.5 -68.7
+wait 40
+screenshot stars-01-dusk-fov30
+fov 70
+wait 20
+screenshot stars-02-dusk-fov70
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+screenshot stars-03-dusk-fast-fov70
+skyrender sharp
+sky nebula
+wait 160
+fov 30
+run tp @p 0 3000 0 135.4 -42.9
+wait 40
+screenshot stars-04-nebula-fov30
+fov 70
+wait 20
+screenshot stars-05-nebula-fov70
+skycompare
+wait 40
+skytime
+wait 40
+sky galaxy
+wait 160
+fov 30
+run tp @p 0 3000 0 162.3 -46.6
+wait 40
+screenshot stars-06-galaxy-fov30
+run tp @p 0 3000 0 -62.9 -43.5
+wait 40
+screenshot stars-07-galaxy-orange-fov30
+fov 70
+wait 20
+screenshot stars-08-galaxy-fov70
+skycompare
+wait 40
+skytime
+wait 40
+# The three lowest layers of Galaxy (sky, dust and stars) at the zenith, where many edges of the star cells meet.
+sky galaxy 3
+wait 160
+fov 30
+run tp @p 0 3000 0 0 -90
+wait 40
+screenshot stars-09-zenith-fov30
+skycompare
+wait 40
+quit

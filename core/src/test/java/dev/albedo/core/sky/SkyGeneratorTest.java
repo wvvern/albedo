@@ -3,9 +3,11 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -35,10 +37,37 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void theCloudsPulseSlowlyAndGentlyInSomeRegionsOnly() {
+        int still = 0, pulsing = 0;
+        for (int i = 0; i < 400; i++) {
+            double az = i * 0.7, el = (i % 17) * 0.09 - 0.7;
+            float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
+            assertEquals(1f, SkyGenerator.pulse(0, 1, 7, p, 1, 5), "a pulse of 0 keeps the clouds still");
+            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(1, 1, 7, p, 1, 0);
+            for (int t = 0; t <= 60 * 30; t++) {
+                float k = SkyGenerator.pulse(1, 1, 7, p, 1, t / 60f);
+                min = Math.min(min, k);
+                max = Math.max(max, k);
+                step = Math.max(step, Math.abs(k - last));
+                last = k;
+            }
+            assertTrue(min >= 0.25f && max <= 1.75f, "a pulse of 100 percent from " + min + " to " + max);
+            assertTrue(step < 0.01f, "a slow pulse, with a step of " + step + " in a frame");
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 903), 1e-4f, "the waves repeat in 900 s");
+            if (max - min < 1e-6f) still++;
+            else if (max - min > 0.1f) pulsing++;
+        }
+        assertTrue(still > 80 && pulsing > 80, still + " still and " + pulsing + " pulsing places");
+    }
+
+    @Test
     void thePresetsKeepTheirPixels() {
-        assertEquals(-1742385772, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
-        assertEquals(1779394092, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
-        assertEquals(-796054633, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
+        assertEquals(1164738102, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
+        assertEquals(1238737692, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
+        assertEquals(2083471237, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
+        assertEquals(-1617945180, Arrays.hashCode(SkyGenerator.bake(SkyPresets.METEORS, 256, 128).argb()), "meteors");
+        assertEquals(-1710622170, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
+        assertEquals(-1457549582, Arrays.hashCode(SkyGenerator.bake(SkyPresets.TRAILS, 256, 128).argb()), "trails");
     }
 
     @Test
@@ -62,6 +91,11 @@ class SkyGeneratorTest {
         assertSame(sharp.argb(), baker.image().argb());
         assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
         assertFalse(baker.image().drawsSharp());
+        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.NONE.withAmount(50));
+        baker.request(turning);
+        assertTrue(baker.current(), "a new turning also keeps the pixels");
+        assertSame(sharp.argb(), baker.image().argb());
+        assertEquals(turning, baker.image().design());
     }
 
     @Test
@@ -90,12 +124,11 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void theSkyAtAndBelowTheHorizonHasTheFogColorOfItsDirection() {
+    void theSkyFromThreeDegreesBelowTheHorizonHasTheFogColorOfItsDirection() {
         SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 64;
         SkyImage img = SkyGenerator.bake(of(noise), w, h);
-        int below = (int) Math.ceil(SkyImage.TOP / (SkyImage.TOP - SkyImage.BOTTOM) * h);
-        for (int y = below; y < h; y++) {
+        for (int y = row(-3, h) + 1; y < h; y++) {
             for (int x = 0; x < w; x += 7) {
                 float[] fog = img.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
                 assertEquals(Math.round(fog[0] * 255), red(img.argb()[y * w + x]), 2, "row " + y + ", column " + x);
@@ -104,11 +137,62 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void galaxyDustTakesAwayLightAndJetsAddLightAlongTheAxis() {
+        int w = 512, h = 256;
+        // A tilted disc in the north, 30 degrees up, with its axis vertical.
+        SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200)).withParam(SkyLayer.Param.TILT, 60);
+        SkyLayer clean = galaxy.withParam(SkyLayer.Param.DUST, 0).withParam(SkyLayer.Param.JETS, 0);
+        int[] plain = SkyGenerator.bake(of(clean), w, h).argb();
+        int[] dusty = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.DUST, 100)), w, h).argb();
+        int[] jets = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.JETS, 100)), w, h).argb();
+        long lightPlain = 0, lightDusty = 0;
+        int darkest = 0;
+        for (int i = 0; i < plain.length; i++) {
+            assertTrue(red(dusty[i]) <= red(plain[i]) + 1, "dust only absorbs, pixel " + i);
+            darkest = Math.max(darkest, red(plain[i]) - red(dusty[i]));
+            if (red(plain[i]) < 40) continue;
+            lightPlain += red(plain[i]);
+            lightDusty += red(dusty[i]);
+        }
+        assertTrue(lightDusty < lightPlain * 0.97, "the dust takes light from the galaxy: " + lightDusty + " of " + lightPlain);
+        assertTrue(darkest > 40, "the dust lanes are dark: " + darkest);
+        // On the axis, 20 degrees over the center, the jet adds light, where the jet bends a little.
+        int y = row(50, h), added = 0;
+        for (int dx = -4; dx <= 4; dx++) {
+            int i = y * w + Math.floorMod(dx, w);
+            added = Math.max(added, blue(jets[i]) - blue(plain[i]));
+        }
+        assertTrue(added > 20, "the jet adds " + added);
+    }
+
+    @Test
+    void theShaderHasTheSameGalaxyNumbers() throws IOException {
+        String glsl = SkyProgramTest.skyLayersSource();
+        String[] numbers = {
+            "float ALBEDO_GALAXY_REACH = " + SkyGenerator.GALAXY_REACH,
+            "float ALBEDO_GALAXY_JET_LENGTH = " + SkyGenerator.JET_LENGTH,
+            "float ALBEDO_GALAXY_KNOT_CELL = " + SkyGenerator.KNOT_CELL,
+            "vec3 ALBEDO_GALAXY_DUST_REDDENING = " + vec3(SkyGenerator.DUST_REDDENING),
+            "vec3 ALBEDO_GALAXY_HALPHA = " + vec3(SkyGenerator.HALPHA),
+            "vec3 ALBEDO_GALAXY_LOBE = " + vec3(SkyGenerator.LOBE),
+            "vec3 ALBEDO_GALAXY_NUCLEUS = " + vec3(SkyGenerator.NUCLEUS)};
+        for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
+    }
+
+    private static String vec3(float[] v) {
+        return "vec3(" + v[0] + ", " + v[1] + ", " + v[2] + ")";
+    }
+
+    private static int blue(int argb) {
+        return argb & 0xFF;
+    }
+
+    @Test
     void aStarHasTheSameSizeAtEachCount() {
         int w = 1024, h = 512;
         int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
         int many = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
-        // The count of stars grows as the square of the grid density, from 18 to 42 cells, and their size stays.
+        // The chance that a cell has a star is (0.2 + 0.8 * count) squared, about 5.4 times more at 80 than at 20, and the star size stays.
         float ratio = many / (float) few;
         assertTrue(ratio > 3.5f && ratio < 8f, "lit pixels " + few + " and " + many);
     }
@@ -154,25 +238,32 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void aFullSphereHasTheLayersBelowTheHorizonAndTheFogColorAtIt() {
+    void aFullSphereHasTheLayersAtAndBelowTheHorizon() {
         SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 1024;
         SkyImage horizon = SkyGenerator.bake(of(noise), w, h);
         SkyImage sphere = SkyGenerator.bake(of(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
-        int low = row(-45, h), min = 255, max = 0;
+        int low = row(-45, h);
         for (int x = 0; x < w; x++) {
-            min = Math.min(min, red(sphere.argb()[low * w + x]));
-            max = Math.max(max, red(sphere.argb()[low * w + x]));
             float[] fog = horizon.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
             assertEquals(Math.round(fog[0] * 255), red(horizon.argb()[low * w + x]), 2, "the horizon sky is the fog color at -45");
         }
-        assertTrue(max - min > 40, "the layers continue below the horizon: " + min + " to " + max);
-        int below = h / 2;
-        for (int x = 0; x < w; x += 7) {
-            float[] fog = sphere.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
-            assertEquals(Math.round(fog[0] * 255), red(sphere.argb()[below * w + x]), 3, "the fog color just below the horizon");
+        assertTrue(spread(sphere, low) > 40, "the layers continue below the horizon");
+        assertTrue(spread(sphere, h / 2) > 40, "the layers continue just below the horizon");
+        int above = spread(horizon, h / 2 - 1), fading = spread(horizon, row(-1.5, h));
+        assertTrue(above > 40, "the layers go down to the horizon when the sky stops there");
+        assertTrue(fading > 2 && fading < above, "the layers go into the horizon color below it: " + fading);
+        for (int i = 0; i < h / 2 * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
+    }
+
+    /** The difference between the darkest and the lightest red value in a row. */
+    private static int spread(SkyImage img, int y) {
+        int min = 255, max = 0;
+        for (int x = 0; x < img.width(); x++) {
+            min = Math.min(min, red(img.argb()[y * img.width() + x]));
+            max = Math.max(max, red(img.argb()[y * img.width() + x]));
         }
-        for (int i = 0; i < below * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
+        return max - min;
     }
 
     /** The row whose center is nearest to an elevation in degrees. */
@@ -262,8 +353,6 @@ class SkyGeneratorTest {
         double error = 0, glow = 0;
         int count = 0;
         for (int y = 0; y < h; y++) {
-            // The horizon colors of the two skies differ, so the rows near the horizon are not compared.
-            if (Math.abs(90 - (y + 0.5) * 180 / h) < 6) continue;
             for (int x = 0; x < w; x++) {
                 for (int c = 0; c < 3; c++) {
                     int shift = 16 - 8 * c;
@@ -275,7 +364,7 @@ class SkyGeneratorTest {
                 }
             }
         }
-        assertTrue(glow > 0.02, "the galaxy core glows: " + glow);
+        assertTrue(glow > 0.005, "the galaxy glows: " + glow);
         assertTrue(error / count < 0.004, "the term is the added glow: " + error / count);
     }
 

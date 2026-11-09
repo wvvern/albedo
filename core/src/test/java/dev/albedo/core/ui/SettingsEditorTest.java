@@ -8,7 +8,6 @@ import dev.albedo.core.Platform;
 import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -17,8 +16,10 @@ import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -481,13 +482,13 @@ class SettingsEditorTest {
         assertEquals(tintY, canvas.find("Remove biome tint")[1], "the tint switch does not move after the click");
     }
 
-    /** The user's own profile with a solid look with Chroma and Bevel for blocks and players. */
+    /** The user's own profile with a solid look with Bevel and Outline for blocks, fluids and players. */
     private static Config withEffects() {
         Config c = withOwnProfile();
         Appearance look = new Appearance(Appearance.Mode.SOLID, 0xFFC0A080, Appearance.Alpha.KEEP, Appearance.DEFAULT_DETAIL,
-                Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 0, Chroma.of(50));
+                Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 30);
         Profile p = c.activeProfile();
-        for (Category category : new Category[]{Category.BLOCKS, Category.PLAYERS}) {
+        for (Category category : new Category[]{Category.BLOCKS, Category.FLUIDS, Category.PLAYERS}) {
             p = p.with(category, new CategorySettings(look, false, Collections.<Rule>emptyList()));
         }
         return c.withProfile(p);
@@ -501,7 +502,7 @@ class SettingsEditorTest {
             RecordingCanvas canvas = new RecordingCanvas(640, 360);
             editor.render(canvas, 0, 0);
             assertNull(canvas.texts.get("Bevel"), "the section starts closed: " + canvas.texts.keySet());
-            assertNotNull(canvas.texts.get("Chroma 50%, Bevel 20%"), "the heading names the effects: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Bevel 20%, Outline 30%"), "the heading names the effects: " + canvas.texts.keySet());
             int closedY = canvas.find("Remove biome tint")[1];
 
             int[] at = canvas.find("Effects");
@@ -536,45 +537,14 @@ class SettingsEditorTest {
                 editor.keyPressed(key, false);
                 render(editor, canvas);
             }
-            assertNotNull(canvas.texts.get("Speed"), "keys do not close the section: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Bevel"), "keys do not close the section: " + canvas.texts.keySet());
+            click(editor, canvas, "Fluids");
+            assertNotNull(canvas.texts.get("Bevel"), "the section stays open on the next page: " + canvas.texts.keySet());
             click(editor, canvas, "Players");
-            assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the next page: " + canvas.texts.keySet());
-            assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
+            assertNull(canvas.texts.get("Effects"), "skins have no effects: " + canvas.texts.keySet());
             editor.keyPressed(UiKey.ESCAPE, false);
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");
-        } finally {
-            sc.apply(Config.defaults());
-        }
-    }
-
-    @Test
-    void theChromaOptionsShowIndentedOnlyWhileChromaIsOn() {
-        Config on = withEffects();
-        Profile p = on.activeProfile();
-        Appearance look = p.get(Category.BLOCKS).appearance();
-        Config off = on.withProfile(p.with(Category.BLOCKS, p.get(Category.BLOCKS).withAppearance(look.withEffects(20, 0, Chroma.OFF))));
-        sc.apply(off);
-        try {
-            SettingsEditor editor = new SettingsEditor(sc);
-            RecordingCanvas canvas = new RecordingCanvas(960, 540);
-            editor.render(canvas, 0, 0);
-            click(editor, canvas, "Effects");
-            assertNotNull(canvas.texts.get("Chroma"), canvas.texts.keySet().toString());
-            assertNull(canvas.texts.get("Speed"), "no options while Chroma is off: " + canvas.texts.keySet());
-            int bevelOff = canvas.find("Bevel")[1];
-
-            sc.apply(on);
-            editor = new SettingsEditor(sc);
-            canvas.texts.clear();
-            editor.render(canvas, 0, 0);
-            click(editor, canvas, "Effects");
-            for (String option : new String[]{"Speed", "Vivid", "Bright"}) {
-                assertNotNull(canvas.texts.get(option), option + ": " + canvas.texts.keySet());
-                assertTrue(canvas.find(option)[0] - canvas.textWidth(option) / 2 > canvas.find("Chroma")[0] - canvas.textWidth("Chroma") / 2,
-                        option + " is indented under Chroma");
-            }
-            assertTrue(canvas.find("Bevel")[1] > bevelOff, "Bevel moves down under the options");
         } finally {
             sc.apply(Config.defaults());
         }
@@ -595,8 +565,8 @@ class SettingsEditorTest {
     void theLookTabFitsAtEverySizeWithTheEffectsClosedAndOpen() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         Map<String, String[]> rows = new LinkedHashMap<String, String[]>();
-        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Bevel", "Outline", "Remove biome tint"});
-        rows.put("Players", new String[]{"Style", "Color", "Shape", "Effects", "Chroma"});
+        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Bevel", "Outline", "Remove biome tint"});
         for (int[] size : sizes) {
             for (Map.Entry<String, String[]> page : rows.entrySet()) {
                 String where = page.getKey() + " at " + size[0] + "x" + size[1];
@@ -885,7 +855,13 @@ class SettingsEditorTest {
         assertEquals(5, d.layers().size());
         assertEquals(SkyMask.of(1, SkyMask.Mode.DARK), d.layers().get(4).mask());
 
-        // The last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
+        // At the end of the list, the last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
+        int[] row = canvas.find("Glow 2");
+        for (int i = 0; i < 5; i++) {
+            editor.mouseScrolled(-1);
+            canvas.texts.clear();
+            editor.render(canvas, row[0], row[1]);
+        }
         click(editor, canvas, "^");
         click(editor, canvas, "Apply");
         assertEquals(SkyLayer.Kind.GLOW, savedSky().layers().get(0).kind());
@@ -899,14 +875,107 @@ class SettingsEditorTest {
     }
 
     @Test
+    void theMotionSectionTurnsTheSkyAndShowsTheOptionsOnlyWhileItTurns() {
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY))));
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(640, 360);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        assertNotNull(canvas.texts.get("Off"), "the closed heading tells that the sky is still: " + canvas.texts.keySet());
+        assertNull(canvas.texts.get("Turning"), "the section starts closed");
+        int listY = canvas.find("Bloom 5")[1];
+
+        click(editor, canvas, "Motion");
+        assertNotNull(canvas.texts.get("Turning"), "the slider shows in the open section: " + canvas.texts.keySet());
+        assertNull(canvas.texts.get("Speed"), "a still sky shows no options");
+        assertTrue(canvas.find("Bloom 5") == null || canvas.find("Bloom 5")[1] > listY, "the layers move down");
+
+        // A press near the right end of the track turns the sky, and the options show in the frame of the press.
+        int[] value = canvas.texts.get("0%");
+        editor.mousePressed();
+        canvas.texts.clear();
+        editor.render(canvas, value[0] - 20, value[1]);
+        editor.mouseReleased();
+        assertNotNull(canvas.texts.get("Speed"), "the options show while the sky turns: " + canvas.texts.keySet());
+        assertNotNull(canvas.texts.get("Follow time"));
+        click(editor, canvas, "Reverse");
+        click(editor, canvas, "Apply");
+        SkyTurning t = savedSky().turning();
+        assertTrue(t.amount() > 80, "the sky turns: " + t.amount());
+        assertEquals(SkyTurning.Direction.REVERSE, t.direction());
+        assertEquals(SkyTurning.Clock.WORLD, t.clock(), "Follow time starts on");
+        assertEquals(SkyPresets.GALAXY.layers(), savedSky().layers(), "the turning does not change the layers");
+
+        // A click on the label flips the switch, as on the other switch rows.
+        click(editor, canvas, "Follow time");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyTurning.Clock.REAL, savedSky().turning().clock(), "a click on the label turns Follow time off");
+        click(editor, canvas, "Follow time");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyTurning.Clock.WORLD, savedSky().turning().clock());
+
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
+        assertEquals(t, savedSky().turning(), "a preset keeps the turning");
+
+        // The harness presses the left end of the track by the id of the slider, which stops the sky and hides the options.
+        script(editor, canvas, "slide 0 sky.turning");
+        assertNull(canvas.texts.get("Speed"), "a still sky shows no options: " + canvas.texts.keySet());
+        script(editor, canvas, "click Apply");
+        assertEquals(0, savedSky().turning().amount());
+        assertEquals(SkyTurning.Direction.REVERSE, savedSky().turning().direction(), "the other options stay");
+    }
+
+    /** Runs one harness command: a frame records the labels, the next runs the command and the last shows the result. */
+    private static void script(SettingsEditor editor, RecordingCanvas canvas, String command) {
+        SettingsEditor.script(command);
+        for (int i = 0; i < 3; i++) render(editor, canvas);
+    }
+
+    @Test
+    void thePreviewTurnsWithTheClock() throws InterruptedException {
+        SkyTurning real = new SkyTurning(100, 10, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.NORMAL, 0);
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(real)))));
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(960, 540);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "Sky");
+            SkyClock.hold(0);
+            for (int i = 0; i < 400 && canvas.images.get("sky.preview") == null; i++) {
+                Thread.sleep(10);
+                render(editor, canvas);
+            }
+            CanvasImage start = canvas.images.get("sky.preview");
+            assertNotNull(start, "the preview is ready");
+            render(editor, canvas);
+            assertSame(start, canvas.images.get("sky.preview"), "a held clock makes no new image");
+            SkyClock.hold(30);
+            render(editor, canvas);
+            CanvasImage quarter = canvas.images.get("sky.preview");
+            assertNotEquals(start.serial(), quarter.serial());
+            assertFalse(Arrays.equals(start.argb(), quarter.argb()), "a quarter turn later the preview shows another part of the sky");
+        } finally {
+            SkyClock.run();
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
     void theSkyLayersEditorFitsAtEverySize() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}};
-        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}};
+        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}, {"Motion"}};
         for (int[] size : sizes) {
             for (String[] path : paths) {
                 Config c = withOwnProfile();
                 Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                        Collections.<Rule>emptyList(), SkyPresets.GALAXY));
+                        Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.NONE.withAmount(50))));
                 sc.apply(c.withProfile(p));
                 SettingsEditor editor = new SettingsEditor(sc);
                 editor.ui.tipDelay = 0;
@@ -914,6 +983,8 @@ class SettingsEditorTest {
                 editor.render(canvas, 0, 0);
                 click(editor, canvas, "Sky");
                 for (String label : path) if (canvas.find(label) != null) click(editor, canvas, label);
+                int[] style = canvas.find("Style");
+                if (style != null) assertAboveFooter(canvas, size, style[0] - 15);
                 for (int y = 0; y < size[1]; y += 7) {
                     for (int x = 0; x < size[0]; x += 11) {
                         if (editor.isClosed()) break;
@@ -973,10 +1044,18 @@ class SettingsEditorTest {
     static final class RecordingCanvas implements Canvas {
         final int w, h;
         final Map<String, int[]> texts = new LinkedHashMap<String, int[]>();
+        /** The last image drawn with each id. */
+        final Map<String, CanvasImage> images = new LinkedHashMap<String, CanvasImage>();
 
         RecordingCanvas(int w, int h) {
             this.w = w;
             this.h = h;
+        }
+
+        @Override
+        public void image(String id, CanvasImage img, int x, int y, int w, int h) {
+            images.put(id, img);
+            Canvas.super.image(id, img, x, y, w, h);
         }
 
         int[] find(String label) {

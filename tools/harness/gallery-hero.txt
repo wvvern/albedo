@@ -1,27 +1,68 @@
-# Store page images of the 0.4.0 features: the pastel world under the sharp Galaxy sky, and a close view of sharp stars.
+# Store page images of the 0.4.1 sky: pastel blocks and mobs under the Galaxy with its jets, and a close view of sharp stars.
 # Run it after scene-modern.txt:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery-hero.txt -OutDir build\gallery-hero
 wait 60
 profile pastel
 run time set 6000
-# A lantern in place of the torch: torch smoke drifts through the sky shots.
-run setblock 0 -59 -6 lantern
 sky galaxy
 skyrender sharp
 run kill @e[type=!player]
 wait 5
 run kill @e[type=item]
-run summon pig -10.2 -60 -8.6 {NoAI:1b,Rotation:[135f,0f]}
-run summon sheep -8.8 -60 -10 {NoAI:1b,Color:14,Rotation:[135f,0f]}
-run summon villager -6 -60 -12.8 {NoAI:1b,Rotation:[135f,0f]}
-run summon cow -4.6 -60 -14.2 {NoAI:1b,Rotation:[135f,0f]}
+# A new set away from the test scene, seen from its corner to the south-east, where the galaxy is.
+# The camera stands in a hole one block deep, so that its eye is near the grass and the low blocks rise into the sky.
+run setblock 20 -61 20 air
+# Pillars of blocks on the left and the right, which frame the galaxy.
+run setblock 27 -60 21 amethyst_block
+run setblock 27 -59 21 bookshelf
+run setblock 27 -58 21 purpur_block
+run setblock 27 -57 21 flowering_azalea
+run setblock 28 -60 21 packed_ice
+run setblock 28 -59 21 cherry_planks
+run setblock 27 -60 22 melon
+run setblock 21 -60 27 gold_block
+run setblock 21 -59 27 bricks
+run setblock 21 -58 27 prismarine
+run setblock 21 -57 27 flowering_azalea
+run setblock 21 -60 28 lapis_block
+run setblock 21 -59 28 oak_planks
+run setblock 22 -60 27 pumpkin
+# A low wall of different blocks behind the mobs.
+run setblock 31 -60 23 stone
+run setblock 30 -60 24 red_wool
+run setblock 29 -60 25 sand
+run setblock 28 -60 26 diamond_block
+run setblock 27 -60 27 glowstone
+run setblock 26 -60 28 mossy_cobblestone
+run setblock 25 -60 29 copper_block
+run setblock 24 -60 30 crafting_table
+run setblock 23 -60 31 hay_block
+run setblock 31 -60 24 oak_leaves[persistent=true]
+run setblock 30 -60 25 cherry_leaves[persistent=true]
+run setblock 29 -60 26 birch_leaves[persistent=true]
+run setblock 28 -60 27 tnt
+run setblock 27 -60 28 azalea_leaves[persistent=true]
+run setblock 26 -60 29 spruce_leaves[persistent=true]
+run setblock 25 -60 30 honeycomb_block
+run setblock 24 -60 31 slime_block
+run setblock 24 -60 24 poppy
+run setblock 23 -60 25 cornflower
+run setblock 25 -60 23 allium
+# The villager looks at the camera, and the animals on each side turn toward the middle.
+run summon cow 25.9 -60 22.2 {NoAI:1b,Rotation:[75f,0f]}
+run summon villager 25.7 -60 25.2 {NoAI:1b,Rotation:[135f,0f]}
+run summon sheep 24.4 -60 26.3 {NoAI:1b,Color:6,Rotation:[170f,0f]}
+run summon pig 22.1 -60 26.0 {NoAI:1b,Rotation:[195f,0f]}
 wait 160
-run tp @p -14.5 -60 -18.5 -45 -20
+fov 90
+run tp @p 20.5 -61 20.5 -45 -33
 wait 40
-screenshot h01-pastel-galaxy-a
-run tp @p -14.5 -60 -18.5 -40 -24
+screenshot h01-pastel-galaxy
+# A closer view of the galaxy at a field of view of 70 over the tops of the pillars.
+fov 70
+run tp @p 20.5 -61 20.5 -45 -50
 wait 40
-screenshot h01-pastel-galaxy-b
+screenshot h01-galaxy-close
 # Close views of the Nebula stars at a field of view of 30, sharp and then baked.
 sky nebula
 wait 160

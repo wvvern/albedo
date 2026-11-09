@@ -53,11 +53,6 @@ public enum Category {
         return this != SKY && this != CLOUDS && this != WEATHER;
     }
 
-    /** Whether Chroma means something here: wherever the textures can be recolored. */
-    public boolean hasChroma() {
-        return supportedModes().contains(Appearance.Mode.RECOLOR) && this != COLORMAPS;
-    }
-
     /** Whether Bevel and Outline mean something here, which needs square tiles such as block faces. */
     public boolean hasEdgeEffects() {
         return this == BLOCKS || this == FLUIDS;

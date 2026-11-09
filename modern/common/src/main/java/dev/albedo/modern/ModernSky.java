@@ -5,11 +5,15 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
+import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 
 /**
  * Draws the custom sky on a sphere in place of the vanilla sky disc, with the sky shader of each version when it can
@@ -26,8 +30,9 @@ public final class ModernSky {
     private static boolean irisLooked;
     //? if >=26.1 {
     private static com.mojang.renderpearl.api.buffers.GpuBuffer sphere;
-    // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
-    private static final com.mojang.renderpearl.api.pipeline.RenderPipeline PIPELINE = com.mojang.renderpearl.api.pipeline.RenderPipeline.builder()
+    // The texture with no blend, no depth test or write and no cull (the sky is the first thing in the frame), compiled on
+    // the render thread at its first use, as a pipeline of the game is.
+    private static final SharpSky.Pipeline PIPELINE = new SharpSky.Pipeline(com.mojang.renderpearl.api.pipeline.RenderPipeline.builder()
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.DYNAMIC_TRANSFORMS)
@@ -41,7 +46,7 @@ public final class ModernSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES)
-            .build();
+            .build(), Runnable::run);
     //?} elif >=1.21.11 {
     /*private static com.mojang.blaze3d.buffers.GpuBuffer sphere;
     // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
@@ -104,12 +109,44 @@ public final class ModernSky {
     static float brightness(SkyImage img) {
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null || img.design().light() != SkyDesign.Light.DAY_NIGHT) return 1f;
+        return SkyLight.brightness(dayTime(level), level.getRainLevel(1f), level.getThunderLevel(1f));
+    }
+
+    /** The day time of the world in ticks with no wrap, where 0 is sunrise. */
+    private static long dayTime(ClientLevel level) {
         //? if >=26.1 {
-        long time = level.getOverworldClockTime();
+        return level.getOverworldClockTime();
         //?} else {
-        /*long time = level.getDayTime();
+        /*return level.getDayTime();
         *///?}
-        return SkyLight.brightness(time, level.getRainLevel(1f), level.getThunderLevel(1f));
+    }
+
+    /** Records the day time at the end of each client tick, for the frames until the next tick. */
+    static void tick() {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level != null) SkyDayTime.tick(dayTime(level));
+    }
+
+    /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
+    static SkyTurn turn(SkyImage img) {
+        ClientLevel level = Minecraft.getInstance().level;
+        return SkyTurn.at(img.design().turning(), level == null ? 0 : SkyDayTime.at(partialTick()));
+    }
+
+    /** The part of a tick from the last tick to this frame. */
+    private static float partialTick() {
+        //? if >=1.21.11 {
+        return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        //?} else {
+        /*return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        *///?}
+    }
+
+    /** A copy of the model view matrix of the sky sphere, turned for a sky that turns. */
+    static Matrix4f turned(Matrix4fc modelView, SkyImage img) {
+        SkyTurn turn = turn(img);
+        Matrix4f out = new Matrix4f(modelView);
+        return turn.still() ? out : out.mul(new Matrix4f().set(turn.matrix()));
     }
 
     /** The camera yaw in degrees, where 0 looks south. */
@@ -184,10 +221,12 @@ public final class ModernSky {
         if (img == null || texture == null || sphere == null || uploaded < 0) return false;
         float k = brightness(img);
         com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
-                .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));
+                .writeTransform(turned(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), img), new org.joml.Vector4f(k, k, k, 1f));
         if (SharpSky.draw(pass, transforms, sphere, vertexCount)) return true;
+        com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline baked = PIPELINE.get();
+        if (baked == null) return false;
         pass.pushDebugGroup(() -> "Albedo sky");
-        pass.setPipeline(com.mojang.blaze3d.systems.RenderSystem.getCompiledPipeline(PIPELINE));
+        pass.setPipeline(baked);
         com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
         pass.setUniform("Sampler0", texture.getTextureView(), com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getSampler(
@@ -220,7 +259,7 @@ public final class ModernSky {
         PrecompiledSharpSky.prepare(img);
         float k = brightness(img);
         com.mojang.blaze3d.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
-                .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix(), new org.joml.Vector4f(k, k, k, 1f),
+                .writeTransform(turned(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix(), img), new org.joml.Vector4f(k, k, k, 1f),
                         new org.joml.Vector3f(), new org.joml.Matrix4f());
         com.mojang.blaze3d.pipeline.RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
         try (com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
@@ -254,12 +293,13 @@ public final class ModernSky {
     }
 
     // Draws the sky with the matrices of the vanilla disc, and returns false when there is no custom sky.
-    public static boolean draw(org.joml.Matrix4f modelView, org.joml.Matrix4f projection) {
+    public static boolean draw(org.joml.Matrix4f skyModelView, org.joml.Matrix4f projection) {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
         GlSharpSky.prepare(img);
         float k = brightness(img);
+        Matrix4f modelView = turned(skyModelView, img);
         if (GlSharpSky.draw(img, sphere, modelView, projection, k)) return true;
         com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
         com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, texture.getId());

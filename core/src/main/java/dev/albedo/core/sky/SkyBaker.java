@@ -48,10 +48,10 @@ public final class SkyBaker {
         }
         if (design.equals(requested)) return;
         SkyImage last = image;
-        if (last != null && last.design().equals(requested) && design.equals(requested.withRender(design.render()))) {
-            // Only the render changed, which the bake does not read, so the finished image stays with the new design.
+        if (last != null && last.design().equals(requested) && design.baked().equals(requested.baked())) {
+            // Only the render or the turning changed, which the bake does not read, so the finished image stays with the new design.
             requested = design;
-            image = last.withRender(design.render());
+            image = last.withDesign(design);
             return;
         }
         requested = design;

@@ -5,6 +5,7 @@ import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyLayer.Kind;
 import dev.albedo.core.config.SkyLayer.Param;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 
 import java.util.ArrayList;
@@ -22,32 +23,61 @@ public final class SkyPresets {
             .add(Kind.GLOW, Param.COLOR_1, 0xFFFF9E5E, Param.AMOUNT, 30, Param.HEIGHT, 22)
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFFFFFFFF, Param.COLOR_2, 0xFF000000, Param.HEIGHT, 45, Param.AMOUNT, 15)
             .output(SkyLayer.Output.MASK_ONLY)
-            .add(Kind.STARS, Param.AMOUNT, 25, Param.SEED, 3)
-            .blend(SkyLayer.Blend.ADD).opacity(55).mask(3, SkyMask.Mode.DARK)
+            .add(Kind.STARS, Param.AMOUNT, 40, Param.SEED, 3)
+            .blend(SkyLayer.Blend.ADD).opacity(75).mask(3, SkyMask.Mode.DARK)
             .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT, SkyDesign.Extent.HORIZON);
 
-    /** Pink and violet clouds of gas with stars, partly blurred and changed in hue through a noise mask. */
+    /** Pink and violet clouds of gas that slowly pulse, partly blurred and changed in hue through a noise mask, with sharp stars over them. */
     public static final SkyDesign NEBULA = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF1A0F33, Param.COLOR_2, 0xFF05060F, Param.HEIGHT, 35, Param.AMOUNT, 70)
-            .add(Kind.FRACTAL, Param.COLOR_1, 0xFF3B1C6E, Param.COLOR_2, 0xFFFF6FB0, Param.AMOUNT, 60, Param.SEED, 7)
+            .add(Kind.FRACTAL, Param.COLOR_1, 0xFF3B1C6E, Param.COLOR_2, 0xFFFF6FB0, Param.AMOUNT, 60, Param.PULSE, 100, Param.SEED, 7)
             .blend(SkyLayer.Blend.ADD).opacity(90).place(new Transform(40, 10, 0, 130))
             .add(Kind.NOISE, Param.AMOUNT, 55, Param.SEED, 12).output(SkyLayer.Output.MASK_ONLY).place(new Transform(0, 0, 0, 80))
-            .add(Kind.STARS, Param.AMOUNT, 70, Param.SEED, 5).blend(SkyLayer.Blend.ADD)
             .add(Kind.BLUR, Param.AMOUNT, 25).mask(3, SkyMask.Mode.LIGHT)
             .add(Kind.HUE_SHIFT, Param.AMOUNT, 12).mask(3, SkyMask.Mode.DARK)
+            .add(Kind.STARS, Param.AMOUNT, 70, Param.TWINKLE, 50, Param.SEED, 5).blend(SkyLayer.Blend.ADD)
             .add(Kind.BLOOM, Param.AMOUNT, 40, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
-    /** A spiral galaxy high in the south-east over a field of stars and a faint band of light. */
+    /**
+     * An active galaxy like Centaurus A high in the south-east: a tilted disc in a large warm halo with a dark lane of dust
+     * across its center, and two blue jets from its black hole into red lobes with rings, over faint dust and stars.
+     */
     public static final SkyDesign GALAXY = new Builder()
-            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0C1022, Param.COLOR_2, 0xFF020308, Param.HEIGHT, 30, Param.AMOUNT, 60)
-            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF2B3A66, Param.AMOUNT, 45, Param.SEED, 2)
-            .blend(SkyLayer.Blend.ADD).opacity(60).place(new Transform(0, 0, 70, 200))
-            .add(Kind.STARS, Param.AMOUNT, 60, Param.SEED, 9).blend(SkyLayer.Blend.ADD)
-            .add(Kind.GALAXY, Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 55, Param.SEED, 4)
-            .blend(SkyLayer.Blend.ADD).place(new Transform(135, 40, 20, 140))
-            .add(Kind.BLOOM, Param.AMOUNT, 50, Param.HEIGHT, 50)
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A0D1A, Param.COLOR_2, 0xFF010206, Param.HEIGHT, 30, Param.AMOUNT, 60)
+            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF1C2238, Param.AMOUNT, 40, Param.SEED, 2)
+            .blend(SkyLayer.Blend.ADD).opacity(45).place(new Transform(0, 0, 70, 200))
+            .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 9).blend(SkyLayer.Blend.ADD)
+            .add(Kind.GALAXY, Param.COLOR_1, 0xFF8FB2FF, Param.COLOR_2, 0xFFFFD9A6, Param.COLOR_3, 0xFF6FC3FF, Param.AMOUNT, 40,
+                    Param.TILT, 68, Param.DUST, 85, Param.JETS, 80, Param.SEED, 4)
+            .blend(SkyLayer.Blend.ADD).place(new Transform(135, 46, 30, 140))
+            .add(Kind.BLOOM, Param.AMOUNT, 35, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
+
+    /** A clear dark night with stars, a faint band of dust and a shower of shooting stars from the north-east. */
+    public static final SkyDesign METEORS = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF101A33, Param.COLOR_2, 0xFF02040A, Param.HEIGHT, 25, Param.AMOUNT, 60)
+            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF26304D, Param.AMOUNT, 40, Param.SEED, 6)
+            .blend(SkyLayer.Blend.ADD).opacity(45).place(new Transform(0, 0, 60, 200))
+            .add(Kind.STARS, Param.AMOUNT, 55, Param.TWINKLE, 50, Param.SEED, 11).blend(SkyLayer.Blend.ADD)
+            .add(Kind.METEORS, Param.SHOWER, 70).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
+
+    /** Folded green curtains of the northern light over the north, with red tops, over an open night sky with twinkling stars. */
+    public static final SkyDesign AURORA = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A1424, Param.COLOR_2, 0xFF020409, Param.HEIGHT, 22, Param.AMOUNT, 55)
+            .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 6)
+            .blend(SkyLayer.Blend.ADD).opacity(6).place(new Transform(0, 0, 0, 100))
+            .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 6).blend(SkyLayer.Blend.ADD).opacity(85)
+            .add(Kind.AURORA, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
+
+    /** A long exposure of a dark clear night: the stars turn around the pole in the north and draw arcs behind them. */
+    public static final SkyDesign TRAILS = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF14203A, Param.COLOR_2, 0xFF020308, Param.HEIGHT, 20, Param.AMOUNT, 55)
+            .add(Kind.STARS, Param.AMOUNT, 75, Param.HEIGHT, 30, Param.SEED, 8).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE)
+            .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
 
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 
@@ -55,6 +85,9 @@ public final class SkyPresets {
         ALL.put("dusk", DUSK);
         ALL.put("nebula", NEBULA);
         ALL.put("galaxy", GALAXY);
+        ALL.put("meteors", METEORS);
+        ALL.put("aurora", AURORA);
+        ALL.put("trails", TRAILS);
     }
 
     private SkyPresets() {}

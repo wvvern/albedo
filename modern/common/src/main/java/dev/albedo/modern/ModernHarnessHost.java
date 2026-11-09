@@ -134,6 +134,18 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void quit() {
+        // The dev run of Architectury keeps two thread pools that are not daemons, so the JVM must stop when the game thread ends.
+        Thread game = Thread.currentThread();
+        Thread exit = new Thread(() -> {
+            try {
+                game.join();
+            } catch (InterruptedException e) {
+                return;
+            }
+            System.exit(0);
+        }, "albedo-harness-exit");
+        exit.setDaemon(true);
+        exit.start();
         Minecraft.getInstance().stop();
     }
 
@@ -193,13 +205,23 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    public void look(float yaw, float pitch) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) return;
+        player.setYRot(yaw);
+        player.setXRot(pitch);
+        player.yRotO = yaw;
+        player.xRotO = pitch;
+    }
+
+    @Override
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         //? if >=26.1 {
-        return SharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        return SharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
         //?} elif >=1.21.11 {
-        /*return PrecompiledSharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        /*return PrecompiledSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
         *///?} else {
-        /*return GlSharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        /*return GlSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
         *///?}
     }
 }

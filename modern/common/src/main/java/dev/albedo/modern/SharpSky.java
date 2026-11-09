@@ -27,13 +27,13 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.renderer.BindGroupLayouts;
-import net.minecraft.client.renderer.ShaderManager;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 import org.lwjgl.system.MemoryUtil;
@@ -41,56 +41,48 @@ import org.lwjgl.system.MemoryUtil;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Draws the custom sky with the sky shader for each screen pixel, so that it is sharp at each resolution and field of
  * view, when the design, the setting and the GPU permit; else the baked texture draws it.
  */
 final class SharpSky {
-    /** The state of the background compile of one pipeline. */
+    /** The state of the compile of one pipeline. */
     private enum Compile { NOT_STARTED, RUNNING, READY, FAILED }
 
-    /** A pipeline that compiles from the shaders of the mod in the background, and is ready on a later frame. */
-    private static final class Pipeline {
-        final RenderPipeline pipeline;
-        Compile state = Compile.NOT_STARTED;
-        CompletableFuture<CompiledRenderPipeline.Pending> pending;
-        CompiledRenderPipeline compiled;
+    /**
+     * A pipeline that compiles from a {@link Source} on an executor and is ready on a later call, or in the same call when the
+     * executor runs the compile at once.
+     */
+    static final class Pipeline {
+        private final RenderPipeline pipeline;
+        private final Executor executor;
+        private Compile state = Compile.NOT_STARTED;
+        private CompletableFuture<CompiledRenderPipeline.Pending> pending;
+        private CompiledRenderPipeline compiled;
 
-        Pipeline(RenderPipeline pipeline) {
+        Pipeline(RenderPipeline pipeline, Executor executor) {
             this.pipeline = pipeline;
+            this.executor = executor;
         }
 
         /** Starts or finishes the compile on the render thread, and returns the compiled pipeline once it is ready, else null. */
         CompiledRenderPipeline get() {
-            switch (state) {
-                case NOT_STARTED:
-                    start();
-                    return null;
-                case RUNNING:
-                    if (pending.isDone()) finish();
-                    return compiled;
-                case READY:
-                    return compiled;
-                default:
-                    return null;
-            }
+            if (state == Compile.NOT_STARTED) start();
+            if (state == Compile.RUNNING && pending.isDone()) finish();
+            return state == Compile.READY ? compiled : null;
         }
 
         private void start() {
             state = Compile.RUNNING;
-            Source source = null;
             try {
-                source = new Source();
-                Source started = source;
-                pending = RenderSystem.getDevice().compilePipeline(pipeline, source, Util.backgroundExecutor());
-                pending.whenComplete((done, error) -> started.close());
+                pending = RenderSystem.getDevice().compilePipeline(pipeline, new Source(pipeline), executor);
             } catch (IOException | RuntimeException e) {
-                if (source != null) source.close();
                 fail(e);
             }
         }
@@ -106,14 +98,14 @@ final class SharpSky {
                 fail(null);
             } else {
                 state = Compile.READY;
-                Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
+                Albedo.get().platform().info("Compiled the sky shader " + pipeline.getLocation());
             }
         }
 
         private void fail(Throwable e) {
             state = Compile.FAILED;
             compiled = null;
-            Albedo.get().platform().warn("Cannot compile the sharp sky shader " + pipeline.getLocation() + ". The sky draws from the baked image.", e);
+            Albedo.get().platform().warn("Cannot compile the sky shader " + pipeline.getLocation() + ". The sky draws in a simpler way.", e);
         }
     }
 
@@ -176,7 +168,7 @@ final class SharpSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build());
+            .build(), Util.backgroundExecutor());
 
     // The sky into the equirectangular image of the CPU bake, for the harness, with no depth texture.
     private static final Pipeline EQUIRECT = new Pipeline(RenderPipeline.builder()
@@ -188,8 +180,10 @@ final class SharpSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build());
+            .build(), Util.backgroundExecutor());
 
+    /** The bytes of the time for {@link #writeTime}, which the write copies at once, so one buffer serves all frames. */
+    private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
@@ -201,12 +195,21 @@ final class SharpSky {
     /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
     static void prepare(SkyImage img) {
         ready = ModernSky.wantsSharp(img) && SHARP.get() != null;
-        if (!ready || blockSerial == img.serial()) return;
-        if (block != null) block.close();
-        if (terms != null) terms.close();
-        block = upload(img.program(), "Albedo sky block");
-        terms = Terms.upload(img, "Albedo sky terms");
-        blockSerial = img.serial();
+        if (!ready) return;
+        if (blockSerial != img.serial()) {
+            if (block != null) block.close();
+            if (terms != null) terms.close();
+            block = upload(img.program(), SkyProgram.STILL, "Albedo sky block");
+            terms = Terms.upload(img, "Albedo sky terms");
+            blockSerial = img.serial();
+        }
+        if (img.program().moves()) writeTime(block, SkyClock.seconds());
+    }
+
+    /** Writes the time of the layers that move into the header of a block, outside a render pass. */
+    private static void writeTime(GpuBuffer target, float time) {
+        TIME_BYTES.putFloat(0, time);
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
     }
 
     /**
@@ -227,13 +230,13 @@ final class SharpSky {
         return true;
     }
 
-    /** A uniform buffer with the block of a program. */
-    private static GpuBuffer upload(SkyProgram program, String label) {
+    /** A uniform buffer with the block of a program at a time, which {@link #writeTime} can change. */
+    private static GpuBuffer upload(SkyProgram program, float time, String label) {
         float[] values = program.block();
         ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
         try {
-            bytes.asFloatBuffer().put(values);
-            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+            bytes.asFloatBuffer().put(values).put(SkyProgram.TIME, time);
+            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, bytes);
         } finally {
             MemoryUtil.memFree(bytes);
         }
@@ -243,13 +246,14 @@ final class SharpSky {
      * Draws the program and the term images of a sky {@code repeat} times into an equirectangular image of this size, then
      * gives the pixels and the GPU time of one draw, and returns false while the shader compiles or when it cannot compile.
      *
+     * @param time the time of the layers that move, or {@link SkyProgram#STILL}
      * @param png a file for the image, or null
      */
-    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         CompiledRenderPipeline pipeline = EQUIRECT.get();
         if (pipeline == null) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
-        GpuBuffer uniforms = upload(sky.program(), "Albedo sky compare block");
+        GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad();
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
@@ -313,37 +317,46 @@ final class SharpSky {
         }
     }
 
-    /** The shaders of the mod from its jar, and the includes of the game with the include of the mod. */
+    /**
+     * The shaders of one pipeline, read on the render thread from the jar of the mod or from the resources of the game, with
+     * the text of each include in them: shaderc calls back into Java for an include line, and on Windows the compiled code of
+     * that call can write below the guard page of a worker stack that the compiler made deep, which stops the JVM.
+     */
     private static final class Source implements ShaderSource {
-        private final Map<Identifier, CachedIncludeSource> includes;
+        private final Map<ShaderType, String> shaders = new EnumMap<ShaderType, String>(ShaderType.class);
 
-        Source() throws IOException {
-            includes = new HashMap<Identifier, CachedIncludeSource>(ShaderManager.listAllIncludes(Minecraft.getInstance().getResourceManager()));
-            Identifier own = Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "sky_layers.glsl");
-            CachedIncludeSource old = includes.put(own, CachedIncludeSource.create(own, SkyShaderSource.read("include/sky_layers.glsl")));
-            if (old != null) old.close();
+        Source(RenderPipeline pipeline) throws IOException {
+            for (Map.Entry<ShaderType, Identifier> e : pipeline.getShaders().entrySet()) {
+                Identifier id = e.getValue();
+                String text = id.getNamespace().equals(Albedo.MOD_ID)
+                        ? SkyShaderSource.read(id.getPath() + (e.getKey() == ShaderType.VERTEX ? ".vsh" : ".fsh"))
+                        : resource(e.getKey().idConverter().idToFile(id));
+                shaders.put(e.getKey(), SkyShaderSource.inline(text, Source::include));
+            }
+        }
+
+        private static String include(String id) throws IOException {
+            Identifier parsed = Identifier.parse(id);
+            return parsed.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.readInclude(parsed.toString())
+                    : resource(parsed.withPrefix("shaders/include/"));
+        }
+
+        private static String resource(Identifier file) throws IOException {
+            return Minecraft.getInstance().getResourceManager().getResourceOrThrow(file).readAllAsString();
         }
 
         @Override
         public String getShader(Identifier id, ShaderType type) {
-            if (!id.getNamespace().equals(Albedo.MOD_ID)) return null;
-            try {
-                return SkyShaderSource.read(id.getPath() + (type == ShaderType.VERTEX ? ".vsh" : ".fsh"));
-            } catch (IOException e) {
-                Albedo.get().platform().warn("Cannot read the sky shader " + id, e);
-                return null;
-            }
+            return shaders.get(type);
         }
 
         @Override
         public CachedIncludeSource getInclude(Identifier id) {
-            return includes.get(id);
+            return null;
         }
 
         @Override
-        public void close() {
-            for (CachedIncludeSource include : includes.values()) include.close();
-        }
+        public void close() {}
     }
 }
 //?}
