@@ -13,7 +13,7 @@ Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 ./tools/screenshots.ps1                       # every target
 ./tools/screenshots.ps1 -Targets fabric-26.3  # one target
 # Store page images:
-./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -OutDir build\gallery
+./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery-041.txt -GuiScale 2 -OutDir build\gallery-041
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
 ./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
 # With Iris (it adds Sodium) and a shader pack zip that you downloaded; without -ShaderPack, Iris has shaders off:
@@ -31,7 +31,9 @@ param(
     # Optional shader pack zip for -Compat iris. The script copies it into the run folder, which git ignores.
     [string]$ShaderPack = "",
     # More command files in tools/harness/, added after the scene.
-    [string[]]$Extra = @()
+    [string[]]$Extra = @(),
+    # The GUI scale, where 0 is auto; 2 gives the settings screen room for the sky preview in the harness window.
+    [int]$GuiScale = 0
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -50,7 +52,7 @@ function Set-Options([string]$runDir) {
         foreach ($line in Get-Content $file) { $i = $line.IndexOf(':'); if ($i -gt 0) { $options[$line.Substring(0, $i)] = $line.Substring($i + 1) } }
     }
     $wanted = @{ onboardAccessibility = "false"; narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false";
-                 tutorialStep = "none"; skipMultiplayerWarning = "true"; joinedFirstServer = "true"; fullscreen = "false"; guiScale = "0" }
+                 tutorialStep = "none"; skipMultiplayerWarning = "true"; joinedFirstServer = "true"; fullscreen = "false"; guiScale = "$GuiScale" }
     foreach ($k in $wanted.Keys) { $options[$k] = $wanted[$k] }
     ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii $file
 }
