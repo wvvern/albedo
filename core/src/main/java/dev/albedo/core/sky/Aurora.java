@@ -22,18 +22,35 @@ final class Aurora {
     private static final float[] GAIN = {1f, 0.2f};
     /** The km to each side of a sheet that its light reaches, which makes a sheet seen edge-on brighter but not without end. */
     private static final float THICK = 14f;
+    /**
+     * The seconds of the aurora clock after which it goes back to 0, in which each wave turns and each ray and noise row
+     * moves on a whole number of times, so that the wrap has no jump.
+     */
+    static final float PERIOD = 7200f;
+    /** The angle in radians for each second of a wave that turns once in a {@link #PERIOD}. */
+    private static final float TURN = (float) (2 * Math.PI / PERIOD);
     /** The frequency for each radian of azimuth, the size in radians and the speed in radians for each second of the folds. */
-    private static final float[] FOLD_K = {8f, 21f, 43f}, FOLD_AMP = {0.08f, 0.04f, 0.019f}, FOLD_RATE = {0.02f, -0.05f, 0.11f};
+    private static final float[] FOLD_K = {8f, 21f, 43f}, FOLD_AMP = {0.08f, 0.04f, 0.019f}, FOLD_RATE = {23 * TURN, -57 * TURN, 126 * TURN};
     /** The frequency for each radian, the size in km and the speed of the waves that move the ribbon toward the viewer. */
-    private static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {30f, 10f}, NEAR_RATE = {-0.015f, 0.04f};
+    private static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {30f, 10f}, NEAR_RATE = {-17 * TURN, 46 * TURN};
     /** How far toward the viewer a fold moves the ribbon, for each km that it moves the ribbon along its line. */
     private static final float LOOP = 0.5f;
     /** The steps of the search for the parts of a ribbon near the view, over the azimuths that the folds can reach. */
     static final int STEPS = 10;
     /** The largest azimuth in radians from the layer center with aurora light, where the ribbons are low and faint. */
     private static final float MAX_AZIMUTH = 1.35f;
-    /** How many km each second the rays move along the ribbon. */
+    /** How many km each second the rays move along the ribbon, which is 4320 km in a {@link #PERIOD}. */
     private static final float DRIFT = 0.6f;
+    /** The waves of the lower edge of about 23 and 9 km in radians for each km, which the drift of a period turns a whole number of times. */
+    private static final float EDGE_K1 = 30 * TURN / DRIFT, EDGE_K2 = 76 * TURN / DRIFT;
+    /** The width in km of the cells of each octave of rays, so that the drift of a period is a whole number of cells of each. */
+    private static final float[] RAY_CELL = {40f, 3f, 1.08f, 0.5f, 2f};
+    /** The cells of each octave of rays in the drift of a period, and the noise rows that each octave moves through in a period. */
+    private static final int[] RAY_CELLS = {108, 1440, 4000, 8640, 2160}, RAY_ROWS = {216, 720, 1800, 4320, 864};
+    /** The noise rows in a period of the bright and faint parts of a ribbon and of their brightness. */
+    private static final int PART_ROWS = 29, LIGHT_ROWS = 72;
+    /** One {@link Ribbon} for each thread, so that a pixel of the bake makes no new arrays. */
+    private static final ThreadLocal<Ribbon> VIEW = ThreadLocal.withInitial(Ribbon::new);
     /** The azimuth in radians of the near ribbon before the tip of a fold over which a curtain fades out at its end. */
     private static final float TAPER = 0.06f;
     /** The km under the lower edge over which the faint glow of a curtain fades out. */
@@ -41,15 +58,20 @@ final class Aurora {
 
     private Aurora() {}
 
+    /** The aurora clock at a time of the sky clock with no wrap, for an aurora at a speed from 0 to 1. */
+    static float clock(double seconds, float speed) {
+        double t = seconds * speed * 2;
+        return (float) (t - PERIOD * Math.floor(t / PERIOD));
+    }
+
     /**
-     * The color and alpha of the aurora of layer {@code layer} of a program block, where the alpha times the color is the
-     * light that the aurora adds.
+     * The color and alpha of the aurora of layer {@code layer} of a program block at the aurora clock in the block, where
+     * the alpha times the color is the light that the aurora adds.
      *
      * @param p the direction in the layer frame
      * @param footprint the width of one pixel in radians
-     * @param time the seconds of the shader clock, 0 for the bake
      */
-    static void sample(float[] block, int layer, float[] p, float footprint, float time, float[] out) {
+    static void sample(float[] block, int layer, float[] p, float footprint, float[] out) {
         out[0] = 0;
         out[1] = 0;
         out[2] = 0;
@@ -60,8 +82,11 @@ final class Aurora {
         if (el < -0.05f || el > 1.4f || cosEl < 1e-4f) return;
         float a = (float) Math.atan2(p[0], -p[2]);
         if (Math.abs(a) > MAX_AZIMUTH) return;
-        Ribbon view = new Ribbon(block, layer, a, el, footprint / Math.max(cosEl, 0.05f), footprint, time);
-        float[] light = new float[2];
+        Ribbon view = VIEW.get();
+        view.set(block, layer, a, el, footprint / Math.max(cosEl, 0.05f), footprint);
+        float[] light = view.light, e = view.color;
+        light[0] = 0;
+        light[1] = 0;
         view.add(0, light);
         // The far ribbon with its short rays is never more than about 15 degrees high.
         if (el < FAR_TOP) view.add(1, light);
@@ -69,7 +94,6 @@ final class Aurora {
         float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el)
                 * (1 - smooth(MAX_AZIMUTH - 0.2f, MAX_AZIMUTH, Math.abs(a)));
         float alpha1 = block[SkyProgram.at(layer, SkyProgram.ALPHA_1)], alpha2 = block[SkyProgram.at(layer, SkyProgram.ALPHA_2)];
-        float[] e = new float[3];
         float m = 0;
         for (int c = 0; c < 3; c++) {
             e[c] = bright * (block[SkyProgram.at(layer, SkyProgram.COLOR_1) + c] * alpha1 * light[0]
@@ -84,10 +108,12 @@ final class Aurora {
         out[3] = alpha;
     }
 
-    /** The values of one view direction that both ribbons use. */
+    /** The values of one view direction that both ribbons use, which {@link #set} changes for each pixel. */
     private static final class Ribbon {
-        final float a, el, wide, footprint, t, scale, height;
-        final int seed;
+        float a, el, wide, footprint, t, scale, height;
+        int seed;
+        /** The light of COLOR_1 and COLOR_2 of the view, and its color. */
+        final float[] light = new float[2], color = new float[3];
         /** The room for the slopes and the loop of {@link #offset}, which each caller reads before the next call. */
         private final float[] d = new float[3];
         /** The phases of the waves of the ribbon of the last {@link #add}. */
@@ -104,12 +130,13 @@ final class Aurora {
         /** The light and the place where it is seen of the last {@link #aim}. */
         private float aimed, seen;
 
-        Ribbon(float[] block, int layer, float a, float el, float wide, float footprint, float time) {
+        /** Sets the view direction and the numbers of layer {@code layer} of a program block. */
+        void set(float[] block, int layer, float a, float el, float wide, float footprint) {
             this.a = a;
             this.el = el;
             this.wide = wide;
             this.footprint = footprint;
-            t = time * block[SkyProgram.at(layer, SkyProgram.SPEED)] * 2;
+            t = block[SkyProgram.at(layer, SkyProgram.CLOCK)];
             scale = block[SkyProgram.at(layer, SkyProgram.SCALE)];
             height = 40 + 220 * block[SkyProgram.at(layer, SkyProgram.HEIGHT)];
             seed = (int) block[SkyProgram.at(layer, SkyProgram.SEED)];
@@ -297,11 +324,8 @@ final class Aurora {
             }
             below *= lit;
             float up = Math.max(h, 0), sd = along + DRIFT * t;
-            float r0 = octave(sd / 40, t * 0.03f, seed + 21 + c, pixelAlong / 40);
-            float r1 = octave(sd / 3, t * 0.1f, seed + 22 + c, pixelAlong / 3);
-            float r2 = octave(sd / 1.1f, t * 0.25f, seed + 23 + c, pixelAlong / 1.1f);
-            float r3 = octave(sd / 0.5f, t * 0.6f, seed + 24 + c, pixelAlong / 0.5f);
-            float tall = octave(sd / 2 + 31.7f, t * 0.12f, seed + 25 + c, pixelAlong / 2);
+            float r0 = ray(0, sd, 0, seed + 21 + c), r1 = ray(1, sd, 0, seed + 22 + c), r2 = ray(2, sd, 0, seed + 23 + c);
+            float r3 = ray(3, sd, 0, seed + 24 + c), tall = ray(4, sd, 31.7f, seed + 25 + c);
             // Wide bundles of thin rays with dark sky between them, whose edges are never harder than about one pixel.
             float bundle = 0.35f + 0.65f * smooth(0.2f, 0.8f, r0);
             float hard = Math.max(0.05f, Math.min(0.3f, pixelAlong / 0.5f * 0.5f));
@@ -334,7 +358,8 @@ final class Aurora {
             pixelAlong = wide * DISTANCE[c] / (cos * cos * Math.max(Math.abs(d[0]), 0.02f)) / scale;
             float sd = along + DRIFT * t;
             // The lower edge is nearly level, with gentle waves, as its kinks come from the folds.
-            float edge = 1.3f * (float) Math.sin(sd / 23 + phases[5] + 0.02f * t) + 0.8f * (float) Math.sin(sd / 9 + phases[6] - 0.05f * t);
+            float edge = 1.3f * (float) Math.sin(sd * EDGE_K1 + phases[5] + 23 * TURN * t)
+                    + 0.8f * (float) Math.sin(sd * EDGE_K2 + phases[6] - 57 * TURN * t);
             return r * (float) Math.tan(tilt) - BASE - edge;
         }
 
@@ -343,8 +368,18 @@ final class Aurora {
          * parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
          */
         float strength(int c, float th, float along) {
-            float part = value(along / 320, t * 0.004f, seed + 31 + c) + (c == 0 ? 0.35f * (float) Math.exp(-th * th / 0.25f) : 0);
-            return smooth(0.3f + 0.15f * c, 0.6f + 0.15f * c, part) * (0.4f + 0.9f * value(along / 70, t * 0.01f, seed + 33 + c));
+            float part = value(along / 320, t * (PART_ROWS / PERIOD), 0, PART_ROWS, seed + 31 + c)
+                    + (c == 0 ? 0.35f * (float) Math.exp(-th * th / 0.25f) : 0);
+            return smooth(0.3f + 0.15f * c, 0.6f + 0.15f * c, part)
+                    * (0.4f + 0.9f * value(along / 70, t * (LIGHT_ROWS / PERIOD), 0, LIGHT_ROWS, seed + 33 + c));
+        }
+
+        /**
+         * Octave {@code i} of the rays at the place {@code sd} along the ribbon with the drift, moved by {@code shift} cells,
+         * which repeats after the drift and the rows of one period.
+         */
+        private float ray(int i, float sd, float shift, int raySeed) {
+            return octave(sd / RAY_CELL[i] + shift, t * (RAY_ROWS[i] / PERIOD), RAY_CELLS[i], RAY_ROWS[i], raySeed, pixelAlong / RAY_CELL[i]);
         }
 
         /** The azimuth of {@code theta} from the nearest place of ribbon {@code c}, so that each ribbon slants across the sky. */
@@ -367,19 +402,24 @@ final class Aurora {
     }
 
     /** One octave of rays from 0 to 1, which goes to its mean 0.5 as a ray gets narrower than about three pixels. */
-    private static float octave(float x, float y, int seed, float width) {
+    private static float octave(float x, float y, int periodX, int periodY, int seed, float width) {
         float k = 1 - smooth(0.18f, 0.45f, width);
-        return k <= 0 ? 0.5f : 0.5f + (value(x, y, seed) - 0.5f) * k;
+        return k <= 0 ? 0.5f : 0.5f + (value(x, y, periodX, periodY, seed) - 0.5f) * k;
     }
 
-    /** Smooth value noise in two dimensions, from 0 to 1. */
-    static float value(float x, float y, int seed) {
+    /** Smooth value noise in two dimensions from 0 to 1, which repeats after {@code periodX} and {@code periodY} cells, or never on an axis of 0. */
+    static float value(float x, float y, int periodX, int periodY, int seed) {
         float fx = (float) Math.floor(x), fy = (float) Math.floor(y);
-        int xi = (int) fx, yi = (int) fy;
+        int x0 = repeat((int) fx, periodX), x1 = repeat((int) fx + 1, periodX), y0 = repeat((int) fy, periodY), y1 = repeat((int) fy + 1, periodY);
         float u = Noise.fade(x - fx), v = Noise.fade(y - fy);
-        float a = Noise.unit(Noise.hash(xi, yi, 0, seed)), b = Noise.unit(Noise.hash(xi + 1, yi, 0, seed));
-        float c = Noise.unit(Noise.hash(xi, yi + 1, 0, seed)), d = Noise.unit(Noise.hash(xi + 1, yi + 1, 0, seed));
+        float a = Noise.unit(Noise.hash(x0, y0, 0, seed)), b = Noise.unit(Noise.hash(x1, y0, 0, seed));
+        float c = Noise.unit(Noise.hash(x0, y1, 0, seed)), d = Noise.unit(Noise.hash(x1, y1, 0, seed));
         float top = a + (b - a) * u, bottom = c + (d - c) * u;
         return top + (bottom - top) * v;
+    }
+
+    /** The cell {@code i} of a row that repeats after {@code n} cells, or {@code i} for an {@code n} of 0. */
+    private static int repeat(int i, int n) {
+        return n > 0 ? Math.floorMod(i, n) : i;
     }
 }

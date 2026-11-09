@@ -22,6 +22,7 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMeteors;
 import dev.albedo.core.sky.SkyPresets;
 import dev.albedo.core.sky.SkyProgram;
+import dev.albedo.core.sky.SkyTurn;
 import dev.albedo.core.ui.SettingsEditor;
 
 import java.io.File;
@@ -96,11 +97,11 @@ public final class Harness {
          * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
          * equirectangular image of this size, and later gives its pixels and the GPU time of one draw to {@code done}.
          *
-         * @param time the time in seconds of the layers that move, or {@link SkyProgram#STILL}
+         * @param block the block of the program for the draw, from {@link SkyProgram#block} or {@link SkyProgram#at}
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, File png, SkyDone done) {
+        default boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, File png, SkyDone done) {
             return false;
         }
 
@@ -421,7 +422,7 @@ public final class Harness {
         }
         if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
         SkyImage cpu = compareCpu;
-        boolean started = host.drawSharpSky(cpu, SkyProgram.STILL, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
+        boolean started = host.drawSharpSky(cpu, cpu.program().block(), COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
             double[] d = difference(cpu.argb(), gpu);
             log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H, d[0], d[1], d[2],
                     d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
@@ -436,7 +437,8 @@ public final class Harness {
             log("! skytime: the sky is not a custom sky that the shader can draw");
             return;
         }
-        boolean started = host.drawSharpSky(world, SkyClock.seconds(), TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
+        float[] block = world.program().at(SkyClock.longSeconds(), SkyTurn.STILL);
+        boolean started = host.drawSharpSky(world, block, TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
                 log(nanos < 0 ? "! skytime: the GPU gave no time"
                         : String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
         if (!started) again("skytime", tries);

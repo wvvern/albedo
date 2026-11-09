@@ -356,8 +356,8 @@ public final class SkyGenerator {
             case FRACTAL: fractal(l, p, out); break;
             case GALAXY: galaxy(l, p, out); break;
             case STARS: stars(l, p, out); break;
-            // The bake is a still sky: it draws the aurora at time 0, and only the sky shader draws the meteors.
-            case AURORA: Aurora.sample(l.block, l.index, p, texel, 0, out); break;
+            // The bake is a still sky that does not turn: it draws the aurora at clock 0, and only the sky shader draws the meteors.
+            case AURORA: Aurora.sample(l.block, l.index, p, texel, out); break;
             default: out[3] = 0;
         }
     }

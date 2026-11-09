@@ -100,7 +100,7 @@ public final class LegacySky {
             TURN.put(turn.matrix()).flip();
             GL11.glMultMatrix(TURN);
         }
-        if (!LegacySharpSky.draw(img, sphere, k)) {
+        if (!LegacySharpSky.draw(img, sphere, k, turn)) {
             GlStateManager.enableTexture2D();
             GlStateManager.disableFog();
             GlStateManager.disableCull();

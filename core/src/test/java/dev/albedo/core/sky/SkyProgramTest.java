@@ -24,7 +24,7 @@ class SkyProgramTest {
     @Test
     void theBlockIsAWholeNumberOfVec4Values() {
         assertEquals(0, SkyProgram.FLOATS % 4);
-        assertEquals(4 + SkyDesign.MAX_LAYERS * SkyProgram.LAYER_VEC4S * 4 + SkyImage.RING * 4, SkyProgram.FLOATS);
+        assertEquals(4 + 12 + SkyDesign.MAX_LAYERS * SkyProgram.LAYER_VEC4S * 4 + SkyImage.RING * 4, SkyProgram.FLOATS);
         assertEquals(SkyProgram.LAYER_VEC4S * 4, SkyProgram.LOCAL + 12, "the rotation rows end the layer");
     }
 
@@ -55,12 +55,39 @@ class SkyProgramTest {
         assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
         // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6, and the aurora reads its speed there too.
         assertEquals(4 * 4 + 3, SkyProgram.SPEED);
-        assertTrue(glsl.contains("float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;"), "the aurora reads the header time");
         assertFalse(glsl.contains("albedoTime"), "the sky has one time, in the header");
         assertEquals(5 * 4 + 3, SkyProgram.LENGTH);
+        assertEquals(SkyProgram.LENGTH, SkyProgram.CLOCK);
+        assertTrue(glsl.contains("float t = albedoLayer(layer, 5).w;"), "the aurora reads its clock from the last value of slot 5");
+        assertTrue(glsl.contains("const float ALBEDO_AURORA_PERIOD = " + Aurora.PERIOD + ";"));
+        assertTrue(glsl.contains("#define ALBEDO_METEOR_PERIOD_SLOTS " + SkyMeteors.PERIOD_SLOTS + "\n"));
+        // The header is one vec4 and the turn of the sky three more, before the layers.
+        assertEquals(4, SkyProgram.WORLD);
+        assertTrue(glsl.contains("vec4 SkyHeader;\n    // The rows of the turn") && glsl.contains("vec4 SkyWorld[3];\n    vec4 SkyLayers["));
         assertEquals(6 * 4 + 3, SkyProgram.SHOWER);
         assertTrue(glsl.contains("const float ALBEDO_METEOR_SLOT = " + SkyMeteors.SLOT + ";"));
         assertTrue(glsl.contains("const float ALBEDO_METEOR_TRAIL_END = " + SkyMeteors.TRAIL_END + ";"));
+    }
+
+    @Test
+    void theBlockOfAFrameHasTheTimeTheAuroraClockAndTheTurn() {
+        SkyProgram aurora = SkyProgram.of(SkyPresets.AURORA, new float[SkyImage.RING * 3]);
+        float[] still = aurora.block();
+        assertEquals(SkyProgram.STILL, still[SkyProgram.TIME]);
+        assertArrayEquals(new float[] {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
+                Arrays.copyOfRange(still, SkyProgram.WORLD, SkyProgram.LAYERS), "a still sky does not turn");
+        SkyTurn turn = SkyTurn.of(SkyPresets.TRAILS.turning(), 0.25);
+        float[] frame = aurora.at(3600 + 12.5, turn);
+        assertEquals(12.5f, frame[SkyProgram.TIME], "the header time wraps after one period of the clock");
+        int layer = 0;
+        while ((int) still[SkyProgram.at(layer, SkyProgram.KIND)] != SkyProgram.KIND_AURORA) layer++;
+        float speed = still[SkyProgram.at(layer, SkyProgram.SPEED)];
+        assertEquals(Aurora.clock(3612.5, speed), frame[SkyProgram.at(layer, SkyProgram.CLOCK)]);
+        float[] m = turn.matrix();
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) assertEquals(m[col * 4 + row], frame[SkyProgram.WORLD + row * 4 + col], 1e-6f);
+        }
+        assertEquals(0f, still[SkyProgram.at(layer, SkyProgram.CLOCK)], "the bake draws the aurora at clock 0");
     }
 
     @Test

@@ -34,7 +34,6 @@ import org.lwjgl.system.MemoryUtil;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 // Draws the custom sky with the sky shader for each screen pixel on 1.21.1, so that it is sharp at each resolution and
 // field of view, with its own GL program, because a shader instance of the game must load its files as resources.
@@ -44,17 +43,19 @@ final class GlSharpSky {
     // The state of the compile of one program.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
-    // The block of a sky program as the three uniform arrays of the shader.
+    // The block of a sky program as the four uniform arrays of the shader, which set fills again for each draw.
     private static final class Block {
-        final float[] header;
-        final float[] layers;
-        final float[] ring;
+        final float[] header = new float[4];
+        final float[] world = new float[SkyProgram.LAYERS - SkyProgram.WORLD];
+        final float[] layers = new float[SkyProgram.RING - SkyProgram.LAYERS];
+        final float[] ring = new float[SkyProgram.FLOATS - SkyProgram.RING];
 
-        Block(SkyProgram program) {
-            float[] b = program.block();
-            header = Arrays.copyOfRange(b, 0, SkyProgram.LAYERS);
-            layers = Arrays.copyOfRange(b, SkyProgram.LAYERS, SkyProgram.RING);
-            ring = Arrays.copyOfRange(b, SkyProgram.RING, SkyProgram.FLOATS);
+        Block set(float[] b) {
+            System.arraycopy(b, 0, header, 0, header.length);
+            System.arraycopy(b, SkyProgram.WORLD, world, 0, world.length);
+            System.arraycopy(b, SkyProgram.LAYERS, layers, 0, layers.length);
+            System.arraycopy(b, SkyProgram.RING, ring, 0, ring.length);
+            return this;
         }
     }
 
@@ -64,6 +65,7 @@ final class GlSharpSky {
         Compile state = Compile.NOT_STARTED;
         int id;
         int header;
+        int world;
         int layers;
         int ring;
         int terms;
@@ -108,6 +110,7 @@ final class GlSharpSky {
             }
             id = program;
             header = GL20.glGetUniformLocation(program, "SkyHeader");
+            world = GL20.glGetUniformLocation(program, "SkyWorld");
             layers = GL20.glGetUniformLocation(program, "SkyLayers");
             ring = GL20.glGetUniformLocation(program, "SkyRing");
             terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
@@ -118,10 +121,11 @@ final class GlSharpSky {
             Albedo.get().platform().info("Compiled the sharp sky shader " + name);
         }
 
-        // Puts the program in use with the numbers of a sky, the time of the layers that move, its term texture on unit 0 and a brightness.
-        void use(Block block, float time, int termTexture, float brightness) {
+        // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
+        void use(Block block, int termTexture, float brightness) {
             GlStateManager._glUseProgram(id);
-            GL20.glUniform4f(header, block.header[0], block.header[1], block.header[2], time);
+            GL20.glUniform4fv(header, block.header);
+            GL20.glUniform4fv(world, block.world);
             GL20.glUniform4fv(layers, block.layers);
             GL20.glUniform4fv(ring, block.ring);
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
@@ -134,7 +138,7 @@ final class GlSharpSky {
     private static final Program SHARP = new Program(SkyShaderSource.SHARP);
     private static final Program EQUIRECT = new Program(SkyShaderSource.EQUIRECT);
 
-    private static Block block;
+    private static final Block BLOCK = new Block();
     private static int termTexture;
     private static long blockSerial = -1;
 
@@ -144,7 +148,6 @@ final class GlSharpSky {
     static void prepare(SkyImage img) {
         if (!ModernSky.wantsSharp(img) || !SHARP.ready() || blockSerial == img.serial()) return;
         if (termTexture != 0) GlStateManager._deleteTexture(termTexture);
-        block = new Block(img.program());
         termTexture = uploadTerms(img);
         blockSerial = img.serial();
     }
@@ -152,7 +155,7 @@ final class GlSharpSky {
     // Draws the image sharp on the sphere and returns true, or returns false when the baked texture must draw it.
     static boolean draw(SkyImage img, VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
         if (!ModernSky.wantsSharp(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, SkyClock.seconds(), termTexture, brightness);
+        SHARP.use(BLOCK.set(img.program().at(SkyClock.longSeconds(), ModernSky.turn(img))), termTexture, brightness);
         GL20.glUniformMatrix4fv(SHARP.modelView, false, modelView.get(new float[16]));
         GL20.glUniformMatrix4fv(SHARP.projection, false, projection.get(new float[16]));
         RenderSystem.disableCull();
@@ -209,8 +212,9 @@ final class GlSharpSky {
     }
 
     // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives
-    // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
-    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; values is the block for the
+    // draw and png may be null.
+    static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         int texture = uploadTerms(sky);
         VertexBuffer quad = quad();
@@ -219,7 +223,7 @@ final class GlSharpSky {
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
-        EQUIRECT.use(new Block(sky.program()), time, texture, 1f);
+        EQUIRECT.use(new Block().set(values), texture, 1f);
         boolean timed = GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);

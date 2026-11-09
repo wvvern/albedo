@@ -22,7 +22,7 @@ public final class SkyMeteors {
     /** The sine of the lowest and the highest elevation at which a meteor starts. */
     private static final float LOW = (float) Math.sin(Math.toRadians(20)), HIGH = (float) Math.sin(Math.toRadians(75));
 
-    /** One meteor in sky directions. */
+    /** One meteor in world directions, which are the sky directions of a sky that does not turn. */
     static final class Meteor {
         float birth;
         /** The seconds that the head moves. */
@@ -108,7 +108,7 @@ public final class SkyMeteors {
      * The first time after {@code from} at which a meteor of the first shown meteors layer is at its brightest above
      * {@code minElevation} degrees, with the direction of its head.
      *
-     * @return {time, x, y, z} in sky directions, or null when the program has no meteors in the next ten minutes
+     * @return {time, x, y, z} in world directions, or null when the program has no meteors in the next ten minutes
      */
     public static float[] nextPeak(SkyProgram program, float from, float minElevation) {
         int layer = -1;
