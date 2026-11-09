@@ -39,7 +39,7 @@ public final class SettingsEditor {
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
     /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
-    /** In the order the effects apply; categories without edge effects show only the first; indented under the Effects heading. */
+    /** The effects under the Effects heading in the order they apply, of which categories without edge effects show only the first. */
     private static final String[] EFFECT_LABELS = {"Chroma", "Bevel", "Outline"};
     private static final String[] EFFECT_TIPS = {
         "Chroma: each kind of texture gets its own rainbow color. Animated blocks and fluids go through the colors.",
@@ -50,7 +50,7 @@ public final class SettingsEditor {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
         "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
         "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
-    /** The height of the three Recolor sliders on their own rows. */
+    /** The height of the three Recolor sliders on their own rows, with the gap under them. */
     private static final int RECOLOR_H = Form.slidersHeight(RECOLOR_LABELS.length, false);
     /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
