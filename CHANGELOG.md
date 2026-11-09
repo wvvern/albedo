@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- feat: Add the sky style Layers: make your own sky from gradients, glows, noise, fractals, galaxies and stars, with filters and masks
+- feat: Add a sky preview with the horizon, the zenith, the compass and the sun path, and the presets Dusk, Nebula and Galaxy
+- note: A config file with a Layers sky does not load in Albedo 0.2.0 or earlier. That version keeps a copy in `config/albedo/config.invalid.json` and starts with the default settings. Files without Layers do not change.
+- note: With OptiFine on 1.8.9, and with Iris or OptiFine shader packs, the sky style Layers shows the vanilla sky.
+
 ## 0.2.0
 
 - feat: Add a Servers page that gives each multiplayer server its own profile or turns the mod off there

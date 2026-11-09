@@ -59,6 +59,22 @@ class SkyCodecTest {
     }
 
     @Test
+    void theReadmeExampleLoads() {
+        String sky = "{\"mode\": \"layers\", \"celestial\": \"hide\", \"light\": \"day_night\", \"layers\": ["
+                + "{\"id\": 1, \"kind\": \"gradient\", \"color1\": \"#F08A4B\", \"color2\": \"#1A1F4D\", \"height\": 22, \"amount\": 45},"
+                + "{\"id\": 2, \"kind\": \"noise\", \"output\": \"mask_only\", \"amount\": 55, \"seed\": 12},"
+                + "{\"id\": 3, \"kind\": \"stars\", \"blend\": \"add\", \"opacity\": 80, \"amount\": 60, \"seed\": 3,"
+                + " \"transform\": {\"scale\": 150}},"
+                + "{\"id\": 4, \"kind\": \"blur\", \"amount\": 25, \"mask\": {\"layer\": 2, \"mode\": \"light\"}}]}";
+        Config c = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": " + sky + "}}}");
+        SkyDesign d = c.profiles().get("night").get(Category.SKY).sky();
+        assertEquals(4, d.layers().size());
+        assertEquals(SkyDesign.Light.DAY_NIGHT, d.light());
+        assertEquals(150, d.layers().get(2).transform().scale());
+        assertEquals(SkyMask.of(2, SkyMask.Mode.LIGHT), d.layers().get(3).mask());
+    }
+
+    @Test
     void errorsNameThePlace() {
         assertEquals("night.sky.layers[1].mask: no layer below this one has id 7", error("{\"mode\": \"layers\", \"layers\": ["
                 + "{\"id\": 1, \"kind\": \"gradient\"}, {\"id\": 2, \"kind\": \"blur\", \"mask\": {\"layer\": 7}}]}"));
