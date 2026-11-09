@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
+- feat: Set Chroma with the Speed, Vivid and Bright sliders in the Effects section, with Bevel and Outline on top
+- config: Read the keys chroma, chromaSpeed, chromaSaturation and chromaBrightness of the config file again
+
 ## 0.4.1
 
 - feat: Show sky stars with the colors of real stars, many faint stars and few bright stars

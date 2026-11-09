@@ -69,11 +69,11 @@ public final class Presets {
     /** A soft world where blocks keep a pale tint of their own colors and mobs and players keep their textures. */
     static Profile pastel() {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, Appearance.Alpha.KEEP, 60, 50, 35, 30, 0);
+        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, Appearance.Alpha.KEEP, 60, 50, 35, 30, 0, Chroma.OFF);
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(blocks, true, Collections.singletonList(solidLeaves)));
-        c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0), false));
+        c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, Chroma.OFF), false));
         c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, Appearance.Alpha.KEEP, 85, 40, 30), false));
         c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, Appearance.Alpha.KEEP, 70, 0, 0), true));
         c.put(Category.SKY, flat(0xFFF9D4E6, false));

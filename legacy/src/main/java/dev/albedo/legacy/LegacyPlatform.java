@@ -35,6 +35,7 @@ final class LegacyPlatform implements Platform {
     public void reloadResources() {
         final Minecraft mc = Minecraft.getMinecraft();
         long start = System.nanoTime();
+        LegacyChroma.restore();
         // refreshResources also rebuilds the chunks.
         ReloadScreen.run(new Runnable() {
             @Override

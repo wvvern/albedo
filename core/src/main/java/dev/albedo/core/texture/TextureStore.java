@@ -26,6 +26,14 @@ public final class TextureStore {
          * @return false when a reload has replaced the texture
          */
         boolean upload(PixelBuffer pixels) throws Exception;
+
+        /**
+         * Whether a GPU pass of the adapter adds the hue of moving Chroma colors to this texture in each frame, so that
+         * a paint leaves the hue out, which only an atlas sprite can have.
+         */
+        default boolean gpuHue() {
+            return false;
+        }
     }
 
     /** The upload for a texture type from a different mod, which only a resource reload can change. */
@@ -54,6 +62,8 @@ public final class TextureStore {
         final boolean downloaded;
         /** The looks the texture has in the game, as {@link Layout#looks} gives them, or null when they are not known. */
         volatile List<Appearance> applied;
+        /** Whether the texture in the game has its paint for a GPU pass that adds the hue of moving Chroma colors. */
+        volatile boolean gpuHue;
 
         Entry(Layout layout, PixelBuffer.Heap original, Upload upload, List<Appearance> applied, boolean downloaded) {
             this.layout = layout;
@@ -62,6 +72,7 @@ public final class TextureStore {
             this.averages = layout.averages(original);
             this.applied = applied;
             this.downloaded = downloaded;
+            this.gpuHue = upload.gpuHue();
         }
 
         long bytes() { return 4L * original.width() * original.height(); }
@@ -86,6 +97,8 @@ public final class TextureStore {
     private final AtomicInteger version = new AtomicInteger();
     private final Map<Category, Map<String, Integer>> views = new EnumMap<Category, Map<String, Integer>>(Category.class);
     private int viewsVersion = -1;
+    /** Counts each record, drop and repaint, so that an adapter knows when to read the {@link #chromaTexels} again. */
+    private final AtomicInteger paints = new AtomicInteger();
 
     public TextureStore() {
         this(DEFAULT_BUDGET);
@@ -130,6 +143,7 @@ public final class TextureStore {
                 bytes.addAndGet(delta);
             }
             entries.put(name, next);
+            paints.incrementAndGet();
             boolean keysChanged = count(next, 1);
             if (before != null) keysChanged |= count(before, -1);
             // Many downloaded skins share one key, so a new skin changes the catalog only when it adds the key.
@@ -166,6 +180,13 @@ public final class TextureStore {
         if (e != null) e.applied = null;
     }
 
+    /** Makes the next {@link #repaint} paint each texture whose {@link Upload#gpuHue} changed since its last paint. */
+    public void invalidateGpuHue() {
+        for (Entry e : entries.values()) {
+            if (e.gpuHue != e.upload.gpuHue()) e.applied = null;
+        }
+    }
+
     /** Gives each kept texture the look {@code policy} wants. */
     public Result repaint(Policy policy) {
         int repainted = 0, needReload = 0;
@@ -181,9 +202,11 @@ public final class TextureStore {
                 }
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
-                    entry.layout.paint(want, pixels);
+                    boolean gpuHue = entry.upload.gpuHue();
+                    entry.layout.paint(want, pixels, gpuHue);
                     if (entry.upload.upload(pixels)) {
                         entry.applied = want;
+                        entry.gpuHue = gpuHue;
                         repainted++;
                     } else {
                         forget(e.getKey(), entry);
@@ -196,8 +219,29 @@ public final class TextureStore {
             }
         } finally {
             repainting.remove();
+            paints.incrementAndGet();
         }
         return new Result(repainted, needReload);
+    }
+
+    /** A number that changes after each record, drop and repaint, so that an adapter knows when to read the {@link #chromaTexels} again. */
+    public int paints() {
+        return paints.get();
+    }
+
+    /**
+     * Puts the {@link ChromaTexels} of one frame of a texture into {@code out}, for the look that the texture has in the
+     * game, when its upload has {@link Upload#gpuHue}.
+     *
+     * @param w the width of one frame in the atlas
+     * @param h the height of one frame in the atlas
+     * @return false when the texture is not kept, has no GPU hue or has no moving colors, which leaves {@code out} as it is
+     */
+    public boolean chromaTexels(String name, int w, int h, int[] out) {
+        Entry entry = entries.get(name);
+        if (entry == null || !entry.gpuHue) return false;
+        List<Appearance> looks = entry.applied;
+        return looks != null && entry.layout.chromaTexels(looks, w, h, out);
     }
 
     /** Drops a texture that the game released, so that the store does not keep its pixels. */
@@ -210,6 +254,7 @@ public final class TextureStore {
     /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
+            paints.incrementAndGet();
             (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
             if (count(entry, -1) || !entry.downloaded) version.incrementAndGet();
         }

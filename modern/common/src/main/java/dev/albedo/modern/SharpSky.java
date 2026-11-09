@@ -62,13 +62,26 @@ final class SharpSky {
     static final class Pipeline {
         private final RenderPipeline pipeline;
         private final Executor executor;
+        /** The name of the shader in the log, and what the game does when it cannot compile. */
+        private final String name, fallback;
         private Compile state = Compile.NOT_STARTED;
         private CompletableFuture<CompiledRenderPipeline.Pending> pending;
         private CompiledRenderPipeline compiled;
 
         Pipeline(RenderPipeline pipeline, Executor executor) {
+            this(pipeline, executor, "sky shader", "The sky draws in a simpler way.");
+        }
+
+        Pipeline(RenderPipeline pipeline, Executor executor, String name, String fallback) {
             this.pipeline = pipeline;
             this.executor = executor;
+            this.name = name;
+            this.fallback = fallback;
+        }
+
+        /** Whether the compile failed, which it does at once in the call that starts it with an executor that runs at once. */
+        boolean failed() {
+            return state == Compile.FAILED;
         }
 
         /** Starts or finishes the compile on the render thread, and returns the compiled pipeline once it is ready, else null. */
@@ -98,14 +111,14 @@ final class SharpSky {
                 fail(null);
             } else {
                 state = Compile.READY;
-                Albedo.get().platform().info("Compiled the sky shader " + pipeline.getLocation());
+                Albedo.get().platform().info("Compiled the " + name + " " + pipeline.getLocation());
             }
         }
 
         private void fail(Throwable e) {
             state = Compile.FAILED;
             compiled = null;
-            Albedo.get().platform().warn("Cannot compile the sky shader " + pipeline.getLocation() + ". The sky draws in a simpler way.", e);
+            Albedo.get().platform().warn("Cannot compile the " + name + " " + pipeline.getLocation() + ". " + fallback, e);
         }
     }
 

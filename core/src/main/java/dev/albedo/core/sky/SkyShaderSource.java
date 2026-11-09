@@ -30,7 +30,9 @@ public final class SkyShaderSource {
         FIXED_130("#version 130\n#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n"),
         /** 1.8.9 with only EXT_gpu_shader4: GLSL 1.20 with the unsigned integers of the extension. */
         FIXED_120_EXT("#version 120\n#extension GL_EXT_gpu_shader4 : require\n#define uint unsigned int\n"
-                + "#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n");
+                + "#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n"),
+        /** 1.8.9 with only OpenGL 2.0: GLSL 1.20 for the Chroma pass, which needs no integers of an extension. */
+        FIXED_120("#version 120\n#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n");
 
         private final String header;
 
@@ -46,6 +48,8 @@ public final class SkyShaderSource {
     public static final String SHARP = "core/sky_sharp_classic";
     /** The vertex and fragment shaders that draw the sky into an equirectangular image for the classic GL programs. */
     public static final String EQUIRECT = "core/sky_equirect_classic";
+    /** The vertex and fragment shaders of the GPU pass of Chroma, which turns the colors of an atlas, for the classic GL programs. */
+    public static final String CHROMA = "core/chroma_classic";
 
     private static final String FOLDER = "/assets/albedo/shaders/";
     /** An include line, with the id between angle brackets or quotes. */
@@ -70,7 +74,7 @@ public final class SkyShaderSource {
      * One complete classic shader: the header of the dialect, then the file with the text of the sky include in place of
      * its include line.
      *
-     * @param name {@link #SHARP} or {@link #EQUIRECT}
+     * @param name {@link #SHARP}, {@link #EQUIRECT} or {@link #CHROMA}
      * @param vertex true for the vertex shader, false for the fragment shader
      */
     public static String classic(String name, boolean vertex, Dialect dialect) throws IOException {

@@ -12,6 +12,7 @@
     "DryFoliageColorMixin",
     "FogMixin",
     "FoliageColorMixin",
+    "FrameMixin",
     "FullbrightMixin",
     "GrassColorMixin",
     "MinecraftMixin",
