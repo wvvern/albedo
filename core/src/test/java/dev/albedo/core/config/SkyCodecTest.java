@@ -35,6 +35,21 @@ class SkyCodecTest {
     }
 
     @Test
+    void anOldGalaxyLayerLoadsWithTheDefaultsOfTheNewValues() {
+        String json = "{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\","
+                + " \"color1\": \"#9FB4FF\", \"color2\": \"#FFE7B0\", \"amount\": 55, \"seed\": 4}]}}}}";
+        SkyLayer l = ConfigCodec.decode(json).profiles().get("night").get(Category.SKY).sky().layers().get(0);
+        for (SkyLayer.Param p : new SkyLayer.Param[]{SkyLayer.Param.COLOR_3, SkyLayer.Param.TILT, SkyLayer.Param.DUST, SkyLayer.Param.JETS}) {
+            assertEquals(SkyLayer.Kind.GALAXY.defaultValue(p), l.param(p), p.key);
+        }
+        assertEquals(55, l.param(SkyLayer.Param.AMOUNT));
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\", \"tilt\": 91}]}")
+                .endsWith("tilt: use a whole number from 0 to 90"));
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"jets\": 50}]}")
+                .contains("'jets' has no meaning for stars"));
+    }
+
+    @Test
     void aFileWithoutLayersIsWrittenAsBefore() {
         Config c = withSky(CategorySettings.UNTOUCHED.withAppearance(Appearance.solid(0xFF203040)));
         String text = ConfigCodec.encode(c);

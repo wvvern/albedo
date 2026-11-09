@@ -26,10 +26,17 @@ public final class SkyLayer {
     public enum Param {
         COLOR_1("color1", 0, 0),
         COLOR_2("color2", 0, 0),
+        COLOR_3("color3", 0, 0),
         /** A percent whose meaning depends on the kind (radius, levels, coverage, strength). */
         AMOUNT("amount", 0, 100),
         /** A percent of height above the horizon, or a threshold. */
         HEIGHT("height", 0, 100),
+        /** Degrees from a disc seen from the front (0) to a disc seen from its edge (90). */
+        TILT("tilt", 0, 90),
+        /** A percent of dust that absorbs light. */
+        DUST("dust", 0, 100),
+        /** A percent of the strength of the jets. */
+        JETS("jets", 0, 100),
         SEED("seed", 0, 99999);
 
         public final String key;
@@ -41,7 +48,7 @@ public final class SkyLayer {
             this.max = max;
         }
 
-        public boolean isColor() { return this == COLOR_1 || this == COLOR_2; }
+        public boolean isColor() { return this == COLOR_1 || this == COLOR_2 || this == COLOR_3; }
 
         public int min() { return min; }
 
@@ -64,7 +71,8 @@ public final class SkyLayer {
         FRACTAL(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
                 Param.COLOR_1, 0xFF5B2A86, Param.COLOR_2, 0xFFFF7AB6, Param.AMOUNT, 50, Param.SEED, 1),
         GALAXY(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(135, 45, 20, 100),
-                Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 50, Param.SEED, 1),
+                Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.COLOR_3, 0xFF7CC8FF, Param.AMOUNT, 50, Param.TILT, 60,
+                Param.DUST, 60, Param.JETS, 70, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
                 Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.SEED, 1),
         BLUR(Role.FILTER, EnumSet.noneOf(Transform.Axis.class), Transform.IDENTITY, Param.AMOUNT, 30),

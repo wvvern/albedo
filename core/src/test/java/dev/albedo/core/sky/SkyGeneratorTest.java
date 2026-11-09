@@ -104,6 +104,39 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void galaxyDustTakesAwayLightAndJetsAddLightAlongTheAxis() {
+        int w = 512, h = 256;
+        // A tilted disc in the north, 30 degrees up, with its axis vertical.
+        SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200)).withParam(SkyLayer.Param.TILT, 60);
+        SkyLayer clean = galaxy.withParam(SkyLayer.Param.DUST, 0).withParam(SkyLayer.Param.JETS, 0);
+        int[] plain = SkyGenerator.bake(of(clean), w, h).argb();
+        int[] dusty = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.DUST, 100)), w, h).argb();
+        int[] jets = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.JETS, 100)), w, h).argb();
+        long lightPlain = 0, lightDusty = 0;
+        int darkest = 0;
+        for (int i = 0; i < plain.length; i++) {
+            assertTrue(red(dusty[i]) <= red(plain[i]) + 1, "dust only absorbs, pixel " + i);
+            darkest = Math.max(darkest, red(plain[i]) - red(dusty[i]));
+            if (red(plain[i]) < 40) continue;
+            lightPlain += red(plain[i]);
+            lightDusty += red(dusty[i]);
+        }
+        assertTrue(lightDusty < lightPlain * 0.97, "the dust takes light from the galaxy: " + lightDusty + " of " + lightPlain);
+        assertTrue(darkest > 40, "the dust lanes are dark: " + darkest);
+        // On the axis, 20 degrees over the center, the jet adds light, where the jet bends a little.
+        int y = row(50, h), added = 0;
+        for (int dx = -4; dx <= 4; dx++) {
+            int i = y * w + Math.floorMod(dx, w);
+            added = Math.max(added, blue(jets[i]) - blue(plain[i]));
+        }
+        assertTrue(added > 20, "the jet adds " + added);
+    }
+
+    private static int blue(int argb) {
+        return argb & 0xFF;
+    }
+
+    @Test
     void aStarHasTheSameSizeAtEachCount() {
         int w = 1024, h = 512;
         int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));

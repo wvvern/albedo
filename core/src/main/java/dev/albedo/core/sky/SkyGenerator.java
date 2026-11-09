@@ -24,6 +24,16 @@ public final class SkyGenerator {
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
     /** The star grid density per radian at which the star sizes are set, between the Nebula and Galaxy counts. */
     private static final float STAR_CELLS = 36f;
+    /** The distance from the galaxy center in galaxy units past which a galaxy has no light, out past its lobes. */
+    private static final float GALAXY_REACH = 3f;
+    /** The length of a jet of a disc seen from its edge, in galaxy units. */
+    private static final float JET_LENGTH = 1.4f;
+    /** The size of the grid cells of the knots of young stars, in galaxy units. */
+    private static final float KNOT_CELL = 0.05f;
+    /** How much more the dust absorbs of each linear channel than of green, so that the light through it gets redder. */
+    private static final float[] DUST_REDDENING = {0.75f, 1f, 1.3f};
+    /** The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus. */
+    private static final float[] HALPHA = {1f, 0.1441f, 0.2705f}, LOBE = {0.8f, 0.18f, 1f}, NUCLEUS = {1f, 0.9047f, 0.7913f};
     /** The distance in degrees from the horizon over which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
     private static final float HAZE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
@@ -257,6 +267,8 @@ public final class SkyGenerator {
         final float scale;
         final float[] color1, color2, lab1, lab2;
         final float alpha1, alpha2, amount, height;
+        final float tilt, dust, jets;
+        final float[] color3 = new float[3];
         final int seed;
         final int termSlot;
 
@@ -276,6 +288,10 @@ public final class SkyGenerator {
             alpha2 = block[SkyProgram.at(index, SkyProgram.ALPHA_2)];
             amount = block[SkyProgram.at(index, SkyProgram.AMOUNT)];
             height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
+            tilt = block[SkyProgram.at(index, SkyProgram.TILT)];
+            dust = block[SkyProgram.at(index, SkyProgram.DUST)];
+            jets = block[SkyProgram.at(index, SkyProgram.JETS)];
+            for (int c = 0; c < 3; c++) color3[c] = block[SkyProgram.at(index, SkyProgram.COLOR_3 + c * 4)];
             seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
         }
@@ -369,25 +385,125 @@ public final class SkyGenerator {
         out[3] *= clamp01(v * 1.6f);
     }
 
-    /** A spiral galaxy at the layer center, with COLOR_1 arms around a COLOR_2 core, where AMOUNT turns the arms more. */
-    private static void galaxy(Layer l, float[] p, float[] out) {
+    /**
+     * An active spiral galaxy at the layer center, modeled on Centaurus A: a COLOR_2 bulge and a disc with COLOR_1 arms at
+     * TILT, dust that absorbs their light, and two COLOR_3 jets along the axis of the disc that end in turbulent lobes.
+     */
+    private void galaxy(Layer l, float[] p, float[] out) {
         out[3] = 0;
-        if (p[2] >= -0.05f) return;
-        float size = 0.45f * l.scale;
-        float u = p[0] / -p[2] / size, v = p[1] / -p[2] / size / 0.5f;
-        float r = (float) Math.sqrt(u * u + v * v);
-        if (r > 2.5f) return;
-        float theta = (float) Math.atan2(v, u);
-        float twist = 2f + l.amount * 6f;
-        float arm = (float) (0.5 + 0.5 * Math.cos(2 * (theta - twist * Math.log(r + 0.08))));
-        arm = arm * arm * arm;
-        float n = Noise.fbm(p[0] * 9, p[1] * 9, p[2] * 9, l.seed, 5) * 0.5f + 0.5f;
-        float disk = (float) Math.exp(-r * 2.2) * arm * (0.4f + 1.2f * n);
-        float core = (float) Math.exp(-(r / 0.16f) * (r / 0.16f));
-        float haze = (float) Math.exp(-r * 3.5) * 0.35f;
-        float coreWeight = clamp01(core * 1.5f + haze * 0.5f);
-        l.mix(coreWeight, out);
-        out[3] = clamp01(disk + core + haze) * Math.max(l.alpha1, l.alpha2);
+        float zz = -p[2];
+        if (zz < 0.2f) return;
+        // The plane of the image in galaxy units, where 1 is about the radius of the disc.
+        float size = 0.22f * l.scale;
+        float x = p[0] / zz / size, y = p[1] / zz / size;
+        float rr = (float) Math.sqrt(x * x + y * y);
+        if (rr > GALAXY_REACH) return;
+        // The width of one pixel in galaxy units, where the plane of the image stretches by 1 / zz squared.
+        float fp = texel / (size * zz * zz);
+        float incl = l.tilt * (float) (Math.PI / 2);
+        float ci = (float) Math.cos(incl), si = (float) Math.sin(incl);
+        // The axis ratios of the disc of stars and of the thinner layer of dust, each with its own thickness.
+        float qs = (float) Math.sqrt(ci * ci + 0.0225f * si * si), qd = (float) Math.sqrt(ci * ci + 0.0036f * si * si);
+        float bs = y / qs, bd = y / qd;
+        float rs = (float) Math.sqrt(x * x + bs * bs), rd = (float) Math.sqrt(x * x + bd * bd);
+        float twist = 1.5f + l.amount * 4f;
+        float star = 0, armMix = 0, tau = 0, knots = 0, pink = 0;
+        if (rs < 1.6f) {
+            float warp = Noise.fbmSoft(x * 3f, bs * 3f, 0.37f, l.seed + 1, 7, fp / qs * 3f);
+            float theta = rs > 0 ? (float) Math.atan2(bs, x) : 0f;
+            float wave = 0.5f + 0.5f * (float) Math.cos(2 * (theta - twist * (float) Math.log(rs + 0.05f)) + 2.2f * warp);
+            float arm = wave * wave * wave;
+            float edge = 1 - smooth(1.1f, 1.6f, rs);
+            // A steep step of the noise gives the star clouds sharp edges at every zoom.
+            float clumps = smooth(0.1f, 0.6f, 0.5f + 0.5f * warp);
+            star = (float) Math.exp(-rs / 0.4f) * (0.08f + 2f * arm * (0.15f + 0.85f * clumps)) * edge;
+            armMix = clamp01(arm * 2.5f) * smooth(0.08f, 0.4f, rs);
+            if (l.dust > 0 && rd < 1.4f) {
+                // Dust lies along the inner edge of each arm, in clumps and threads.
+                float thetaD = rd > 0 ? (float) Math.atan2(bd, x) : 0f;
+                float lane = 0.5f + 0.5f * (float) Math.cos(2 * (thetaD - twist * (float) Math.log(rd + 0.05f)) + 2.2f * warp + 0.7f);
+                lane *= lane;
+                float clump = Noise.fbmSoft(x * 6f, bd * 6f, 1.7f, l.seed + 2, 7, fp / qd * 6f) * 0.5f + 0.5f;
+                float density = (float) Math.exp(-rd / 0.5f) * (1 - smooth(0.9f, 1.4f, rd)) * (0.2f + 2f * lane * lane)
+                        * Math.max(0f, 3f * clump - 1.3f);
+                tau = l.dust * 7f * density / (float) Math.sqrt(qd);
+            }
+            if (rs < 1.2f) {
+                // Round knots of young stars on a grid of the image plane, which show only on the arms.
+                float gx = x / KNOT_CELL, gy = y / KNOT_CELL;
+                int cx = (int) Math.floor(gx), cy = (int) Math.floor(gy);
+                for (int i = -1; i <= 1; i++) {
+                    for (int j = -1; j <= 1; j++) {
+                        int hx = cx + i, hy = cy + j;
+                        if (Noise.unit(Noise.hash(hx, hy, 0, l.seed + 77)) > 0.45f) continue;
+                        float dx = (gx - hx - 0.2f - 0.6f * Noise.unit(Noise.hash(hx, hy, 0, l.seed + 78))) * KNOT_CELL;
+                        float dy = (gy - hy - 0.2f - 0.6f * Noise.unit(Noise.hash(hx, hy, 0, l.seed + 79))) * KNOT_CELL;
+                        float big = Noise.unit(Noise.hash(hx, hy, 0, l.seed + 80));
+                        float radius = 0.004f + 0.008f * big * big;
+                        float spread = Math.max(radius, 0.8f * fp);
+                        float v = radius / spread * (radius / spread) * (float) Math.exp(-(dx * dx + dy * dy) / (spread * spread));
+                        knots += v;
+                        if (Noise.unit(Noise.hash(hx, hy, 0, l.seed + 81)) < 0.35f) pink += v;
+                    }
+                }
+                float k = arm * (float) Math.exp(-rs / 0.5f) * edge * 1.5f;
+                knots *= k;
+                pink *= k;
+            }
+        }
+        float rb = (float) Math.sqrt(x * x + y * y / 0.64f);
+        float bulge = 1.8f * (float) Math.exp(-5 * Math.sqrt(rb)) + 0.04f * (float) Math.exp(-rb / 0.45f);
+        // The part of the bulge light behind the dust, more on the near side of the disc, which is below its center.
+        float s = -y * 6f * si / Math.max(ci, 0.25f);
+        float behind = 0.5f + 0.5f * s / (float) Math.sqrt(1 + s * s);
+        float rn = Math.max(0.006f, fp);
+        float nucleus = 2.5f * (0.006f / rn) * (0.006f / rn) * (float) Math.exp(-rr * rr / (rn * rn)) + 0.12f / (1 + rr * rr / 0.0009f);
+        float jet = 0, lobe = 0, lobeWarm = 0, gas = 0, hot = 0;
+        float side = y < 0 ? -1f : 1f;
+        if (l.jets > 0) {
+            float reach = JET_LENGTH * (0.3f + 0.7f * si);
+            float t = Math.abs(y) / reach;
+            // The jets bend in opposite directions, as a precessing jet does, and the near jet is brighter from relativistic beaming.
+            float dx = x - side * 0.12f * t * t;
+            float beam = side > 0 ? 1f : 0.3f;
+            float width = 0.004f + 0.022f * t;
+            float spread = Math.max(width, 0.8f * fp);
+            float fade = 1 - smooth(0.25f, 0.5f, 16f / reach * fp);
+            float knot = Math.max(0f, 0.5f + 0.9f * fade * Noise.noise(t * 16f, side * 7.3f, 1.7f, l.seed + 501));
+            jet = 1.4f * beam * width / spread * (float) Math.exp(-dx * dx / (spread * spread)) * knot / (1 + 3 * t) * (1 - smooth(0.85f, 1.05f, t));
+            float turb = Noise.fbmSoft(x * 2.4f, y * 2.4f, side * 5.1f, l.seed + 601, 7, fp * 2.4f);
+            float thread = 1 - Math.abs(turb);
+            thread *= thread;
+            thread *= thread;
+            // A lobe is longer along the jet than across it, and the turbulence moves its edge.
+            float lx = x - side * 0.19f, ly = (y - side * reach * 1.3f) / 1.3f;
+            float dl = (float) Math.sqrt(lx * lx + ly * ly) / (0.32f * reach) + 0.5f * turb;
+            lobe = (float) Math.exp(-2 * dl * dl) * Math.max(0f, 0.25f + 0.4f * turb + 0.75f * thread) * 0.3f;
+            lobeWarm = 0.5f * smooth(0.3f, 1.2f, dl);
+            float hx = x - side * 0.12f, hy = y - side * reach;
+            float hr = Math.max(0.012f, fp);
+            hot = 0.8f * (0.012f / hr) * (0.012f / hr) * (float) Math.exp(-(hx * hx + hy * hy) / (hr * hr)) * l.jets;
+            // Gas near the jet that its beam lights, less far from the axis.
+            gas = 0.12f * thread * (float) Math.exp(-Math.abs(dx) / (0.08f + 0.15f * t)) * smooth(0.1f, 0.4f, t) * (1 - smooth(0.9f, 1.3f, t));
+            jet *= l.jets;
+            lobe *= l.jets;
+            gas *= l.jets;
+        }
+        float bright = Math.max(l.alpha1, l.alpha2), max = 0;
+        for (int c = 0; c < 3; c++) {
+            float extinction = tau * DUST_REDDENING[c];
+            float through = (float) Math.exp(-extinction), mixed = 1 / (1 + 0.5f * extinction);
+            float disc = l.color2[c] + (l.color1[c] - l.color2[c]) * armMix;
+            float v = bulge * l.color2[c] * (1 - behind * (1 - through)) + 0.9f * star * disc * mixed
+                    + ((knots - pink) * l.color1[c] + pink * HALPHA[c]) * mixed + (nucleus * (float) Math.sqrt(through) + hot) * NUCLEUS[c]
+                    + jet * l.color3[c] * (side < 0 ? through : 1f) + lobe * (l.color3[c] + (LOBE[c] - l.color3[c]) * lobeWarm) + gas * l.color3[c];
+            out[c] = v * bright;
+            max = Math.max(max, out[c]);
+        }
+        // The light as a color of at most 1 and an alpha, so that Add gives the full light and Normal stays near it.
+        float a = Math.min(1f, max);
+        for (int c = 0; c < 3; c++) out[c] /= Math.max(a, 1e-6f);
+        out[3] = a;
     }
 
     /** Points in a jittered 3D grid on the layer sphere, where AMOUNT sets how many and the size sets how far apart and how large. */

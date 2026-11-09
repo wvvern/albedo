@@ -75,7 +75,7 @@ There are two types of layer:
 
 A higher layer is drawn over the lower layers. Click a layer to edit it:
 
-- **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern.
+- **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern. A Galaxy layer also has a tilt (0 shows the disc from the front, 90 from its edge), dust that makes dark lanes in the disc, and two jets from its black hole with their own color.
 - **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
 - **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
 

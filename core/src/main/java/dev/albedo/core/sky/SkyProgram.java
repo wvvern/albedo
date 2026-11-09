@@ -50,8 +50,12 @@ public final class SkyProgram {
     static final int KIND = 0, BLEND = 1, USE = 2, MASK_INDEX = 3, MASK_DARK = 4, OPACITY = 5, AMOUNT = 6, HEIGHT = 7;
     static final int SCALE = 8, SEED = 9, ALPHA_1 = 10, ALPHA_2 = 11, COLOR_1 = 12, TERM_SLOT = 15;
     static final int COLOR_2 = 16, LAB_1 = 20, LAB_2 = 24;
+    /** The values of a galaxy in the free last floats of the color vec4 values: the tilt from 0 to 1 of 90 degrees, the dust and the jets. */
+    static final int TILT = 19, DUST = 23, JETS = 27;
     /** The three rows of the matrix from sky directions to the layer frame, each a vec4. */
     static final int LOCAL = 28;
+    /** The linear jet color, one channel in the free last float of each row of the matrix. */
+    static final int COLOR_3 = LOCAL + 3;
 
     private final float[] block = new float[FLOATS];
     private final Path[] paths;
@@ -89,6 +93,11 @@ public final class SkyProgram {
             block[base + SEED] = l.param(SkyLayer.Param.SEED);
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
+            block[base + TILT] = l.param(SkyLayer.Param.TILT) / 90f;
+            block[base + DUST] = l.param(SkyLayer.Param.DUST) / 100f;
+            block[base + JETS] = l.param(SkyLayer.Param.JETS) / 100f;
+            float[] jet = Oklab.linear(l.param(SkyLayer.Param.COLOR_3));
+            for (int c = 0; c < 3; c++) block[base + COLOR_3 + c * 4] = jet[c];
             double[] r = l.transform().rotation();
             for (int row = 0; row < 3; row++) {
                 for (int c = 0; c < 3; c++) block[base + LOCAL + row * 4 + c] = (float) r[c * 3 + row];
