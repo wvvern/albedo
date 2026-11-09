@@ -47,6 +47,8 @@ public final class SkyProgram {
     static final int KIND_POSTERIZE = 12, KIND_HUE_SHIFT = 13, KIND_VIGNETTE = 14;
     /** The kind code of the meteors, a generator that only the shader draws, because it moves with the time. */
     static final int KIND_METEORS = 15;
+    /** The kind code of the aurora, a generator that moves with the time and that the bake draws at time 0. */
+    static final int KIND_AURORA = 16;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -58,7 +60,7 @@ public final class SkyProgram {
     static final int COLOR_2 = 16, LAB_1 = 20, LAB_2 = 24;
     /** The values of a galaxy in the free last floats of the color vec4 values: the tilt from 0 to 1 of 90 degrees, the dust and the jets. */
     static final int TILT = 19, DUST = 23, JETS = 27;
-    /** The values of the meteors in the same free floats as the galaxy values, because each kind reads only its own values. */
+    /** The values of the meteors and the aurora in the same free floats as the galaxy values, because each kind reads only its own values. */
     static final int SPEED = 19, LENGTH = 23, SHOWER = 27;
     /** The three rows of the matrix from sky directions to the layer frame, each a vec4. */
     static final int LOCAL = 28;
@@ -102,7 +104,7 @@ public final class SkyProgram {
             block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
             block[base + SCALE] = l.transform().scale() / 100f;
             block[base + SEED] = l.param(SkyLayer.Param.SEED);
-            anyMoves |= l.kind() == SkyLayer.Kind.METEORS && block[base + USE] != USE_NONE;
+            anyMoves |= movesWithTime(l.kind()) && block[base + USE] != USE_NONE;
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
             if (l.kind() == SkyLayer.Kind.GALAXY) {
@@ -115,6 +117,8 @@ public final class SkyProgram {
                 block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
                 block[base + LENGTH] = l.param(SkyLayer.Param.LENGTH) / 100f;
                 block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
+            } else if (l.kind() == SkyLayer.Kind.AURORA) {
+                block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             }
             double[] r = l.transform().rotation();
             for (int row = 0; row < 3; row++) {
@@ -146,6 +150,7 @@ public final class SkyProgram {
             case GALAXY:
             case STARS:
             case METEORS:
+            case AURORA:
             case POSTERIZE:
             case HUE_SHIFT:
             case VIGNETTE:
@@ -198,7 +203,18 @@ public final class SkyProgram {
         System.arraycopy(out, 0, block, lab, 3);
     }
 
-    /** The kind code of the shader, where the generators are below {@link #KIND_BLOOM} or {@link #KIND_METEORS} and the filters are the others. */
+    /** True for a kind that changes with the time of the header. */
+    private static boolean movesWithTime(SkyLayer.Kind kind) {
+        switch (kind) {
+            case METEORS:
+            case AURORA:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /** The kind code of the shader, where the filters are the codes from {@link #KIND_BLOOM} to {@link #KIND_VIGNETTE}. */
     static int kindCode(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT: return KIND_GRADIENT;
@@ -216,6 +232,7 @@ public final class SkyProgram {
             case POSTERIZE: return KIND_POSTERIZE;
             case HUE_SHIFT: return KIND_HUE_SHIFT;
             case VIGNETTE: return KIND_VIGNETTE;
+            case AURORA: return KIND_AURORA;
             default: throw new IllegalArgumentException("no kind code for " + kind);
         }
     }

@@ -7,7 +7,7 @@
 #define ALBEDO_LAYER_VEC4S 10
 #define ALBEDO_RING 64
 
-// The generators have the kind codes below ALBEDO_KIND_BLOOM and ALBEDO_KIND_METEORS, and the filters have the other codes.
+// The filters have the kind codes from ALBEDO_KIND_BLOOM to ALBEDO_KIND_VIGNETTE, and the generators have the other codes.
 #define ALBEDO_KIND_GRADIENT 1
 #define ALBEDO_KIND_GLOW 2
 #define ALBEDO_KIND_STARS 3
@@ -23,6 +23,7 @@
 #define ALBEDO_KIND_HUE_SHIFT 13
 #define ALBEDO_KIND_VIGNETTE 14
 #define ALBEDO_KIND_METEORS 15
+#define ALBEDO_KIND_AURORA 16
 
 #define ALBEDO_BLEND_NORMAL 0
 #define ALBEDO_BLEND_ADD 1
@@ -632,6 +633,93 @@ vec4 albedoMeteors(int layer, vec3 p, float footprint) {
     return a > 0.0 ? vec4(light / a, a) : vec4(0.0);
 }
 
+// Aurora.value: smooth value noise in two dimensions, from 0 to 1.
+float albedoValue(vec2 q, int seed) {
+    vec2 i = floor(q);
+    ivec3 c = ivec3(int(i.x), int(i.y), 0);
+    vec2 f = q - i;
+    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float a = albedoUnit(albedoHash(c, seed)), b = albedoUnit(albedoHash(c + ivec3(1, 0, 0), seed));
+    float d = albedoUnit(albedoHash(c + ivec3(0, 1, 0), seed)), e = albedoUnit(albedoHash(c + ivec3(1, 1, 0), seed));
+    float top = albedoLerp(a, b, u.x);
+    return albedoLerp(top, albedoLerp(d, e, u.x), u.y);
+}
+
+// Aurora.octave: one octave of rays, which goes to its mean 0.5 as a ray gets narrower than about three pixels.
+float albedoRayOctave(vec2 q, int seed, float width) {
+    float k = 1.0 - albedoSmooth(0.18, 0.45, width);
+    return k <= 0.0 ? 0.5 : 0.5 + (albedoValue(q, seed) - 0.5) * k;
+}
+
+// One wave that moves the base of a curtain: its move along the arc, the slope of that move and its move toward the viewer.
+vec3 albedoFold(float k, float amp, float rate, float u, float t, int i, int seed) {
+    float arg = k * u + 2.0 * ALBEDO_PI * albedoUnit(albedoHash(ivec3(i, 0, 0), seed + 601)) + rate * t;
+    float c = cos(arg);
+    return vec3(amp * sin(arg), amp * k * c, amp * c);
+}
+
+// Aurora.View.curtain: the light of one curtain whose lower edge is edge degrees high at the center.
+vec3 albedoCurtain(float a, float el, float cosEl, float footprint, float t, float scale, float height, vec3 low, vec3 high, int seed,
+        float edge, float edgeSoft) {
+    float u = a / scale;
+    float env = exp(-(u / 1.25) * (u / 1.25)) * (1.0 - albedoSmooth(0.8 * ALBEDO_PI, ALBEDO_PI, abs(a)));
+    if (env < 0.002) return vec3(0.0);
+    vec3 fold = albedoFold(2.3, 0.2, 0.03, u, t, 0, seed) + albedoFold(5.1, 0.08, -0.05, u, t, 1, seed)
+            + albedoFold(9.7, 0.035, 0.08, u, t, 2, seed);
+    float near = fold.z / 0.315;
+    float along = u + fold.x + 0.004 * t;
+    float stretch = abs(1.0 + fold.y);
+    float dense = clamp(stretch, 0.25, 2.5);
+    float bottom = edge + 4.0 * near + 2.0 * albedoNoise(vec3(along * 3.1, t * 0.02, 0.5), seed + 11)
+            + 0.8 * albedoNoise(vec3(along * 7.3, t * 0.05, 0.5), seed + 12) - 9.0 * (1.0 - cos(min(abs(u), 1.5)));
+    float h = el - bottom;
+    if (h < -3.0) return vec3(0.0);
+    float width = footprint / max(cosEl, 0.05) / scale * stretch * 34.0;
+    float r0 = albedoRayOctave(vec2(along * 34.0, t * 0.05), seed + 21, width);
+    float r1 = albedoRayOctave(vec2(along * 34.0 * 2.7, t * 0.12), seed + 22, width * 2.7);
+    float r2 = albedoRayOctave(vec2(along * 34.0 * 7.3, t * 0.3), seed + 23, width * 7.3);
+    float r3 = albedoRayOctave(vec2(along * 34.0 * 19.7, t * 0.6), seed + 24, width * 19.7);
+    float bundle = albedoSmooth(0.15, 0.85, r0);
+    float hard = clamp(width * 13.0, 0.07, 0.3);
+    float rays = bundle * albedoSmooth(0.5 - hard * 0.6, 0.5 + hard, 0.5 * r1 + 0.3 * r2 + 0.2 * r3);
+    float top = height * (0.4 + 0.8 * r0 + 0.5 * r1) * (1.0 + 0.25 * near);
+    float soft = max(edgeSoft, degrees(footprint));
+    float below = albedoSmooth(-soft, soft * 0.6, h);
+    float up = max(h, 0.0);
+    float green = below * (exp(-up / (0.25 * top)) * (0.08 * bundle + 1.2 * rays)
+            + 0.9 * exp(-up / 1.2) * (0.35 + 0.5 * bundle + 0.5 * rays));
+    float rise = up / top;
+    float red = 0.22 * below * albedoSmooth(0.15, 0.6, rise) * exp(-max(0.0, rise - 0.6) / 0.35) * (0.3 + 0.8 * bundle);
+    float glow = 0.06 * exp(-((h + 0.7) / 0.6) * ((h + 0.7) / 0.6)) * (0.3 + 0.9 * bundle);
+    float strength = 0.08 + 1.3 * albedoSmooth(0.2, 0.85, albedoValue(vec2(along * 2.2, t * 0.01), seed + 31));
+    return env * dense * strength * (1.0 + 0.3 * near) * (low * green + high * red + vec3(0.16, 0.05, 0.5) * glow);
+}
+
+// Aurora.sample: two curtains of light along an arc around the layer center, which move with the header time and stay at time 0 when still.
+vec4 albedoAurora(int layer, vec3 p, float footprint) {
+    float el = degrees(asin(clamp(p.y, -1.0, 1.0)));
+    float cosEl = sqrt(max(0.0, 1.0 - p.y * p.y));
+    // The pole of the layer has no azimuth, and atan of two zeros has no defined value in GLSL.
+    if (el < -9.0 || cosEl < 1e-4) return vec4(0.0);
+    vec4 values = albedoLayer(layer, 1);
+    vec4 shape = albedoLayer(layer, 2);
+    int seed = int(shape.y);
+    float a = atan(p.x, -p.z);
+    float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;
+    float height = 4.0 + 30.0 * values.w;
+    vec3 low = albedoLayer(layer, 3).rgb * shape.z;
+    vec3 high = albedoLayer(layer, 4).rgb * shape.w;
+    vec3 e = albedoCurtain(a, el, cosEl, footprint, t, shape.x, height, low, high, seed, 7.0, 0.25)
+            + 0.3 * albedoCurtain(a, el, cosEl, footprint, t, shape.x, height, low, high, seed + 1, 16.0, 1.8);
+    e *= values.z * 2.0;
+    float m = max(e.r, max(e.g, e.b));
+    if (m <= 0.0) return vec4(0.0);
+    // A light brighter than the screen goes to white, as in a photograph.
+    float hot = max(0.0, m - 1.0) * 0.25;
+    float alpha = min(1.0, m + hot);
+    return vec4((e + hot) / alpha, alpha);
+}
+
 vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
     if (kind == ALBEDO_KIND_GRADIENT) return albedoGradient(layer, p);
     if (kind == ALBEDO_KIND_GLOW) return albedoGlow(layer, p);
@@ -640,6 +728,7 @@ vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
     if (kind == ALBEDO_KIND_FRACTAL) return albedoFractal(layer, p);
     if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p, footprint);
     if (kind == ALBEDO_KIND_METEORS) return albedoMeteors(layer, p, footprint);
+    if (kind == ALBEDO_KIND_AURORA) return albedoAurora(layer, p, footprint);
     return vec4(0.0);
 }
 
@@ -744,8 +833,8 @@ vec3 albedoSky(vec3 dir, float footprint) {
             if (use == ALBEDO_USE_NONE) continue;
             int kind = int(head.x);
             vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
-            vec4 s = kind >= ALBEDO_KIND_BLOOM && kind != ALBEDO_KIND_METEORS ? albedoFilter(i, kind, img, dir, p)
-                    : albedoGenerate(i, kind, p, footprint);
+            bool isFilter = kind >= ALBEDO_KIND_BLOOM && kind <= ALBEDO_KIND_VIGNETTE;
+            vec4 s = isFilter ?albedoFilter(i, kind, img, dir, p) : albedoGenerate(i, kind, p, footprint);
             float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);
             float a = clamp(s.a, 0.0, 1.0);
             maskLight[i] = lightness * a;

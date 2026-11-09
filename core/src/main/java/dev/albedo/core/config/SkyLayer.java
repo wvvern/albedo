@@ -38,7 +38,7 @@ public final class SkyLayer {
         /** A percent of the strength of the jets. */
         JETS("jets", 0, 100),
         SEED("seed", 0, 99999),
-        /** A percent of the fastest speed of a moving layer. */
+        /** A percent of how fast a moving layer moves, where 0 stops an aurora. */
         SPEED("speed", 0, 100),
         /** A percent of the longest trail of a moving layer. */
         LENGTH("length", 0, 100),
@@ -85,6 +85,9 @@ public final class SkyLayer {
         METEORS(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH), new Transform(45, 55, 0, 100),
                 Param.COLOR_1, 0xFFE4EEFF, Param.COLOR_2, 0xFFA8FFC4, Param.AMOUNT, 50, Param.SPEED, 50, Param.LENGTH, 40,
                 Param.SHOWER, 0, Param.SEED, 1),
+        /** Curtains of northern light along an arc around the layer center, which move with the time. */
+        AURORA(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(0, 6, 0, 100),
+                Param.COLOR_1, 0xFF3DFF8F, Param.COLOR_2, 0xFFC2337A, Param.HEIGHT, 50, Param.AMOUNT, 50, Param.SPEED, 50, Param.SEED, 1),
         BLUR(Role.FILTER, EnumSet.noneOf(Transform.Axis.class), Transform.IDENTITY, Param.AMOUNT, 30),
         CRYSTALLIZE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY, Param.SEED, 1),
         PIXELATE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY),

@@ -92,6 +92,7 @@ final class Labels {
             case GALAXY: return "Galaxy";
             case STARS: return "Stars";
             case METEORS: return "Meteors";
+            case AURORA: return "Aurora";
             case BLUR: return "Blur";
             case CRYSTALLIZE: return "Crystallize";
             case PIXELATE: return "Pixelate";
@@ -113,6 +114,7 @@ final class Labels {
             case STARS: return "Small points of light";
             case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them, not the preview. "
                     + "Blur, Pixelate, Crystallize and Swirl above them hide them.";
+            case AURORA: return "Curtains of northern light that move slowly";
             case BLUR: return "Makes the layers below soft";
             case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
             case PIXELATE: return "Breaks the layers below into square cells";
@@ -129,9 +131,10 @@ final class Labels {
         switch (p) {
             case COLOR_1:
                 return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : "Color";
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : k == SkyLayer.Kind.AURORA ? "Bottom" : "Color";
             case COLOR_2:
-                return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
+                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
+                        : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
             case COLOR_3: return "Jet color";
             case HEIGHT:
                 return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
@@ -156,6 +159,7 @@ final class Labels {
             case GALAXY: case SWIRL: return "Twist";
             case STARS: return "Count";
             case METEORS: return "Amount";
+            case AURORA: return "Brightness";
             case BLUR: return "Radius";
             case POSTERIZE: return "Levels";
             case HUE_SHIFT: return "Hue";

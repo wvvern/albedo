@@ -34,7 +34,7 @@ class SkyProgramTest {
             "KIND_BLOOM " + SkyProgram.KIND_BLOOM, "KIND_BLUR " + SkyProgram.KIND_BLUR, "KIND_PIXELATE " + SkyProgram.KIND_PIXELATE,
             "KIND_CRYSTALLIZE " + SkyProgram.KIND_CRYSTALLIZE, "KIND_SWIRL " + SkyProgram.KIND_SWIRL,
             "KIND_POSTERIZE " + SkyProgram.KIND_POSTERIZE, "KIND_HUE_SHIFT " + SkyProgram.KIND_HUE_SHIFT,
-            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE, "KIND_METEORS " + SkyProgram.KIND_METEORS,
+            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE, "KIND_METEORS " + SkyProgram.KIND_METEORS, "KIND_AURORA " + SkyProgram.KIND_AURORA,
             "METEOR_CHANNELS " + SkyMeteors.CHANNELS, "METEOR_SLOTS_BACK " + SkyMeteors.SLOTS_BACK,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
@@ -50,8 +50,10 @@ class SkyProgramTest {
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
         assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
-        // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6.
+        // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6, and the aurora reads its speed there too.
         assertEquals(4 * 4 + 3, SkyProgram.SPEED);
+        assertTrue(glsl.contains("float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;"), "the aurora reads the header time");
+        assertFalse(glsl.contains("albedoTime"), "the sky has one time, in the header");
         assertEquals(5 * 4 + 3, SkyProgram.LENGTH);
         assertEquals(6 * 4 + 3, SkyProgram.SHOWER);
         assertTrue(glsl.contains("const float ALBEDO_METEOR_SLOT = " + SkyMeteors.SLOT + ";"));
@@ -73,6 +75,9 @@ class SkyProgramTest {
         List<SkyLayer> layers = new ArrayList<SkyLayer>(hidden.layers());
         layers.add(masked);
         assertTrue(SkyProgram.of(hidden.withLayers(layers), new float[SkyImage.RING * 3]).moves(), "a meteors mask moves");
+        SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
+        assertTrue(aurora.moves(), "the aurora moves with the same time");
+        assertEquals(SkyProgram.STILL, aurora.block()[SkyProgram.TIME]);
     }
 
     /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
@@ -109,6 +114,11 @@ class SkyProgramTest {
         assertEquals(1, galaxy.block()[2], "the header has the term count");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(0, galaxy.termSlot(4));
+        SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
+        assertTrue(aurora.drawsSharp(), "gradient, glow, stars and aurora");
+        assertEquals(0, aurora.terms());
+        assertEquals(SkyProgram.KIND_AURORA, aurora.block()[SkyProgram.at(3, SkyProgram.KIND)]);
+        assertEquals(0.5f, aurora.block()[SkyProgram.at(3, SkyProgram.SPEED)]);
     }
 
     @Test
@@ -141,15 +151,17 @@ class SkyProgramTest {
     }
 
     @Test
-    void theFiltersThatReadOtherPixelsAreTermsAndTheFiltersHaveTheHighCodes() {
+    void theFiltersThatReadOtherPixelsAreTermsAndTheFiltersHaveTheirOwnCodes() {
+        Set<Integer> codes = new HashSet<Integer>();
         for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
             boolean readsOthers = kind == SkyLayer.Kind.BLUR || kind == SkyLayer.Kind.BLOOM || kind == SkyLayer.Kind.PIXELATE
                     || kind == SkyLayer.Kind.CRYSTALLIZE || kind == SkyLayer.Kind.SWIRL;
             assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, SkyProgram.path(kind), kind.name());
             boolean filter = kind.role() == SkyLayer.Role.FILTER;
             int code = SkyProgram.kindCode(kind);
-            assertEquals(filter, code >= SkyProgram.KIND_BLOOM && code != SkyProgram.KIND_METEORS, kind.name());
-            assertTrue(SkyProgram.kindCode(kind) > 0, kind.name());
+            assertEquals(filter, code >= SkyProgram.KIND_BLOOM && code <= SkyProgram.KIND_VIGNETTE, kind.name());
+            assertTrue(code > 0, kind.name());
+            assertTrue(codes.add(code), "each kind has its own code: " + kind.name());
         }
     }
 

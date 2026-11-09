@@ -270,10 +270,15 @@ public final class SkyGenerator {
         final int termSlot;
         /** The stars of a stars layer, else null. */
         final SkyStars stars;
+        /** The program block and the index of the layer in it, for a generator that reads its numbers itself. */
+        final float[] block;
+        final int index;
 
         /** Reads the numbers of layer {@code index} from the program, the same numbers that the sky shader reads. */
         Layer(SkyLayer layer, float[] block, int index) {
             this.layer = layer;
+            this.block = block;
+            this.index = index;
             opacity = block[SkyProgram.at(index, SkyProgram.OPACITY)];
             for (int row = 0; row < 3; row++) {
                 for (int c = 0; c < 3; c++) r[c * 3 + row] = block[SkyProgram.at(index, SkyProgram.LOCAL + row * 4 + c)];
@@ -335,7 +340,8 @@ public final class SkyGenerator {
             case FRACTAL: fractal(l, p, out); break;
             case GALAXY: galaxy(l, p, out); break;
             case STARS: stars(l, p, out); break;
-            // The meteors move with the time, so only the sky shader draws them and the still image has none.
+            // The bake is a still sky: it draws the aurora at time 0, and only the sky shader draws the meteors.
+            case AURORA: Aurora.sample(l.block, l.index, p, texel, 0, out); break;
             default: out[3] = 0;
         }
     }
