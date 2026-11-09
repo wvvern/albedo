@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class HarnessTest {
     @Test
@@ -31,5 +32,16 @@ class HarnessTest {
         assertEquals(Arrays.asList("flame"), rules.get(0).patterns());
         assertEquals(Appearance.solid(0xFF00FF00), particles.lookOf(rules.get(0)));
         assertEquals(Appearance.Mode.HIDDEN, particles.lookOf(rules.get(1)).mode());
+    }
+
+    @Test
+    void theEffectsCommandSetsTheEffectsOfACategoryAndTurnsOffTheOthers() {
+        Profile p = Config.defaults().profiles().get("quake-white");
+        Appearance before = p.get(Category.BLOCKS).appearance();
+        p = Harness.withEffects(p, "blocks chroma 100 bevel 50".split(" "));
+        assertEquals(before.withEffects(50, 0, 100), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "blocks outline 70".split(" "));
+        assertEquals(before.withEffects(0, 70, 0), p.get(Category.BLOCKS).appearance());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
     }
 }
