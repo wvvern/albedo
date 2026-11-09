@@ -46,6 +46,13 @@ wait 60
 ui click Motion
 wait 20
 screenshot turning-08-settings-motion
+# A click on the Follow time label sets the switch, and the Turning slider at its left end stops the sky and hides the options.
+ui click Follow time
+wait 10
+screenshot turning-09-settings-follow
+ui slide 0 sky.turning
+wait 10
+screenshot turning-10-settings-still
 settings close
 wait 10
 quit

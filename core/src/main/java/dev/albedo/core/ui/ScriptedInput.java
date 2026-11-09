@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Dev harness input for the settings screen, one command per frame: click a label, click it through the game's mouse
- * handler, turn the wheel over a label, type text, press a key, or move the pointer off.
+ * handler, press a slider at a percent of its track, turn the wheel over a label, type text, press a key, or move the pointer off.
  */
 final class ScriptedInput {
     private static final Queue<String> QUEUE = new ConcurrentLinkedQueue<String>();
@@ -17,6 +17,8 @@ final class ScriptedInput {
 
     /** The center of each label that the last frame drew, where a click command finds its label, or null before the first frame. */
     private Map<String, int[]> lastTexts;
+    /** The drag areas of the last recorded frame by widget id, where a slide command finds its slider. */
+    private Map<String, Rect> lastAreas;
     /** The scripted pointer position, or null while the real pointer is used. */
     private int[] pointer;
     private Recorder recorder;
@@ -51,6 +53,7 @@ final class ScriptedInput {
         if (release) ui.mouseReleased();
         // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
         lastTexts = active() ? recorder.texts : null;
+        lastAreas = active() ? ui.dragAreas() : null;
         recorder = null;
     }
 
@@ -84,6 +87,16 @@ final class ScriptedInput {
                 pointer = at;
                 ui.scrolled(Integer.parseInt(arg.substring(0, split)));
                 return false;
+            }
+            case "slide": {
+                // "slide 0 sky.turning": a press at 0 percent of the track of the slider with the widget id sky.turning.
+                int split = arg.indexOf(' ');
+                Rect area = split < 0 ? null : lastAreas.get(arg.substring(split + 1));
+                if (area == null) return false;
+                float at = Integer.parseInt(arg.substring(0, split)) / 100f;
+                pointer = new int[]{area.x + Math.round(at * (area.w - 1)), area.y + area.h / 2};
+                ui.mousePressed();
+                return true;
             }
             case "type":
                 for (char ch : arg.toCharArray()) ui.typed(ch);

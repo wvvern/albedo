@@ -921,6 +921,19 @@ class SettingsEditorTest {
         click(editor, canvas, "Apply");
         assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
         assertEquals(t, savedSky().turning(), "a preset keeps the turning");
+
+        // The harness presses the left end of the track by the id of the slider, which stops the sky and hides the options.
+        script(editor, canvas, "slide 0 sky.turning");
+        assertNull(canvas.texts.get("Speed"), "a still sky shows no options: " + canvas.texts.keySet());
+        script(editor, canvas, "click Apply");
+        assertEquals(0, savedSky().turning().amount());
+        assertEquals(SkyTurning.Direction.REVERSE, savedSky().turning().direction(), "the other options stay");
+    }
+
+    /** Runs one harness command: a frame records the labels, the next runs the command and the last shows the result. */
+    private static void script(SettingsEditor editor, RecordingCanvas canvas, String command) {
+        SettingsEditor.script(command);
+        for (int i = 0; i < 3; i++) render(editor, canvas);
     }
 
     @Test
