@@ -10,9 +10,8 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
@@ -31,10 +30,10 @@ public final class LegacySky {
 
     private LegacySky() {}
 
-    /** The custom sky to draw, or null, also when an OptiFine shader pack draws its own sky. */
+    /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack). */
     public static SkyImage image() {
         SkyImage img = Albedo.skyImage();
-        return img == null || !LegacySkyPatch.skyHooked() || OptiFine.shaders() ? null : img;
+        return img == null || !LegacySkyPatch.hooked() || !OptiFine.drawsSky() ? null : img;
     }
 
     public static boolean active() {
@@ -150,11 +149,6 @@ public final class LegacySky {
         }
         tessellator.getWorldRenderer().finishDrawing();
         tessellator.getWorldRenderer().reset();
-    }
-
-    /** Draws the sky of an OptiFine resource pack, which the custom sky replaces. */
-    public static void drawCustomSky(World world, TextureManager textures, float partialTicks) {
-        if (!active()) OptiFine.renderCustomSky(world,textures, partialTicks);
     }
 
     /** Whether the sky of an OptiFine resource pack hides the stars, which it does not when the custom sky replaces it. */

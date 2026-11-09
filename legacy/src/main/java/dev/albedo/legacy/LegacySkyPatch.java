@@ -5,11 +5,19 @@ import org.spongepowered.asm.lib.Opcodes;
 import org.spongepowered.asm.lib.tree.AbstractInsnNode;
 import org.spongepowered.asm.lib.tree.ClassNode;
 import org.spongepowered.asm.lib.tree.FieldInsnNode;
+import org.spongepowered.asm.lib.tree.FrameNode;
+import org.spongepowered.asm.lib.tree.InsnList;
+import org.spongepowered.asm.lib.tree.InsnNode;
+import org.spongepowered.asm.lib.tree.JumpInsnNode;
+import org.spongepowered.asm.lib.tree.LabelNode;
 import org.spongepowered.asm.lib.tree.MethodInsnNode;
 import org.spongepowered.asm.lib.tree.MethodNode;
+import org.spongepowered.asm.lib.tree.VarInsnNode;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Sends the draws of RenderGlobal.renderSky through LegacySky, found by the field that each draw reads and not by
@@ -40,29 +48,29 @@ final class LegacySkyPatch {
     private static final String RENDER_GLOBAL = "net/minecraft/client/renderer/RenderGlobal";
     private static final String VERTEX_BUFFER = "net/minecraft/client/renderer/vertex/VertexBuffer";
     private static final String TESSELLATOR = "net/minecraft/client/renderer/Tessellator";
-    private static final String CUSTOM_SKY_DESC = "(Lnet/minecraft/world/World;Lnet/minecraft/client/renderer/texture/TextureManager;F)V";
+    private static final String WORLD = "net/minecraft/world/World";
+    private static final String TEXTURE_MANAGER = "net/minecraft/client/renderer/texture/TextureManager";
+    private static final String CUSTOM_SKY_DESC = "(L" + WORLD + ";L" + TEXTURE_MANAGER + ";F)V";
+    private static final String CUSTOM_SKY_BRIDGE = "albedo$customSky";
+    /** The sunrise fan, the sun, the moon and the box below the horizon, in this order in vanilla and in OptiFine. */
+    private static final int MESHES = 4;
 
-    /** True when the patch found the sky draw, so that LegacySky can draw the custom sky. */
-    private static volatile boolean skyHooked;
-    /** The OptiFine class that draws the sky of a resource pack, with dots, or null. */
-    private static volatile String customSkyOwner;
+    /** True when the patch found all parts of the sky, so that LegacySky can draw the custom sky. */
+    private static volatile boolean hooked;
 
     private LegacySkyPatch() {}
 
-    static boolean skyHooked() {
-        return skyHooked;
-    }
-
-    static String customSkyOwner() {
-        return customSkyOwner;
+    static boolean hooked() {
+        return hooked;
     }
 
     /** Replaces each found call with a LegacySky method that takes the same stack, so that the frames stay valid. */
     static void apply(ClassNode target) {
-        int count = 0;
+        Set<Part> found = EnumSet.noneOf(Part.class);
+        List<MethodInsnNode> meshes = new ArrayList<>();
+        String customSky = null;
         for (MethodNode method : target.methods) {
             if (!method.desc.equals("(FI)V") || !(method.name.equals("renderSky") || method.name.equals("func_174976_a"))) continue;
-            List<MethodInsnNode> meshes = new ArrayList<>();
             for (AbstractInsnNode insn : method.instructions.toArray()) {
                 if (!(insn instanceof MethodInsnNode)) continue;
                 MethodInsnNode call = (MethodInsnNode) insn;
@@ -73,27 +81,45 @@ final class LegacySkyPatch {
                     if (part == null) continue;
                     String desc = call.getOpcode() == Opcodes.INVOKESTATIC ? "(I)V" : "(L" + VERTEX_BUFFER + ";I)V";
                     method.instructions.set(call, hook(part.hook, desc));
-                    if (part == Part.SKY) skyHooked = true;
-                    count++;
+                    found.add(part);
                 } else if (isCustomSky(call, "renderSky", CUSTOM_SKY_DESC)) {
-                    customSkyOwner = call.owner.replace('/', '.');
-                    method.instructions.set(call, hook("drawCustomSky", CUSTOM_SKY_DESC));
-                    count++;
-                } else if (isCustomSky(call, "hasSkyLayers", "(Lnet/minecraft/world/World;)Z")) {
+                    customSky = call.owner;
+                    method.instructions.set(call, new MethodInsnNode(Opcodes.INVOKESTATIC, target.name, CUSTOM_SKY_BRIDGE, CUSTOM_SKY_DESC, false));
+                } else if (isCustomSky(call, "hasSkyLayers", "(L" + WORLD + ";)Z")) {
                     method.instructions.insert(call, hook("customSkyLayers", "(Z)Z"));
-                    count++;
                 }
             }
-            // The first mesh is the sunrise fan and the last is the box below the horizon; the others are the sun and moon.
-            if (meshes.size() >= 2) {
-                method.instructions.set(meshes.get(0), hook("drawMesh", "(L" + TESSELLATOR + ";)V"));
-                method.instructions.set(meshes.get(meshes.size() - 1), hook("drawMesh", "(L" + TESSELLATOR + ";)V"));
-                count += 2;
+            if (meshes.size() == MESHES) {
+                String desc = "(L" + TESSELLATOR + ";)V";
+                method.instructions.set(meshes.get(0), hook("drawMesh", desc));
+                method.instructions.set(meshes.get(MESHES - 1), hook("drawMesh", desc));
             }
         }
-        String message = count + " Albedo sky hooks in " + target.name;
-        if (skyHooked) LogManager.getLogger("Albedo").info(message);
-        else LogManager.getLogger("Albedo").warn(message + ", so the custom sky is off");
+        if (customSky != null) target.methods.add(customSkyBridge(customSky));
+        hooked = found.size() == Part.values().length && meshes.size() == MESHES;
+        String message = "Sky hooks in " + target.name + ": " + found + ", " + meshes.size() + " meshes, OptiFine custom sky " + (customSky != null);
+        if (hooked) LogManager.getLogger("Albedo").info(message);
+        else LogManager.getLogger("Albedo").warn(message + "; the custom sky is off, because renderSky is not as expected");
+    }
+
+    /** A static method that calls OptiFine's CustomSky.renderSky only when the custom sky does not replace it. */
+    private static MethodNode customSkyBridge(String owner) {
+        MethodNode bridge = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, CUSTOM_SKY_BRIDGE,
+                CUSTOM_SKY_DESC, null, null);
+        LabelNode end = new LabelNode();
+        InsnList code = bridge.instructions;
+        code.add(hook("active", "()Z"));
+        code.add(new JumpInsnNode(Opcodes.IFNE, end));
+        code.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        code.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        code.add(new VarInsnNode(Opcodes.FLOAD, 2));
+        code.add(new MethodInsnNode(Opcodes.INVOKESTATIC, owner, "renderSky", CUSTOM_SKY_DESC, false));
+        code.add(end);
+        code.add(new FrameNode(Opcodes.F_NEW, 3, new Object[]{WORLD, TEXTURE_MANAGER, Opcodes.FLOAT}, 0, new Object[0]));
+        code.add(new InsnNode(Opcodes.RETURN));
+        bridge.maxStack = 3;
+        bridge.maxLocals = 3;
+        return bridge;
     }
 
     private static MethodInsnNode hook(String name, String desc) {

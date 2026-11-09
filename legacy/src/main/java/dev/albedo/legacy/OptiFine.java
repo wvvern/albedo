@@ -1,11 +1,8 @@
 package dev.albedo.legacy;
 
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.world.World;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -14,15 +11,11 @@ import java.lang.reflect.Method;
  */
 final class OptiFine {
     private static final Method IS_SHADERS = method(type("Config"), "isShaders");
+    private static final Method IS_SKY_ENABLED = method(type("Config"), "isSkyEnabled");
     /** A copy of the sprite in its own GL texture, with "Multitexture" on (anisotropic filtering, antialiasing). */
     private static final Field SPRITE_SINGLE = field(TextureAtlasSprite.class, "spriteSingle");
     private static final Field SPRITE_TEXTURE = field(TextureAtlasSprite.class, "glSpriteTextureId");
     private static final Method BIND_SPRITE_TEXTURE = method(TextureAtlasSprite.class, "bindSpriteTexture");
-
-    /** The OptiFine method that draws the sky of a resource pack, found on first use because LegacySkyPatch finds its class. */
-    private static final class CustomSky {
-        static final Method RENDER = method(type(LegacySkyPatch.customSkyOwner()), "renderSky", World.class, TextureManager.class, float.class);
-    }
 
     private OptiFine() {}
 
@@ -36,13 +29,14 @@ final class OptiFine {
         }
     }
 
-    /** Draws the sky of a resource pack with the OptiFine class that renderSky calls. */
-    static void renderCustomSky(World world, TextureManager textures, float partialTicks) {
-        if (CustomSky.RENDER == null) return;
+    /** True when the sky of the game draws, which it does not with the OptiFine setting Sky off or with a shader pack. */
+    static boolean drawsSky() {
+        if (shaders()) return false;
+        if (IS_SKY_ENABLED == null) return true;
         try {
-            CustomSky.RENDER.invoke(null, world, textures, partialTicks);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new IllegalStateException("OptiFine CustomSky.renderSky failed", e);
+            return (Boolean) IS_SKY_ENABLED.invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false; // unknown: the vanilla sky draws
         }
     }
 
@@ -59,7 +53,6 @@ final class OptiFine {
     }
 
     private static Class<?> type(String name) {
-        if (name == null) return null;
         try {
             return Class.forName(name, false, OptiFine.class.getClassLoader());
         } catch (ClassNotFoundException | LinkageError e) {
@@ -75,9 +68,9 @@ final class OptiFine {
         }
     }
 
-    private static Method method(Class<?> owner, String name, Class<?>... parameters) {
+    private static Method method(Class<?> owner, String name) {
         try {
-            return owner == null ? null : owner.getMethod(name, parameters);
+            return owner == null ? null : owner.getMethod(name);
         } catch (NoSuchMethodException | RuntimeException e) {
             return null;
         }
