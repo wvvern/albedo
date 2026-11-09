@@ -51,7 +51,7 @@ import java.util.concurrent.Executor;
  * view, when the design, the setting and the GPU permit; else the baked texture draws it.
  */
 final class SharpSky {
-    /** The state of the background compile of one pipeline. */
+    /** The state of the compile of one pipeline. */
     private enum Compile { NOT_STARTED, RUNNING, READY, FAILED }
 
     /**
@@ -324,7 +324,7 @@ final class SharpSky {
 
         private static String include(String id) throws IOException {
             Identifier parsed = Identifier.parse(id);
-            return parsed.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.read("include/" + parsed.getPath())
+            return parsed.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.readInclude(parsed.toString())
                     : resource(parsed.withPrefix("shaders/include/"));
         }
 
