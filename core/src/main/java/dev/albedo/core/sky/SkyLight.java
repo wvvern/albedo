@@ -17,13 +17,21 @@ public final class SkyLight {
      * @param thunder the thunder level from 0 to 1
      */
     public static float brightness(double dayTime, float rain, float thunder) {
+        float day = (float) Math.max(0, Math.min(1, Math.cos(sunAngle(dayTime) * 2 * Math.PI) * 2.0 + 0.5));
+        float weather = (1 - 0.3f * rain) * (1 - 0.6f * thunder);
+        return Math.max(NIGHT, day * weather);
+    }
+
+    /**
+     * The vanilla angle of the sun in turns from noon, from 0 to 1, which moves slower near noon and faster near midnight.
+     *
+     * @param dayTime the time of day in ticks, where 0 is sunrise and 6000 is noon
+     */
+    static double sunAngle(double dayTime) {
         double d = dayTime / 24000.0 - 0.25;
         d -= Math.floor(d);
         double e = 0.5 - Math.cos(d * Math.PI) / 2.0;
-        double angle = (d * 2.0 + e) / 3.0;
-        float day = (float) Math.max(0, Math.min(1, Math.cos(angle * 2 * Math.PI) * 2.0 + 0.5));
-        float weather = (1 - 0.3f * rain) * (1 - 0.6f * thunder);
-        return Math.max(NIGHT, day * weather);
+        return (d * 2.0 + e) / 3.0;
     }
 
     /** The factor for a design: {@link #brightness} for {@link SkyDesign.Light#DAY_NIGHT}, otherwise 1. */

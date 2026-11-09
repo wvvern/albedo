@@ -4,6 +4,7 @@ import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.config.Transform;
 
@@ -240,6 +241,30 @@ final class Labels {
         if (percent <= 0) return;
         if (s.length() > 0) s.append(", ");
         s.append(name).append(' ').append(percent).append('%');
+    }
+
+    static final String TURNING_TIP = "Turning: the full sky turns around the pole, as the real night sky does. "
+            + "0% stops it. 100% gives the full Speed. The preview turns in real time.";
+    static final String TURNING_SPEED_TIP = "Speed: the number of turns in one Minecraft day (20 minutes) at a Turning of 100%. "
+            + "1x turns at the speed of the sun and moon. With Pole height 0 and Pole 0, the sky also turns on their path.";
+    static final String TURNING_FOLLOW_TIP = "On: the sky turns with the time of the world, as the sun and moon do, and stops when "
+            + "the daylight cycle stops. At midnight, the sky is as you made it. Off: the sky turns at a steady speed in real time.";
+    static final String POLE_HEIGHT_TIP = "Pole height: the angle of the pole above the horizon. 0 is on the horizon, 90 is the top "
+            + "of the sky. Set Full sphere on, so that the part below the horizon also has layers when it comes up.";
+    static final String POLE_TIP = "Pole: the compass direction of the pole. 0 is north, 90 is east.";
+
+    /** The turning of a sky, such as "Turning 50%", or "Off". */
+    static String turning(SkyTurning t) {
+        return t.turns() ? "Turning " + t.amount() + "%" : "Off";
+    }
+
+    static String direction(SkyTurning.Direction d) {
+        return d == SkyTurning.Direction.REVERSE ? "Reverse" : "Normal";
+    }
+
+    static String directionTip(SkyTurning.Direction d) {
+        return d == SkyTurning.Direction.REVERSE ? "The sky turns the other way: up in the west and down in the east"
+                : "The sky turns as the sun does: up in the east and down in the west";
     }
 
     static String axis(Transform.Axis a) {

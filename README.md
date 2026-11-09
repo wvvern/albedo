@@ -84,6 +84,18 @@ The preview above the layers shows the sky from the zenith (the top edge) down t
 
 "Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon goes smoothly into the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula, Galaxy and Meteors skies use "Full sphere". "Sharp render" draws your sky sharp at all screen sizes and with zoom, on all versions. Blur, Bloom, Pixelate, Crystallize and Swirl stay soft, and a sky with more than 4 of these filters draws from an image of the sky. On 1.8.9, the graphics card must have OpenGL 3.0, else the sky draws from an image of the sky. Set it off if the game is slow. When the sky draws from an image, the Aurora, the twinkle and the pulse do not move.
 
+#### Turning sky
+
+Open the **Motion** section under the switches to make your full sky turn around a pole, as the real night sky does. Set **Turning** above 0% to start the turn. Then these options show under it:
+
+- **Speed:** the number of turns in one Minecraft day (20 minutes), from 1x to 10x (one turn in 2 minutes). Turning sets the part of this speed that the sky uses: 50% is half the speed.
+- **Follow time:** when it is on, the sky turns with the time of the world. At 1x and 100%, it turns at the speed of the sun and moon (with Pole height 0 and Pole 0, also on their path), and it stops when the daylight cycle stops. At midnight, the sky is as you made it. When it is off, the sky turns at a steady speed in real time.
+- **Pole height:** the angle of the pole above the horizon, from 0 (on the horizon) to 90 (the top of the sky).
+- **Direction:** Normal turns the sky as the sun goes, up in the east and down in the west. Reverse turns it the other way.
+- **Pole:** the compass direction of the pole, from 0 (north) to 359. 90 is east.
+
+The preview turns at the speed in real time. When the pole is low, the part of your sky below the horizon comes up, so set "Full sphere" on. The fog follows the turn.
+
 ### Groups
 
 A group gives some textures a different look from the rest of their category. For example, a group can make grass and dirt green while all other blocks stay white.
@@ -150,7 +162,7 @@ A custom sky in the file:
 }
 ```
 
-Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height`, `seed`, `speed`, `length`, `shower`, `twinkle` and `pulse` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
+Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height`, `seed`, `speed`, `length`, `shower`, `twinkle` and `pulse` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). To make the sky turn, add for example `"turning": { "amount": 100, "speed": 2, "clock": "real", "height": 45, "direction": "reverse", "pole": 0 }`. `amount` is Turning (0 to 100), `speed` is 1 to 10, `clock` is `world` (Follow time on, the default) or `real`, `height` is the pole height (0 to 90, the default is 45) and `pole` is the compass direction of the pole (0 to 359). A missing value takes its default. An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 

@@ -3,6 +3,7 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
@@ -89,6 +90,11 @@ class SkyGeneratorTest {
         assertSame(sharp.argb(), baker.image().argb());
         assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
         assertFalse(baker.image().drawsSharp());
+        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.NONE.withAmount(50));
+        baker.request(turning);
+        assertTrue(baker.current(), "a new turning also keeps the pixels");
+        assertSame(sharp.argb(), baker.image().argb());
+        assertEquals(turning, baker.image().design());
     }
 
     @Test

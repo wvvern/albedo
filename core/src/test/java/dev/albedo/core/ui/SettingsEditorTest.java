@@ -16,8 +16,10 @@ import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -853,7 +855,13 @@ class SettingsEditorTest {
         assertEquals(5, d.layers().size());
         assertEquals(SkyMask.of(1, SkyMask.Mode.DARK), d.layers().get(4).mask());
 
-        // The last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
+        // At the end of the list, the last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
+        int[] row = canvas.find("Glow 2");
+        for (int i = 0; i < 5; i++) {
+            editor.mouseScrolled(-1);
+            canvas.texts.clear();
+            editor.render(canvas, row[0], row[1]);
+        }
         click(editor, canvas, "^");
         click(editor, canvas, "Apply");
         assertEquals(SkyLayer.Kind.GLOW, savedSky().layers().get(0).kind());
@@ -867,14 +875,86 @@ class SettingsEditorTest {
     }
 
     @Test
+    void theMotionSectionTurnsTheSkyAndShowsTheOptionsOnlyWhileItTurns() {
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY))));
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(640, 360);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        assertNotNull(canvas.texts.get("Off"), "the closed heading tells that the sky is still: " + canvas.texts.keySet());
+        assertNull(canvas.texts.get("Turning"), "the section starts closed");
+        int listY = canvas.find("Bloom 5")[1];
+
+        click(editor, canvas, "Motion");
+        assertNotNull(canvas.texts.get("Turning"), "the slider shows in the open section: " + canvas.texts.keySet());
+        assertNull(canvas.texts.get("Speed"), "a still sky shows no options");
+        assertTrue(canvas.find("Bloom 5") == null || canvas.find("Bloom 5")[1] > listY, "the layers move down");
+
+        // A press near the right end of the track turns the sky, and the options show in the frame of the press.
+        int[] value = canvas.texts.get("0%");
+        editor.mousePressed();
+        canvas.texts.clear();
+        editor.render(canvas, value[0] - 20, value[1]);
+        editor.mouseReleased();
+        assertNotNull(canvas.texts.get("Speed"), "the options show while the sky turns: " + canvas.texts.keySet());
+        assertNotNull(canvas.texts.get("Follow time"));
+        click(editor, canvas, "Reverse");
+        click(editor, canvas, "Apply");
+        SkyTurning t = savedSky().turning();
+        assertTrue(t.amount() > 80, "the sky turns: " + t.amount());
+        assertEquals(SkyTurning.Direction.REVERSE, t.direction());
+        assertEquals(SkyTurning.Clock.WORLD, t.clock(), "Follow time starts on");
+        assertEquals(SkyPresets.GALAXY.layers(), savedSky().layers(), "the turning does not change the layers");
+
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
+        assertEquals(t, savedSky().turning(), "a preset keeps the turning");
+    }
+
+    @Test
+    void thePreviewTurnsWithTheClock() throws InterruptedException {
+        SkyTurning real = new SkyTurning(100, 10, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.NORMAL, 0);
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(real)))));
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(960, 540);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "Sky");
+            SkyClock.hold(0);
+            for (int i = 0; i < 400 && canvas.images.get("sky.preview") == null; i++) {
+                Thread.sleep(10);
+                render(editor, canvas);
+            }
+            CanvasImage start = canvas.images.get("sky.preview");
+            assertNotNull(start, "the preview is ready");
+            render(editor, canvas);
+            assertSame(start, canvas.images.get("sky.preview"), "a held clock makes no new image");
+            SkyClock.hold(30);
+            render(editor, canvas);
+            CanvasImage quarter = canvas.images.get("sky.preview");
+            assertNotEquals(start.serial(), quarter.serial());
+            assertFalse(Arrays.equals(start.argb(), quarter.argb()), "a quarter turn later the preview shows another part of the sky");
+        } finally {
+            SkyClock.run();
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
     void theSkyLayersEditorFitsAtEverySize() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}};
-        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}};
+        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}, {"Motion"}};
         for (int[] size : sizes) {
             for (String[] path : paths) {
                 Config c = withOwnProfile();
                 Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                        Collections.<Rule>emptyList(), SkyPresets.GALAXY));
+                        Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.NONE.withAmount(50))));
                 sc.apply(c.withProfile(p));
                 SettingsEditor editor = new SettingsEditor(sc);
                 editor.ui.tipDelay = 0;
@@ -882,6 +962,8 @@ class SettingsEditorTest {
                 editor.render(canvas, 0, 0);
                 click(editor, canvas, "Sky");
                 for (String label : path) if (canvas.find(label) != null) click(editor, canvas, label);
+                int[] style = canvas.find("Style");
+                if (style != null) assertAboveFooter(canvas, size, style[0] - 15);
                 for (int y = 0; y < size[1]; y += 7) {
                     for (int x = 0; x < size[0]; x += 11) {
                         if (editor.isClosed()) break;
@@ -941,10 +1023,18 @@ class SettingsEditorTest {
     static final class RecordingCanvas implements Canvas {
         final int w, h;
         final Map<String, int[]> texts = new LinkedHashMap<String, int[]>();
+        /** The last image drawn with each id. */
+        final Map<String, CanvasImage> images = new LinkedHashMap<String, CanvasImage>();
 
         RecordingCanvas(int w, int h) {
             this.w = w;
             this.h = h;
+        }
+
+        @Override
+        public void image(String id, CanvasImage img, int x, int y, int w, int h) {
+            images.put(id, img);
+            Canvas.super.image(id, img, x, y, w, h);
         }
 
         int[] find(String label) {

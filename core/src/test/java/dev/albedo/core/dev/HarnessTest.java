@@ -8,6 +8,7 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,16 @@ class HarnessTest {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
         assertEquals(SkyDesign.Extent.SPHERE, Harness.withSkyExtent(p, "sphere").get(Category.SKY).sky().extent());
         assertEquals(SkyDesign.Extent.HORIZON, Harness.withSkyExtent(p, "Horizon").get(Category.SKY).sky().extent());
+    }
+
+    @Test
+    void theSkyTurnCommandSetsTheTurning() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
+        SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
+        assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
+        assertEquals(SkyTurning.NONE.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 speed".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 fast 2".split(" ")));
     }
 
     @Test

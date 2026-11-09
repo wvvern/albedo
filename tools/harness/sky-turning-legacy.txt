@@ -1,0 +1,51 @@
+# The same shots as sky-turning-modern.txt for 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-turning-modern.txt -OutDir build\sky-turning (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 18000
+wait 40
+fov 70
+run tp @p 0 3000 0 -45 -46
+sky nebula
+wait 160
+skycompare
+wait 40
+sky galaxy
+wait 160
+screenshot turning-01-still
+skycompare
+wait 40
+skyturn 100 height 45
+wait 20
+screenshot turning-02-world-midnight
+run time set 0
+wait 20
+screenshot turning-03-world-sunrise
+skyrender fast
+wait 40
+screenshot turning-04-world-sunrise-fast
+skyrender sharp
+wait 40
+skyclock 0
+skyturn 100 speed 10 height 45 real
+wait 20
+screenshot turning-05-real-0s
+skyclock 30
+wait 20
+screenshot turning-06-real-30s
+skycompare
+wait 40
+skyturn 100 speed 10 height 90 real
+run tp @p ~ ~ ~ 0 -10
+wait 20
+screenshot turning-07-zenith-pole-30s
+settings open
+wait 20
+ui click Sky
+wait 60
+ui click Motion
+wait 20
+screenshot turning-08-settings-motion
+settings close
+wait 10
+quit

@@ -4,9 +4,9 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.shaders.UniformType;
@@ -33,7 +33,6 @@ import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Screenshot;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
 
@@ -85,11 +84,10 @@ final class PrecompiledSharpSky {
         // Sends the term images of a sky to a new texture, which has one texel of 0 when the sky has no terms.
         static Terms upload(SkyImage img, String label) {
             int width = img.termTextureWidth(), height = img.termTextureHeight();
-            GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label, GpuTexture.USAGE_TEXTURE_BINDING, TextureFormat.RGBA8,
-                    width, height, 1, 1);
-            // The game has no half float format, so the GL gets the level again in half floats.
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(((GlTexture) texture).glId());
+            GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label,
+                    GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST, TextureFormat.RGBA8, width, height, 1, 1);
+            // The game has no half float format, so the GL gets the level again in half floats on the texture that this write binds.
+            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, ONE_TEXEL, NativeImage.Format.RGBA, 0, 0, 0, 0, 1, 1);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
@@ -149,6 +147,8 @@ final class PrecompiledSharpSky {
 
     // The bytes of the time for writeTime, which the write copies at once, so one buffer serves all frames.
     private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
+    // One texel of 0 for the write that binds a new term texture.
+    private static final ByteBuffer ONE_TEXEL = MemoryUtil.memCalloc(4);
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;

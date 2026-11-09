@@ -21,7 +21,8 @@ import static dev.albedo.core.config.ConfigCodec.object;
  */
 final class SkyCodec {
     /** The keys of the sky category that exist only with the style "layers". */
-    static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "layers");
+    static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "turning", "layers");
+    private static final List<String> TURNING_KEYS = Arrays.asList("amount", "speed", "clock", "height", "direction", "pole");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
             "color3", "amount", "height", "tilt", "dust", "jets", "seed", "speed", "length", "shower", "twinkle", "pulse",
             "transform");
@@ -46,6 +47,8 @@ final class SkyCodec {
         SkyDesign.Light light = choice(category, "light", SkyDesign.Light.FIXED, where);
         SkyDesign.Extent extent = choice(category, "extent", SkyDesign.Extent.HORIZON, where);
         SkyDesign.Render render = choice(category, "render", SkyDesign.Render.SHARP, where);
+        SkyTurning turning = category.containsKey("turning")
+                ? turning(where + ".turning", object(category.get("turning"), where + ".turning", TURNING_KEYS)) : SkyTurning.NONE;
         Object raw = category.get("layers");
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         if (raw != null) {
@@ -62,7 +65,24 @@ final class SkyCodec {
                 layers.add(layer);
             }
         }
-        return new SkyDesign(layers, celestial, light, extent, render);
+        return new SkyDesign(layers, celestial, light, extent, render, turning);
+    }
+
+    /** The turning of a design, where each missing key keeps the value of {@link SkyTurning#NONE}. */
+    private static SkyTurning turning(String at, Map<String, Object> map) {
+        SkyTurning d = SkyTurning.NONE;
+        return new SkyTurning(
+                number(map, "amount", 0, 100, d.amount(), at),
+                number(map, "speed", 1, SkyTurning.MAX_SPEED, d.speed(), at),
+                choice(map, "clock", d.clock(), at),
+                number(map, "height", 0, SkyTurning.MAX_POLE_HEIGHT, d.poleHeight(), at),
+                choice(map, "direction", d.direction(), at),
+                number(map, "pole", 0, SkyTurning.MAX_POLE, d.pole(), at));
+    }
+
+    /** The whole number at {@code key}, or {@code def} when the key is not there. */
+    private static int number(Map<String, Object> m, String key, int min, int max, int def, String where) {
+        return m.containsKey(key) ? number(m, key, min, max, where) : def;
     }
 
     /** One layer, whose mask may name only an id in {@code below}. */
@@ -74,7 +94,7 @@ final class SkyCodec {
         SkyLayer.Kind kind = choice(map, "kind", SkyLayer.Kind.GRADIENT, at);
         SkyLayer.Blend blend = choice(map, "blend", SkyLayer.Blend.NORMAL, at);
         SkyLayer.Output output = choice(map, "output", SkyLayer.Output.SHOW, at);
-        int opacity = map.containsKey("opacity") ? number(map, "opacity", 0, 100, at) : 100;
+        int opacity = number(map, "opacity", 0, 100, 100, at);
         Map<SkyLayer.Param, Integer> params = new EnumMap<SkyLayer.Param, Integer>(SkyLayer.Param.class);
         for (SkyLayer.Param p : SkyLayer.Param.values()) {
             if (!map.containsKey(p.key)) continue;
@@ -126,9 +146,23 @@ final class SkyCodec {
         if (design.light() != SkyDesign.Light.FIXED) out.put("light", design.light().key());
         if (design.extent() != SkyDesign.Extent.HORIZON) out.put("extent", design.extent().key());
         if (design.render() != SkyDesign.Render.SHARP) out.put("render", design.render().key());
+        if (!design.turning().equals(SkyTurning.NONE)) out.put("turning", encode(design.turning()));
         List<Object> layers = new ArrayList<Object>();
         for (SkyLayer l : design.layers()) layers.add(encode(l));
         out.put("layers", layers);
+    }
+
+    /** The keys of a turning whose values differ from {@link SkyTurning#NONE}. */
+    private static Map<String, Object> encode(SkyTurning t) {
+        SkyTurning d = SkyTurning.NONE;
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        if (t.amount() != d.amount()) m.put("amount", t.amount());
+        if (t.speed() != d.speed()) m.put("speed", t.speed());
+        if (t.clock() != d.clock()) m.put("clock", t.clock().key());
+        if (t.poleHeight() != d.poleHeight()) m.put("height", t.poleHeight());
+        if (t.direction() != d.direction()) m.put("direction", t.direction().key());
+        if (t.pole() != d.pole()) m.put("pole", t.pole());
+        return m;
     }
 
     private static Map<String, Object> encode(SkyLayer l) {
