@@ -107,27 +107,12 @@ public final class Layout {
         return Collections.unmodifiableList(out);
     }
 
-    /** The Chroma step of each look at {@code timeMs}, in the order of {@link #looks}, because each tile can have its own speed. */
-    static int[] phases(List<Appearance> looks, long timeMs) {
-        int[] out = new int[looks.size()];
-        for (int i = 0; i < out.length; i++) out[i] = looks.get(i).chromaPhase(timeMs);
-        return out;
-    }
-
-    /** Whether {@code phases} are the {@link #phases} of {@code looks} at {@code timeMs}, with no new array on each tick. */
-    static boolean atPhases(List<Appearance> looks, long timeMs, int[] phases) {
-        if (phases.length != looks.size()) return false;
-        for (int i = 0; i < phases.length; i++) if (looks.get(i).chromaPhase(timeMs) != phases[i]) return false;
-        return true;
-    }
-
     /**
      * Gives the image the looks from {@link #looks}, where each tile changes from its original pixels.
      *
-     * @param phases the Chroma step of each look, as {@link #phases} gives them
      * @return true if the image was changed
      */
-    public boolean paint(List<Appearance> looks, int[] phases, PixelBuffer img) {
+    public boolean paint(List<Appearance> looks, PixelBuffer img) {
         boolean sheetChanges = !looks.get(0).isOriginal();
         // A tile keeps its original pixels when neither the texture look nor its own look changes them.
         PixelBuffer.Heap[] parts = new PixelBuffer.Heap[tiles.size()];
@@ -135,10 +120,10 @@ public final class Layout {
             if (sheetChanges || !looks.get(i + 1).isOriginal()) parts[i] = copy(img, tiles.get(i));
         }
         // A sheet with tiles gets its edge effects on each tile, not around the whole sheet.
-        boolean changed = look(looks.get(0), img, key, tiles.isEmpty() && !connected, phases[0]);
+        boolean changed = look(looks.get(0), img, key, tiles.isEmpty() && !connected);
         for (int i = 0; i < parts.length; i++) {
             if (parts[i] == null) continue;
-            boolean tileChanged = look(looks.get(i + 1), parts[i], tiles.get(i).key, true, phases[i + 1]);
+            boolean tileChanged = look(looks.get(i + 1), parts[i], tiles.get(i).key, true);
             if (changed || tileChanged) paste(parts[i], img, tiles.get(i));
             changed |= tileChanged;
         }
@@ -146,9 +131,9 @@ public final class Layout {
     }
 
     /** The style of a look and then its effects, where only block and fluid tiles get edge effects. */
-    private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges, int phase) {
+    private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges) {
         boolean changed = PixelTransformer.apply(a, img);
-        return Effects.apply(a, img, key.id(), edges && key.category().hasEdgeEffects(), phase) || changed;
+        return Effects.apply(a, img, edges && key.category().hasEdgeEffects()) || changed;
     }
 
     /** The original average color for each of the {@link #catalogKeys}. */

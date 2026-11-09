@@ -660,17 +660,12 @@ final class Ui {
 
     /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
     int slider(String id, int x, int y, int w, int value, String tipText) {
-        return slider(id, x, y, w, value, value + "%", tipText);
-    }
-
-    /** A slider from 0 to 100 with {@code valueText} at the right in the room of "100%", which returns the value after a click or drag. */
-    int slider(String id, int x, int y, int w, int value, String valueText, String tipText) {
         int textW = width("100%") + 6, trackW = Math.max(10, w - textW);
         int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * value / 100;
         fill(x, ty, trackW, 3, CARD);
         fill(x, ty, knobX - x + 2, 3, ACCENT);
         round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(valueText, x + trackW + 6, y + 2, MUTED);
+        text(value + "%", x + trackW + 6, y + 2, MUTED);
         tip(x, y, w, SLIDER_H, tipText);
         float[] at = dragArea(id, x, y, trackW, SLIDER_H);
         return at == null ? value : Math.round(at[0] * 100);

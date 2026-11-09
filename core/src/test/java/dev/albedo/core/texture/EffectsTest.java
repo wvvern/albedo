@@ -6,7 +6,6 @@ import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -26,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EffectsTest {
     private static final int GRAY = 0xFF808080, WHITE = 0xFFFFFFFF;
 
-    private static Appearance solid(int color, int bevel, int outline, int chroma) {
-        return Appearance.solid(color).withEffects(bevel, outline, Chroma.of(chroma));
+    private static Appearance solid(int color, int bevel, int outline) {
+        return Appearance.solid(color).withEffects(bevel, outline);
     }
 
     private static PixelBuffer.Heap filled(int w, int h, int argb) {
@@ -38,8 +37,7 @@ class EffectsTest {
 
     private static PixelBuffer.Heap painted(Appearance a, String location, int w, int h) {
         PixelBuffer.Heap img = filled(w, h, GRAY);
-        Layout layout = Layout.of(location);
-        LayoutTest.paint(layout, Collections.singletonList(a), img);
+        Layout.of(location).paint(Collections.singletonList(a), img);
         return img;
     }
 
@@ -49,17 +47,17 @@ class EffectsTest {
 
     @Test
     void bevelShadesTheEdgesOfABlockTheSameOnEverySide() {
-        PixelBuffer.Heap img = painted(solid(WHITE, 100, 0, 0), "minecraft:block/stone", 16, 16);
+        PixelBuffer.Heap img = painted(solid(WHITE, 100, 0), "minecraft:block/stone", 16, 16);
         double edge = lightness(img.getArgb(0, 8)), center = lightness(img.getArgb(8, 8));
         assertTrue(edge < center - 0.1, "a white block gets darker edges: " + edge + " vs " + center);
         for (int[] p : new int[][]{{15, 8}, {8, 0}, {8, 15}}) assertEquals(img.getArgb(0, 8), img.getArgb(p[0], p[1]), "every side is the same");
-        assertTrue(lightness(painted(solid(0xFF101010, 100, 0, 0), "minecraft:block/stone", 16, 16).getArgb(0, 8)) > lightness(0xFF101010),
+        assertTrue(lightness(painted(solid(0xFF101010, 100, 0), "minecraft:block/stone", 16, 16).getArgb(0, 8)) > lightness(0xFF101010),
                 "a dark block gets lighter edges");
     }
 
     @Test
     void outlineChangesOnlyTheBorder() {
-        PixelBuffer.Heap img = painted(solid(WHITE, 0, 100, 0), "minecraft:block/stone", 16, 16);
+        PixelBuffer.Heap img = painted(solid(WHITE, 0, 100), "minecraft:block/stone", 16, 16);
         assertNotEquals(WHITE, img.getArgb(0, 0));
         assertEquals(WHITE, img.getArgb(1, 1), "the second ring stays the color");
         assertEquals(WHITE, img.getArgb(8, 8));
@@ -67,8 +65,8 @@ class EffectsTest {
 
     @Test
     void edgeEffectsGoOnEachFrameOfABlockAnimation() {
-        PixelBuffer.Heap strip = painted(solid(WHITE, 100, 100, 0), "minecraft:block/water_still", 16, 64);
-        PixelBuffer.Heap single = painted(solid(WHITE, 100, 100, 0), "minecraft:block/stone", 16, 16);
+        PixelBuffer.Heap strip = painted(solid(WHITE, 100, 100), "minecraft:block/water_still", 16, 64);
+        PixelBuffer.Heap single = painted(solid(WHITE, 100, 100), "minecraft:block/stone", 16, 16);
         for (int f = 0; f < 4; f++) {
             for (int y = 0; y < 16; y++) assertEquals(single.getArgb(3, y), strip.getArgb(3, f * 16 + y), "frame " + f + " row " + y);
         }
@@ -78,73 +76,31 @@ class EffectsTest {
     void edgeEffectsLeaveItemsMobsAndConnectedTexturesAlone() {
         for (String location : new String[]{"minecraft:item/diamond", "minecraft:textures/entity/pig/pig.png",
                 "minecraft:optifine/ctm/default/0_glass_white/12"}) {
-            PixelBuffer.Heap img = painted(solid(WHITE, 100, 100, 0), location, 16, 16);
+            PixelBuffer.Heap img = painted(solid(WHITE, 100, 100), location, 16, 16);
             assertEquals(WHITE, img.getArgb(0, 0), location);
         }
     }
 
     @Test
-    void chromaGivesEachKindOfTextureItsOwnStableHue() {
-        int stone = painted(solid(WHITE, 0, 0, 100), "minecraft:block/stone", 4, 4).getArgb(1, 1);
-        int dirt = painted(solid(WHITE, 0, 0, 100), "minecraft:block/dirt", 4, 4).getArgb(1, 1);
-        assertNotEquals(WHITE, stone, "white gets a color");
-        assertNotEquals(stone, dirt);
-        assertEquals(stone, painted(solid(WHITE, 0, 0, 100), "minecraft:block/stone", 4, 4).getArgb(1, 1));
-        assertEquals(Effects.hue("minecraft:generic_0"), Effects.hue("minecraft:generic_7"), "frames of one particle share a hue");
-    }
-
-    @Test
-    void chromaGivesEveryPartOfABlockOneHueOnEveryVersion() {
-        double grass = Effects.hue("minecraft:block/grass_block_top");
-        for (String id : new String[]{"minecraft:block/grass_block_side", "minecraft:block/grass_block_side_overlay",
-                "minecraft:blocks/grass_top", "minecraft:blocks/grass_side_overlay", "minecraft:textures/block/grass_block_top.png"}) {
-            assertEquals(grass, Effects.hue(id), id);
-        }
-        assertEquals(Effects.hue("minecraft:block/oak_log_top"), Effects.hue("minecraft:blocks/log_oak_top"));
-        assertEquals(Effects.hue("minecraft:block/red_wool"), Effects.hue("minecraft:blocks/wool_colored_red"));
-        assertEquals(Effects.hue("minecraft:block/stone_bricks"), Effects.hue("minecraft:blocks/stonebrick"));
-        assertEquals(Effects.hue("minecraft:block/water_still"), Effects.hue("minecraft:block/water_flow"));
-        assertNotEquals(Effects.hue("minecraft:block/grass_block_top"), Effects.hue("minecraft:block/dirt"));
-    }
-
-    @Test
-    void chromaSkipsTheMuddyHuesAndLiftsBlack() {
-        for (int i = 0; i < 2000; i++) {
-            double degrees = Math.toDegrees(Effects.hue("minecraft:block/test" + Integer.toString(i, 36) + "x")) % 360;
-            assertFalse(degrees > 70 && degrees < 115, "hue " + degrees);
-        }
-        int black = painted(solid(0xFF000000, 0, 0, 100), "minecraft:block/stone", 4, 4).getArgb(1, 1);
-        assertTrue(lightness(black) > 0.27, "black reads as a color: " + lightness(black));
-    }
-
-    @Test
-    void chromaGoesThroughTheColorsOnBlockAnimationsOnly() {
-        PixelBuffer.Heap water = painted(solid(GRAY, 0, 0, 100), "minecraft:block/water_still", 4, 16);
-        assertNotEquals(water.getArgb(1, 1), water.getArgb(1, 5), "the frames of a block animation get different hues");
-        PixelBuffer.Heap painting = painted(solid(GRAY, 0, 0, 100), "minecraft:textures/painting/wanderer.png", 16, 32);
-        assertEquals(painting.getArgb(1, 1), painting.getArgb(1, 20), "a tall painting is one image");
-    }
-
-    @Test
     void effectsKeepAlphaAndSkipVanillaAndHide() {
         PixelBuffer.Heap img = filled(16, 16, 0x80808080);
-        LayoutTest.paint(Layout.of("minecraft:block/glass"), Collections.singletonList(solid(WHITE, 100, 100, 100)), img);
+        Layout.of("minecraft:block/glass").paint(Collections.singletonList(solid(WHITE, 100, 100)), img);
         assertEquals(0x80, Colors.alpha(img.getArgb(0, 0)));
-        assertFalse(Appearance.ORIGINAL.withEffects(100, 100, Chroma.of(100)).hasEffects());
-        assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, Chroma.of(100)).hasEffects());
+        assertFalse(Appearance.ORIGINAL.withEffects(100, 100).hasEffects());
+        assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100).hasEffects());
         PixelBuffer.Heap tiny = filled(1, 1, GRAY);
-        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, 0); // no exception on a 1x1 image
+        assertFalse(Effects.apply(solid(GRAY, 100, 100), tiny, true), "a 1x1 image has no edges");
     }
 
     @Test
     void editsKeepTheEffects() {
-        Appearance a = solid(GRAY, 10, 20, 30);
+        Appearance a = solid(GRAY, 10, 20);
         for (Appearance b : new Appearance[]{a.withMode(Appearance.Mode.RECOLOR), a.withColor(WHITE), a.withAlpha(Appearance.Alpha.OPAQUE),
                 a.withRecolor(50, 50, 50)}) {
-            assertEquals(Arrays.asList(10, 20, 30), Arrays.asList(b.bevel(), b.outline(), b.chroma().strength()));
+            assertEquals(Arrays.asList(10, 20), Arrays.asList(b.bevel(), b.outline()));
         }
-        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, Chroma.of(30))));
-        assertEquals(EnumSet.of(Appearance.Field.CHROMA), a.differences(a.withEffects(10, 20, Chroma.of(30).withOptions(90, 50, 50))));
+        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20)));
+        assertEquals(EnumSet.of(Appearance.Field.OUTLINE), a.differences(a.withEffects(10, 21)));
     }
 
     private static Config withBlocks(CategorySettings blocks) {
@@ -155,20 +111,20 @@ class EffectsTest {
 
     @Test
     void effectsGoIntoTheFileOnlyWhereALookUsesThem() {
-        Config used = withBlocks(new CategorySettings(solid(WHITE, 40, 0, 70), false, Collections.<Rule>emptyList()));
+        Config used = withBlocks(new CategorySettings(solid(WHITE, 40, 0), false, Collections.<Rule>emptyList()));
         String json = ConfigCodec.encode(used);
-        assertTrue(json.contains("\"bevel\": 40") && json.contains("\"chroma\": 70"), json);
+        assertTrue(json.contains("\"bevel\": 40"), json);
         assertEquals(used, ConfigCodec.decode(json));
 
-        Config unused = withBlocks(new CategorySettings(Appearance.ORIGINAL.withEffects(40, 0, Chroma.OFF), false, Collections.<Rule>emptyList()));
+        Config unused = withBlocks(new CategorySettings(Appearance.ORIGINAL.withEffects(40, 0), false, Collections.<Rule>emptyList()));
         assertFalse(ConfigCodec.encode(unused).contains("bevel"), "Vanilla keeps the file readable for 0.2.0");
     }
 
     @Test
     void aGroupCanTurnOffABevelThatItsCategoryHas() {
-        CategorySettings cs = new CategorySettings(solid(WHITE, 40, 0, 0), false, Collections.<Rule>emptyList());
-        Rule glass = new Rule("Glass", Collections.singletonList("glass*"), solid(WHITE, 40, 0, 0), false)
-                .withLook(solid(WHITE, 0, 0, 0), cs.appearance());
+        CategorySettings cs = new CategorySettings(solid(WHITE, 40, 0), false, Collections.<Rule>emptyList());
+        Rule glass = new Rule("Glass", Collections.singletonList("glass*"), solid(WHITE, 40, 0), false)
+                .withLook(solid(WHITE, 0, 0), cs.appearance());
         Config c = withBlocks(cs.withRuleAt(0, glass));
         String json = ConfigCodec.encode(c);
         assertTrue(json.contains("\"bevel\": 0"), json);
@@ -179,13 +135,25 @@ class EffectsTest {
 
     @Test
     void effectKeysWhereTheyHaveNoMeaningAreErrors() {
-        IllegalArgumentException sky = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
-                "{ \"profiles\": { \"x\": { \"sky\": { \"mode\": \"solid\", \"chroma\": 50 } } } }"));
-        assertTrue(sky.getMessage().contains("x.sky"), sky.getMessage());
-        assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+        IllegalArgumentException items = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
                 "{ \"profiles\": { \"x\": { \"items\": { \"mode\": \"solid\", \"bevel\": 50 } } } }"));
+        assertTrue(items.getMessage().contains("x.items"), items.getMessage());
         assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
                 "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"outline\": 101 } } } }"));
+    }
+
+    @Test
+    void theChromaKeysOfAnOlderFileAreIgnored() {
+        String old = "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"bevel\": 20, \"chroma\": 60, \"chromaSpeed\": 90,"
+                + " \"chromaSaturation\": 40, \"chromaBrightness\": 70, \"groups\": [ { \"match\": \"glass*\", \"chroma\": 0 } ] },"
+                + " \"players\": { \"mode\": \"recolor\", \"chroma\": 50 } } } }";
+        String plain = "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"bevel\": 20, \"groups\": [ { \"match\": \"glass*\" } ] },"
+                + " \"players\": { \"mode\": \"recolor\" } } } }";
+        assertEquals(ConfigCodec.decode(plain), ConfigCodec.decode(old));
+        assertFalse(ConfigCodec.encode(ConfigCodec.decode(old)).contains("chroma"), "a save drops the keys");
+        IllegalArgumentException typo = assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+                "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"chromaa\": 5 } } } }"));
+        assertFalse(typo.getMessage().contains("chromaSpeed"), "the error does not name the ignored keys: " + typo.getMessage());
     }
 
     @Test
@@ -194,65 +162,11 @@ class EffectsTest {
         TextureStoreTest.FakeUpload upload = new TextureStoreTest.FakeUpload();
         String name = "minecraft:block/stone";
         Layout layout = Layout.of(name);
-        Policy plain = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 0, 0, 0));
-        TextureStoreTest.record(store, name, layout, filled(16, 16, GRAY), upload, layout.looks(plain));
-        assertEquals(0, TextureStoreTest.repaint(store, plain).repainted);
-        Policy bevel = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 50, 0, 0));
-        assertEquals(1, TextureStoreTest.repaint(store, bevel).repainted);
-        assertEquals(0, TextureStoreTest.repaint(store, bevel).repainted);
-    }
-
-    @Test
-    void defaultSaturationAndBrightnessGiveTheStillChromaColors() {
-        // The colors that Chroma gave before it had options, from OKLab chroma 0.13 and the lightness limits 0.3 and 0.78.
-        int[] expected = {0xFF6BD093, 0xFF00324A, 0xFFFA93B4};
-        String[] ids = {"minecraft:block/stone", "minecraft:block/dirt", "minecraft:block/oak_planks"};
-        for (int i = 0; i < ids.length; i++) {
-            PixelBuffer.Heap img = filled(2, 2, i == 1 ? 0xFF000000 : WHITE);
-            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, 0);
-            assertEquals(Integer.toHexString(expected[i]), Integer.toHexString(img.getArgb(0, 0)), ids[i]);
-        }
-    }
-
-    @Test
-    void saturationAndBrightnessChangeTheColors() {
-        Chroma base = Chroma.of(100);
-        double[] gray = Recolor.lab(chromaPixel(base.withOptions(30, 0, 50), GRAY)), normal = Recolor.lab(chromaPixel(base, GRAY));
-        assertTrue(Math.hypot(gray[1], gray[2]) < 0.01, "saturation 0 gives no color");
-        assertTrue(Math.hypot(normal[1], normal[2]) > 0.1, "saturation 50 gives a color");
-        double light = lightness(chromaPixel(base.withOptions(30, 50, 100), WHITE));
-        double dark = lightness(chromaPixel(base.withOptions(30, 50, 0), WHITE));
-        assertTrue(light > lightness(chromaPixel(base, WHITE)) + 0.1 && dark < lightness(chromaPixel(base, WHITE)) - 0.1,
-                "brightness moves the lightness: " + dark + " " + light);
-    }
-
-    private static int chromaPixel(Chroma c, int color) {
-        PixelBuffer.Heap img = filled(1, 1, color);
-        Effects.apply(Appearance.solid(color).withEffects(0, 0, c), img, "minecraft:block/stone", false, 0);
-        return img.getArgb(0, 0);
-    }
-
-    @Test
-    void eachPhaseGoesFurtherAroundTheColorsAndSkipsTheMuddyHues() {
-        String id = "minecraft:block/stone";
-        assertEquals(Effects.hue(id), Effects.hue(id, 0));
-        int wraps = 0;
-        for (int phase = 1; phase < Chroma.PHASES; phase++) {
-            double degrees = Math.toDegrees(Effects.hue(id, phase));
-            assertFalse(degrees % 360 > 70 && degrees % 360 < 125, "hue " + degrees + " at phase " + phase);
-            if (degrees < Math.toDegrees(Effects.hue(id, phase - 1))) wraps++;
-        }
-        assertTrue(wraps <= 1, "the hue goes one way around the colors");
-        assertEquals(Effects.hue(id, 0), Effects.hue(id, Chroma.PHASES), 1e-9, "one turn ends where it started");
-    }
-
-    @Test
-    void animatedStripsKeepTheirFrameOffsetOnTopOfThePhase() {
-        Appearance a = solid(GRAY, 0, 0, 100);
-        PixelBuffer.Heap still = filled(4, 16, GRAY), moved = filled(4, 16, GRAY);
-        Effects.apply(a, still, "minecraft:block/water_still", true, 0);
-        Effects.apply(a, moved, "minecraft:block/water_still", true, 12);
-        assertNotEquals(still.getArgb(1, 1), moved.getArgb(1, 1), "a phase changes the colors of a strip");
-        assertNotEquals(moved.getArgb(1, 1), moved.getArgb(1, 5), "the frames still have different hues");
+        Policy plain = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 0, 0));
+        store.record(name, layout, filled(16, 16, GRAY), upload, layout.looks(plain));
+        assertEquals(0, store.repaint(plain).repainted);
+        Policy bevel = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 50, 0));
+        assertEquals(1, store.repaint(bevel).repainted);
+        assertEquals(0, store.repaint(bevel).repainted);
     }
 }

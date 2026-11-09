@@ -8,7 +8,6 @@ import dev.albedo.core.Platform;
 import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -481,13 +480,13 @@ class SettingsEditorTest {
         assertEquals(tintY, canvas.find("Remove biome tint")[1], "the tint switch does not move after the click");
     }
 
-    /** The user's own profile with a solid look with Chroma and Bevel for blocks and players. */
+    /** The user's own profile with a solid look with Bevel and Outline for blocks, fluids and players. */
     private static Config withEffects() {
         Config c = withOwnProfile();
         Appearance look = new Appearance(Appearance.Mode.SOLID, 0xFFC0A080, Appearance.Alpha.KEEP, Appearance.DEFAULT_DETAIL,
-                Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 0, Chroma.of(50));
+                Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 30);
         Profile p = c.activeProfile();
-        for (Category category : new Category[]{Category.BLOCKS, Category.PLAYERS}) {
+        for (Category category : new Category[]{Category.BLOCKS, Category.FLUIDS, Category.PLAYERS}) {
             p = p.with(category, new CategorySettings(look, false, Collections.<Rule>emptyList()));
         }
         return c.withProfile(p);
@@ -501,7 +500,7 @@ class SettingsEditorTest {
             RecordingCanvas canvas = new RecordingCanvas(640, 360);
             editor.render(canvas, 0, 0);
             assertNull(canvas.texts.get("Bevel"), "the section starts closed: " + canvas.texts.keySet());
-            assertNotNull(canvas.texts.get("Chroma 50%, Bevel 20%"), "the heading names the effects: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Bevel 20%, Outline 30%"), "the heading names the effects: " + canvas.texts.keySet());
             int closedY = canvas.find("Remove biome tint")[1];
 
             int[] at = canvas.find("Effects");
@@ -536,45 +535,14 @@ class SettingsEditorTest {
                 editor.keyPressed(key, false);
                 render(editor, canvas);
             }
-            assertNotNull(canvas.texts.get("Speed"), "keys do not close the section: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Bevel"), "keys do not close the section: " + canvas.texts.keySet());
+            click(editor, canvas, "Fluids");
+            assertNotNull(canvas.texts.get("Bevel"), "the section stays open on the next page: " + canvas.texts.keySet());
             click(editor, canvas, "Players");
-            assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the next page: " + canvas.texts.keySet());
-            assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
+            assertNull(canvas.texts.get("Effects"), "skins have no effects: " + canvas.texts.keySet());
             editor.keyPressed(UiKey.ESCAPE, false);
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");
-        } finally {
-            sc.apply(Config.defaults());
-        }
-    }
-
-    @Test
-    void theChromaOptionsShowIndentedOnlyWhileChromaIsOn() {
-        Config on = withEffects();
-        Profile p = on.activeProfile();
-        Appearance look = p.get(Category.BLOCKS).appearance();
-        Config off = on.withProfile(p.with(Category.BLOCKS, p.get(Category.BLOCKS).withAppearance(look.withEffects(20, 0, Chroma.OFF))));
-        sc.apply(off);
-        try {
-            SettingsEditor editor = new SettingsEditor(sc);
-            RecordingCanvas canvas = new RecordingCanvas(960, 540);
-            editor.render(canvas, 0, 0);
-            click(editor, canvas, "Effects");
-            assertNotNull(canvas.texts.get("Chroma"), canvas.texts.keySet().toString());
-            assertNull(canvas.texts.get("Speed"), "no options while Chroma is off: " + canvas.texts.keySet());
-            int bevelOff = canvas.find("Bevel")[1];
-
-            sc.apply(on);
-            editor = new SettingsEditor(sc);
-            canvas.texts.clear();
-            editor.render(canvas, 0, 0);
-            click(editor, canvas, "Effects");
-            for (String option : new String[]{"Speed", "Vivid", "Bright"}) {
-                assertNotNull(canvas.texts.get(option), option + ": " + canvas.texts.keySet());
-                assertTrue(canvas.find(option)[0] - canvas.textWidth(option) / 2 > canvas.find("Chroma")[0] - canvas.textWidth("Chroma") / 2,
-                        option + " is indented under Chroma");
-            }
-            assertTrue(canvas.find("Bevel")[1] > bevelOff, "Bevel moves down under the options");
         } finally {
             sc.apply(Config.defaults());
         }
@@ -595,8 +563,8 @@ class SettingsEditorTest {
     void theLookTabFitsAtEverySizeWithTheEffectsClosedAndOpen() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         Map<String, String[]> rows = new LinkedHashMap<String, String[]>();
-        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Bevel", "Outline", "Remove biome tint"});
-        rows.put("Players", new String[]{"Style", "Color", "Shape", "Effects", "Chroma"});
+        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Bevel", "Outline", "Remove biome tint"});
         for (int[] size : sizes) {
             for (Map.Entry<String, String[]> page : rows.entrySet()) {
                 String where = page.getKey() + " at " + size[0] + "x" + size[1];

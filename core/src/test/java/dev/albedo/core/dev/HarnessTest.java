@@ -3,7 +3,6 @@ package dev.albedo.core.dev;
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
@@ -63,13 +62,11 @@ class HarnessTest {
     void theEffectsCommandSetsTheEffectsOfACategoryAndTurnsOffTheOthers() {
         Profile p = Config.defaults().profiles().get("quake-white");
         Appearance before = p.get(Category.BLOCKS).appearance();
-        p = Harness.withEffects(p, "blocks chroma 100 bevel 50".split(" "));
-        assertEquals(before.withEffects(50, 0, Chroma.of(100)), p.get(Category.BLOCKS).appearance());
-        p = Harness.withEffects(p, "blocks chroma 80 speed 100 saturation 70 brightness 40".split(" "));
-        assertEquals(before.withEffects(0, 0, new Chroma(80, 100, 70, 40)), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "blocks bevel 50".split(" "));
+        assertEquals(before.withEffects(50, 0), p.get(Category.BLOCKS).appearance());
         p = Harness.withEffects(p, "blocks outline 70".split(" "));
-        assertEquals(before.withEffects(0, 70, Chroma.OFF), p.get(Category.BLOCKS).appearance());
-        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
+        assertEquals(before.withEffects(0, 70), p.get(Category.BLOCKS).appearance());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks chroma 5".split(" ")));
     }
 
     @Test
