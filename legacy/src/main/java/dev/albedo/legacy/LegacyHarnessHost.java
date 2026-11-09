@@ -67,6 +67,11 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
+    public boolean timeChroma(int frames) {
+        return LegacyChroma.time(frames);
+    }
+
+    @Override
     public void closeScreen() {
         Minecraft.getMinecraft().displayGuiScreen(null);
     }

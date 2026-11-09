@@ -24,6 +24,7 @@
     "SimpleTextureMixin",
     "SkinManagerMixin",
     "TextureAtlasSpriteMixin",
+    "TextureMapAccessor",
     "TextureManagerMixin",
     "ThreadDownloadImageDataMixin"
   ]
