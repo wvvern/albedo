@@ -126,6 +126,18 @@ A settings change (screen, key, harness or config file) goes to `Albedo.apply`. 
 
 The log shows `Repainted N textures in X ms` for a repaint and `Reloaded resources in X ms` for a reload.
 
+### Animated Chroma
+
+Chroma (`config/Chroma`) has a strength, a speed, a saturation and a brightness. One turn around the colors has 48 steps. Speed 1 makes one turn in 120 s and speed 100 in 10 s, on a log scale. Speed 0 keeps the colors still. The hue goes around only through the hues that Chroma uses, so it never goes through the muddy yellow-olive band.
+
+- `texture/ChromaAnimator` runs on each client tick. It calls `TextureStore.animate`, which repaints the textures whose step changed, from where the last tick stopped. Then `Platform.finishRepaint` sends them to the GPU. Thus the animation uses the same uploads as a settings change.
+- The budget is 2 ms for each tick, paint and upload together. The animator keeps a mean upload time for each texture and keeps that time free for each repaint. At a step change all textures with one speed change together, so the sweep takes some ticks (about 0.5 s for 1200 textures of 16 x 16). On a large pack a texture can then skip some steps at a high speed.
+- Each look of a texture has its own step (`Layout.phases`), because the tiles of a 1.8.9 sheet can have different speeds.
+- Only uploads that write into the GPU texture of the game move (`Upload.inPlace`): still atlas sprites, downloaded skins and capes, and on 1.8.9 also stand-alone textures. These keep still colors at step 0: animated sprites (a new animation state starts again at frame 0, and their frames already go through the colors), stand-alone textures on modern versions (`doLoad` makes a new GPU texture), biome colormaps (they need a chunk rebuild) and reload-only textures.
+- An upload that fails in the animator only stops the colors of that texture, and never causes a resource reload. With OptiFine shaders on 1.8.9 all uploads fail, so the colors stay still, and the settings screen tells this under Chroma.
+- A settings change repaints with the current step. A texture that loads on a worker thread gets the current step.
+- In a development run (with the harness), the log shows `Chroma tick: ...` every 200 ticks with moving colors: the number of textures, and the 50th and 95th percentile and the maximum of the time of a tick.
+
 ### Downloaded skins
 
 The game downloads player skins, capes and elytra and does not load them as resources. Their names have no `textures/` folder and no `.png`, for example `minecraft:skins/<hash>`. The classifier puts them in the `players` category with the ids `minecraft:skins`, `minecraft:capes` and `minecraft:elytra`, one row each in the texture list. A resource reload cannot change them, so the store keeps them in a different way:
@@ -193,6 +205,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 - `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
 - `tools/harness/repaint-modern.txt` and `repaint-legacy.txt` change the settings in a running game and take a screenshot after each change. `repaint-reload.txt` does the same after a resource reload. Compare the screenshots with a run where each change reloads resources. Only animated textures, particles and clouds can differ.
 - `tools/harness/sky-modern.txt` and `sky-legacy.txt` set each sky preset with the harness command `sky <dusk|nebula|galaxy|off>`, take screenshots toward the horizon and up, and of the sky editor with a masked filter. Run `./tools/screenshots.ps1 -Shots sky-modern.txt -OutDir build\sky`; the script takes the legacy copy for 1.8.9.
+- `tools/harness/chroma.txt` sets moving Chroma colors with the harness command `effects <category> chroma N [speed N] [saturation N] [brightness N]`, takes screenshots two seconds apart, waits for the `Chroma tick` lines in the log, and shows the Effects section with Chroma on and off.
 - `tools/harness/particles-legacy.txt` adds particle and painting groups on 1.8.9 with the harness command `group <category> <name> <color or mode> <pattern>...`, and changes a group color to show a repaint.
 
 ## Known gaps

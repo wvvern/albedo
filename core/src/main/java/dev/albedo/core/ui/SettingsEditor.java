@@ -7,6 +7,7 @@ import dev.albedo.core.Policy;
 import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -20,7 +21,6 @@ import dev.albedo.core.texture.TextureKey;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -39,12 +39,19 @@ public final class SettingsEditor {
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
     /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
-    /** The effects under the Effects heading in the order they apply, of which categories without edge effects show only the first. */
-    private static final String[] EFFECT_LABELS = {"Chroma", "Bevel", "Outline"};
-    private static final String[] EFFECT_TIPS = {
-        "Chroma: each kind of texture gets its own rainbow color. Animated blocks and fluids go through the colors.",
-        "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
-        "Outline: a line around each block."};
+    /** The first effect under the Effects heading, which all categories with effects have. */
+    private static final Form.Slider CHROMA = Form.Slider.percent("effects.chroma", "Chroma",
+            "Chroma: each kind of texture gets its own rainbow color, and the colors go around at the Speed below.");
+    /** The Chroma options, which show under Chroma only while it is on, with short labels that fit the second indent. */
+    private static final Form.Slider[] CHROMA_OPTIONS = {
+        new Form.Slider("effects.chromaSpeed", "Speed", "Speed: how fast the colors go around. 0 stops them.", v -> v == 0 ? "Still" : v + "%"),
+        Form.Slider.percent("effects.chromaSaturation", "Vivid", "Vivid (saturation): how strong the colors are."),
+        Form.Slider.percent("effects.chromaBrightness", "Bright", "Bright (brightness): how light the colors are.")};
+    /** The effects after Chroma, which only blocks and fluids have. */
+    private static final Form.Slider[] EDGE_EFFECTS = {
+        Form.Slider.percent("effects.bevel", "Bevel",
+                "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart."),
+        Form.Slider.percent("effects.outline", "Outline", "Outline: a line around each block.")};
     private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
     private static final String[] RECOLOR_TIPS = {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
@@ -210,7 +217,9 @@ public final class SettingsEditor {
         for (Category c : CATEGORIES) labelW = Math.max(labelW, ui.width(Labels.members(c)));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
         for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
-        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l) + Form.INDENT);
+        labelW = Math.max(labelW, ui.width(CHROMA.label) + Form.INDENT);
+        for (Form.Slider s : EDGE_EFFECTS) labelW = Math.max(labelW, ui.width(s.label) + Form.INDENT);
+        for (Form.Slider s : CHROMA_OPTIONS) labelW = Math.max(labelW, ui.width(s.label) + 2 * Form.INDENT);
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -546,7 +555,7 @@ public final class SettingsEditor {
         boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
         Appearance look = cs.appearance();
         // Grass, leaves and water get the biome color on top of a recolor or Chroma, which mixes it with the chosen color.
-        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma() > 0;
+        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma().isOn();
         if (tint && !cs.removeTint() && mixes) {
             items.add(note("Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color."));
         }
@@ -690,28 +699,49 @@ public final class SettingsEditor {
         return items;
     }
 
-    /** The Effects heading, and under it when it is open Chroma, Bevel and Outline for blocks and fluids and only Chroma elsewhere. */
+    /**
+     * The Effects heading, and under it when it is open Chroma with its options while it is on, then Bevel and Outline
+     * for blocks and fluids.
+     */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
         boolean edges = page.category.hasEdgeEffects(), open = sections.isOpen(EFFECTS);
-        int n = edges ? EFFECT_LABELS.length : 1, bodyH = Form.slidersHeight(n, false);
+        Chroma chroma = target.chroma();
+        int chromaRows = Form.dependentRows(chroma.strength(), CHROMA_OPTIONS.length);
+        // Two items, so that a short window scrolls to Bevel and Outline, with one guide line through both.
+        int chromaH = edges ? Form.rowsHeight(chromaRows) : Form.rowsHeightWithGap(chromaRows);
+        int edgesH = Form.rowsHeightWithGap(EDGE_EFFECTS.length);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
-            String tip = (open ? "Hide" : "Show") + " the effects: " + String.join(", ", Arrays.copyOf(EFFECT_LABELS, n));
+            String tip = (open ? "Hide" : "Show") + " the effects: " + (edges ? "Chroma, Bevel, Outline" : "Chroma");
             if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
             sections = sections.toggled(EFFECTS);
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
-        items.add(Column.of(bodyH, (x, y, w) -> {
+        items.add(Column.of(chromaH, (x, y, w) -> {
             Form form = form(x, w);
-            form.guide(y, bodyH - GAP);
-            int[] v = {target.chroma(), target.bevel(), target.outline()};
-            form.indented().sliders(EFFECTS, "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, y, false);
-            Appearance next = target.withEffects(v[1], v[2], v[0]);
-            if (!next.equals(target)) setLook(cs, index, next);
-            return false;
+            form.guide(y, edges ? chromaH : chromaH - GAP);
+            int[] c = {chroma.strength(), chroma.speed(), chroma.saturation(), chroma.brightness()};
+            form.indented().withDependents(CHROMA, CHROMA_OPTIONS, c, y);
+            Chroma next = new Chroma(c[0], c[1], c[2], c[3]);
+            if (next.equals(chroma)) return false;
+            setLook(cs, index, target.withEffects(target.bevel(), target.outline(), next));
+            return Form.dependentRows(c[0], CHROMA_OPTIONS.length) != chromaRows; // the rows under it move
         }));
+        if (edges) {
+            items.add(Column.of(edgesH, (x, y, w) -> {
+                Form form = form(x, w);
+                form.guide(y, edgesH - GAP);
+                int[] e = {target.bevel(), target.outline()};
+                form.indented().rows(EDGE_EFFECTS, e, y);
+                if (e[0] != target.bevel() || e[1] != target.outline()) setLook(cs, index, target.withEffects(e[0], e[1], chroma));
+                return false;
+            }));
+        }
+        if (chroma.moves() && sc.chromaStill()) {
+            items.add(note("Some textures keep still colors, because they cannot change here. OptiFine shaders can cause this."));
+        }
         return items;
     }
 

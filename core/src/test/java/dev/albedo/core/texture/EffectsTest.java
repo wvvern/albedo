@@ -6,6 +6,7 @@ import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
@@ -26,7 +27,7 @@ class EffectsTest {
     private static final int GRAY = 0xFF808080, WHITE = 0xFFFFFFFF;
 
     private static Appearance solid(int color, int bevel, int outline, int chroma) {
-        return Appearance.solid(color).withEffects(bevel, outline, chroma);
+        return Appearance.solid(color).withEffects(bevel, outline, Chroma.of(chroma));
     }
 
     private static PixelBuffer.Heap filled(int w, int h, int argb) {
@@ -38,7 +39,7 @@ class EffectsTest {
     private static PixelBuffer.Heap painted(Appearance a, String location, int w, int h) {
         PixelBuffer.Heap img = filled(w, h, GRAY);
         Layout layout = Layout.of(location);
-        layout.paint(Collections.singletonList(a), img);
+        LayoutTest.paint(layout, Collections.singletonList(a), img);
         return img;
     }
 
@@ -127,12 +128,12 @@ class EffectsTest {
     @Test
     void effectsKeepAlphaAndSkipVanillaAndHide() {
         PixelBuffer.Heap img = filled(16, 16, 0x80808080);
-        Layout.of("minecraft:block/glass").paint(Collections.singletonList(solid(WHITE, 100, 100, 100)), img);
+        LayoutTest.paint(Layout.of("minecraft:block/glass"), Collections.singletonList(solid(WHITE, 100, 100, 100)), img);
         assertEquals(0x80, Colors.alpha(img.getArgb(0, 0)));
-        assertFalse(Appearance.ORIGINAL.withEffects(100, 100, 100).hasEffects());
-        assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, 100).hasEffects());
+        assertFalse(Appearance.ORIGINAL.withEffects(100, 100, Chroma.of(100)).hasEffects());
+        assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, Chroma.of(100)).hasEffects());
         PixelBuffer.Heap tiny = filled(1, 1, GRAY);
-        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true); // no exception on a 1x1 image
+        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, 0); // no exception on a 1x1 image
     }
 
     @Test
@@ -140,9 +141,10 @@ class EffectsTest {
         Appearance a = solid(GRAY, 10, 20, 30);
         for (Appearance b : new Appearance[]{a.withMode(Appearance.Mode.RECOLOR), a.withColor(WHITE), a.withAlpha(Appearance.Alpha.OPAQUE),
                 a.withRecolor(50, 50, 50)}) {
-            assertEquals(Arrays.asList(10, 20, 30), Arrays.asList(b.bevel(), b.outline(), b.chroma()));
+            assertEquals(Arrays.asList(10, 20, 30), Arrays.asList(b.bevel(), b.outline(), b.chroma().strength()));
         }
-        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, 30)));
+        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, Chroma.of(30))));
+        assertEquals(EnumSet.of(Appearance.Field.CHROMA), a.differences(a.withEffects(10, 20, Chroma.of(30).withOptions(90, 50, 50))));
     }
 
     private static Config withBlocks(CategorySettings blocks) {
@@ -158,7 +160,7 @@ class EffectsTest {
         assertTrue(json.contains("\"bevel\": 40") && json.contains("\"chroma\": 70"), json);
         assertEquals(used, ConfigCodec.decode(json));
 
-        Config unused = withBlocks(new CategorySettings(Appearance.ORIGINAL.withEffects(40, 0, 0), false, Collections.<Rule>emptyList()));
+        Config unused = withBlocks(new CategorySettings(Appearance.ORIGINAL.withEffects(40, 0, Chroma.OFF), false, Collections.<Rule>emptyList()));
         assertFalse(ConfigCodec.encode(unused).contains("bevel"), "Vanilla keeps the file readable for 0.2.0");
     }
 
@@ -193,10 +195,64 @@ class EffectsTest {
         String name = "minecraft:block/stone";
         Layout layout = Layout.of(name);
         Policy plain = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 0, 0, 0));
-        store.record(name, layout, filled(16, 16, GRAY), upload, layout.looks(plain));
-        assertEquals(0, store.repaint(plain).repainted);
+        TextureStoreTest.record(store, name, layout, filled(16, 16, GRAY), upload, layout.looks(plain));
+        assertEquals(0, TextureStoreTest.repaint(store, plain).repainted);
         Policy bevel = LayoutTest.policy(Category.BLOCKS, solid(WHITE, 50, 0, 0));
-        assertEquals(1, store.repaint(bevel).repainted);
-        assertEquals(0, store.repaint(bevel).repainted);
+        assertEquals(1, TextureStoreTest.repaint(store, bevel).repainted);
+        assertEquals(0, TextureStoreTest.repaint(store, bevel).repainted);
+    }
+
+    @Test
+    void defaultSaturationAndBrightnessGiveTheStillChromaColors() {
+        // The colors that Chroma gave before it had options, from OKLab chroma 0.13 and the lightness limits 0.3 and 0.78.
+        int[] expected = {0xFF6BD093, 0xFF00324A, 0xFFFA93B4};
+        String[] ids = {"minecraft:block/stone", "minecraft:block/dirt", "minecraft:block/oak_planks"};
+        for (int i = 0; i < ids.length; i++) {
+            PixelBuffer.Heap img = filled(2, 2, i == 1 ? 0xFF000000 : WHITE);
+            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, 0);
+            assertEquals(Integer.toHexString(expected[i]), Integer.toHexString(img.getArgb(0, 0)), ids[i]);
+        }
+    }
+
+    @Test
+    void saturationAndBrightnessChangeTheColors() {
+        Chroma base = Chroma.of(100);
+        double[] gray = Recolor.lab(chromaPixel(base.withOptions(30, 0, 50), GRAY)), normal = Recolor.lab(chromaPixel(base, GRAY));
+        assertTrue(Math.hypot(gray[1], gray[2]) < 0.01, "saturation 0 gives no color");
+        assertTrue(Math.hypot(normal[1], normal[2]) > 0.1, "saturation 50 gives a color");
+        double light = lightness(chromaPixel(base.withOptions(30, 50, 100), WHITE));
+        double dark = lightness(chromaPixel(base.withOptions(30, 50, 0), WHITE));
+        assertTrue(light > lightness(chromaPixel(base, WHITE)) + 0.1 && dark < lightness(chromaPixel(base, WHITE)) - 0.1,
+                "brightness moves the lightness: " + dark + " " + light);
+    }
+
+    private static int chromaPixel(Chroma c, int color) {
+        PixelBuffer.Heap img = filled(1, 1, color);
+        Effects.apply(Appearance.solid(color).withEffects(0, 0, c), img, "minecraft:block/stone", false, 0);
+        return img.getArgb(0, 0);
+    }
+
+    @Test
+    void eachPhaseGoesFurtherAroundTheColorsAndSkipsTheMuddyHues() {
+        String id = "minecraft:block/stone";
+        assertEquals(Effects.hue(id), Effects.hue(id, 0));
+        int wraps = 0;
+        for (int phase = 1; phase < Chroma.PHASES; phase++) {
+            double degrees = Math.toDegrees(Effects.hue(id, phase));
+            assertFalse(degrees % 360 > 70 && degrees % 360 < 125, "hue " + degrees + " at phase " + phase);
+            if (degrees < Math.toDegrees(Effects.hue(id, phase - 1))) wraps++;
+        }
+        assertTrue(wraps <= 1, "the hue goes one way around the colors");
+        assertEquals(Effects.hue(id, 0), Effects.hue(id, Chroma.PHASES), 1e-9, "one turn ends where it started");
+    }
+
+    @Test
+    void animatedStripsKeepTheirFrameOffsetOnTopOfThePhase() {
+        Appearance a = solid(GRAY, 0, 0, 100);
+        PixelBuffer.Heap still = filled(4, 16, GRAY), moved = filled(4, 16, GRAY);
+        Effects.apply(a, still, "minecraft:block/water_still", true, 0);
+        Effects.apply(a, moved, "minecraft:block/water_still", true, 12);
+        assertNotEquals(still.getArgb(1, 1), moved.getArgb(1, 1), "a phase changes the colors of a strip");
+        assertNotEquals(moved.getArgb(1, 1), moved.getArgb(1, 5), "the frames still have different hues");
     }
 }

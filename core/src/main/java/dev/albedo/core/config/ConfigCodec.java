@@ -39,14 +39,18 @@ import java.util.function.Predicate;
 public final class ConfigCodec {
     private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
     private static final List<String> EDGE_KEYS = Arrays.asList("bevel", "outline");
-    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "alpha", "detail", "keepColors", "keepLight",
-            "bevel", "outline", "chroma");
-    /** The JSON key of each look field, in the order of {@link Appearance.Field}. */
+    /** The Chroma options, which have a meaning only when the resolved {@code chroma} is above 0. */
+    private static final List<String> CHROMA_KEYS = Arrays.asList("chromaSpeed", "chromaSaturation", "chromaBrightness");
+    /** The JSON key of each look field in the order of {@link Appearance.Field}, then the Chroma options. */
+    private static final List<String> LOOK_KEYS = plus(Arrays.asList("mode", "color", "alpha", "detail", "keepColors", "keepLight",
+            "bevel", "outline", "chroma"), CHROMA_KEYS.toArray(new String[0]));
+    /** The look field that each JSON key sets. */
     private static final Map<String, Appearance.Field> FIELD_KEYS = new LinkedHashMap<String, Appearance.Field>();
 
     static {
         Appearance.Field[] fields = Appearance.Field.values();
         for (int i = 0; i < fields.length; i++) FIELD_KEYS.put(LOOK_KEYS.get(i), fields[i]);
+        for (String key : CHROMA_KEYS) FIELD_KEYS.put(key, Appearance.Field.CHROMA);
     }
     private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
     private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
@@ -195,13 +199,25 @@ public final class ConfigCodec {
             if (!category.hasChroma() && map.containsKey("chroma")) {
                 throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
             }
+            if (!category.hasChroma() && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
+                throw new IllegalArgumentException("this category has no recolor style, so " + CHROMA_KEYS + " have no meaning here");
+            }
             return new Appearance(mode, color, alpha,
                     percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
                     percent(map, "keepLight", parent.keepLight()), percent(map, "bevel", parent.bevel()),
-                    percent(map, "outline", parent.outline()), percent(map, "chroma", parent.chroma()));
+                    percent(map, "outline", parent.outline()), decodeChroma(map, parent.chroma()));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(where + ": " + e.getMessage(), e);
         }
+    }
+
+    /** The Chroma of a look, where a missing key inherits from {@code parent} and the options are ignored when Chroma is off. */
+    private static Chroma decodeChroma(Map<String, Object> map, Chroma parent) {
+        Chroma out = parent.withStrength(percent(map, "chroma", parent.strength()));
+        // A hand edit that turns Chroma off can leave the options in the file, which must not make the whole file invalid.
+        if (!out.isOn()) return out;
+        return out.withOptions(percent(map, "chromaSpeed", parent.speed()), percent(map, "chromaSaturation", parent.saturation()),
+                percent(map, "chromaBrightness", parent.brightness()));
     }
 
     public static String encode(Config config) {
@@ -276,7 +292,13 @@ public final class ConfigCodec {
         if (a.keepLight() != base.keepLight()) m.put("keepLight", a.keepLight());
         if (a.bevel() != base.bevel()) m.put("bevel", a.bevel());
         if (a.outline() != base.outline()) m.put("outline", a.outline());
-        if (a.chroma() != base.chroma()) m.put("chroma", a.chroma());
+        Chroma c = a.chroma(), b = base.chroma();
+        if (c.strength() != b.strength()) m.put("chroma", c.strength());
+        // The options only where Chroma is on, so that an older version can still read a file without Chroma.
+        if (!c.isOn()) return;
+        if (c.speed() != b.speed()) m.put("chromaSpeed", c.speed());
+        if (c.saturation() != b.saturation()) m.put("chromaSaturation", c.saturation());
+        if (c.brightness() != b.brightness()) m.put("chromaBrightness", c.brightness());
     }
 
     /** Whether the category look or the look of a group matches. */
@@ -289,7 +311,9 @@ public final class ConfigCodec {
     /** {@code a} with the recolor or effect fields of {@code from} where they are not used, so that they are not written. */
     private static Appearance unused(Appearance a, Appearance from, boolean recolor, boolean effects) {
         Appearance out = recolor ? a : a.withRecolor(from.detail(), from.keepColors(), from.keepLight());
-        return effects ? out : out.withEffects(from.bevel(), from.outline(), from.chroma());
+        if (!effects) return out.withEffects(from.bevel(), from.outline(), from.chroma());
+        // The Chroma options are not written while Chroma is off, so a read gives them from the parent.
+        return out.chroma().isOn() ? out : out.withEffects(out.bevel(), out.outline(), from.chroma().withStrength(0));
     }
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
