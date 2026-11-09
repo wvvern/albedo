@@ -78,6 +78,14 @@ class HarnessTest {
     }
 
     @Test
+    void theSkyCommandCanKeepOnlyTheLowestLayers() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy 4");
+        assertEquals(SkyPresets.GALAXY.layers().subList(0, 4), p.get(Category.SKY).sky().layers());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "galaxy 0"));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "galaxy 9"));
+    }
+
+    @Test
     void aSkinHashIsHexAndDiffersForACape() {
         byte[] png = {1, 2, 3};
         String skin = Harness.skinHash(png, false);

@@ -10,6 +10,9 @@
 #define ALBEDO_KIND_GRADIENT 1
 #define ALBEDO_KIND_GLOW 2
 #define ALBEDO_KIND_STARS 3
+#define ALBEDO_KIND_NOISE 4
+#define ALBEDO_KIND_FRACTAL 5
+#define ALBEDO_KIND_GALAXY 6
 
 #define ALBEDO_BLEND_NORMAL 0
 #define ALBEDO_BLEND_ADD 1
@@ -48,6 +51,63 @@ uint albedoHash(ivec3 p, int seed) {
 // Noise.unit: a hash as a float from 0 to 1.
 float albedoUnit(uint h) {
     return float(h >> 8u) / 16777216.0;
+}
+
+// Noise.grad: the offset times one of 12 edge directions, where the codes 12 to 15 repeat the codes 0, 1, 9 and 11.
+float albedoGrad(uint h, vec3 f) {
+    int g = int(h & 15u);
+    if (g >= 12) g = g == 12 ? 0 : g == 13 ? 1 : g == 14 ? 9 : 11;
+    float u = g < 8 ? f.x : f.y;
+    float v = g < 4 ? f.y : f.z;
+    return ((g & 1) == 0 ? u : -u) + ((g & 2) == 0 ? v : -v);
+}
+
+// Noise.lerp, written out so that the GPU rounds as the CPU does.
+float albedoLerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
+// Noise.noise: gradient noise at a point, from about -1 to 1.
+float albedoNoise(vec3 p, int seed) {
+    vec3 i = floor(p);
+    ivec3 c = ivec3(i);
+    vec3 f = p - i;
+    vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float x00 = albedoLerp(albedoGrad(albedoHash(c, seed), f), albedoGrad(albedoHash(c + ivec3(1, 0, 0), seed), f - vec3(1.0, 0.0, 0.0)), u.x);
+    float x10 = albedoLerp(albedoGrad(albedoHash(c + ivec3(0, 1, 0), seed), f - vec3(0.0, 1.0, 0.0)),
+            albedoGrad(albedoHash(c + ivec3(1, 1, 0), seed), f - vec3(1.0, 1.0, 0.0)), u.x);
+    float x01 = albedoLerp(albedoGrad(albedoHash(c + ivec3(0, 0, 1), seed), f - vec3(0.0, 0.0, 1.0)),
+            albedoGrad(albedoHash(c + ivec3(1, 0, 1), seed), f - vec3(1.0, 0.0, 1.0)), u.x);
+    float x11 = albedoLerp(albedoGrad(albedoHash(c + ivec3(0, 1, 1), seed), f - vec3(0.0, 1.0, 1.0)),
+            albedoGrad(albedoHash(c + ivec3(1, 1, 1), seed), f - vec3(1.0, 1.0, 1.0)), u.x);
+    return albedoLerp(albedoLerp(x00, x10, u.y), albedoLerp(x01, x11, u.y), u.z);
+}
+
+// Noise.fbm: a sum of octaves at twice the frequency and half the weight each, from about -1 to 1.
+float albedoFbm(vec3 p, int seed, int octaves) {
+    float sum = 0.0, amp = 1.0, norm = 0.0;
+    for (int o = 0; o < octaves; o++) {
+        sum += albedoNoise(p, seed + o * 1013) * amp;
+        norm += amp;
+        amp *= 0.5;
+        p *= 2.03;
+    }
+    return sum / norm * 1.6;
+}
+
+// Noise.ridged: sharp bright lines where the noise crosses zero, from 0 to 1.
+float albedoRidged(vec3 p, int seed, int octaves) {
+    float sum = 0.0, amp = 0.5, norm = 0.0, prev = 1.0;
+    for (int o = 0; o < octaves; o++) {
+        float n = 1.0 - abs(albedoNoise(p, seed + o * 7919));
+        n *= n;
+        sum += n * amp * prev;
+        norm += amp;
+        prev = n;
+        amp *= 0.5;
+        p *= 2.1;
+    }
+    return min(1.0, sum / norm);
 }
 
 float albedoSmooth(float a, float b, float t) {
@@ -153,10 +213,63 @@ vec4 albedoStars(int layer, vec3 p, float footprint) {
     return vec4(c.r * (1.0 + warm * 0.3), c.g, c.b * (1.0 - warm * 0.3), clamp(best, 0.0, 1.0) * shape.z);
 }
 
+// Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover.
+vec4 albedoClouds(int layer, vec3 p) {
+    vec4 values = albedoLayer(layer, 1);
+    vec4 shape = albedoLayer(layer, 2);
+    float v = albedoFbm(p * (2.5 / shape.x), int(shape.y), 6) * 0.5 + 0.5;
+    vec4 c = albedoMix(layer, v);
+    float edge = 1.0 - values.z * 1.2;
+    c.a *= albedoSmooth(edge - 0.12, edge + 0.12, v);
+    return c;
+}
+
+// Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend.
+vec4 albedoFractal(int layer, vec3 p) {
+    vec4 values = albedoLayer(layer, 1);
+    vec4 shape = albedoLayer(layer, 2);
+    int seed = int(shape.y);
+    vec3 q = p * (1.6 / shape.x);
+    vec3 bend = vec3(albedoFbm(q + vec3(5.2, 1.3, 2.8), seed + 11, 4), albedoFbm(q + vec3(1.7, 9.2, 4.4), seed + 23, 4),
+            albedoFbm(q + vec3(8.3, 2.8, 7.1), seed + 37, 4));
+    float v = albedoRidged(q + values.z * 1.6 * bend, seed, 6);
+    v = v * v;
+    vec4 c = albedoMix(layer, v);
+    c.a *= clamp(v * 1.6, 0.0, 1.0);
+    return c;
+}
+
+// A spiral galaxy at the layer center, with COLOR_1 arms around a COLOR_2 core, where AMOUNT turns the arms more.
+vec4 albedoGalaxy(int layer, vec3 p) {
+    if (p.z >= -0.05) return vec4(0.0);
+    vec4 values = albedoLayer(layer, 1);
+    vec4 shape = albedoLayer(layer, 2);
+    float size = 0.45 * shape.x;
+    float u = p.x / -p.z / size;
+    float v = p.y / -p.z / size / 0.5;
+    float r = sqrt(u * u + v * v);
+    if (r > 2.5) return vec4(0.0);
+    // The angle at the exact center is not defined in GLSL, and the arms have no weight there.
+    float theta = r > 0.0 ? atan(v, u) : 0.0;
+    float twist = 2.0 + values.z * 6.0;
+    float arm = 0.5 + 0.5 * cos(2.0 * (theta - twist * log(r + 0.08)));
+    arm = arm * arm * arm;
+    float n = albedoFbm(p * 9.0, int(shape.y), 5) * 0.5 + 0.5;
+    float disk = exp(-r * 2.2) * arm * (0.4 + 1.2 * n);
+    float core = exp(-(r / 0.16) * (r / 0.16));
+    float haze = exp(-r * 3.5) * 0.35;
+    vec4 c = albedoMix(layer, clamp(core * 1.5 + haze * 0.5, 0.0, 1.0));
+    c.a = clamp(disk + core + haze, 0.0, 1.0) * max(shape.z, shape.w);
+    return c;
+}
+
 vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
     if (kind == ALBEDO_KIND_GRADIENT) return albedoGradient(layer, p);
     if (kind == ALBEDO_KIND_GLOW) return albedoGlow(layer, p);
     if (kind == ALBEDO_KIND_STARS) return albedoStars(layer, p, footprint);
+    if (kind == ALBEDO_KIND_NOISE) return albedoClouds(layer, p);
+    if (kind == ALBEDO_KIND_FRACTAL) return albedoFractal(layer, p);
+    if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p);
     return vec4(0.0);
 }
 

@@ -30,7 +30,7 @@ public final class SkyProgram {
     public static final int FLOATS = RING + SkyImage.RING * 4;
 
     /** The kind codes of the shader, where 0 draws nothing. */
-    static final int KIND_GRADIENT = 1, KIND_GLOW = 2, KIND_STARS = 3;
+    static final int KIND_GRADIENT = 1, KIND_GLOW = 2, KIND_STARS = 3, KIND_NOISE = 4, KIND_FRACTAL = 5, KIND_GALAXY = 6;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -95,6 +95,9 @@ public final class SkyProgram {
         switch (kind) {
             case GRADIENT:
             case GLOW:
+            case NOISE:
+            case FRACTAL:
+            case GALAXY:
             case STARS:
                 return Path.PIXEL;
             default:
@@ -133,6 +136,9 @@ public final class SkyProgram {
             case GRADIENT: return KIND_GRADIENT;
             case GLOW: return KIND_GLOW;
             case STARS: return KIND_STARS;
+            case NOISE: return KIND_NOISE;
+            case FRACTAL: return KIND_FRACTAL;
+            case GALAXY: return KIND_GALAXY;
             default: return 0;
         }
     }

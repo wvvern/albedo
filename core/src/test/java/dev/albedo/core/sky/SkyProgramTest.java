@@ -28,6 +28,7 @@ class SkyProgramTest {
         }
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
             "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
+            "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
             "USE_SHOW " + SkyProgram.USE_SHOW};
@@ -50,13 +51,20 @@ class SkyProgramTest {
     }
 
     @Test
-    void duskDrawsSharpAndTheSkiesWithFiltersOrNoiseDoNot() {
+    void theGeneratorsDrawSharpAndTheFiltersDoNot() {
         SkyProgram dusk = SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program();
         assertTrue(dusk.allPixel());
         assertFalse(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program().allPixel());
         assertFalse(SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program().allPixel());
-        assertEquals(SkyProgram.Path.TERM, SkyProgram.path(SkyLayer.Kind.BLUR));
-        assertEquals(SkyProgram.Path.PIXEL, SkyProgram.path(SkyLayer.Kind.STARS));
+        SkyDesign generators = SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4));
+        SkyProgram galaxy = SkyGenerator.bake(generators, 64, 32).program();
+        assertTrue(galaxy.allPixel(), "gradient, noise, stars and galaxy");
+        assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.at(3, SkyProgram.KIND)]);
+        for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
+            SkyProgram.Path expected = kind.role() == SkyLayer.Role.GENERATOR ? SkyProgram.Path.PIXEL : SkyProgram.Path.TERM;
+            assertEquals(expected, SkyProgram.path(kind), kind.name());
+        }
     }
 
     @Test

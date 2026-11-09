@@ -290,12 +290,23 @@ public final class Harness {
         return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, chroma)));
     }
 
-    /** Sets the sky to a preset of custom layers ({@code sky dusk}), or back to the vanilla sky with {@code sky off}. */
-    static Profile withSky(Profile profile, String name) {
+    /**
+     * Sets the sky to a preset of custom layers ({@code sky dusk}), to only its lowest layers ({@code sky galaxy 4}), or
+     * back to the vanilla sky with {@code sky off}.
+     */
+    static Profile withSky(Profile profile, String arg) {
         CategorySettings sky = profile.get(Category.SKY);
-        if (name.equals("off")) return profile.with(Category.SKY, sky.withAppearance(Appearance.ORIGINAL));
-        SkyDesign design = SkyPresets.byName(name);
-        if (design == null) throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off>");
+        if (arg.equals("off")) return profile.with(Category.SKY, sky.withAppearance(Appearance.ORIGINAL));
+        String[] parts = arg.trim().split("\\s+");
+        SkyDesign design = SkyPresets.byName(parts[0]);
+        if (design == null || parts.length > 2) {
+            throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off> [layers]");
+        }
+        if (parts.length == 2) {
+            int keep = Integer.parseInt(parts[1]);
+            if (keep < 1 || keep > design.layers().size()) throw new IllegalArgumentException("layers: 1 to " + design.layers().size());
+            design = design.withLayers(design.layers().subList(0, keep));
+        }
         return profile.with(Category.SKY, sky.withAppearance(Appearance.of(Appearance.Mode.LAYERS)).withSky(design));
     }
 
