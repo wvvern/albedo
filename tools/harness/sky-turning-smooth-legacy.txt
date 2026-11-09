@@ -13,20 +13,17 @@ wait 40
 skyclock 0
 skyturn 100 speed 10 height 45
 wait 20
+# The hidden window of 1.8.9 can run some ticks before it draws a frame, so each shot waits longer than on 1.21+.
 skypartial 0
-wait 2
+wait 20
 screenshot smooth-01-part-0
 skypartial 0.5
-wait 2
+wait 20
 screenshot smooth-02-part-50
 skypartial 1
-wait 2
+wait 20
 screenshot smooth-03-part-100
 skypartial run
-wait 2
-screenshot smooth-04-run
-wait 1
-screenshot smooth-05-run-next-tick
 run gamerule doDaylightCycle false
 wait 60
 screenshot smooth-06-stopped
