@@ -6,6 +6,7 @@ import dev.albedo.core.Colors;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
@@ -233,21 +234,32 @@ public final class Harness {
         return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
     }
 
-    /** Sets the effects of a category's look from {@code <category> [bevel N] [outline N] [chroma N]}, where a missing effect is off. */
+    /**
+     * Sets the effects of a category's look from
+     * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]}, where a missing
+     * effect is off and a missing Chroma option has its default.
+     */
     static Profile withEffects(Profile profile, String[] args) {
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
-        if (args.length % 2 == 0) throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N]");
+        if (args.length % 2 == 0) {
+            throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]");
+        }
         int bevel = 0, outline = 0, chroma = 0;
+        int speed = Chroma.DEFAULT_SPEED, saturation = Chroma.DEFAULT_SATURATION, brightness = Chroma.DEFAULT_BRIGHTNESS;
         for (int i = 1; i < args.length; i += 2) {
             int value = Integer.parseInt(args[i + 1]);
             if (args[i].equals("bevel")) bevel = value;
             else if (args[i].equals("outline")) outline = value;
             else if (args[i].equals("chroma")) chroma = value;
+            else if (args[i].equals("speed")) speed = value;
+            else if (args[i].equals("saturation")) saturation = value;
+            else if (args[i].equals("brightness")) brightness = value;
             else throw new IllegalArgumentException("unknown effect: " + args[i]);
         }
         CategorySettings settings = profile.get(category);
-        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, chroma)));
+        Chroma c = new Chroma(chroma, speed, saturation, brightness);
+        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, c)));
     }
 
     /** Sets the sky to a preset of custom layers ({@code sky dusk}), or back to the vanilla sky with {@code sky off}. */

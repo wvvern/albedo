@@ -56,6 +56,14 @@ final class TextureUploads {
      * @param atlasId the location of the atlas texture
      */
     static TextureStore.Upload sprite(Object atlasId, SpriteContents contents) {
+        TextureStore.Upload upload = spriteUpload(atlasId, contents);
+        NativeImage original = ((SpriteContentsAccessor) contents).albedo$originalImage();
+        // An animated sprite, whose frames can lie in a grid, starts again at its first frame on each upload, so its Chroma colors stay still.
+        boolean animated = original.getWidth() > contents.width() || original.getHeight() > contents.height();
+        return animated ? upload : TextureStore.inPlace(upload);
+    }
+
+    private static TextureStore.Upload spriteUpload(Object atlasId, SpriteContents contents) {
         return pixels -> {
             if (!(registered(atlasId) instanceof TextureAtlas atlas)) return false;
             TextureAtlasSprite sprite = atlas.getSprite(contents.name());
@@ -219,15 +227,15 @@ final class TextureUploads {
     *///?}
 
     //? if >=1.21.4 {
-    /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it. */
+    /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it and writes it in place. */
     static TextureStore.Upload downloaded(Object id, net.minecraft.client.renderer.texture.DynamicTexture texture) {
-        return pixels -> {
+        return TextureStore.inPlace(pixels -> {
             NativeImage image = texture.getPixels();
             if (registered(id) != texture || image == null) return false; // released, which closed the image
             write(pixels, image);
             texture.upload();
             return true;
-        };
+        });
     }
     //?} else {
     /*// A downloaded skin, cape or elytra, written with the upload step of HttpTexture.

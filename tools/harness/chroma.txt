@@ -1,0 +1,40 @@
+# Moving Chroma colors: screenshots two seconds apart, the "Chroma tick" times in the log, and the Effects section with
+# Chroma on and off. Run it after scene-*.txt in place of shots.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots chroma.txt -OutDir build\chroma
+wait 60
+profile quake-white
+effects blocks chroma 100 speed 100
+effects items chroma 100 speed 100
+wait 100
+screenshot c01-moving
+wait 40
+screenshot c02-moving
+wait 40
+screenshot c03-moving
+wait 40
+screenshot c04-moving
+# Each 200 ticks with moving colors give one "Chroma tick" line in the log.
+wait 600
+effects blocks chroma 100 speed 30 bevel 40
+wait 20
+settings open
+wait 20
+ui click Effects
+wait 10
+ui pointer off
+wait 10
+screenshot c05-settings-chroma-on
+settings close
+wait 10
+effects blocks bevel 40
+wait 20
+settings open
+wait 20
+ui click Effects
+wait 10
+ui pointer off
+wait 10
+screenshot c06-settings-chroma-off
+settings close
+wait 10
+quit

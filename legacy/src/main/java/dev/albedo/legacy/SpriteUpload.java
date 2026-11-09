@@ -43,6 +43,12 @@ public final class SpriteUpload implements TextureStore.Upload {
         this.meta = meta;
     }
 
+    /** A still sprite writes one frame into the atlas, but an animated sprite loads all its frames again, so its Chroma colors stay still. */
+    @Override
+    public boolean inPlace() {
+        return meta == null;
+    }
+
     @Override
     public boolean upload(PixelBuffer pixels) throws Exception {
         TextureMap atlas = Minecraft.getMinecraft().getTextureMapBlocks();

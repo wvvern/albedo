@@ -1,10 +1,12 @@
 package dev.albedo.core.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** An immediate-mode GUI where each widget call draws the widget and returns what the user did to it since the last frame. */
 final class Ui {
@@ -518,6 +520,55 @@ final class Ui {
         return (flipped || press(id, x, y, w, h)) != on;
     }
 
+    /**
+     * The heading of a section that opens and closes, which returns the new open state; the whole row is clickable.
+     *
+     * @param summary muted text at the right edge, such as the values in the closed section, drawn only when it fits
+     */
+    boolean sectionHeader(String id, int x, int y, int w, String title, String summary, boolean open, String tipText) {
+        if (hover(x, y, w, H)) round(x, y, w, H, CARD_HOVER);
+        int ty = y + (H - LINE) / 2 + 1, tx = x + 12;
+        text(open ? "v" : ">", x + 4, ty, MUTED);
+        String shown = ellipsize(title, x + w - 4 - tx);
+        text(shown, tx, ty, TEXT);
+        if (summary != null) {
+            int sw = width(summary), room = x + w - 4 - (tx + width(shown) + 8);
+            textFit(summary, x + w - 4 - sw, ty, room, MUTED);
+        }
+        tip(x, y, w, H, tipText);
+        return press(id, x, y, w, H) != open;
+    }
+
+    /** Draws a page title with a muted subtitle beside it when it fits, and returns the height it takes. */
+    int title(int x, int y, int w, String title, String subtitle) {
+        text(title, x, y, TEXT);
+        int nameW = width(title) + 8;
+        textFit(subtitle, x + nameW, y, w - nameW, MUTED);
+        return 13;
+    }
+
+    /** The "<" button that goes back to the page above, which returns true when clicked. */
+    boolean backButton(String id, int x, int y, String tipText) {
+        return button(id, x, y, 13, H, "<", Style.GHOST, true, tipText);
+    }
+
+    /** A {@link #segmented} control with one segment for each of {@code values}, which returns the selected value. */
+    <E extends Enum<E>> E choice(String id, int x, int y, int w, E[] values, E selected, Function<E, String> label, Function<E, String> tip) {
+        int index = segmented(id, x, y, w, words(values, label), Arrays.asList(values).indexOf(selected), words(values, tip));
+        return values[index];
+    }
+
+    /** The height {@link #choice} uses. */
+    <E extends Enum<E>> int choiceHeight(E[] values, Function<E, String> label, int w) {
+        return segmentedHeight(words(values, label), w);
+    }
+
+    private static <E> String[] words(E[] values, Function<E, String> f) {
+        String[] out = new String[values.length];
+        for (int i = 0; i < values.length; i++) out[i] = f.apply(values[i]);
+        return out;
+    }
+
     /** Page tabs, which look different from {@link #segmented} because tabs change the page and segments change a value. */
     int tabs(String id, int x, int y, int w, String[] labels, int selected, String[] tips) {
         int n = labels.length, total = 0;
@@ -609,12 +660,17 @@ final class Ui {
 
     /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
     int slider(String id, int x, int y, int w, int value, String tipText) {
+        return slider(id, x, y, w, value, value + "%", tipText);
+    }
+
+    /** A slider from 0 to 100 with {@code valueText} at the right in the room of "100%", which returns the value after a click or drag. */
+    int slider(String id, int x, int y, int w, int value, String valueText, String tipText) {
         int textW = width("100%") + 6, trackW = Math.max(10, w - textW);
         int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * value / 100;
         fill(x, ty, trackW, 3, CARD);
         fill(x, ty, knobX - x + 2, 3, ACCENT);
         round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(value + "%", x + trackW + 6, y + 2, MUTED);
+        text(valueText, x + trackW + 6, y + 2, MUTED);
         tip(x, y, w, SLIDER_H, tipText);
         float[] at = dragArea(id, x, y, trackW, SLIDER_H);
         return at == null ? value : Math.round(at[0] * 100);
@@ -692,18 +748,29 @@ final class Ui {
     int scroll(String id, int x, int y, int w, int h, int rows, int rowHeight) {
         int visible = Math.max(1, h / rowHeight);
         int max = Math.max(0, rows - visible);
+        return scrollIndex(id, new Rect(x, y, w, h), max, 3, max > 0 ? h * visible / rows : h);
+    }
+
+    /**
+     * Scrolls a list with a scrollbar at its right edge when {@code max} is above 0, and returns the first visible index.
+     *
+     * @param max the highest first index, at which the last entry is visible
+     * @param step the entries that one wheel step moves
+     * @param thumb the height of the scrollbar thumb before its minimum
+     */
+    int scrollIndex(String id, Rect area, int max, int step, int thumb) {
         Integer stored = scrolls.get(id);
         int first = stored == null ? 0 : stored;
-        if (wheel != 0 && hover(x, y, w, h)) first -= wheel * 3;
+        if (wheel != 0 && hover(area.x, area.y, area.w, area.h)) first -= wheel * step;
         if (max > 0) {
-            int trackX = x + w - 3;
+            int trackX = area.x + area.w - 3;
             String bar = id + ".bar";
-            float[] grab = dragArea(bar, trackX - 2, y, 5, h);
+            float[] grab = dragArea(bar, trackX - 2, area.y, 5, area.h);
             if (grab != null) first = Math.round(grab[1] * max);
-            fill(trackX, y, 2, h, CARD);
-            int thumb = Math.max(8, h * visible / rows);
-            int ty = y + (h - thumb) * Math.max(0, Math.min(first, max)) / max;
-            fill(trackX, ty, 2, thumb, dragging(bar) ? TEXT : MUTED);
+            fill(trackX, area.y, 2, area.h, CARD);
+            int th = Math.max(8, thumb);
+            int ty = area.y + (area.h - th) * Math.max(0, Math.min(first, max)) / max;
+            fill(trackX, ty, 2, th, dragging(bar) ? TEXT : MUTED);
         }
         first = Math.max(0, Math.min(first, max));
         scrolls.put(id, first);

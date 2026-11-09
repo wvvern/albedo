@@ -3,6 +3,7 @@ package dev.albedo.core.ui;
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.config.Transform;
 
@@ -166,6 +167,64 @@ final class Labels {
             case MULTIPLY: return "Make the layers below darker with the colors of this layer";
             default: return "Put this layer over the layers below";
         }
+    }
+
+    static String alpha(Appearance.Alpha a) {
+        switch (a) {
+            case BINARY: return "Cut-out";
+            case OPAQUE: return "Solid";
+            default: return "Keep";
+        }
+    }
+
+    static String alphaTip(Appearance.Alpha a) {
+        switch (a) {
+            case BINARY: return "Make each part fully solid or fully transparent";
+            case OPAQUE: return "Fill all holes. Leaves and glass become solid cubes.";
+            default: return "Keep transparent parts (glass, leaves)";
+        }
+    }
+
+    static String output(SkyLayer.Output o) {
+        return o == SkyLayer.Output.MASK_ONLY ? "Mask only" : "In the sky";
+    }
+
+    static String outputTip(SkyLayer.Output o) {
+        return o == SkyLayer.Output.MASK_ONLY ? "The layer does not show. Higher layers can use it as their mask."
+                : "The layer shows in the sky";
+    }
+
+    static String maskMode(SkyMask.Mode m) {
+        return m == SkyMask.Mode.DARK ? "Dark" : "Light";
+    }
+
+    static String maskModeTip(SkyMask.Mode m) {
+        return m == SkyMask.Mode.DARK ? "Show where the mask layer is dark" : "Show where the mask layer is light";
+    }
+
+    static String source(SkyLayersEditor.PreviewSource s) {
+        return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "This layer" : "All layers";
+    }
+
+    static String sourceTip(SkyLayersEditor.PreviewSource s) {
+        return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
+    }
+
+    /** The effects that are on, such as "Chroma 60%, Bevel 20%", or "Off". */
+    static String effects(Appearance a, boolean edges) {
+        StringBuilder s = new StringBuilder();
+        effect(s, "Chroma", a.chroma().strength());
+        if (edges) {
+            effect(s, "Bevel", a.bevel());
+            effect(s, "Outline", a.outline());
+        }
+        return s.length() == 0 ? "Off" : s.toString();
+    }
+
+    private static void effect(StringBuilder s, String name, int percent) {
+        if (percent <= 0) return;
+        if (s.length() > 0) s.append(", ");
+        s.append(name).append(' ').append(percent).append('%');
     }
 
     static String axis(Transform.Axis a) {

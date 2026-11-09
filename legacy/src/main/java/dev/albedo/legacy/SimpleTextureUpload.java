@@ -30,6 +30,11 @@ public final class SimpleTextureUpload implements TextureStore.Upload {
     }
 
     @Override
+    public boolean inPlace() {
+        return true;
+    }
+
+    @Override
     public boolean upload(PixelBuffer pixels) {
         State state = (State) texture;
         if (Minecraft.getMinecraft().getTextureManager().getTexture(location) != texture || state.albedo$glTextureId() == -1) {

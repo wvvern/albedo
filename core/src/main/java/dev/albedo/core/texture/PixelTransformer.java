@@ -33,12 +33,12 @@ public final class PixelTransformer {
         }
     }
 
-    /** The opaque color of a swatch for {@code original} with the style of {@code a}, and its Chroma when {@code id} is known. */
+    /** The opaque color of a swatch for {@code original} with the style of {@code a}, and its first Chroma color when {@code id} is known. */
     public static int preview(Appearance a, int original, String id) {
         PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
         Appearance opaque = a.withAlpha(Appearance.Alpha.OPAQUE);
         apply(opaque, pixel);
-        if (id != null) Effects.apply(opaque, pixel, id, false);
+        if (id != null) Effects.apply(opaque, pixel, id, false, 0);
         return pixel.getArgb(0, 0);
     }
 

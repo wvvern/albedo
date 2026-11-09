@@ -1,6 +1,5 @@
 package dev.albedo.core.ui;
 
-import dev.albedo.core.Colors;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
@@ -12,6 +11,7 @@ import dev.albedo.core.sky.SkyPresets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -71,8 +71,8 @@ final class SkyLayersEditor {
     private final SkyBaker preview;
     private SkyPage page = SkyPage.LIST;
     private CanvasImage shown;
-    private final TextField[] hex = {new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#'),
-        new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#')};
+    /** One color input for each color parameter, so that each keeps its own typed text. */
+    private final Map<SkyLayer.Param, ColorField> colors = new EnumMap<SkyLayer.Param, ColorField>(SkyLayer.Param.class);
     private int labelW;
 
     /**
@@ -83,6 +83,7 @@ final class SkyLayersEditor {
         this.ui = ui;
         this.relayout = relayout;
         this.preview = new SkyBaker(PREVIEW_W, PREVIEW_H, errors);
+        for (SkyLayer.Param p : SkyLayer.Param.values()) if (p.isColor()) colors.put(p, new ColorField(ui));
     }
 
     /** The only way the page changes; a text field or scroll of the old page does not carry over. */
@@ -228,13 +229,9 @@ final class SkyLayersEditor {
             ui.paragraph("No layers. The sky is black. Add a layer or select a sky above.", x, cy + 2, w, Ui.FAINT);
             return;
         }
-        int h = bottom - cy, visible = Math.max(1, h / ROW);
-        int first = ui.scroll("sky.rows", x, cy, w, h, layers.size(), ROW);
-        int listW = layers.size() > visible ? w - 6 : w;
         // The top layer first, as it is drawn over the others.
-        for (int r = first; r < Math.min(layers.size(), first + visible); r++) {
-            if (layerRow(x, cy + (r - first) * ROW, listW, design, layers.size() - 1 - r, set)) return;
-        }
+        RowList.draw(ui, "sky.rows", x, cy, w, bottom - cy, layers.size(), ROW,
+                (r, rx, ry, rw, rh) -> layerRow(rx, ry, rw, design, layers.size() - 1 - r, set));
     }
 
     /** One on-off row of the list screen and the design that it gives when the user flips it. */
@@ -325,7 +322,7 @@ final class SkyLayersEditor {
     // ---------------------------------------------------------------- add
 
     private void addScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
-        if (ui.button("sky.back", x, y, 13, Ui.H, "<", Ui.Style.GHOST, true, "Back to the layers (Esc)")) {
+        if (ui.backButton("sky.back", x, y, "Back to the layers (Esc)")) {
             go(SkyPage.LIST);
             return;
         }
@@ -367,7 +364,7 @@ final class SkyLayersEditor {
 
     private void layerScreen(int x, int y, int w, int bottom, boolean withPreview, SkyDesign design, int index, Consumer<SkyDesign> set) {
         SkyLayer layer = design.layers().get(index);
-        if (ui.button("sky.back", x, y, 13, Ui.H, "<", Ui.Style.GHOST, true, "Back to the layers (Esc)")) {
+        if (ui.backButton("sky.back", x, y, "Back to the layers (Esc)")) {
             go(SkyPage.LIST);
             return;
         }
@@ -384,60 +381,58 @@ final class SkyLayersEditor {
         ui.tip(x + 16, y, w - tabW - 20, Ui.H, Labels.kindTip(layer.kind()));
         int cy = y + Ui.H + GAP;
         if (withPreview && bottom - cy >= previewHeight(w) + 4 * ROW) {
-            String[] sources = {"All layers", "This layer"};
-            int sw = ui.buttonWidth("All layers") + ui.buttonWidth("This layer");
-            ui.text("Preview", x, cy + 3, Ui.MUTED);
-            int s = ui.segmented("sky.source", x + labelW, cy, Math.min(sw, w - labelW), sources, page.source.ordinal(),
-                    new String[]{"The full sky", "Only this layer, also when it is only a mask"});
-            if (s != page.source.ordinal()) {
-                go(page.withSource(PreviewSource.values()[s]));
+            Form form = new Form(ui, x, w, labelW);
+            int sw = 0;
+            for (PreviewSource s : PreviewSource.values()) sw += ui.buttonWidth(Labels.source(s));
+            form.label(cy, Ui.H, "Preview", null);
+            PreviewSource s = ui.choice("sky.source", form.lx(), cy, Math.min(sw, form.cw()), PreviewSource.values(), page.source,
+                    Labels::source, Labels::sourceTip);
+            if (s != page.source) {
+                go(page.withSource(s));
                 return;
             }
             cy += Ui.H + 2;
             cy += preview(x, cy, w, design, index) + GAP;
         }
         List<Row> rows = page.tab == LayerTab.LOOK ? lookRows(x, w, design, index, set) : placeRows(x, w, design, index, set);
-        int h = bottom - cy, visible = Math.max(1, h / ROW);
-        int first = ui.scroll("sky.rows", x, cy, w, h, rows.size(), ROW);
-        for (int r = first; r < Math.min(rows.size(), first + visible); r++) rows.get(r).draw(cy + (r - first) * ROW);
+        RowList.draw(ui, "sky.rows", x, cy, w, bottom - cy, rows.size(), ROW, (r, rx, ry, rw, rh) -> {
+            rows.get(r).draw(ry);
+            return false;
+        });
     }
 
     private List<Row> lookRows(int x, int w0, SkyDesign design, int index, Consumer<SkyDesign> set) {
         SkyLayer l = design.layers().get(index);
-        int w = w0 - 6; // room for the scroll bar
-        int lx = x + labelW, cw = w - labelW;
+        Form form = new Form(ui, x, w0 - 6, labelW); // room for the scroll bar
         Consumer<SkyLayer> put = next -> set.accept(design.withLayer(index, next));
         List<Row> rows = new ArrayList<Row>();
         rows.add(y -> {
-            String[] labels = new String[SkyLayer.Blend.values().length], tips = new String[labels.length];
-            for (SkyLayer.Blend b : SkyLayer.Blend.values()) {
-                labels[b.ordinal()] = Labels.blend(b);
-                tips[b.ordinal()] = Labels.blendTip(b);
-            }
-            ui.text("Blend", x, y + 3, Ui.MUTED);
-            int b = ui.segmented("sky.blend", lx, y, cw, labels, l.blend().ordinal(), tips);
-            if (b != l.blend().ordinal()) put.accept(l.withBlend(SkyLayer.Blend.values()[b]));
+            form.label(y, Ui.H, "Blend", null);
+            SkyLayer.Blend b = ui.choice("sky.blend", form.lx(), y, form.cw(), SkyLayer.Blend.values(), l.blend(),
+                    Labels::blend, Labels::blendTip);
+            if (b != l.blend()) put.accept(l.withBlend(b));
         });
         rows.add(y -> {
-            ui.text("Opacity", x, y + 2, Ui.MUTED);
-            int o = ui.slider("sky.opacity", lx, y, cw, l.opacity(), "How much of this layer shows");
+            form.label(y, Ui.SLIDER_H, "Opacity", null);
+            int o = ui.slider("sky.opacity", form.lx(), y, form.cw(), l.opacity(), "How much of this layer shows");
             if (o != l.opacity()) put.accept(l.withOpacity(o));
         });
         rows.add(y -> {
-            ui.text("Show", x, y + 3, Ui.MUTED);
-            int o = ui.segmented("sky.output", lx, y, cw, new String[]{"In the sky", "Mask only"}, l.output().ordinal(),
-                    new String[]{"The layer shows in the sky", "The layer does not show. Higher layers can use it as their mask."});
-            if (o != l.output().ordinal()) put.accept(l.withOutput(SkyLayer.Output.values()[o]));
+            form.label(y, Ui.H, "Show", null);
+            SkyLayer.Output o = ui.choice("sky.output", form.lx(), y, form.cw(), SkyLayer.Output.values(), l.output(),
+                    Labels::output, Labels::outputTip);
+            if (o != l.output()) put.accept(l.withOutput(o));
         });
-        rows.add(y -> maskRow(x, y, lx, cw, design, index, put));
-        for (SkyLayer.Param p : l.kind().params()) rows.add(y -> paramRow(x, y, lx, cw, l, p, put));
+        rows.add(y -> maskRow(form, y, design, index, put));
+        for (SkyLayer.Param p : l.kind().params()) rows.add(y -> paramRow(form, y, l, p, put));
         return rows;
     }
 
     /** The mask: a button that goes through None and each lower layer, then whether light or dark parts let the layer through. */
-    private void maskRow(int x, int y, int lx, int cw, SkyDesign design, int index, Consumer<SkyLayer> put) {
+    private void maskRow(Form form, int y, SkyDesign design, int index, Consumer<SkyLayer> put) {
         SkyLayer l = design.layers().get(index);
-        ui.text("Mask", x, y + 3, Ui.MUTED);
+        int lx = form.lx(), cw = form.cw();
+        form.label(y, Ui.H, "Mask", null);
         List<SkyLayer> below = design.below(index);
         int current = l.mask().isNone() ? -1 : design.indexOf(l.mask().layer());
         String label = current < 0 ? "None" : name(design, current);
@@ -451,28 +446,20 @@ final class SkyLayersEditor {
             return;
         }
         if (!l.mask().isNone()) {
-            int m = ui.segmented("sky.maskmode", lx + bw + 4, y, cw - bw - 4, new String[]{"Light", "Dark"}, l.mask().mode().ordinal(),
-                    new String[]{"Show where the mask layer is light", "Show where the mask layer is dark"});
-            if (m != l.mask().mode().ordinal()) put.accept(l.withMask(l.mask().withMode(SkyMask.Mode.values()[m])));
+            SkyMask.Mode m = ui.choice("sky.maskmode", lx + bw + 4, y, cw - bw - 4, SkyMask.Mode.values(), l.mask().mode(),
+                    Labels::maskMode, Labels::maskModeTip);
+            if (m != l.mask().mode()) put.accept(l.withMask(l.mask().withMode(m)));
         }
     }
 
-    private void paramRow(int x, int y, int lx, int cw, SkyLayer l, SkyLayer.Param p, Consumer<SkyLayer> put) {
+    private void paramRow(Form form, int y, SkyLayer l, SkyLayer.Param p, Consumer<SkyLayer> put) {
         String label = Labels.param(l.kind(), p);
-        ui.text(label, x, y + 3, Ui.MUTED);
+        int lx = form.lx(), cw = form.cw();
+        form.label(y, Ui.H, label, null);
         int v = l.param(p);
         if (p.isColor()) {
-            TextField field = hex[p == SkyLayer.Param.COLOR_1 ? 0 : 1];
-            String id = "sky.hex." + p.key;
-            ui.swatch(lx, y + 2, 10, 10, v);
-            if (!ui.isFocused(id)) field.set(Colors.format(v));
-            if (ui.textField(id, field, lx + 14, y, Math.min(62, cw - 14), Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
-                try {
-                    put.accept(l.withParam(p, Colors.parse(field.text)));
-                } catch (IllegalArgumentException ignored) {
-                    // keep typing
-                }
-            }
+            int n = colors.get(p).draw("sky.hex." + p.key, lx, y, cw, v);
+            if (n != v) put.accept(l.withParam(p, n));
         } else if (p == SkyLayer.Param.SEED) {
             String text = "Pattern " + v;
             ui.text(text, lx, y + 3, Ui.TEXT);
@@ -490,7 +477,7 @@ final class SkyLayersEditor {
     private List<Row> placeRows(int x, int w0, SkyDesign design, int index, Consumer<SkyDesign> set) {
         SkyLayer l = design.layers().get(index);
         int w = w0 - 6; // room for the scroll bar
-        int lx = x + labelW, cw = w - labelW;
+        Form form = new Form(ui, x, w, labelW);
         List<Row> rows = new ArrayList<Row>();
         if (l.kind().axes().isEmpty()) {
             rows.add(y -> ui.textFirstFit(x, y + 3, w, Ui.FAINT, "This kind changes all of the sky. It has no place.", "No place"));
@@ -499,10 +486,9 @@ final class SkyLayersEditor {
         for (Transform.Axis a : Transform.Axis.values()) {
             if (!l.kind().axes().contains(a)) continue;
             rows.add(y -> {
-                ui.text(Labels.axis(a), x, y + 2, Ui.MUTED);
-                ui.tip(x, y, labelW, Ui.SLIDER_H, Labels.axisTip(a));
+                form.label(y, Ui.SLIDER_H, Labels.axis(a), Labels.axisTip(a));
                 int v = l.transform().get(a);
-                int n = ui.rangeSlider("sky.place." + a.name(), lx, y, cw, v, Transform.min(a), Transform.max(a),
+                int n = ui.rangeSlider("sky.place." + a.name(), form.lx(), y, form.cw(), v, Transform.min(a), Transform.max(a),
                         a == Transform.Axis.SCALE ? "%" : "", Labels.axisTip(a));
                 if (n != v) set.accept(design.withLayer(index, l.withTransform(l.transform().with(a, n))));
             });
@@ -510,7 +496,7 @@ final class SkyLayersEditor {
         rows.add(y -> {
             int bw = ui.buttonWidth("Reset");
             boolean changed = !l.transform().equals(l.kind().defaultTransform());
-            if (ui.button("sky.place.reset", lx, y, bw, Ui.H, "Reset", Ui.Style.NORMAL, changed, "Put the layer back in its first place")) {
+            if (ui.button("sky.place.reset", form.lx(), y, bw, Ui.H, "Reset", Ui.Style.NORMAL, changed, "Put the layer back in its first place")) {
                 set.accept(design.withLayer(index, l.withTransform(l.kind().defaultTransform())));
             }
         });

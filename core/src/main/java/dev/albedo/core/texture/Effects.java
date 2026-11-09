@@ -3,13 +3,16 @@ package dev.albedo.core.texture;
 import dev.albedo.core.Colors;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.config.Appearance;
+import dev.albedo.core.config.Chroma;
 
 /** The effects of a look (Chroma, then Bevel, then Outline), which change colors after the style and never alpha. */
 final class Effects {
-    /** The chroma of a Chroma color at full strength, in OKLab units. */
-    private static final double CHROMA = 0.13;
-    /** Lightness that Chroma pulls white down to and black up to, so that both can show a hue. */
+    /** The OKLab chroma of a Chroma color at full strength and saturation 100, so that the default saturation 50 gives 0.13. */
+    private static final double MAX_CHROMA = 0.26;
+    /** Lightness that Chroma pulls white down to and black up to at the default brightness, so that both can show a hue. */
     private static final double CHROMA_TOP = 0.78, CHROMA_BOTTOM = 0.3;
+    /** How far brightness 0 and 100 move both lightness limits down and up. */
+    private static final double BRIGHTNESS_RANGE = 0.2;
     /** Lightness change of Bevel at the edge, and of the Outline color from the tile, at full strength. */
     private static final double BEVEL_DEPTH = 0.22, OUTLINE_CONTRAST = 0.35;
     /** The OKLab hue band in degrees that Chroma skips, because yellow-olive looks muddy at mid lightness. */
@@ -33,16 +36,18 @@ final class Effects {
     /**
      * @param id the texture id, which gives Chroma its hue
      * @param tile whether the image is square block tiles (one per frame of an animation strip) that get Bevel and Outline
+     * @param phase the step of the Chroma colors, from 0 to {@link Chroma#PHASES} - 1
      * @return true if the image was changed
      */
-    static boolean apply(Appearance a, PixelBuffer img, String id, boolean tile) {
+    static boolean apply(Appearance a, PixelBuffer img, String id, boolean tile, int phase) {
         if (!a.hasEffects() || img.width() == 0 || img.height() == 0) return false;
         int w = img.width(), frameH = tile ? frameHeight(img) : img.height();
         int frames = img.height() / frameH;
-        double hue = hue(id);
+        double hue = hue(id, phase);
+        Chroma c = a.chroma();
         for (int f = 0; f < frames; f++) {
             int y0 = f * frameH;
-            if (a.chroma() > 0) chroma(img, y0, frameH, hue + 2 * Math.PI * f / frames, a.chroma() / 100.0);
+            if (c.isOn()) chroma(img, y0, frameH, hue + 2 * Math.PI * f / frames, c);
             if (!tile || w < 4 || frameH < 4) continue;
             double tileL = meanLightness(img, y0, frameH);
             if (a.bevel() > 0) bevel(img, y0, frameH, tileL, a.bevel() / 100.0);
@@ -62,14 +67,19 @@ final class Effects {
      * yellow-olive band that looks muddy at mid lightness.
      */
     static double hue(String id) {
+        return hue(id, 0);
+    }
+
+    /** The hue of an id at a Chroma step, which goes once around the hues outside the muddy band in {@link Chroma#PHASES} steps. */
+    static double hue(String id, int phase) {
         String s = hueKey(id);
         int h = 0x811C9DC5;
         for (int i = 0; i < s.length(); i++) {
             h ^= s.charAt(i);
             h *= 0x01000193;
         }
-        double t = ((h >>> 8) & 0xFFFF) / (double) 0x10000;
-        return Math.toRadians(MUDDY_TO + t * (360 - (MUDDY_TO - MUDDY_FROM)));
+        double t = ((h >>> 8) & 0xFFFF) / (double) 0x10000 + (double) phase / Chroma.PHASES;
+        return Math.toRadians(MUDDY_TO + (t - Math.floor(t)) * (360 - (MUDDY_TO - MUDDY_FROM)));
     }
 
     /** The name that gives a texture its hue: no folder, frame number or part suffix, and the modern block name. */
@@ -101,8 +111,11 @@ final class Effects {
         return s;
     }
 
-    private static void chroma(PixelBuffer img, int y0, int frameH, double hue, double s) {
-        double ta = CHROMA * Math.cos(hue), tb = CHROMA * Math.sin(hue);
+    private static void chroma(PixelBuffer img, int y0, int frameH, double hue, Chroma c) {
+        double target = MAX_CHROMA * c.saturation() / 100.0, s = c.strength() / 100.0;
+        double ta = target * Math.cos(hue), tb = target * Math.sin(hue);
+        double shift = (c.brightness() - Chroma.DEFAULT_BRIGHTNESS) / 50.0 * BRIGHTNESS_RANGE;
+        double top = Recolor.clamp(CHROMA_TOP + shift, 0, 1), bottom = Recolor.clamp(CHROMA_BOTTOM + shift, 0, 1);
         // Pixel art repeats few colors, so each color is converted once per frame.
         Recolor.ColorCache cache = new Recolor.ColorCache(img.width() * frameH);
         for (int y = y0; y < y0 + frameH; y++) {
@@ -110,17 +123,17 @@ final class Effects {
                 int p = img.getArgb(x, y);
                 if (Colors.alpha(p) == 0) continue;
                 int rgb = p | 0xFF000000, slot = cache.slot(rgb);
-                if (!cache.has(slot)) cache.store(slot, rgb, chroma(rgb, ta, tb, s));
+                if (!cache.has(slot)) cache.store(slot, rgb, chroma(rgb, ta, tb, s, top, bottom));
                 img.setArgb(x, y, Colors.withAlpha(cache.value(slot, rgb), Colors.alpha(p)));
             }
         }
     }
 
-    private static int chroma(int rgb, double ta, double tb, double s) {
+    private static int chroma(int rgb, double ta, double tb, double s, double top, double bottom) {
         double[] lab = Recolor.lab(rgb);
         double l = lab[0];
-        if (l > CHROMA_TOP) l -= (l - CHROMA_TOP) * s;
-        else if (l < CHROMA_BOTTOM) l += (CHROMA_BOTTOM - l) * s;
+        if (l > top) l -= (l - top) * s;
+        else if (l < bottom) l += (bottom - l) * s;
         return Recolor.srgb(l, lab[1] + (ta - lab[1]) * s, lab[2] + (tb - lab[2]) * s);
     }
 
