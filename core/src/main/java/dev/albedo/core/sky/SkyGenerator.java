@@ -429,7 +429,7 @@ public final class SkyGenerator {
                         * Math.max(0f, 3f * clump - 1.3f);
                 tau = l.dust * 7f * density / (float) Math.sqrt(qd);
             }
-            if (rs < 1.2f) {
+            if (rs < 1.2f && fp < 0.5f * KNOT_CELL) {
                 // Round knots of young stars on a grid of the image plane, which show only on the arms.
                 float gx = x / KNOT_CELL, gy = y / KNOT_CELL;
                 int cx = (int) Math.floor(gx), cy = (int) Math.floor(gy);
@@ -447,7 +447,8 @@ public final class SkyGenerator {
                         if (Noise.unit(Noise.hash(hx, hy, 0, l.seed + 81)) < 0.35f) pink += v;
                     }
                 }
-                float k = arm * (float) Math.exp(-rs / 0.5f) * edge * 1.5f;
+                // The knots fade out before a pixel is half a cell wide, where the search of 3 x 3 cells would cut the light of a knot.
+                float k = arm * (float) Math.exp(-rs / 0.5f) * edge * 1.5f * (1 - smooth(0.25f * KNOT_CELL, 0.5f * KNOT_CELL, fp));
                 knots *= k;
                 pink *= k;
             }

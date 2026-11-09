@@ -458,7 +458,7 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
             float density = exp(-rd / 0.5) * (1.0 - albedoSmooth(0.9, 1.4, rd)) * (0.2 + 2.0 * lane * lane) * max(0.0, 3.0 * clump - 1.3);
             tau = dust * 7.0 * density / sqrt(qd);
         }
-        if (rs < 1.2) {
+        if (rs < 1.2 && fp < 0.5 * 0.05) {
             // Round knots of young stars on a grid of the image plane, which show only on the arms.
             vec2 g = vec2(x, y) / 0.05;
             ivec2 cell = ivec2(floor(g));
@@ -476,7 +476,8 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
                     if (albedoUnit(albedoHash(h, seed + 81)) < 0.35) pink += v;
                 }
             }
-            float k = arm * exp(-rs / 0.5) * edge * 1.5;
+            // The knots fade out before a pixel is half a cell wide, where the search of 3 x 3 cells would cut the light of a knot.
+            float k = arm * exp(-rs / 0.5) * edge * 1.5 * (1.0 - albedoSmooth(0.25 * 0.05, 0.5 * 0.05, fp));
             knots *= k;
             pink *= k;
         }
