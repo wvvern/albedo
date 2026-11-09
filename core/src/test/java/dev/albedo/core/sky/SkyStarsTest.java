@@ -17,13 +17,13 @@ class SkyStarsTest {
 
     /** The light at {@code p} of all stars of all cells up to three cells away, with no limit on the search. */
     private static float[] allStars(SkyStars stars, float scale, float[] p, float footprint) {
-        float[] light = new float[3], star = new float[SkyStars.STAR_FLOATS];
+        float[] light = new float[3], star = new float[SkyStars.STAR_FLOATS], work = new float[SkyStars.WORK_FLOATS];
         for (SkyStars.Tier t : SkyStars.Tier.values()) {
             float n = t.cells / scale;
             int cx = (int) Math.floor(p[0] * n), cy = (int) Math.floor(p[1] * n), cz = (int) Math.floor(p[2] * n);
             for (int i = -3; i <= 3; i++) {
                 for (int j = -3; j <= 3; j++) {
-                    for (int k = -3; k <= 3; k++) if (stars.star(t, cx + i, cy + j, cz + k, star)) stars.add(t, star, p, footprint, light);
+                    for (int k = -3; k <= 3; k++) if (stars.star(t, cx + i, cy + j, cz + k, star)) stars.add(t, star, p, footprint, work, light);
                 }
             }
         }
@@ -122,7 +122,7 @@ class SkyStarsTest {
         float[] c = new float[3];
         int blue = 0, red = 0;
         for (int i = 0; i < 1000; i++) {
-            SkyStars.color((i + 0.5f) / 1000, c);
+            SkyStars.color((i + 0.5f) / 1000, c, 0);
             if (c[2] > c[0] * 1.1f) blue++;
             if (c[0] > c[2] * 1.3f) red++;
             for (float v : c) assertTrue(v >= 0.3f && v <= 1f, "a slight tint: " + v);

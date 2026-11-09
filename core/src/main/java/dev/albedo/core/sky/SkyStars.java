@@ -36,6 +36,8 @@ final class SkyStars {
 
     /** The floats of one star from {@link #star}: the unit direction, the light, and the place along the star classes. */
     static final int STAR_FLOATS = 5;
+    /** The floats of the room that {@link #add} uses: the light of the rim and the spikes, and the color, for each channel. */
+    static final int WORK_FLOATS = 6;
 
     private static final float RADIAN = (float) (Math.PI / 180);
     /** The standard deviation of the core of each star. */
@@ -106,14 +108,14 @@ final class SkyStars {
 
     /** Adds the linear light of the stars of both tiers in the unit direction {@code p} to {@code light}. */
     void light(float[] p, float footprint, float[] light) {
-        float[] star = new float[STAR_FLOATS];
+        float[] star = new float[STAR_FLOATS], work = new float[WORK_FLOATS];
         for (Tier t : Tier.values()) {
             float n = t.cells / scale;
             // The 2 x 2 x 2 cells nearest to the point, because no star reaches into a cell that is not next to its own.
             int bx = (int) Math.floor(p[0] * n - 0.5f), by = (int) Math.floor(p[1] * n - 0.5f), bz = (int) Math.floor(p[2] * n - 0.5f);
             for (int i = 0; i <= 1; i++) {
                 for (int j = 0; j <= 1; j++) {
-                    for (int k = 0; k <= 1; k++) if (star(t, bx + i, by + j, bz + k, star)) add(t, star, p, footprint, light);
+                    for (int k = 0; k <= 1; k++) if (star(t, bx + i, by + j, bz + k, star)) add(t, star, p, footprint, work, light);
                 }
             }
         }
@@ -142,8 +144,12 @@ final class SkyStars {
         return true;
     }
 
-    /** Adds the light of one star in the direction {@code p} to {@code light}, which is 0 from half a cell of its tier. */
-    void add(Tier t, float[] s, float[] p, float footprint, float[] light) {
+    /**
+     * Adds the light of one star in the direction {@code p} to {@code light}, which is 0 from half a cell of its tier.
+     *
+     * @param work {@link #WORK_FLOATS} floats of room for the rim, the spikes and the color, so that no pixel makes new arrays
+     */
+    void add(Tier t, float[] s, float[] p, float footprint, float[] work, float[] light) {
         float dx = p[0] - s[0], dy = p[1] - s[1], dz = p[2] - s[2];
         float d2 = dx * dx + dy * dy + dz * dz;
         float reach = 0.5f * scale / t.cells;
@@ -156,15 +162,16 @@ final class SkyStars {
         float halo = HALO * scale * (float) Math.sqrt(flux), halo2 = halo * halo + blur2;
         float q = 1 + d2 / halo2;
         glow += flux * HALO_LIGHT * halo * halo / halo2 / (q * q);
-        float[] detail = new float[3], color = new float[3];
+        // The rim and the spikes add their light for each channel into the first three floats, and the color goes into the last three.
+        for (int c = 0; c < 3; c++) work[c] = 0;
         if (t.detail) {
-            rim(flux, d, blur2, detail);
-            if (spikes > 0 && flux > SPIKE_FLUX) spikes(t, s, dx, dy, dz, blur2, detail);
+            rim(flux, d, blur2, work);
+            if (spikes > 0 && flux > SPIKE_FLUX) spikes(t, s, dx, dy, dz, blur2, work);
         }
-        color(s[4], color);
+        color(s[4], work, 3);
         // The light goes to 0 before the edge of the reach, so that no star is cut.
         float fade = 1 - smooth(0.8f * reach, reach, d);
-        for (int c = 0; c < 3; c++) light[c] += color[c] * fade * (glow + detail[c]);
+        for (int c = 0; c < 3; c++) light[c] += work[3 + c] * fade * (glow + work[c]);
     }
 
     /** Adds the light of the thin rim of a star at the distance {@code d} from it to {@code out}, with red outside and blue inside. */
@@ -178,8 +185,8 @@ final class SkyStars {
         }
     }
 
-    /** The linear color of a star at {@code u} along the classes, a mix of the two boundary colors of its class with white. */
-    static void color(float u, float[] out) {
+    /** The linear color of a star at {@code u} along the classes into {@code out} from {@code at}: its class colors mixed with white. */
+    static void color(float u, float[] out, int at) {
         int i = 0;
         while (i < CLASS_SHARE.length - 1 && u >= CLASS_SHARE[i]) {
             u -= CLASS_SHARE[i];
@@ -188,7 +195,7 @@ final class SkyStars {
         float f = Math.min(1f, u / CLASS_SHARE[i]);
         for (int c = 0; c < 3; c++) {
             float a = CLASS_RGB[i * 3 + c], b = CLASS_RGB[i * 3 + 3 + c];
-            out[c] = 1 - TINT + TINT * (a + (b - a) * f);
+            out[at + c] = 1 - TINT + TINT * (a + (b - a) * f);
         }
     }
 
