@@ -41,9 +41,11 @@ public final class Layout {
     private final boolean covered;
     /** True for one piece of a connected texture, which gets no Bevel or Outline. */
     private final boolean connected;
+    /** True for a player skin, whose looks always keep the transparent parts. */
+    private final boolean skin;
 
     /** A texture without tiles. */
-    private Layout(TextureKey key, boolean connected) {
+    private Layout(TextureKey key, boolean connected, boolean skin) {
         this.key = key;
         this.cols = 1;
         this.rows = 1;
@@ -51,6 +53,7 @@ public final class Layout {
         this.catalogKeys = Collections.singletonList(key);
         this.covered = false;
         this.connected = connected;
+        this.skin = skin;
     }
 
     /** A sheet with tiles in a grid of {@code cols} x {@code rows} cells. */
@@ -68,13 +71,14 @@ public final class Layout {
         this.catalogKeys = Collections.unmodifiableList(keys);
         this.covered = cells == cols * rows;
         this.connected = false;
+        this.skin = false;
     }
 
     /** The tiles of the known sheet at {@code location}, or a layout without tiles. */
     public static Layout of(String location) {
         TextureKey key = TextureClassifier.classify(location);
         Layout sheet = Sheets.get(key);
-        return sheet != null ? sheet : new Layout(key, TextureClassifier.isConnected(location));
+        return sheet != null ? sheet : new Layout(key, TextureClassifier.isConnected(location), TextureClassifier.isPlayerSkin(location));
     }
 
     /** The key of the sheet that has a tile with this key in the same category, or null. */
@@ -94,6 +98,8 @@ public final class Layout {
      * tiles cover it.
      */
     public List<Appearance> looks(Policy policy) {
+        // A skin has two layers in one image, and a filled second layer (hat, jacket) covers the first.
+        if (skin) return Collections.singletonList(policy.appearanceFor(key).withAlpha(Appearance.Alpha.KEEP));
         if (tiles.isEmpty()) return Collections.singletonList(policy.appearanceFor(key));
         List<Appearance> out = new ArrayList<Appearance>(tiles.size() + 1);
         out.add(covered ? Appearance.ORIGINAL : policy.appearanceFor(key));

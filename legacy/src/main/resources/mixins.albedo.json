@@ -22,6 +22,9 @@
     "RenderGlobalMixin",
     "ShadowMixin",
     "SimpleTextureMixin",
-    "TextureAtlasSpriteMixin"
+    "SkinManagerMixin",
+    "TextureAtlasSpriteMixin",
+    "TextureManagerMixin",
+    "ThreadDownloadImageDataMixin"
   ]
 }

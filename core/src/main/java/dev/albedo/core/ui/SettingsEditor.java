@@ -598,7 +598,10 @@ public final class SettingsEditor {
         boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
         boolean recolor = m == Appearance.Mode.RECOLOR;
         boolean effects = target.changesPixels() && category.hasChroma();
-        int shapeH = usesShape ? Ui.H + GAP : 0;
+        String shapeNote = usesShape && category == Category.PLAYERS
+                ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
+        int noteH = shapeNote == null ? 0 : ui.paragraphHeight(shapeNote, w) + GAP;
+        int shapeH = usesShape ? Ui.H + GAP + noteH : 0;
         int effectsH = effects ? slidersH(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
         if (m == Appearance.Mode.TEXTURE) cy = imagePicker(x, cy, w, cs, index, target);
         if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE || recolor) {
@@ -622,6 +625,8 @@ public final class SettingsEditor {
                             "Fill all holes. Leaves and glass become solid cubes."});
             if (a != target.alpha().ordinal()) setLook(cs, index, target.withAlpha(Appearance.Alpha.values()[a]));
             cy += ui.segmentedHeight(shapes, cw) + GAP;
+            // The effects come first in a short window.
+            if (shapeNote != null && bottom - cy - noteH >= (effects ? Ui.SLIDER_H : 0)) cy += ui.paragraph(shapeNote, x, cy, w, Ui.FAINT) + GAP;
         }
         // The smallest windows have no row left for the effects, which then keep their values.
         if (effects && bottom - cy >= Ui.SLIDER_H) cy = effectSliders(x, cy, w, cs, index, target, bottom - cy < effectsH);

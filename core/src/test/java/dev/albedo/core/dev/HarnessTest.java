@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HarnessTest {
     @Test
@@ -31,5 +33,15 @@ class HarnessTest {
         assertEquals(Arrays.asList("flame"), rules.get(0).patterns());
         assertEquals(Appearance.solid(0xFF00FF00), particles.lookOf(rules.get(0)));
         assertEquals(Appearance.Mode.HIDDEN, particles.lookOf(rules.get(1)).mode());
+    }
+
+    @Test
+    void aSkinHashIsHexAndDiffersForACape() {
+        byte[] png = {1, 2, 3};
+        String skin = Harness.skinHash(png, false);
+        assertEquals(64, skin.length());
+        assertTrue(skin.matches("[0-9a-f]+"));
+        assertEquals(skin, Harness.skinHash(png, false));
+        assertNotEquals(skin, Harness.skinHash(png, true));
     }
 }

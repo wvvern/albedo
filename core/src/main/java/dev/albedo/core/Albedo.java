@@ -54,6 +54,8 @@ public final class Albedo {
     /** A worker thread recorded a texture while the policy changed, so the next client tick repaints it. */
     private volatile boolean stale;
     private final AtomicInteger transformedSinceSummary = new AtomicInteger();
+    /** The size of the downloaded textures that the log last showed. */
+    private long loggedDownloadedBytes;
     private final boolean[] keyWasDown = new boolean[3];
 
     private Albedo(Platform platform) {
@@ -147,6 +149,12 @@ public final class Albedo {
 
     private static final int COLORMAP_SIZE = 256;
 
+    /** Drops the kept original of a texture that the game released, for example a downloaded skin. */
+    public static void forgetTexture(String location) {
+        Albedo sc = instance;
+        if (sc != null) sc.store.forget(location);
+    }
+
     /** True on the thread of a running repaint, where load hooks must skip their work. */
     public static boolean repainting() {
         Albedo sc = instance;
@@ -220,6 +228,11 @@ public final class Albedo {
             int transformed = transformedSinceSummary.getAndSet(0);
             if (transformed > 0) {
                 platform.info("Changed " + transformed + " textures with profile '" + config().activeProfileName() + "'");
+            }
+            long downloaded = store.downloadedBytes();
+            if (downloaded != loggedDownloadedBytes) {
+                loggedDownloadedBytes = downloaded;
+                platform.info("Keeps " + (downloaded + 1023) / 1024 + " KiB of downloaded skins, capes and elytra");
             }
             if (configFile.lastModified() != lastModified) {
                 Policy before = policy;

@@ -124,7 +124,6 @@ To share a profile, push Export in the settings screen. This saves it to `config
 ## Known limits
 
 - On 1.21.2 and later, clouds can only be hidden, not colored.
-- Downloaded player skins do not change.
 - When small plants are hidden, their items are hidden too.
 - With OptiFine shaders or very large resource packs, a settings change reloads all resources, which can take a while.
 

@@ -12,10 +12,12 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TextureStoreTest {
@@ -152,6 +154,76 @@ class TextureStoreTest {
         record(store, "dirt", new FakeUpload(), Policy.DISABLED);
         assertFalse(store.complete());
         assertEquals(1, store.catalog(Category.BLOCKS).size());
+    }
+
+    private static Policy players(Appearance look) {
+        return LayoutTest.policy(Category.PLAYERS, look);
+    }
+
+    @Test
+    void downloadedSkinsDoNotCountTowardTheBudget() {
+        TextureStore store = new TextureStore(8);
+        Policy white = players(Appearance.solid(0xFFFFFFFF));
+        record(store, "stone", new FakeUpload(), white);
+        for (int i = 0; i < 3; i++) recordNamed(store, "minecraft:skins/" + i, new FakeUpload(), Policy.DISABLED);
+        assertTrue(store.complete(), "skins never make the store incomplete");
+        assertEquals(3 * 8, store.downloadedBytes());
+        assertEquals(1, store.catalog(Category.PLAYERS).size(), "one catalog row for all skins");
+        assertTrue(store.catalog(Category.PLAYERS).containsKey("minecraft:skins"));
+        assertEquals(3, store.repaint(white, null, false).repainted);
+    }
+
+    @Test
+    void aForgottenSkinFreesItsBytesAndLeavesTheCatalog() {
+        TextureStore store = new TextureStore();
+        FakeUpload skin = new FakeUpload();
+        recordNamed(store, "minecraft:skins/a", skin, Policy.DISABLED);
+        assertTrue(store.catalog(Category.PLAYERS).containsKey("minecraft:skins"));
+        store.forget("minecraft:skins/a");
+        assertEquals(0, store.downloadedBytes());
+        assertFalse(store.catalog(Category.PLAYERS).containsKey("minecraft:skins"));
+        assertEquals(0, store.repaint(players(Appearance.solid(0xFFFFFFFF)), null, false).repainted);
+        assertEquals(0, skin.uploads.size());
+    }
+
+    @Test
+    void aBrokenOrGoneSkinIsForgottenWithoutAReload() {
+        TextureStore store = new TextureStore();
+        FakeUpload broken = new FakeUpload(), gone = new FakeUpload();
+        broken.broken = true;
+        gone.gone = true;
+        recordNamed(store, "minecraft:skins/a", broken, Policy.DISABLED);
+        recordNamed(store, "minecraft:capes/b", gone, Policy.DISABLED);
+        TextureStore.Result r = store.repaint(players(Appearance.solid(0xFFFFFFFF)), null, false);
+        assertEquals(0, r.repainted);
+        assertEquals(0, r.needReload);
+        assertEquals(0, store.downloadedBytes());
+        assertTrue(store.catalog(Category.PLAYERS).isEmpty());
+    }
+
+    @Test
+    void theCatalogChangesOnlyWhenAKeyComesOrGoes() {
+        TextureStore store = new TextureStore();
+        recordNamed(store, "minecraft:skins/a", new FakeUpload(), Policy.DISABLED);
+        Map<String, Integer> first = store.catalog(Category.PLAYERS);
+        recordNamed(store, "minecraft:skins/b", new FakeUpload(), Policy.DISABLED);
+        assertSame(first, store.catalog(Category.PLAYERS), "a second skin keeps the catalog");
+        recordNamed(store, "minecraft:capes/c", new FakeUpload(), Policy.DISABLED);
+        assertTrue(store.catalog(Category.PLAYERS).containsKey("minecraft:capes"));
+    }
+
+    @Test
+    void skinsKeepTheirTransparentPartsAndCapesDoNot() {
+        TextureStore store = new TextureStore();
+        FakeUpload skin = new FakeUpload(), steve = new FakeUpload(), cape = new FakeUpload();
+        recordNamed(store, "minecraft:skins/a", skin, Policy.DISABLED);
+        recordNamed(store, "minecraft:textures/entity/player/wide/steve.png", steve, Policy.DISABLED);
+        recordNamed(store, "minecraft:capes/b", cape, Policy.DISABLED);
+        Appearance solid = Appearance.solid(0xFFFF0000).withAlpha(Appearance.Alpha.OPAQUE);
+        assertEquals(3, store.repaint(players(solid), null, false).repainted);
+        assertArrayEquals(new int[]{0xFFFF0000, 0x00FF0000}, skin.uploads.get(0), "the hat layer stays transparent");
+        assertArrayEquals(new int[]{0xFFFF0000, 0x00FF0000}, steve.uploads.get(0));
+        assertArrayEquals(new int[]{0xFFFF0000, 0xFFFF0000}, cape.uploads.get(0), "a cape takes the shape setting");
     }
 
     private static void recordSheet(TextureStore store, PixelBuffer.Heap img, TextureStore.Upload upload, Policy policy) {

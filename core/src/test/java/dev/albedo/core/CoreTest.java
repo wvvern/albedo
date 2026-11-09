@@ -48,6 +48,27 @@ class CoreTest {
     }
 
     @Test
+    void classifiesDownloadedSkinsCapesAndElytra() {
+        assertEquals(new TextureKey(Category.PLAYERS, "minecraft:skins"), TextureClassifier.classify("minecraft:skins/0a1b2c"));
+        assertEquals(new TextureKey(Category.PLAYERS, "minecraft:capes"), TextureClassifier.classify("minecraft:capes/0a1b2c"));
+        assertEquals(new TextureKey(Category.PLAYERS, "minecraft:elytra"), TextureClassifier.classify("minecraft:elytra/0a1b2c"));
+        assertTrue(TextureClassifier.isDownloaded("minecraft:skins/0a1b2c"));
+        // Resource files and other namespaces are not downloads.
+        assertFalse(TextureClassifier.isDownloaded("minecraft:textures/skins/0a1b2c.png"));
+        assertFalse(TextureClassifier.isDownloaded("minecraft:skins/a.png"));
+        assertFalse(TextureClassifier.isDownloaded("mymod:skins/0a1b2c"));
+        assertEquals(Category.OTHER, TextureClassifier.classify("mymod:skins/0a1b2c").category());
+        assertEquals(Category.OTHER, TextureClassifier.classify("minecraft:optifine/capeof/steve").category());
+        // The skin layout: default and downloaded skins, not capes and elytra.
+        assertTrue(TextureClassifier.isPlayerSkin("minecraft:skins/0a1b2c"));
+        assertTrue(TextureClassifier.isPlayerSkin("minecraft:textures/entity/player/slim/alex.png"));
+        assertTrue(TextureClassifier.isPlayerSkin("minecraft:textures/entity/steve.png"));
+        assertFalse(TextureClassifier.isPlayerSkin("minecraft:capes/0a1b2c"));
+        assertFalse(TextureClassifier.isPlayerSkin("minecraft:elytra/0a1b2c"));
+        assertFalse(TextureClassifier.isPlayerSkin("minecraft:textures/entity/zombie/zombie.png"));
+    }
+
+    @Test
     void classifiesOptiFinePaths() {
         assertEquals(new TextureKey(Category.BLOCKS, "minecraft:bookshelf"), TextureClassifier.classify("minecraft:mcpatcher/ctm/default/13"));
         assertEquals(new TextureKey(Category.BLOCKS, "minecraft:glass"), TextureClassifier.classify("minecraft:mcpatcher/ctm/default/5"));

@@ -84,6 +84,8 @@ foreach ($target in $Targets) {
     $harness = Join-Path $env:TEMP "albedo-harness\$target"
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
+    # Images that the commands load, for example the test skin of skins.txt.
+    Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
     $irisRun = $iris -and $loader -ne "forge"
     if ($irisRun) { Set-Iris $runDir }

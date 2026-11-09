@@ -1,15 +1,21 @@
 package dev.albedo.legacy;
 
+import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.SoundCategory;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.ScreenShotHelper;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /** Development-only: what the test harness needs from 1.8.9 (see {@link Harness}). */
@@ -68,6 +74,30 @@ final class LegacyHarnessHost implements Harness.Host {
     @Override
     public void quit() {
         Minecraft.getMinecraft().shutdown();
+    }
+
+    @Override
+    public String loadSkin(File png, String hash, boolean cape) throws IOException {
+        Minecraft mc = Minecraft.getMinecraft();
+        File cache = ((LegacyHooks.SkinCache) mc.getSkinManager()).albedo$skinCacheDir();
+        File file = new File(new File(cache, hash.substring(0, 2)), hash);
+        Files.createDirectories(file.getParentFile().toPath());
+        Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        if (!file.isFile()) throw new IOException("no cache file " + file);
+        // The hash is the last part of the URL, which the game does not read because the cache file exists.
+        MinecraftProfileTexture texture = new MinecraftProfileTexture("http://127.0.0.1:9/" + hash, null);
+        return mc.getSkinManager().loadSkin(texture, cape ? MinecraftProfileTexture.Type.CAPE : MinecraftProfileTexture.Type.SKIN).toString();
+    }
+
+    @Override
+    public void releaseTexture(String id) {
+        Minecraft.getMinecraft().getTextureManager().deleteTexture(new ResourceLocation(id));
+    }
+
+    @Override
+    public void showTexture(String id) {
+        ResourceLocation texture = id == null ? null : id.equals("steve") ? DefaultPlayerSkin.getDefaultSkinLegacy() : new ResourceLocation(id);
+        Minecraft.getMinecraft().displayGuiScreen(texture == null ? null : new GuiTexture(texture));
     }
 
     @Override

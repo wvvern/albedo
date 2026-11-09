@@ -8,6 +8,7 @@ import dev.albedo.core.config.Appearance;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,15 +50,18 @@ public final class TextureStore {
         final Upload upload;
         /** The original average color of each catalog key of the layout. */
         final int[] averages;
+        /** True for a skin, cape or elytra that the game downloads, which a resource reload cannot change. */
+        final boolean downloaded;
         /** The looks the texture has in the game, as {@link Layout#looks} gives them, or null when they are not known. */
         volatile List<Appearance> applied;
 
-        Entry(Layout layout, PixelBuffer.Heap original, Upload upload, List<Appearance> applied) {
+        Entry(Layout layout, PixelBuffer.Heap original, Upload upload, List<Appearance> applied, boolean downloaded) {
             this.layout = layout;
             this.original = original;
             this.upload = upload;
             this.averages = layout.averages(original);
             this.applied = applied;
+            this.downloaded = downloaded;
         }
 
         long bytes() { return 4L * original.width() * original.height(); }
@@ -70,6 +74,10 @@ public final class TextureStore {
     /** By texture name, because some textures share a key, for example the OptiFine connected textures of one block. */
     private final Map<String, Entry> entries = new ConcurrentHashMap<String, Entry>();
     private final AtomicLong bytes = new AtomicLong();
+    /** Bytes of the downloaded textures, which are not in the budget because only a repaint can change them. */
+    private final AtomicLong downloadedBytes = new AtomicLong();
+    /** The number of kept textures with each catalog key, so that the catalog changes only when a key comes or goes. */
+    private final Map<TextureKey, Integer> keyCounts = new HashMap<TextureKey, Integer>();
     /** Names of textures that did not fit in the budget until a smaller record of the same name. */
     private final Set<String> overBudget = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     /** Set on the thread that repaints, so that a load hook that the upload runs does not record the texture again. */
@@ -106,19 +114,50 @@ public final class TextureStore {
      */
     public void record(String name, Layout layout, PixelBuffer image, Upload upload, List<Appearance> applied) {
         if (layout.key().category() == Category.OTHER || upload == null) return;
-        Entry next = new Entry(layout, PixelBuffer.Heap.copyOf(image), upload, applied);
+        boolean downloaded = TextureClassifier.isDownloaded(name);
+        Entry next = new Entry(layout, PixelBuffer.Heap.copyOf(image), upload, applied, downloaded);
         synchronized (this) { // worker threads record at the same time on modern versions
             Entry before = entries.get(name);
             long delta = next.bytes() - (before == null ? 0 : before.bytes());
-            if (bytes.get() + delta > budget) {
-                overBudget.add(name);
-                return;
+            if (downloaded) {
+                downloadedBytes.addAndGet(delta);
+            } else {
+                if (bytes.get() + delta > budget) {
+                    overBudget.add(name);
+                    return;
+                }
+                overBudget.remove(name);
+                bytes.addAndGet(delta);
             }
-            overBudget.remove(name);
-            bytes.addAndGet(delta);
             entries.put(name, next);
-            if (before == null || !Arrays.equals(before.averages, next.averages)) version.incrementAndGet();
+            boolean keysChanged = count(next, 1);
+            if (before != null) keysChanged |= count(before, -1);
+            // Many downloaded skins share one key, and the first one gives the catalog its color.
+            boolean newColors = before != null && !downloaded && !Arrays.equals(before.averages, next.averages);
+            if (keysChanged || newColors) version.incrementAndGet();
         }
+    }
+
+    /**
+     * Adds {@code delta} to the count of each catalog key of an entry, under the lock.
+     *
+     * @return true when a key comes into the catalog or leaves it
+     */
+    private boolean count(Entry e, int delta) {
+        boolean changed = false;
+        for (TextureKey k : e.layout.catalogKeys()) {
+            Integer before = keyCounts.get(k);
+            int now = (before == null ? 0 : before) + delta;
+            if (now <= 0) keyCounts.remove(k);
+            else keyCounts.put(k, now);
+            changed |= before == null || now <= 0;
+        }
+        return changed;
+    }
+
+    /** The bytes of original pixels of the downloaded skins, capes and elytra, which do not count toward the budget. */
+    public long downloadedBytes() {
+        return downloadedBytes.get();
     }
 
     /** Makes the next {@link #repaint} paint this texture, whose look in the game is not known. */
@@ -151,7 +190,9 @@ public final class TextureStore {
                         forget(e.getKey(), entry);
                     }
                 } catch (Exception ex) {
-                    needReload++;
+                    // A reload cannot change a downloaded texture, so the store lets it keep its look.
+                    if (entry.downloaded) forget(e.getKey(), entry);
+                    else needReload++;
                 }
             }
         } finally {
@@ -165,11 +206,18 @@ public final class TextureStore {
         return false;
     }
 
+    /** Drops a texture that the game released, so that the store does not keep its pixels. */
+    public synchronized void forget(String name) {
+        Entry e = entries.get(name);
+        if (e != null) forget(name, e);
+        overBudget.remove(name);
+    }
+
     /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
-            bytes.addAndGet(-entry.bytes());
-            version.incrementAndGet();
+            (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
+            if (count(entry, -1)) version.incrementAndGet();
         }
     }
 

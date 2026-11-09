@@ -22,8 +22,42 @@ public final class TextureClassifier {
 
     /** Accepts "minecraft:textures/block/stone.png" style strings too. */
     public static TextureKey classify(String location) {
+        String folder = downloadedFolder(location);
+        if (folder != null) return new TextureKey(Category.PLAYERS, "minecraft:" + folder);
         int colon = location.indexOf(':');
         return colon < 0 ? classify("minecraft", location) : classify(location.substring(0, colon), location.substring(colon + 1));
+    }
+
+    /** The folders of the textures that the game downloads for players, as in "minecraft:skins/<hash>". */
+    private static final String[] DOWNLOADED_FOLDERS = {"skins", "capes", "elytra"};
+
+    /** Whether a texture is a player skin, cape or elytra that the game downloads, which has no resource file. */
+    public static boolean isDownloaded(String location) {
+        return downloadedFolder(location) != null;
+    }
+
+    /**
+     * The folder of a downloaded texture name ("minecraft:skins/<hash>"), or null for other names, which have the
+     * {@code textures/} prefix or the {@code .png} suffix of a resource.
+     */
+    private static String downloadedFolder(String location) {
+        int colon = location.indexOf(':');
+        if (colon >= 0 && !location.substring(0, colon).equals("minecraft")) return null;
+        String path = location.substring(colon + 1);
+        int slash = path.indexOf('/');
+        if (slash < 0 || path.endsWith(".png")) return null;
+        String folder = path.substring(0, slash);
+        for (String f : DOWNLOADED_FOLDERS) if (f.equals(folder)) return f;
+        return null;
+    }
+
+    /**
+     * Whether a texture has the layout of a player skin, whose transparent second layer (hat, jacket, sleeves) must stay
+     * transparent: the default skins and the downloaded skins, but not capes and elytra.
+     */
+    public static boolean isPlayerSkin(String location) {
+        TextureKey key = classify(location);
+        return key.category() == Category.PLAYERS && !key.id().equals("minecraft:capes") && !key.id().equals("minecraft:elytra");
     }
 
     /** Whether a texture is one piece of a connected texture (OptiFine, MCPatcher or Continuity), which Bevel and Outline leave alone. */

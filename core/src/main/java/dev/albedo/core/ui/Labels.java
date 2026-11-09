@@ -35,7 +35,7 @@ final class Labels {
         WORDS.put(Category.DECORATIONS, new Words("Decorations", "Textures", "banner", "Signs, banners, paintings, maps, item frames"));
         WORDS.put(Category.ITEMS, new Words("Items", "Items", "diamond_sword", "Item icons and held items"));
         WORDS.put(Category.ENTITIES, new Words("Mobs and entities", "Mobs", "creeper", "Mobs, projectiles, armor"));
-        WORDS.put(Category.PLAYERS, new Words("Players", "Skins", "steve", "Default player skins"));
+        WORDS.put(Category.PLAYERS, new Words("Players", "Skins", "steve", "Player skins, capes and elytra, also downloaded ones"));
         WORDS.put(Category.PARTICLES, new Words("Particles", "Particles", "flame", "Smoke, flames, hits, splashes"));
         WORDS.put(Category.BLOCK_BREAKING, new Words("Mining cracks", "Stages", "destroy_stage", "The cracks on a block while you mine it"));
         WORDS.put(Category.SKY, new Words("Sky", "Textures", "sun", "Sky color. Also hides the sun, moon and stars."));
