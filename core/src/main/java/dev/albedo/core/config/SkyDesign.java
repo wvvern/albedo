@@ -100,8 +100,8 @@ public final class SkyDesign {
     /** The design with only what changes textures (the sun and moon), for a texture comparison. */
     public SkyDesign texturesOnly() { return NONE.withCelestial(celestial); }
 
-    /** The design with only what the bake reads, so that a change of the render or the turning keeps the baked pixels. */
-    public SkyDesign baked() { return withRender(Render.SHARP).withTurning(SkyTurning.NONE); }
+    /** The design with only what the bake reads, so that a change of the render or the speed of the turning keeps the baked pixels. */
+    public SkyDesign baked() { return withRender(Render.SHARP).withTurning(turning.baked()); }
 
     /** An id that no layer has: one more than the largest. */
     public int nextId() {

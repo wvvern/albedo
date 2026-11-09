@@ -49,6 +49,29 @@ class SkyTurnTest {
     }
 
     @Test
+    void theTrailAxisTurnsAStarBackToWhereItWasEarlier() {
+        for (SkyTurning.Direction dir : SkyTurning.Direction.values()) {
+            SkyTurning t = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 35, dir, 60);
+            double[] axis = SkyTurn.trailAxis(t);
+            double[] star = {0.6, 0.48, -0.64};
+            double turns = 0.3, back = 0.02;
+            // The direction in the design where the world shows now the place of the star at an earlier time.
+            double[] then = toWorld(SkyTurn.of(t, turns - back), star[0], star[1], star[2]);
+            double[] seen = new double[3];
+            SkyTurn.of(t, turns).toDesign(then[0], then[1], then[2], seen);
+            assertArrayEquals(turn(star, axis, 2 * Math.PI * back), seen, 1e-6, dir.key());
+        }
+    }
+
+    /** The vector {@code v} turned by {@code angle} around the unit {@code axis}, as the right hand turns. */
+    private static double[] turn(double[] v, double[] axis, double angle) {
+        double c = Math.cos(angle), s = Math.sin(angle), d = (axis[0] * v[0] + axis[1] * v[1] + axis[2] * v[2]) * (1 - c);
+        return new double[]{v[0] * c + (axis[1] * v[2] - axis[2] * v[1]) * s + axis[0] * d,
+            v[1] * c + (axis[2] * v[0] - axis[0] * v[2]) * s + axis[1] * d,
+            v[2] * c + (axis[0] * v[1] - axis[1] * v[0]) * s + axis[2] * d};
+    }
+
+    @Test
     void theNormalDirectionLiftsTheEastAsTheSunDoes() {
         double[] east = toWorld(SkyTurn.of(SUN, 0.01), 1, 0, 0);
         assertTrue(east[1] > 0.05, "the east side goes up: " + east[1]);

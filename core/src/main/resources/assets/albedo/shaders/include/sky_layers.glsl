@@ -237,6 +237,10 @@ const float ALBEDO_STAR_TINT = 0.7;
 const float ALBEDO_STAR_TWINKLE_ZENITH = 0.1;
 const float ALBEDO_STAR_TWINKLE_HORIZON = 0.3;
 const float ALBEDO_STAR_TWINKLE_COLOR = 0.5;
+const float ALBEDO_STAR_TRAIL_PIXEL = 0.6;
+const float ALBEDO_STAR_TRAIL_REACH = 4.0;
+const float ALBEDO_STAR_TRAIL_GAIN = 1.0;
+const float ALBEDO_STAR_FIELD_SPREAD = 1.5 * ALBEDO_PI / 180.0;
 
 // The part of the stars of class i (O, B, A, F, G, K, M) among the stars that the eye sees.
 float albedoClassShare(int i) {
@@ -339,9 +343,16 @@ vec2 albedoTwinkle(ivec3 cell, int seed, float flux, float height, float twinkle
     return vec2(1.0 + change * wave, tint);
 }
 
+// SkyStars.spread: the part of its light that a faint star keeps in a sky with trails, because its light spreads along its arc.
+float albedoSpread(vec3 s, vec4 trail, float scale) {
+    float h = dot(s, trail.xyz);
+    float arc = trail.w * sqrt(max(0.0, 1.0 - h * h)) / (ALBEDO_STAR_FIELD_SPREAD * scale);
+    return 1.0 / (1.0 + arc * arc);
+}
+
 // The light of the stars of one grid (SkyStars.Tier) at p, where each star stays in its cell and reaches at most half a cell.
 vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float maxFlux, float slope, int salt, bool bright,
-        float density, float spikes, float scale, int seed, float twinkle, float time, vec3 up) {
+        float density, float spikes, float scale, int seed, float twinkle, float time, vec3 up, vec4 trail) {
     vec3 light = vec3(0.0);
     float n = cells / scale;
     float reach = 0.5 * scale / cells;
@@ -366,6 +377,7 @@ vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float m
                 float d2 = dot(d, d);
                 if (d2 >= reach * reach) continue;
                 float flux = min(maxFlux, minFlux * pow((float((hb >> 12u) & 4095u) + 0.5) / 4096.0, -1.0 / slope));
+                if (trail.w > 0.0 && !bright) flux *= albedoSpread(s, trail, scale);
                 float tint = 0.0, still = flux;
                 if (twinkle > 0.0) {
                     vec2 change = albedoTwinkle(h, seed * 31 + salt + 2, flux, dot(s, up), twinkle, time);
@@ -397,6 +409,71 @@ vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float m
     return light;
 }
 
+// SkyStars.trails: the light of the trails of the stars of one grid at p, each the arc of its star around the axis trail.xyz,
+// which fades from the star to its end at the angle trail.w.
+vec3 albedoStarTrails(vec3 p, float footprint, float cells, float minFlux, float maxFlux, float slope, int salt, float density,
+        float scale, int seed, vec4 trail, float trailLight) {
+    vec3 light = vec3(0.0);
+    vec3 axis = trail.xyz;
+    float n = cells / scale;
+    // The point as its height along the axis and its offset across it, the radius of its circle around the axis.
+    float h = dot(p, axis);
+    vec3 r = p - axis * h;
+    float radius = length(r);
+    if (radius < 1e-5) return light;
+    // The side vector goes along the circle, so that the point turned back by an angle a is h axis + cos(a) r - sin(a) side.
+    vec3 side = cross(axis, r);
+    float core = ALBEDO_STAR_CORE * scale, blur = ALBEDO_STAR_TRAIL_PIXEL * footprint;
+    float width2 = core * core + blur * blur, width = sqrt(width2), cut = ALBEDO_STAR_TRAIL_REACH * width;
+    float angle = atan(radius, h);
+    // Each part of the arc is at most one cell long, so that the box of cells around its chord is small.
+    int parts = int(ceil(trail.w * radius * n));
+    if (parts < 1) parts = 1;
+    float step = trail.w / float(parts);
+    float margin = (cut + radius * (1.0 - cos(step * 0.5))) * n + 0.01;
+    float gain = trailLight * ALBEDO_STAR_TRAIL_GAIN * core / width;
+    int hashSeed = seed * 31 + salt;
+    vec3 last = p * n;
+    for (int part = 0; part < parts; part++) {
+        float a = float(part + 1) * step;
+        vec3 q = (axis * h + r * cos(a) - side * sin(a)) * n;
+        ivec3 lo = ivec3(floor(min(last, q) - margin)), hi = ivec3(floor(max(last, q) + margin));
+        for (int x = lo.x; x <= hi.x; x++) {
+            for (int y = lo.y; y <= hi.y; y++) {
+                for (int z = lo.z; z <= hi.z; z++) {
+                    ivec3 cell = ivec3(x, y, z);
+                    uint hb = albedoHash(cell, hashSeed);
+                    if (float(hb >> 24u) / 256.0 >= density) continue;
+                    uint hj = albedoHash(cell, hashSeed + 1);
+                    vec3 v = vec3(cell) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
+                    float len = length(v);
+                    if (len < 1e-3) continue;
+                    vec3 s = v / len;
+                    if (ivec3(floor(s * n)) != cell) continue;
+                    // The height difference is never more than the angle difference, so a star that it puts far away is far away.
+                    float sh = dot(s, axis);
+                    if (abs(sh - h) >= cut) continue;
+                    float back = atan(-dot(s, side), dot(s, r));
+                    if (back <= 0.0 || back >= trail.w) continue;
+                    // Only the part whose piece of the arc holds the star adds it, so that no star adds its trail twice.
+                    int owner = int(back / step);
+                    if (owner > parts - 1) owner = parts - 1;
+                    if (owner != part) continue;
+                    float flux = min(maxFlux, minFlux * pow((float((hb >> 12u) & 4095u) + 0.5) / 4096.0, -1.0 / slope));
+                    float d = atan(sqrt(max(0.0, 1.0 - sh * sh)), sh) - angle;
+                    float across = exp(-d * d / (2.0 * width2)) * (1.0 - albedoSmooth(0.75 * cut, cut, abs(d)));
+                    float x1 = 1.0 - back / trail.w;
+                    // The trail starts in the core of the star and fades to nothing at its end.
+                    float start = albedoSmooth(0.0, 3.0 * width, back * radius);
+                    light += albedoStarColor((float(hb & 4095u) + 0.5) / 4096.0) * (gain * sqrt(flux) * across * x1 * x1 * start);
+                }
+            }
+        }
+        last = q;
+    }
+    return light;
+}
+
 // Stars with the brightness spread and the colors of real stars, where AMOUNT is the count and HEIGHT is the strength of the spikes.
 vec4 albedoStars(int layer, vec3 p, float footprint) {
     vec4 values = albedoLayer(layer, 1);
@@ -407,9 +484,15 @@ vec4 albedoStars(int layer, vec3 p, float footprint) {
     // The stars twinkle at the time of the header, and at time 0 in a still sky, as in the bake.
     float twinkle = albedoLayer(layer, 4).w, time = max(SkyHeader.w, 0.0);
     vec3 up = vec3(albedoLayer(layer, 7).y, albedoLayer(layer, 8).y, albedoLayer(layer, 9).y);
+    // The trail axis in the free last floats of the matrix rows, and the trail arc in radians, 0 for no trails.
+    vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w);
     // Only the bright stars twinkle, because the twinkle of a faint star is too small to see.
-    vec3 light = albedoStarTier(p, footprint, 88.0, 0.04, 0.9, 1.3, 7, false, density, spikes, shape.x, seed, 0.0, time, up);
-    light += albedoStarTier(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, true, density, spikes, shape.x, seed, twinkle, time, up);
+    vec3 light = albedoStarTier(p, footprint, 88.0, 0.04, 0.9, 1.3, 7, false, density, spikes, shape.x, seed, 0.0, time, up, trail);
+    light += albedoStarTier(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, true, density, spikes, shape.x, seed, twinkle, time, up, trail);
+    // Only the bright stars draw trails, because the trail of a faint star is too faint to see.
+    if (trail.w > 0.0) {
+        light += albedoStarTrails(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, density, shape.x, seed, trail, albedoLayer(layer, 6).w);
+    }
     light *= albedoLayer(layer, 3).rgb;
     float peak = max(light.r, max(light.g, light.b));
     // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.

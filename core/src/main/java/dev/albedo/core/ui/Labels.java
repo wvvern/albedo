@@ -252,6 +252,9 @@ final class Labels {
     static final String POLE_HEIGHT_TIP = "Pole height: the angle of the pole above the horizon. 0 is on the horizon, 90 is the top "
             + "of the sky. Set Full sphere on, so that the part below the horizon also has layers when it comes up.";
     static final String POLE_TIP = "Pole: the compass direction of the pole. 0 is north, 90 is east.";
+    static final String TRAILS_TIP = "Trails: each bright star draws an arc behind it, as in a long photo of the night sky. "
+            + "The value is the length of the arc in degrees. 0 stops the trails.";
+    static final String TRAIL_LIGHT_TIP = "Trail light: how bright the star trails are.";
 
     /** The turning of a sky, such as "Turning 50%", or "Off". */
     static String turning(SkyTurning t) {
