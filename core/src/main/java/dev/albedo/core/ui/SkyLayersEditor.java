@@ -471,7 +471,10 @@ final class SkyLayersEditor {
                 put.accept(l.withParam(p, (v * 7919 + 17) % (p.max() + 1)));
             }
         } else if (p == SkyLayer.Param.TILT) {
-            int n = ui.rangeSlider("sky.param." + p.key, lx, y, cw, v, p.min(), p.max(), "", "0 shows the disc from the front, 90 from its edge");
+            // The percent slider of the other rows, so that the tracks line up, with the value in degrees.
+            int at = ui.slider("sky.param." + p.key, lx, y, cw, Math.round(v * 100f / p.max()), String.valueOf(v),
+                    "0 shows the disc from the front, 90 from its edge");
+            int n = Math.round(at * p.max() / 100f);
             if (n != v) put.accept(l.withParam(p, n));
         } else {
             int n = ui.slider("sky.param." + p.key, lx, y, cw, v, label);
