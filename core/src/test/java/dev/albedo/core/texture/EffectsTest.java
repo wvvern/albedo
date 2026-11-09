@@ -93,6 +93,30 @@ class EffectsTest {
     }
 
     @Test
+    void chromaGivesEveryPartOfABlockOneHueOnEveryVersion() {
+        double grass = Effects.hue("minecraft:block/grass_block_top");
+        for (String id : new String[]{"minecraft:block/grass_block_side", "minecraft:block/grass_block_side_overlay",
+                "minecraft:blocks/grass_top", "minecraft:blocks/grass_side_overlay", "minecraft:textures/block/grass_block_top.png"}) {
+            assertEquals(grass, Effects.hue(id), id);
+        }
+        assertEquals(Effects.hue("minecraft:block/oak_log_top"), Effects.hue("minecraft:blocks/log_oak_top"));
+        assertEquals(Effects.hue("minecraft:block/red_wool"), Effects.hue("minecraft:blocks/wool_colored_red"));
+        assertEquals(Effects.hue("minecraft:block/stone_bricks"), Effects.hue("minecraft:blocks/stonebrick"));
+        assertEquals(Effects.hue("minecraft:block/water_still"), Effects.hue("minecraft:block/water_flow"));
+        assertNotEquals(Effects.hue("minecraft:block/grass_block_top"), Effects.hue("minecraft:block/dirt"));
+    }
+
+    @Test
+    void chromaSkipsTheMuddyHuesAndLiftsBlack() {
+        for (int i = 0; i < 2000; i++) {
+            double degrees = Math.toDegrees(Effects.hue("minecraft:block/test" + Integer.toString(i, 36) + "x")) % 360;
+            assertFalse(degrees > 70 && degrees < 115, "hue " + degrees);
+        }
+        int black = painted(solid(0xFF000000, 0, 0, 100), "minecraft:block/stone", 4, 4).getArgb(1, 1);
+        assertTrue(lightness(black) > 0.27, "black reads as a color: " + lightness(black));
+    }
+
+    @Test
     void chromaGoesThroughTheColorsOnBlockAnimationsOnly() {
         PixelBuffer.Heap water = painted(solid(GRAY, 0, 0, 100), "minecraft:block/water_still", 4, 16);
         assertNotEquals(water.getArgb(1, 1), water.getArgb(1, 5), "the frames of a block animation get different hues");

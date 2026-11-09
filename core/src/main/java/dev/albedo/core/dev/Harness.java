@@ -118,6 +118,7 @@ public final class Harness {
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
         else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
+        else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -144,6 +145,23 @@ public final class Harness {
         while (index < rules.size() && !rules.get(index).name().equals(group.name())) index++;
         if (index < rules.size()) return profile.with(category, settings.withRule(index, group));
         return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
+    }
+
+    /** Sets the effects of a category's look from {@code <category> [bevel N] [outline N] [chroma N]}, where a missing effect is off. */
+    static Profile withEffects(Profile profile, String[] args) {
+        Category category = Category.byKey(args[0]);
+        if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
+        if (args.length % 2 == 0) throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N]");
+        int bevel = 0, outline = 0, chroma = 0;
+        for (int i = 1; i < args.length; i += 2) {
+            int value = Integer.parseInt(args[i + 1]);
+            if (args[i].equals("bevel")) bevel = value;
+            else if (args[i].equals("outline")) outline = value;
+            else if (args[i].equals("chroma")) chroma = value;
+            else throw new IllegalArgumentException("unknown effect: " + args[i]);
+        }
+        CategorySettings settings = profile.get(category);
+        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, chroma)));
     }
 
     /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */
