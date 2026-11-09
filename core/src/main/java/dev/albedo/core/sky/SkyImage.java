@@ -57,16 +57,24 @@ public final class SkyImage {
      * @param brightness the factor of {@link SkyLight#brightness}, or 1
      */
     public float[] fogRgb(float cameraYaw, float brightness) {
-        double azimuth = ((cameraYaw + 180) % 360 + 360) % 360;
-        double at = azimuth / 360 * RING;
-        int i0 = (int) Math.floor(at) % RING, i1 = (i0 + 1) % RING;
-        float f = (float) (at - Math.floor(at));
         float[] out = new float[3];
-        for (int c = 0; c < 3; c++) {
-            float lin = ring[i0 * 3 + c] * (1 - f) + ring[i1 * 3 + c] * f;
-            out[c] = Oklab.toSrgb(lin * brightness) / 255f;
-        }
+        ringAt(ring, cameraYaw + 180, out);
+        for (int c = 0; c < 3; c++) out[c] = Oklab.toSrgb(out[c] * brightness) / 255f;
         return out;
+    }
+
+    /**
+     * The linear horizon color at an azimuth, mixed between the two nearest sector centers.
+     *
+     * @param ring the linear {r, g, b} of each sector
+     * @param azimuth the angle in degrees from north toward east, in any range
+     */
+    static void ringAt(float[] ring, double azimuth, float[] out) {
+        double at = ((azimuth % 360 + 360) % 360) / 360 * RING - 0.5;
+        int base = (int) Math.floor(at);
+        int i0 = Math.floorMod(base, RING), i1 = Math.floorMod(base + 1, RING);
+        float f = (float) (at - base);
+        for (int c = 0; c < 3; c++) out[c] = ring[i0 * 3 + c] * (1 - f) + ring[i1 * 3 + c] * f;
     }
 
     /**

@@ -62,10 +62,50 @@ class SkyGeneratorTest {
         SkyImage img = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.GRADIENT)), W, H);
         int top = img.argb()[W / 2], bottom = img.argb()[(H - 1) * W + W / 2];
         assertTrue(Math.abs(red(top) - 0x0B) <= 3, Integer.toHexString(top));
-        assertTrue(red(bottom) > 0xD0, Integer.toHexString(bottom));
+        assertTrue(red(bottom) > 0xB0, Integer.toHexString(bottom));
         float[] fog = img.fogRgb(0, 1);
         assertTrue(fog[0] > 0.7f && fog[2] < 0.5f, "the fog takes the horizon color: " + Arrays.toString(fog));
         assertEquals(fog[0] * 0, img.fogRgb(0, 0)[0], 0.02f, "a dark night darkens the fog");
+    }
+
+    @Test
+    void theSkyAtAndBelowTheHorizonHasTheFogColorOfItsDirection() {
+        SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
+        int w = 256, h = 64;
+        SkyImage img = SkyGenerator.bake(of(noise), w, h);
+        int below = (int) Math.ceil(SkyImage.TOP / (SkyImage.TOP - SkyImage.BOTTOM) * h);
+        for (int y = below; y < h; y++) {
+            for (int x = 0; x < w; x += 7) {
+                float[] fog = img.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
+                assertEquals(Math.round(fog[0] * 255), red(img.argb()[y * w + x]), 2, "row " + y + ", column " + x);
+            }
+        }
+    }
+
+    @Test
+    void aStarHasTheSameSizeAtEachCount() {
+        int w = 1024, h = 256;
+        int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
+        int many = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
+        // The count of stars grows as the square of the grid density, from 18 to 42 cells, and their size stays.
+        float ratio = many / (float) few;
+        assertTrue(ratio > 3.5f && ratio < 8f, "lit pixels " + few + " and " + many);
+    }
+
+    private static int lit(SkyImage img) {
+        int n = 0;
+        for (int p : img.argb()) if (red(p) > 60) n++;
+        return n;
+    }
+
+    @Test
+    void duskShowsNoStarsLowInTheSky() {
+        SkyDesign noStars = SkyPresets.DUSK.withoutLayer(SkyPresets.DUSK.layers().size() - 1);
+        int[] with = SkyGenerator.bake(SkyPresets.DUSK, W * 4, H * 4).argb(), without = SkyGenerator.bake(noStars, W * 4, H * 4).argb();
+        int low = (int) ((SkyImage.TOP - 25) / (SkyImage.TOP - SkyImage.BOTTOM) * H * 4), more = 0;
+        for (int i = low * W * 4; i < with.length; i++) assertTrue(Math.abs(red(with[i]) - red(without[i])) <= 3, "pixel " + i);
+        for (int i = 0; i < low * W * 4; i++) if (red(with[i]) - red(without[i]) > 20) more++;
+        assertTrue(more > 0, "stars show high in the sky");
     }
 
     @Test

@@ -22,6 +22,12 @@ public final class SkyGenerator {
     }
 
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
+    /** The star grid density per radian at which the star sizes are set, between the Nebula and Galaxy counts. */
+    private static final float STAR_CELLS = 36f;
+    /** The elevation in degrees below which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
+    private static final float HAZE = 3f;
+    /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
+    private static final int RING_SOFTEN = 5;
 
     private final SkyDesign design;
     private final int w, h;
@@ -110,9 +116,23 @@ public final class SkyGenerator {
             for (Map.Entry<Integer, Integer> e : lastUse.entrySet()) if (e.getValue() == i) planes.remove(e.getKey());
         }
         tmp = null;
+        float[] ring = ring();
+        if (!rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
-        return new SkyImage(argb, w, h, design, ring());
+        return new SkyImage(argb, w, h, design, ring);
+    }
+
+    /** Mixes the sky near and below the horizon into the horizon color of each direction, which is also the fog color there. */
+    private void horizonRow(int y, float[] ring) {
+        float k = 1 - smooth(0, HAZE, elevation[y]);
+        if (k <= 0) return;
+        float[] c = new float[3];
+        for (int x = 0; x < w; x++) {
+            SkyImage.ringAt(ring, (x + 0.5) / w * 360, c);
+            int i = (y * w + x) * 4;
+            for (int ch = 0; ch < 3; ch++) img[i + ch] += (c[ch] - img[i + ch]) * k;
+        }
     }
 
     private static int planeKey(SkyMask m) {
@@ -184,7 +204,7 @@ public final class SkyGenerator {
         return Math.max(0, Math.min(255, Math.round(v)));
     }
 
-    /** The mean linear color of each azimuth sector from 0 to 6 degrees of elevation. */
+    /** The mean linear color of each azimuth sector from 0 to 6 degrees of elevation, softened across near sectors. */
     private float[] ring() {
         float[] ring = new float[SkyImage.RING * 3];
         int[] count = new int[SkyImage.RING];
@@ -197,7 +217,17 @@ public final class SkyGenerator {
             }
         }
         for (int s = 0; s < SkyImage.RING; s++) for (int c = 0; c < 3; c++) ring[s * 3 + c] /= Math.max(1, count[s]);
-        return ring;
+        // A wide triangle of weights, so that the horizon across the view stays near the one fog color of the view direction.
+        float[] soft = new float[ring.length];
+        int reach = RING_SOFTEN;
+        for (int s = 0; s < SkyImage.RING; s++) {
+            for (int d = -reach; d <= reach; d++) {
+                int t = Math.floorMod(s + d, SkyImage.RING);
+                float weight = (reach + 1 - Math.abs(d)) / (float) ((reach + 1) * (reach + 1));
+                for (int c = 0; c < 3; c++) soft[s * 3 + c] += ring[t * 3 + c] * weight;
+            }
+        }
+        return soft;
     }
 
     // ---------------------------------------------------------------- one layer's values
@@ -337,11 +367,13 @@ public final class SkyGenerator {
         out[3] = clamp01(disk + core + haze) * Math.max(l.alpha1, l.alpha2);
     }
 
-    /** Points in a jittered 3D grid on the layer sphere, where AMOUNT sets how many and the size sets how far apart. */
+    /** Points in a jittered 3D grid on the layer sphere, where AMOUNT sets how many and the size sets how far apart and how large. */
     private void stars(Layer l, float[] p, float[] out) {
         float n = (10f + l.amount * 40f) / l.scale;
         float px = p[0] * n, py = p[1] * n, pz = p[2] * n;
         int cx = (int) Math.floor(px), cy = (int) Math.floor(py), cz = (int) Math.floor(pz);
+        // The star radius in cells grows with the count, so that a star has the same size in degrees at each AMOUNT.
+        float grow = n * l.scale / STAR_CELLS;
         // The smallest star is 1.5 texels across, so that it does not flicker between pixels.
         float minRadius = 1.5f * texel * n;
         float best = 0;
@@ -363,7 +395,7 @@ public final class SkyGenerator {
                     float dx = px - sx, dy = py - sy, dz = pz - sz;
                     float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
                     float size = Noise.unit(Noise.hash(hx, hy, hz, l.seed + 404));
-                    float base = 0.05f + 0.22f * size * size * size;
+                    float base = (0.05f + 0.22f * size * size * size) * grow;
                     float radius = Math.max(minRadius, base);
                     if (d >= radius) continue;
                     float bright = (0.15f + 0.85f * size * size) * Math.min(1f, 2f * base / radius);

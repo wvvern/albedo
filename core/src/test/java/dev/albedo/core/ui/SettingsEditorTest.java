@@ -669,7 +669,7 @@ class SettingsEditorTest {
         click(editor, canvas, "+ Add layer");
         assertNotNull(canvas.find("Make"), "the add screen: " + canvas.texts.keySet());
         click(editor, canvas, "Blur");
-        assertNotNull(canvas.find("Blur 4 of 4"), "the new layer opens: " + canvas.texts.keySet());
+        assertNotNull(canvas.find("Blur 5 of 5"), "the new layer opens: " + canvas.texts.keySet());
         click(editor, canvas, "None  >");
         assertNotNull(canvas.find("Light"), "a mask can use light or dark parts: " + canvas.texts.keySet());
         click(editor, canvas, "Dark");
@@ -680,8 +680,8 @@ class SettingsEditorTest {
         assertNotNull(canvas.find("masked by Gradient 1"), "the list names the mask: " + canvas.texts.keySet());
         click(editor, canvas, "Apply");
         SkyDesign d = savedSky();
-        assertEquals(4, d.layers().size());
-        assertEquals(SkyMask.of(1, SkyMask.Mode.DARK), d.layers().get(3).mask());
+        assertEquals(5, d.layers().size());
+        assertEquals(SkyMask.of(1, SkyMask.Mode.DARK), d.layers().get(4).mask());
 
         // The last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
         click(editor, canvas, "^");
