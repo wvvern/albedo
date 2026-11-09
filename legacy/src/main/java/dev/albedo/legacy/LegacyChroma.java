@@ -213,6 +213,9 @@ public final class LegacyChroma {
                     GL11.glEnd();
                 }
                 OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+                // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
+                baseLevel(GL13.GL_TEXTURE1, texels, 0);
+                baseLevel(GL13.GL_TEXTURE0, pristine, 0);
             }
         });
     }

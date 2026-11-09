@@ -249,6 +249,9 @@ final class GlChromaPass implements ChromaBackend {
                 GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3);
             }
             GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+            // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
+            baseLevel(GL13.GL_TEXTURE1, texels, 0);
+            baseLevel(GL13.GL_TEXTURE0, pristine, 0);
             saved.restore();
         }
 
