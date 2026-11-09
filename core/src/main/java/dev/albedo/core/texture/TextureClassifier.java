@@ -52,11 +52,10 @@ public final class TextureClassifier {
     }
 
     /**
-     * Whether a texture has the layout of a player skin, whose transparent second layer (hat, jacket, sleeves) must stay
+     * Whether a texture key has the layout of a player skin, whose transparent second layer (hat, jacket, sleeves) must stay
      * transparent: the default skins and the downloaded skins, but not capes and elytra.
      */
-    public static boolean isPlayerSkin(String location) {
-        TextureKey key = classify(location);
+    public static boolean isPlayerSkin(TextureKey key) {
         return key.category() == Category.PLAYERS && !key.id().equals("minecraft:capes") && !key.id().equals("minecraft:elytra");
     }
 

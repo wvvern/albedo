@@ -116,7 +116,6 @@ final class ModernHarnessHost implements Harness.Host {
         File file = new File(new File(new File(png.getParentFile(), "skin-cache"), hash.substring(0, 2)), hash);
         java.nio.file.Files.createDirectories(file.getParentFile().toPath());
         java.nio.file.Files.copy(png.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        if (!file.isFile()) throw new IOException("no cache file " + file);
         String url = "http://127.0.0.1:9/" + hash; // never read, because the cache file exists
         //? if >=1.21.4 {
         new net.minecraft.client.renderer.texture.SkinTextureDownloader(java.net.Proxy.NO_PROXY, mc.getTextureManager(), mc)
@@ -135,9 +134,8 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void showTexture(String id) {
-        if (id == null) ModernPlatform.setScreen(null);
-        else if (id.equals("steve")) ModernPlatform.setScreen(new TextureScreen(net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture().toString()));
-        else ModernPlatform.setScreen(new TextureScreen(id));
+        String texture = id.equals("steve") ? net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture().toString() : id;
+        ModernPlatform.setScreen(new TextureScreen(texture));
     }
 
     //? if >=1.21.11 {

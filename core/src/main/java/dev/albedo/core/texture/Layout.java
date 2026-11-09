@@ -78,7 +78,7 @@ public final class Layout {
     public static Layout of(String location) {
         TextureKey key = TextureClassifier.classify(location);
         Layout sheet = Sheets.get(key);
-        return sheet != null ? sheet : new Layout(key, TextureClassifier.isConnected(location), TextureClassifier.isPlayerSkin(location));
+        return sheet != null ? sheet : new Layout(key, TextureClassifier.isConnected(location), TextureClassifier.isPlayerSkin(key));
     }
 
     /** The key of the sheet that has a tile with this key in the same category, or null. */

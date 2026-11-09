@@ -60,12 +60,16 @@ class CoreTest {
         assertEquals(Category.OTHER, TextureClassifier.classify("mymod:skins/0a1b2c").category());
         assertEquals(Category.OTHER, TextureClassifier.classify("minecraft:optifine/capeof/steve").category());
         // The skin layout: default and downloaded skins, not capes and elytra.
-        assertTrue(TextureClassifier.isPlayerSkin("minecraft:skins/0a1b2c"));
-        assertTrue(TextureClassifier.isPlayerSkin("minecraft:textures/entity/player/slim/alex.png"));
-        assertTrue(TextureClassifier.isPlayerSkin("minecraft:textures/entity/steve.png"));
-        assertFalse(TextureClassifier.isPlayerSkin("minecraft:capes/0a1b2c"));
-        assertFalse(TextureClassifier.isPlayerSkin("minecraft:elytra/0a1b2c"));
-        assertFalse(TextureClassifier.isPlayerSkin("minecraft:textures/entity/zombie/zombie.png"));
+        assertTrue(isPlayerSkin("minecraft:skins/0a1b2c"));
+        assertTrue(isPlayerSkin("minecraft:textures/entity/player/slim/alex.png"));
+        assertTrue(isPlayerSkin("minecraft:textures/entity/steve.png"));
+        assertFalse(isPlayerSkin("minecraft:capes/0a1b2c"));
+        assertFalse(isPlayerSkin("minecraft:elytra/0a1b2c"));
+        assertFalse(isPlayerSkin("minecraft:textures/entity/zombie/zombie.png"));
+    }
+
+    private static boolean isPlayerSkin(String location) {
+        return TextureClassifier.isPlayerSkin(TextureClassifier.classify(location));
     }
 
     @Test

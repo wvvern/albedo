@@ -147,6 +147,18 @@ class TextureStoreTest {
     }
 
     @Test
+    void theVanillaTextureGivesTheCatalogColorWhenItLoadsLast() {
+        TextureStore store = new TextureStore();
+        String tile = "minecraft:optifine/ctm/default/12", vanilla = "minecraft:blocks/bookshelf";
+        store.record(tile, Layout.of(tile), new PixelBuffer.Heap(1, 1, new int[]{0xFFFF0000}), new FakeUpload(), null);
+        assertEquals(0xFFFF0000, (int) store.catalog(Category.BLOCKS).get("minecraft:bookshelf"));
+        store.record(vanilla, Layout.of(vanilla), new PixelBuffer.Heap(1, 1, new int[]{GREEN}), new FakeUpload(), null);
+        assertEquals(GREEN, (int) store.catalog(Category.BLOCKS).get("minecraft:bookshelf"));
+        store.forget(vanilla);
+        assertEquals(0xFFFF0000, (int) store.catalog(Category.BLOCKS).get("minecraft:bookshelf"));
+    }
+
+    @Test
     void overBudgetTheStoreIsIncomplete() {
         TextureStore store = new TextureStore(8);
         record(store, "stone", new FakeUpload(), Policy.DISABLED);

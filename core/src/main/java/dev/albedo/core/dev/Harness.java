@@ -58,7 +58,7 @@ public final class Harness {
         /** Releases a texture as the game does, for example "minecraft:skins/<sha1>". */
         void releaseTexture(String id);
 
-        /** Opens a screen that shows a texture large, where "steve" is the default skin, or closes it when {@code id} is null. */
+        /** Opens a screen that shows a texture large, where "steve" is the default skin. */
         void showTexture(String id);
 
         /**
@@ -146,7 +146,8 @@ public final class Harness {
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("skin")) skin(arg);
         else if (verb.equals("release")) host.releaseTexture(textureArg(arg));
-        else if (verb.equals("overlay")) host.showTexture(arg.equals("off") ? null : textureArg(arg));
+        else if (verb.equals("overlay") && arg.equals("off")) host.closeScreen();
+        else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
     }
@@ -166,7 +167,9 @@ public final class Harness {
 
     /** A texture id, where "skin" or no text is the last skin that {@code skin} loaded. */
     private String textureArg(String arg) {
-        return arg.isEmpty() || arg.equals("skin") ? lastSkin : arg;
+        if (!arg.isEmpty() && !arg.equals("skin")) return arg;
+        if (lastSkin == null) throw new IllegalStateException("no skin: run skin <png> first");
+        return lastSkin;
     }
 
     /** A hash for the cache file of a skin, from its pixels and type, as the skin server gives one for each image. */

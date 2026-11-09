@@ -76,7 +76,7 @@ public final class TextureStore {
     private final AtomicLong bytes = new AtomicLong();
     /** Bytes of the downloaded textures, which are not in the budget because only a repaint can change them. */
     private final AtomicLong downloadedBytes = new AtomicLong();
-    /** The number of kept textures with each catalog key, so that the catalog changes only when a key comes or goes. */
+    /** The number of kept textures with each catalog key, so that a downloaded texture changes the catalog only when its key comes or goes. */
     private final Map<TextureKey, Integer> keyCounts = new HashMap<TextureKey, Integer>();
     /** Names of textures that did not fit in the budget until a smaller record of the same name. */
     private final Set<String> overBudget = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
@@ -132,8 +132,8 @@ public final class TextureStore {
             entries.put(name, next);
             boolean keysChanged = count(next, 1);
             if (before != null) keysChanged |= count(before, -1);
-            // Many downloaded skins share one key, and the first one gives the catalog its color.
-            boolean newColors = before != null && !downloaded && !Arrays.equals(before.averages, next.averages);
+            // Many downloaded skins share one key, so a new skin changes the catalog only when it adds the key.
+            boolean newColors = !downloaded && (before == null || !Arrays.equals(before.averages, next.averages));
             if (keysChanged || newColors) version.incrementAndGet();
         }
     }
@@ -217,7 +217,7 @@ public final class TextureStore {
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
             (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
-            if (count(entry, -1)) version.incrementAndGet();
+            if (count(entry, -1) || !entry.downloaded) version.incrementAndGet();
         }
     }
 
