@@ -1,0 +1,60 @@
+# Uploads the jars of one loader and Minecraft version from an existing GitHub release to Modrinth.
+# Use it when the Modrinth job of a release failed:
+# gh workflow run modrinth.yml -f tag=v0.4.0 -f loader=fabric -f mc=1.21.1 -f game_versions="1.21 1.21.1"
+name: Modrinth upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.4.0
+        required: true
+      loader:
+        description: fabric, neoforge or forge
+        required: true
+      mc:
+        description: Minecraft version in the jar name, for example 1.21.1
+        required: true
+      game_versions:
+        description: Game versions, separated by spaces
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  modrinth:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+      LOADER: ${{ inputs.loader }}
+      MC: ${{ inputs.mc }}
+      GAME_VERSIONS: ${{ inputs.game_versions }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Download the jar from the release
+        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "albedo-$LOADER-*+$MC.jar" --dir dist
+      - name: Read the game versions and the changelog
+        id: meta
+        run: |
+          {
+            echo "versions<<EOF"
+            echo "$GAME_VERSIONS" | tr ' ' '\n'
+            echo "EOF"
+            echo "notes<<EOF"
+            bash tools/release-notes.sh "${TAG#v}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: Kir-Antipov/mc-publish@v3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: dist/*.jar
+          name: Albedo ${{ inputs.tag }} for ${{ inputs.loader }} ${{ inputs.mc }}
+          version: ${{ inputs.tag }}+${{ inputs.loader }}-${{ inputs.mc }}
+          loaders: ${{ inputs.loader }}
+          game-versions: ${{ steps.meta.outputs.versions }}
+          changelog: ${{ steps.meta.outputs.notes }}
