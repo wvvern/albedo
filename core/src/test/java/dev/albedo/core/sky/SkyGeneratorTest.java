@@ -36,6 +36,30 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void theCloudsPulseSlowlyAndGentlyInSomeRegionsOnly() {
+        int still = 0, pulsing = 0;
+        for (int i = 0; i < 400; i++) {
+            double az = i * 0.7, el = (i % 17) * 0.09 - 0.7;
+            float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
+            assertEquals(1f, SkyGenerator.pulse(0, 1, 7, p, 1, 5), "a pulse of 0 keeps the clouds still");
+            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(1, 1, 7, p, 1, 0);
+            for (int t = 0; t <= 60 * 30; t++) {
+                float k = SkyGenerator.pulse(1, 1, 7, p, 1, t / 60f);
+                min = Math.min(min, k);
+                max = Math.max(max, k);
+                step = Math.max(step, Math.abs(k - last));
+                last = k;
+            }
+            assertTrue(min >= 0.25f && max <= 1.75f, "a pulse of 100 percent from " + min + " to " + max);
+            assertTrue(step < 0.01f, "a slow pulse, with a step of " + step + " in a frame");
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 903), 1e-4f, "the waves repeat in 900 s");
+            if (max - min < 1e-6f) still++;
+            else if (max - min > 0.1f) pulsing++;
+        }
+        assertTrue(still > 80 && pulsing > 80, still + " still and " + pulsing + " pulsing places");
+    }
+
+    @Test
     void thePresetsKeepTheirPixels() {
         assertEquals(1164738102, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
         assertEquals(1550341058, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");

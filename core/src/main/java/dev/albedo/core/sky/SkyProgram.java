@@ -62,6 +62,8 @@ public final class SkyProgram {
     static final int TILT = 19, DUST = 23, JETS = 27;
     /** The values of the meteors and the aurora in the same free floats as the galaxy values, because each kind reads only its own values. */
     static final int SPEED = 19, LENGTH = 23, SHOWER = 27;
+    /** The twinkle of the stars and the pulse of the noise and fractal clouds, in the same free float as the speed. */
+    static final int TWINKLE = 19, PULSE = 19;
     /** The three rows of the matrix from sky directions to the layer frame, each a vec4. */
     static final int LOCAL = 28;
     /** The linear jet color, one channel in the free last float of each row of the matrix. */
@@ -104,7 +106,7 @@ public final class SkyProgram {
             block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
             block[base + SCALE] = l.transform().scale() / 100f;
             block[base + SEED] = l.param(SkyLayer.Param.SEED);
-            anyMoves |= movesWithTime(l.kind()) && block[base + USE] != USE_NONE;
+            anyMoves |= movesWithTime(l) && block[base + USE] != USE_NONE;
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
             if (l.kind() == SkyLayer.Kind.GALAXY) {
@@ -119,6 +121,10 @@ public final class SkyProgram {
                 block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
             } else if (l.kind() == SkyLayer.Kind.AURORA) {
                 block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
+            } else if (l.kind() == SkyLayer.Kind.STARS) {
+                block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
+            } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
+                block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
             }
             double[] r = l.transform().rotation();
             for (int row = 0; row < 3; row++) {
@@ -203,12 +209,17 @@ public final class SkyProgram {
         System.arraycopy(out, 0, block, lab, 3);
     }
 
-    /** True for a kind that changes with the time of the header. */
-    private static boolean movesWithTime(SkyLayer.Kind kind) {
-        switch (kind) {
+    /** True for a layer that changes with the time of the header. */
+    private static boolean movesWithTime(SkyLayer layer) {
+        switch (layer.kind()) {
             case METEORS:
             case AURORA:
                 return true;
+            case STARS:
+                return layer.param(SkyLayer.Param.TWINKLE) > 0;
+            case NOISE:
+            case FRACTAL:
+                return layer.param(SkyLayer.Param.PULSE) > 0;
             default:
                 return false;
         }

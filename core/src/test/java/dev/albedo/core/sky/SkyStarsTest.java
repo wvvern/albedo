@@ -129,12 +129,55 @@ class SkyStarsTest {
     }
 
     @Test
+    void theStarsTwinkleGentlySlowlyAndMoreNearTheHorizon() {
+        float[] up = {0, 1, 0}, star = new float[SkyStars.STAR_FLOATS], work = new float[SkyStars.WORK_FLOATS];
+        SkyStars still = new SkyStars(1f, 1f, 1f, 3);
+        float frame = 1 / 60f;
+        double low = 0, high = 0;
+        int lowCount = 0, highCount = 0;
+        // The large cells of a ring near the horizon and of a ring high in the sky.
+        for (int cell = 0; cell < 2 * 33 * 33 && lowCount + highCount < 80; cell++) {
+            int hx = cell % 33 - 16, hz = cell / 33 % 33 - 16, hy = cell < 33 * 33 ? 2 : 13;
+            if (hy == 2 && lowCount >= 40 || !still.star(SkyStars.Tier.BRIGHT, hx, hy, hz, star)) continue;
+            float base = centerLight(still, star, work);
+            float max = 0, deviation = 0;
+            for (int i = 0; i < 300; i++) {
+                SkyStars now = new SkyStars(1f, 1f, 1f, 3, 1f, i * frame * 4, up);
+                SkyStars next = new SkyStars(1f, 1f, 1f, 3, 1f, (i * 4 + 1) * frame, up);
+                now.star(SkyStars.Tier.BRIGHT, hx, hy, hz, star);
+                float a = centerLight(now, star, work), b = centerLight(next, star, work);
+                max = Math.max(max, Math.abs(b - a) / base);
+                deviation += Math.abs(a - base) / base;
+                assertTrue(Math.abs(a - base) / base < 0.45f, "a gentle twinkle: " + a + " of " + base);
+            }
+            assertTrue(max < 0.08f, "no star strobes from one frame to the next: " + max);
+            if (star[1] < 0.2f) {
+                low += deviation;
+                lowCount++;
+            } else if (star[1] > 0.8f) {
+                high += deviation;
+                highCount++;
+            }
+        }
+        assertTrue(lowCount > 5 && highCount > 5, lowCount + " low and " + highCount + " high stars");
+        assertTrue(low / lowCount > 1.5 * high / highCount, "more twinkle near the horizon: " + low / lowCount + " and " + high / highCount);
+        SkyStars none = new SkyStars(1f, 1f, 1f, 3, 0f, 7f, up);
+        assertEquals(centerLight(still, star, work), centerLight(none, star, work), "a twinkle of 0 keeps the stars still");
+    }
+
+    /** The green light of a star at its center. */
+    private static float centerLight(SkyStars stars, float[] star, float[] work) {
+        float[] light = new float[3], p = {star[0], star[1], star[2]};
+        stars.add(SkyStars.Tier.BRIGHT, star, p, 0.0003f, work, light);
+        return light[1];
+    }
+
+    @Test
     void theShaderHasTheSameTiers() throws IOException {
         String glsl = SkyProgramTest.skyLayersSource();
         for (SkyStars.Tier t : SkyStars.Tier.values()) {
             String call = "albedoStarTier(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt
                     + ", " + t.detail + ",";
             assertTrue(glsl.contains(call), call);
-        }
-    }
+        }    }
 }

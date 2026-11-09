@@ -146,6 +146,8 @@ final class Labels {
             case SPEED: return "Speed";
             case LENGTH: return "Length";
             case SHOWER: return "Shower";
+            case TWINKLE: return "Twinkle";
+            case PULSE: return "Pulse";
             default: return amount(k);
         }
     }

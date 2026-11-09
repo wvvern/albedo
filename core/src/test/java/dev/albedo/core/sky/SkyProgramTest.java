@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -68,8 +69,9 @@ class SkyProgramTest {
         assertEquals(SkyProgram.STILL, meteors.block()[SkyProgram.TIME], "the block is a still sky until the adapter writes the time");
         assertEquals(SkyProgram.KIND_METEORS, meteors.block()[SkyProgram.at(3, SkyProgram.KIND)]);
         assertEquals(0.7f, meteors.block()[SkyProgram.at(3, SkyProgram.SHOWER)], 1e-6f);
-        assertFalse(SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program().moves());
-        SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY));
+        assertFalse(SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program().moves());
+        SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY))
+                .withLayer(2, SkyPresets.METEORS.layers().get(2).withParam(SkyLayer.Param.TWINKLE, 0));
         assertFalse(SkyProgram.of(hidden, new float[SkyImage.RING * 3]).moves(), "a meteors layer that does not show or mask does not move");
         SkyLayer masked = SkyLayer.of(5, SkyLayer.Kind.GRADIENT).withMask(SkyMask.of(4, SkyMask.Mode.LIGHT));
         List<SkyLayer> layers = new ArrayList<SkyLayer>(hidden.layers());
@@ -78,6 +80,30 @@ class SkyProgramTest {
         SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
         assertTrue(aurora.moves(), "the aurora moves with the same time");
         assertEquals(SkyProgram.STILL, aurora.block()[SkyProgram.TIME]);
+    }
+
+    @Test
+    void theTwinkleAndThePulseMoveTheSkyOnlyWhenTheyAreOn() throws IOException {
+        SkyLayer stars = SkyLayer.of(1, SkyLayer.Kind.STARS), clouds = SkyLayer.of(2, SkyLayer.Kind.FRACTAL);
+        assertFalse(program(stars, clouds).moves(), "the default stars and clouds are still");
+        SkyProgram twinkling = program(stars.withParam(SkyLayer.Param.TWINKLE, 40), clouds);
+        assertTrue(twinkling.moves());
+        assertEquals(0.4f, twinkling.block()[SkyProgram.at(0, SkyProgram.TWINKLE)], 1e-6f);
+        SkyProgram pulsing = program(stars, clouds.withParam(SkyLayer.Param.PULSE, 60));
+        assertTrue(pulsing.moves());
+        assertEquals(0.6f, pulsing.block()[SkyProgram.at(1, SkyProgram.PULSE)], 1e-6f);
+        // The stars and the clouds read the twinkle and the pulse from the last value of slot 4, as the bake does.
+        assertEquals(4 * 4 + 3, SkyProgram.TWINKLE);
+        assertEquals(4 * 4 + 3, SkyProgram.PULSE);
+        String glsl = skyLayersSource();
+        assertTrue(glsl.contains("float twinkle = albedoLayer(layer, 4).w"));
+        assertTrue(glsl.contains("float amount = albedoLayer(layer, 4).w"));
+    }
+
+    private static SkyProgram program(SkyLayer... layers) {
+        SkyDesign d = new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
+                SkyDesign.Extent.SPHERE);
+        return SkyProgram.of(d, new float[SkyImage.RING * 3]);
     }
 
     /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */

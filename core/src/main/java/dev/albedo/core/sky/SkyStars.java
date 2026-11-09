@@ -34,8 +34,11 @@ final class SkyStars {
         }
     }
 
-    /** The floats of one star from {@link #star}: the unit direction, the light, and the place along the star classes. */
-    static final int STAR_FLOATS = 5;
+    /**
+     * The floats of one star from {@link #star}: the unit direction, the light, the place along the star classes, and the two
+     * frequencies in hertz and two phases in turns of its twinkle.
+     */
+    static final int STAR_FLOATS = 9;
     /** The floats of the room that {@link #add} uses: the light of the rim and the spikes, and the color, for each channel. */
     static final int WORK_FLOATS = 6;
 
@@ -75,20 +78,42 @@ final class SkyStars {
     /** How much of the black body color a star keeps, with the rest white, so that the tints are slight. */
     private static final float TINT = 0.7f;
 
+    /** The change of the light of a star at the zenith and the more change near the horizon, at a twinkle of 1. */
+    private static final float TWINKLE_ZENITH = 0.1f, TWINKLE_HORIZON = 0.3f;
+    /** The change of red against blue for each part of twinkle near the horizon, where the air spreads the colors. */
+    private static final float TWINKLE_COLOR = 0.5f;
+
     private final float density, spikes, scale;
     private final int seed;
+    /** The twinkle from 0 to 1, the time in seconds, and the zenith of the sky in the layer frame. */
+    private final float twinkle, time;
+    private final float[] up;
 
     /**
+     * Stars that do not twinkle.
+     *
      * @param amount the count from 0 to 1
      * @param spikes the strength of the spikes from 0 to 2
      * @param scale the layer size, where 1 is 100 percent
      */
     SkyStars(float amount, float spikes, float scale, int seed) {
+        this(amount, spikes, scale, seed, 0, 0, new float[] {0, 1, 0});
+    }
+
+    /**
+     * @param twinkle how much the stars twinkle, from 0 to 1
+     * @param time the seconds of the sky clock, 0 for the bake
+     * @param up the unit direction of the sky zenith in the layer frame, which the twinkle uses to find the horizon
+     */
+    SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up) {
         float m = 0.2f + 0.8f * amount;
         density = m * m;
         this.spikes = spikes;
         this.scale = scale;
         this.seed = seed;
+        this.twinkle = twinkle;
+        this.time = time;
+        this.up = up.clone();
     }
 
     /** The linear light of the stars in the unit direction {@code p} of the layer frame, as color and alpha into {@code out}. */
@@ -141,6 +166,13 @@ final class SkyStars {
         float u = (((h >>> 12) & 4095) + 0.5f) / 4096f;
         out[3] = Math.min(t.maxFlux, t.minFlux * (float) Math.pow(u, -1 / t.slope));
         out[4] = ((h & 4095) + 0.5f) / 4096f;
+        if (twinkle > 0) {
+            int k = Noise.hash(hx, hy, hz, seed * 31 + t.salt + 2);
+            out[5] = 0.5f + (k >>> 24) / 256f;
+            out[6] = 1.3f + 1.7f * ((k >>> 16) & 255) / 256f;
+            out[7] = ((k >>> 8) & 255) / 256f;
+            out[8] = (k & 255) / 256f;
+        }
         return true;
     }
 
@@ -154,7 +186,14 @@ final class SkyStars {
         float d2 = dx * dx + dy * dy + dz * dz;
         float reach = 0.5f * scale / t.cells;
         if (d2 >= reach * reach) return;
-        float d = (float) Math.sqrt(d2), flux = s[3];
+        float d = (float) Math.sqrt(d2), flux = s[3], tint = 0;
+        if (twinkle > 0 && t.detail) {
+            // A bright star twinkles more near the horizon, where its light goes through more air.
+            float air = 1 - SkyGenerator.smooth(0.05f, 0.75f, s[0] * up[0] + s[1] * up[1] + s[2] * up[2]);
+            float change = twinkle * (TWINKLE_ZENITH + TWINKLE_HORIZON * air) * (0.35f + 0.65f * SkyGenerator.smooth(0.2f, 6f, flux));
+            tint = TWINKLE_COLOR * change * air * wave(0.5f * (s[5] + s[6]), s[7] + s[8]);
+            flux *= 1 + change * (0.6f * wave(s[5], s[7]) + 0.4f * wave(s[6], s[8]));
+        }
         float blur = PIXEL * footprint, blur2 = blur * blur;
         // The footprint widens the core, and its peak falls with the width, not the area, so that a star smaller than a pixel stays visible.
         float core = CORE * scale, core2 = core * core + blur2;
@@ -166,12 +205,22 @@ final class SkyStars {
         for (int c = 0; c < 3; c++) work[c] = 0;
         if (t.detail) {
             rim(flux, d, blur2, work);
-            if (spikes > 0 && flux > SPIKE_FLUX) spikes(t, s, dx, dy, dz, blur2, work);
+            // The spikes keep the length of the still star and change with the root of the twinkle, so that they never flicker on and off.
+            if (spikes > 0 && s[3] > SPIKE_FLUX) spikes(t, s, dx, dy, dz, blur2, (float) Math.sqrt(flux / s[3]), work);
         }
         color(s[4], work, 3);
+        // The air spreads the colors of a star near the horizon, so that its red and blue change against each other.
+        work[3] *= 1 + tint;
+        work[5] *= 1 - tint;
         // The light goes to 0 before the edge of the reach, so that no star is cut.
         float fade = 1 - SkyGenerator.smooth(0.8f * reach, reach, d);
         for (int c = 0; c < 3; c++) light[c] += work[3 + c] * fade * (glow + work[c]);
+    }
+
+    /** A sine wave from -1 to 1 at a frequency in hertz and a phase in turns, at the time of the stars. */
+    private float wave(float hertz, float phase) {
+        float turns = hertz * time + phase;
+        return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 
     /** Adds the light of the thin rim of a star at the distance {@code d} from it to {@code out}, with red outside and blue inside. */
@@ -199,8 +248,12 @@ final class SkyStars {
         }
     }
 
-    /** Adds the light of the spikes of a bright star at the offset {@code (dx, dy, dz)} from it to {@code out} for each channel. */
-    private void spikes(Tier t, float[] s, float dx, float dy, float dz, float blur2, float[] out) {
+    /**
+     * Adds the light of the spikes of a bright star at the offset {@code (dx, dy, dz)} from it to {@code out} for each channel.
+     *
+     * @param boost the factor of the light of the spikes from the twinkle
+     */
+    private void spikes(Tier t, float[] s, float dx, float dy, float dz, float blur2, float boost, float[] out) {
         float flux = s[3];
         float length = SPIKE_LENGTH * scale * (float) Math.sqrt((flux - SPIKE_FLUX) / (t.maxFlux - SPIKE_FLUX));
         // The tangent frame of the star: east along the layer horizon and north toward the layer zenith, so the spikes do not turn.
@@ -214,7 +267,7 @@ final class SkyStars {
         }
         float nx = s[1] * ez, ny = s[2] * ex - s[0] * ez, nz = -s[1] * ex;
         float u = dx * ex + dz * ez, v = dx * nx + dy * ny + dz * nz;
-        float gain = spikes * SPIKE_LIGHT * (float) Math.sqrt(flux);
+        float gain = spikes * boost * SPIKE_LIGHT * (float) Math.sqrt(flux);
         for (int line = 0; line < SPIKE_X.length; line++) {
             float along = Math.abs(u * SPIKE_X[line] + v * SPIKE_Y[line]);
             float across = v * SPIKE_X[line] - u * SPIKE_Y[line];
