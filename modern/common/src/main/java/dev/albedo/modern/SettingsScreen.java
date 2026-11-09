@@ -67,6 +67,11 @@ public final class SettingsScreen extends Screen {
 
     private void draw(Canvas canvas, int mouseX, int mouseY) {
         editor.render(canvas, mouseX, mouseY);
+    }
+
+    /** Closes the screen in the tick and not in the frame, because the GUI draws this frame's images after the frame's calls. */
+    @Override
+    public void tick() {
         if (editor.isClosed()) onClose();
     }
 

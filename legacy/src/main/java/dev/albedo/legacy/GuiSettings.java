@@ -54,6 +54,11 @@ public final class GuiSettings extends GuiScreen implements Canvas {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         editor.render(this, mouseX, mouseY);
+    }
+
+    /** Closes the screen in the tick and not in the frame, so that the textures stay until the frame is complete. */
+    @Override
+    public void updateScreen() {
         if (editor.isClosed()) mc.displayGuiScreen(parent);
     }
 
