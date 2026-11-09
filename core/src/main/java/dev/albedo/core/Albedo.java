@@ -138,13 +138,14 @@ public final class Albedo {
             Policy policy = sc.policy;
             Layout layout = Layout.of(location);
             List<Appearance> looks = layout.looks(policy);
-            sc.store.record(location, layout, image, upload, looks);
+            boolean kept = sc.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
             if (sc.policy != policy) {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            boolean changed = layout.paint(looks, image, upload != null && upload.gpuHue());
+            // The GPU pass has texels only for a kept texture, so a texture over the budget keeps its hue on the CPU.
+            boolean changed = layout.paint(looks, image, kept && upload.gpuHue());
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
@@ -174,7 +175,7 @@ public final class Albedo {
         return sc != null && sc.store.repainting();
     }
 
-    /** A number that changes after each change to the kept textures, so that an adapter knows when to read {@link #chromaTexels} again. */
+    /** A number that changes after each change to a kept texture with moving Chroma colors, so that an adapter reads {@link #chromaTexels}. */
     public static int texturePaints() {
         Albedo sc = instance;
         return sc == null ? 0 : sc.store.paints();
@@ -205,6 +206,11 @@ public final class Albedo {
     /** Whether the GPU pass of Chroma is stopped, so that moving Chroma colors stay still. */
     public boolean chromaStill() {
         return chromaStill;
+    }
+
+    /** Whether some textures of a category keep still Chroma colors, because the GPU pass does not reach them. */
+    public boolean chromaStill(Category category) {
+        return chromaStill || store.stillChroma(category);
     }
 
     /**

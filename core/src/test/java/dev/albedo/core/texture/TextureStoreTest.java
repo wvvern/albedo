@@ -5,6 +5,7 @@ import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Rule;
 import org.junit.jupiter.api.Test;
@@ -329,6 +330,56 @@ class TextureStoreTest {
         assertTrue(Math.hypot(lab[1], lab[2]) > 0.1, "a stopped pass gives still colors on the CPU");
         assertFalse(store.chromaTexels(name, 1, 1, texels));
         assertFalse(store.chromaTexels("minecraft:block/stone_bricks", 1, 1, texels), "an unknown sprite has no texels");
+    }
+
+    @Test
+    void aTextureOverTheBudgetIsNotKept() {
+        TextureStore store = new TextureStore(8);
+        String stone = "minecraft:block/stone", dirt = "minecraft:block/dirt";
+        assertTrue(store.record(stone, Layout.of(stone), image(), new GpuUpload(), null));
+        assertFalse(store.record(dirt, Layout.of(dirt), image(), new GpuUpload(), null), "the GPU pass has no texels for it");
+    }
+
+    @Test
+    void onlyTexturesWithMovingColorsOnTheGpuTellTheAdapterToReadTheTexels() {
+        TextureStore store = new TextureStore();
+        Chroma moving = Chroma.of(100);
+        Policy policy = LayoutTest.policy(Category.BLOCKS, Appearance.solid(0xFFFFFFFF).withEffects(0, 0, moving));
+        int paints = store.paints();
+        recordNamed(store, "minecraft:skins/a", new FakeUpload(), policy);
+        record(store, "dirt", new GpuUpload(), Policy.DISABLED);
+        assertEquals(paints, store.paints(), "a skin and a sprite with still colors change no texels");
+        record(store, "stone", new GpuUpload(), policy);
+        assertTrue(store.paints() != paints, "a sprite with moving colors changes the texels");
+    }
+
+    @Test
+    void aChangeOfOnlyTheSpeedChangesTheTexelsButNotThePixels() {
+        TextureStore store = new TextureStore();
+        GpuUpload upload = new GpuUpload();
+        Chroma slow = Chroma.of(100).withOptions(10, Chroma.DEFAULT_SATURATION, Chroma.DEFAULT_BRIGHTNESS);
+        Policy before = LayoutTest.policy(Category.BLOCKS, Appearance.solid(0xFFFFFFFF).withEffects(0, 0, slow));
+        Policy after = LayoutTest.policy(Category.BLOCKS, Appearance.solid(0xFFFFFFFF).withEffects(0, 0, slow.withOptions(90, 50, 50)));
+        record(store, "stone", upload, before);
+        int paints = store.paints();
+        assertEquals(0, repaint(store, after).repainted, "the pixels without the hue stay the same");
+        assertTrue(store.paints() != paints);
+        int[] texels = new int[2];
+        assertTrue(store.chromaTexels("minecraft:block/stone", 2, 1, texels));
+        assertEquals(90, ChromaTexels.speed(texels[0]));
+        upload.gpu = false;
+        store.invalidateGpuHue();
+        assertEquals(1, repaint(store, before).repainted, "with no GPU pass the pixels get the hue again");
+    }
+
+    @Test
+    void aCategoryWithTexturesThatTheGpuPassDoesNotReachKeepsStillColors() {
+        TextureStore store = new TextureStore();
+        record(store, "stone", new GpuUpload(), Policy.DISABLED);
+        assertFalse(store.stillChroma(Category.BLOCKS));
+        recordNamed(store, "minecraft:textures/entity/chest/normal.png", new FakeUpload(), Policy.DISABLED);
+        assertTrue(store.stillChroma(Category.BLOCK_ENTITIES));
+        assertFalse(store.stillChroma(Category.BLOCKS));
     }
 
     @Test

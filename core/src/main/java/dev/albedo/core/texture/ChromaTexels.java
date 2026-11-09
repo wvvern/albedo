@@ -23,13 +23,14 @@ public final class ChromaTexels {
     /** Puts the texels of the sprites of one atlas into one image of the size of the atlas, for the GPU pass. */
     public static final class Atlas {
         private final int width, height;
-        private final int[] level;
-        private boolean moving;
+        /** The texels of the base level, which the first moving sprite makes, so that an atlas with no moving sprite needs no memory. */
+        private int[] level;
+        /** The texels of one frame of the last sprite, which the next sprite uses again when it is large enough. */
+        private int[] frame = new int[0];
 
         public Atlas(int width, int height) {
             this.width = width;
             this.height = height;
-            this.level = new int[width * height];
         }
 
         /**
@@ -43,9 +44,10 @@ public final class ChromaTexels {
          * @param border the width of the border of repeated edge pixels around the sprite in the atlas
          */
         public void sprite(String location, int x, int y, int w, int h, int border) {
-            int[] frame = new int[w * h];
-            if (w <= 0 || h <= 0 || !Albedo.chromaTexels(location, w, h, frame)) return;
-            moving = true;
+            if (w <= 0 || h <= 0) return;
+            if (frame.length < w * h) frame = new int[w * h];
+            if (!Albedo.chromaTexels(location, w, h, frame)) return;
+            if (level == null) level = new int[width * height];
             for (int dy = 0; dy < h + 2 * border && y + dy < height; dy++) {
                 int row = Math.max(0, Math.min(h - 1, dy - border)) * w, at = (y + dy) * width + x;
                 for (int dx = 0; dx < w + 2 * border && x + dx < width; dx++) {
@@ -56,11 +58,12 @@ public final class ChromaTexels {
 
         /** Whether a sprite has moving colors, which the pass needs a GPU target for. */
         public boolean moving() {
-            return moving;
+            return level != null;
         }
 
-        /** The texels of each mip level, from the size of the atlas down to {@code count} levels. */
+        /** The texels of each mip level of an atlas with a moving sprite, from the size of the atlas down to {@code count} levels. */
         public int[][] levels(int count) {
+            if (level == null) throw new IllegalStateException("the atlas has no moving sprite");
             int[][] out = new int[count][];
             out[0] = level;
             for (int i = 1; i < count; i++) out[i] = halve(out[i - 1], Math.max(1, width >> (i - 1)), Math.max(1, height >> (i - 1)));

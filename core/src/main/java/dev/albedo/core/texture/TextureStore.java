@@ -4,10 +4,12 @@ import dev.albedo.core.Category;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
+import dev.albedo.core.config.Chroma;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,8 +99,16 @@ public final class TextureStore {
     private final AtomicInteger version = new AtomicInteger();
     private final Map<Category, Map<String, Integer>> views = new EnumMap<Category, Map<String, Integer>>(Category.class);
     private int viewsVersion = -1;
-    /** Counts each record, drop and repaint, so that an adapter knows when to read the {@link #chromaTexels} again. */
+    /**
+     * Counts each record, drop and repaint of a texture whose colors move on the GPU before or after it, so that an adapter
+     * knows when to read the {@link #chromaTexels} again and a downloaded skin does not make it read them.
+     */
     private final AtomicInteger paints = new AtomicInteger();
+    /** Counts each record and drop of any texture, for the cache of {@link #stillChroma}. */
+    private final AtomicInteger changes = new AtomicInteger();
+    /** The categories with a kept texture that has no GPU hue, at the {@link #changes} in {@link #stillChromaAt}. */
+    private volatile Set<Category> stillChroma = Collections.emptySet();
+    private volatile int stillChromaAt = -1;
 
     public TextureStore() {
         this(DEFAULT_BUDGET);
@@ -124,9 +134,10 @@ public final class TextureStore {
      * @param name the texture name, for example "minecraft:blocks/stone", which replaces a kept texture of that name
      * @param upload null for a copy that must not replace the kept texture, for example a skin placeholder
      * @param applied the looks the caller gives the image now, from {@link Layout#looks}, or null when they are not known
+     * @return true when the store keeps the texture, which it does not for a texture over the budget
      */
-    public void record(String name, Layout layout, PixelBuffer image, Upload upload, List<Appearance> applied) {
-        if (layout.key().category() == Category.OTHER || upload == null) return;
+    public boolean record(String name, Layout layout, PixelBuffer image, Upload upload, List<Appearance> applied) {
+        if (layout.key().category() == Category.OTHER || upload == null) return false;
         boolean downloaded = TextureClassifier.isDownloaded(name);
         Entry next = new Entry(layout, PixelBuffer.Heap.copyOf(image), upload, applied, downloaded);
         synchronized (this) { // worker threads record at the same time on modern versions
@@ -137,19 +148,29 @@ public final class TextureStore {
             } else {
                 if (bytes.get() + delta > budget) {
                     overBudget.add(name);
-                    return;
+                    return false;
                 }
                 overBudget.remove(name);
                 bytes.addAndGet(delta);
             }
             entries.put(name, next);
-            paints.incrementAndGet();
+            changes.incrementAndGet();
+            if (movesOnGpu(next, applied) || before != null && movesOnGpu(before, before.applied)) paints.incrementAndGet();
             boolean keysChanged = count(next, 1);
             if (before != null) keysChanged |= count(before, -1);
             // Many downloaded skins share one key, so a new skin changes the catalog only when it adds the key.
             boolean newColors = !downloaded && (before == null || !Arrays.equals(before.averages, next.averages));
             if (keysChanged || newColors) version.incrementAndGet();
         }
+        return true;
+    }
+
+    /** Whether a GPU pass adds the hue to a texture with these looks, so that its Chroma texels count, where null looks are not known. */
+    private static boolean movesOnGpu(Entry e, List<Appearance> looks) {
+        if (!e.gpuHue) return false;
+        if (looks == null) return true;
+        for (Appearance a : looks) if (a.chromaMoves()) return true;
+        return false;
     }
 
     /**
@@ -190,6 +211,7 @@ public final class TextureStore {
     /** Gives each kept texture the look {@code policy} wants. */
     public Result repaint(Policy policy) {
         int repainted = 0, needReload = 0;
+        boolean moved = false;
         repainting.set(Boolean.TRUE);
         try {
             for (Map.Entry<String, Entry> e : entries.entrySet()) {
@@ -200,13 +222,21 @@ public final class TextureStore {
                     needReload++;
                     continue;
                 }
+                boolean gpuHue = entry.upload.gpuHue();
+                // With the hue from the GPU, the pixels do not depend on the Chroma speed, so only the texels change.
+                if (entry.gpuHue && gpuHue && onlySpeedChanges(entry.applied, want)) {
+                    entry.applied = want;
+                    moved = true;
+                    continue;
+                }
+                moved |= movesOnGpu(entry, entry.applied);
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
-                    boolean gpuHue = entry.upload.gpuHue();
                     entry.layout.paint(want, pixels, gpuHue);
                     if (entry.upload.upload(pixels)) {
                         entry.applied = want;
                         entry.gpuHue = gpuHue;
+                        moved |= movesOnGpu(entry, want);
                         repainted++;
                     } else {
                         forget(e.getKey(), entry);
@@ -219,14 +249,41 @@ public final class TextureStore {
             }
         } finally {
             repainting.remove();
-            paints.incrementAndGet();
+            if (moved) paints.incrementAndGet();
         }
         return new Result(repainted, needReload);
     }
 
-    /** A number that changes after each record, drop and repaint, so that an adapter knows when to read the {@link #chromaTexels} again. */
+    /** Whether two lists of looks differ only in the speed of Chroma colors that move in both. */
+    static boolean onlySpeedChanges(List<Appearance> before, List<Appearance> after) {
+        if (before == null || before.size() != after.size()) return false;
+        for (int i = 0; i < after.size(); i++) {
+            Appearance a = before.get(i), b = after.get(i);
+            if (a.chromaMoves() != b.chromaMoves()) return false;
+            Chroma c = b.chroma().withOptions(a.chroma().speed(), b.chroma().saturation(), b.chroma().brightness());
+            if (!a.equals(b.withEffects(b.bevel(), b.outline(), c))) return false;
+        }
+        return true;
+    }
+
+    /**
+     * A number that changes after each record, drop and repaint of a texture whose Chroma colors move on the GPU, so that
+     * an adapter knows when to read the {@link #chromaTexels} again.
+     */
     public int paints() {
         return paints.get();
+    }
+
+    /** Whether a category has a kept texture with no GPU hue, whose moving Chroma colors stay still. */
+    public boolean stillChroma(Category category) {
+        int now = changes.get();
+        if (stillChromaAt != now) {
+            Set<Category> still = EnumSet.noneOf(Category.class);
+            for (Entry e : entries.values()) if (!e.upload.gpuHue()) still.add(e.layout.key().category());
+            stillChroma = still;
+            stillChromaAt = now;
+        }
+        return stillChroma.contains(category);
     }
 
     /**
@@ -254,7 +311,8 @@ public final class TextureStore {
     /** Drops a texture that a reload replaced, unless the reload has recorded it again in the meantime. */
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
-            paints.incrementAndGet();
+            changes.incrementAndGet();
+            if (movesOnGpu(entry, entry.applied)) paints.incrementAndGet();
             (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
             if (count(entry, -1) || !entry.downloaded) version.incrementAndGet();
         }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChromaTexelsTest {
@@ -47,5 +48,12 @@ class ChromaTexelsTest {
         byte[] bytes = new byte[8];
         out.get(bytes);
         assertArrayEquals(new byte[]{0x11, 0x22, 0x33, 0x44, (byte) 0xAA, (byte) 0xBB, (byte) 0xCC, (byte) 0x88}, bytes);
+    }
+
+    @Test
+    void anAtlasWithNoMovingSpriteKeepsNoLevel() {
+        ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(4096, 4096);
+        atlas.sprite("minecraft:block/not_kept", 0, 0, 16, 16, 0);
+        assertFalse(atlas.moving());
     }
 }
