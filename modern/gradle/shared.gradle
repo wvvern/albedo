@@ -39,6 +39,8 @@ dependencies {
 if (loader == 'common') {
     // The version-agnostic core is compiled straight into common (it has no Minecraft types).
     sourceSets.main.java.srcDir rootProject.file('../core/src/main/java')
+    // The core resources (the sky shaders) go into the jar next to the core classes.
+    sourceSets.main.resources.srcDir rootProject.file('../core/src/main/resources')
 }
 
 if (loader in ['fabric', 'neoforge']) {

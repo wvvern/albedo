@@ -18,6 +18,8 @@ java {
 
 sourceSets.main {
     java.srcDir("../core/src/main/java")
+    // The core resources (the sky shaders) go into the jar next to the core classes.
+    resources.srcDir("../core/src/main/resources")
     output.setResourcesDir(sourceSets.main.flatMap { it.java.classesDirectory })
 }
 
