@@ -26,8 +26,9 @@ public final class ModernSky {
     private static boolean irisLooked;
     //? if >=26.1 {
     private static com.mojang.renderpearl.api.buffers.GpuBuffer sphere;
-    // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
-    private static final com.mojang.renderpearl.api.pipeline.RenderPipeline PIPELINE = com.mojang.renderpearl.api.pipeline.RenderPipeline.builder()
+    // The texture with no blend, no depth test or write and no cull (the sky is the first thing in the frame), compiled on
+    // the render thread at its first use, as a pipeline of the game is.
+    private static final SharpSky.Pipeline PIPELINE = new SharpSky.Pipeline(com.mojang.renderpearl.api.pipeline.RenderPipeline.builder()
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.DYNAMIC_TRANSFORMS)
@@ -41,7 +42,7 @@ public final class ModernSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES)
-            .build();
+            .build(), Runnable::run);
     //?} elif >=1.21.11 {
     /*private static com.mojang.blaze3d.buffers.GpuBuffer sphere;
     // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
@@ -186,8 +187,10 @@ public final class ModernSky {
         com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
                 .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));
         if (SharpSky.draw(pass, transforms, sphere, vertexCount)) return true;
+        com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline baked = PIPELINE.get();
+        if (baked == null) return false;
         pass.pushDebugGroup(() -> "Albedo sky");
-        pass.setPipeline(com.mojang.blaze3d.systems.RenderSystem.getCompiledPipeline(PIPELINE));
+        pass.setPipeline(baked);
         com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
         pass.setUniform("Sampler0", texture.getTextureView(), com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getSampler(
