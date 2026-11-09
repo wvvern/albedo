@@ -206,6 +206,7 @@ public final class Harness {
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
+        else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
@@ -338,6 +339,13 @@ public final class Harness {
         CategorySettings sky = profile.get(Category.SKY);
         SkyDesign.Render r = SkyDesign.Render.valueOf(render.trim().toUpperCase(Locale.ROOT));
         return profile.with(Category.SKY, sky.withSky(sky.sky().withRender(r)));
+    }
+
+    /** Sets the extent of the custom sky to {@code sphere} ("Full sphere" on) or {@code horizon} (off). */
+    static Profile withSkyExtent(Profile profile, String extent) {
+        CategorySettings sky = profile.get(Category.SKY);
+        SkyDesign.Extent e = SkyDesign.Extent.valueOf(extent.trim().toUpperCase(Locale.ROOT));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withExtent(e)));
     }
 
     /**

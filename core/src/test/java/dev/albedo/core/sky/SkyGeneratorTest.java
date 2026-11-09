@@ -36,9 +36,9 @@ class SkyGeneratorTest {
 
     @Test
     void thePresetsKeepTheirPixels() {
-        assertEquals(-1742385772, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
-        assertEquals(1779394092, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
-        assertEquals(-796054633, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
+        assertEquals(-19065423, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
+        assertEquals(1938042617, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
+        assertEquals(-509631651, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
     }
 
     @Test
@@ -90,12 +90,11 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void theSkyAtAndBelowTheHorizonHasTheFogColorOfItsDirection() {
+    void theSkyFromThreeDegreesBelowTheHorizonHasTheFogColorOfItsDirection() {
         SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 64;
         SkyImage img = SkyGenerator.bake(of(noise), w, h);
-        int below = (int) Math.ceil(SkyImage.TOP / (SkyImage.TOP - SkyImage.BOTTOM) * h);
-        for (int y = below; y < h; y++) {
+        for (int y = row(-3, h) + 1; y < h; y++) {
             for (int x = 0; x < w; x += 7) {
                 float[] fog = img.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
                 assertEquals(Math.round(fog[0] * 255), red(img.argb()[y * w + x]), 2, "row " + y + ", column " + x);
@@ -154,25 +153,30 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void aFullSphereHasTheLayersBelowTheHorizonAndTheFogColorAtIt() {
+    void aFullSphereHasTheLayersAtAndBelowTheHorizon() {
         SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 1024;
         SkyImage horizon = SkyGenerator.bake(of(noise), w, h);
         SkyImage sphere = SkyGenerator.bake(of(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
-        int low = row(-45, h), min = 255, max = 0;
+        int low = row(-45, h);
         for (int x = 0; x < w; x++) {
-            min = Math.min(min, red(sphere.argb()[low * w + x]));
-            max = Math.max(max, red(sphere.argb()[low * w + x]));
             float[] fog = horizon.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
             assertEquals(Math.round(fog[0] * 255), red(horizon.argb()[low * w + x]), 2, "the horizon sky is the fog color at -45");
         }
-        assertTrue(max - min > 40, "the layers continue below the horizon: " + min + " to " + max);
-        int below = h / 2;
-        for (int x = 0; x < w; x += 7) {
-            float[] fog = sphere.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
-            assertEquals(Math.round(fog[0] * 255), red(sphere.argb()[below * w + x]), 3, "the fog color just below the horizon");
+        assertTrue(spread(sphere, low) > 40, "the layers continue below the horizon");
+        assertTrue(spread(sphere, h / 2) > 40, "the layers continue just below the horizon");
+        assertTrue(spread(horizon, h / 2 - 1) > 40, "the layers go down to the horizon when the sky stops there");
+        for (int i = 0; i < h / 2 * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
+    }
+
+    /** The difference between the darkest and the lightest red value in a row. */
+    private static int spread(SkyImage img, int y) {
+        int min = 255, max = 0;
+        for (int x = 0; x < img.width(); x++) {
+            min = Math.min(min, red(img.argb()[y * img.width() + x]));
+            max = Math.max(max, red(img.argb()[y * img.width() + x]));
         }
-        for (int i = 0; i < below * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
+        return max - min;
     }
 
     /** The row whose center is nearest to an elevation in degrees. */
@@ -262,8 +266,6 @@ class SkyGeneratorTest {
         double error = 0, glow = 0;
         int count = 0;
         for (int y = 0; y < h; y++) {
-            // The horizon colors of the two skies differ, so the rows near the horizon are not compared.
-            if (Math.abs(90 - (y + 0.5) * 180 / h) < 6) continue;
             for (int x = 0; x < w; x++) {
                 for (int c = 0; c < 3; c++) {
                     int shift = 16 - 8 * c;
