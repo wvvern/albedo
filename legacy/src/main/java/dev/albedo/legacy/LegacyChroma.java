@@ -235,18 +235,28 @@ public final class LegacyChroma {
     }
 
     /**
-     * Runs GL work and then puts back all GL state that it can change: the attribute stack holds the state that
-     * GlStateManager keeps a copy of, and the framebuffer and the program are put back by hand.
+     * Runs GL work and then puts back all GL state that it can change: the attribute stack holds the enables, the
+     * viewport and the masks that GlStateManager keeps a copy of, and the textures of units 0 and 1 (the lightmap), the
+     * active unit, the framebuffer and the program are put back by hand, because some drivers pop only the active unit.
      */
     private static void withState(Runnable work) {
         int framebufferBefore = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         int programBefore = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int unitBefore = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        int texture0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        int texture1 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        GL13.glActiveTexture(unitBefore);
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
             work.run();
         } finally {
             GL11.glPopAttrib();
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture1);
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture0);
             GL13.glActiveTexture(unitBefore);
             GL20.glUseProgram(programBefore);
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebufferBefore);
