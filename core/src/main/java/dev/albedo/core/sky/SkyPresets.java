@@ -22,19 +22,19 @@ public final class SkyPresets {
             .add(Kind.GLOW, Param.COLOR_1, 0xFFFF9E5E, Param.AMOUNT, 30, Param.HEIGHT, 22)
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFFFFFFFF, Param.COLOR_2, 0xFF000000, Param.HEIGHT, 45, Param.AMOUNT, 15)
             .output(SkyLayer.Output.MASK_ONLY)
-            .add(Kind.STARS, Param.AMOUNT, 25, Param.SEED, 3)
-            .blend(SkyLayer.Blend.ADD).opacity(55).mask(3, SkyMask.Mode.DARK)
+            .add(Kind.STARS, Param.AMOUNT, 40, Param.SEED, 3)
+            .blend(SkyLayer.Blend.ADD).opacity(75).mask(3, SkyMask.Mode.DARK)
             .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT, SkyDesign.Extent.HORIZON);
 
-    /** Pink and violet clouds of gas with stars, partly blurred and changed in hue through a noise mask. */
+    /** Pink and violet clouds of gas, partly blurred and changed in hue through a noise mask, with sharp stars over them. */
     public static final SkyDesign NEBULA = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF1A0F33, Param.COLOR_2, 0xFF05060F, Param.HEIGHT, 35, Param.AMOUNT, 70)
             .add(Kind.FRACTAL, Param.COLOR_1, 0xFF3B1C6E, Param.COLOR_2, 0xFFFF6FB0, Param.AMOUNT, 60, Param.SEED, 7)
             .blend(SkyLayer.Blend.ADD).opacity(90).place(new Transform(40, 10, 0, 130))
             .add(Kind.NOISE, Param.AMOUNT, 55, Param.SEED, 12).output(SkyLayer.Output.MASK_ONLY).place(new Transform(0, 0, 0, 80))
-            .add(Kind.STARS, Param.AMOUNT, 70, Param.SEED, 5).blend(SkyLayer.Blend.ADD)
             .add(Kind.BLUR, Param.AMOUNT, 25).mask(3, SkyMask.Mode.LIGHT)
             .add(Kind.HUE_SHIFT, Param.AMOUNT, 12).mask(3, SkyMask.Mode.DARK)
+            .add(Kind.STARS, Param.AMOUNT, 70, Param.SEED, 5).blend(SkyLayer.Blend.ADD)
             .add(Kind.BLOOM, Param.AMOUNT, 40, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 

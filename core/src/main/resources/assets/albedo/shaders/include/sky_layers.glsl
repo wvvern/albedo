@@ -60,8 +60,6 @@ uniform sampler2D AlbedoTerms;
 #endif
 
 const float ALBEDO_PI = 3.14159265358979;
-// The star grid density per radian at which the star sizes are set.
-const float ALBEDO_STAR_CELLS = 36.0;
 // The distance in degrees from the horizon over which the sky goes into the horizon color.
 const float ALBEDO_HAZE = 3.0;
 
@@ -210,44 +208,169 @@ vec4 albedoGlow(int layer, vec3 p) {
     return vec4(albedoLayer(layer, 3).rgb, exp(-v * v) * along * albedoLayer(layer, 2).z);
 }
 
-// Points in a jittered 3D grid on the layer sphere, where the smallest star is 1.5 footprints across.
+// The numbers of SkyStars: angles in radians, where the core, the halo, the rim and the spikes are at a layer size of 100.
+const float ALBEDO_STAR_CORE = 0.009 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_PIXEL = 0.42;
+const float ALBEDO_STAR_HALO = 0.03 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_HALO_LIGHT = 0.025;
+const float ALBEDO_STAR_RIM = 0.016 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_RIM_WIDTH = 0.006 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_RIM_LIGHT = 0.03;
+const float ALBEDO_STAR_SPIKE_FLUX = 2.0;
+const float ALBEDO_STAR_SPIKE_LENGTH = 1.4 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_SPIKE_WIDTH = 0.004 * ALBEDO_PI / 180.0;
+const float ALBEDO_STAR_SPIKE_LIGHT = 0.45;
+const vec3 ALBEDO_STAR_RIM_WAVE = vec3(1.08, 1.0, 0.9);
+const vec3 ALBEDO_STAR_SPIKE_WAVE = vec3(1.04, 1.0, 0.95);
+const float ALBEDO_STAR_TINT = 0.7;
+
+// The part of the stars of class i (O, B, A, F, G, K, M) among the stars that the eye sees.
+float albedoClassShare(int i) {
+    if (i == 0) return 0.02;
+    if (i == 1) return 0.12;
+    if (i == 2) return 0.2;
+    if (i == 3) return 0.17;
+    if (i == 4) return 0.16;
+    if (i == 5) return 0.25;
+    return 0.08;
+}
+
+// The linear color of a black body at boundary i of the classes, from 40000 K to 2600 K.
+vec3 albedoClassColor(int i) {
+    if (i == 0) return vec3(0.3278, 0.4342, 1.0);
+    if (i == 1) return vec3(0.4020, 0.5210, 1.0);
+    if (i == 2) return vec3(0.5906, 0.6795, 1.0);
+    if (i == 3) return vec3(0.9387, 0.9301, 1.0);
+    if (i == 4) return vec3(1.0, 0.9047, 0.8228);
+    if (i == 5) return vec3(1.0, 0.6445, 0.3564);
+    if (i == 6) return vec3(1.0, 0.4969, 0.1981);
+    return vec3(1.0, 0.3515, 0.0802);
+}
+
+// The linear color of a star at u along the classes, a mix of the two boundary colors of its class with white.
+vec3 albedoStarColor(float u) {
+    int i = 0;
+    while (i < 6 && u >= albedoClassShare(i)) {
+        u -= albedoClassShare(i);
+        i++;
+    }
+    float f = min(1.0, u / albedoClassShare(i));
+    vec3 a = albedoClassColor(i);
+    return 1.0 - ALBEDO_STAR_TINT + ALBEDO_STAR_TINT * (a + (albedoClassColor(i + 1) - a) * f);
+}
+
+// The light of the thin rim of a star at the distance dist from it, for each channel, with red outside and blue inside.
+vec3 albedoStarRim(float flux, float dist, float blur2, float scale) {
+    float width = ALBEDO_STAR_RIM_WIDTH * scale, wide = sqrt(width * width + blur2);
+    float radius = ALBEDO_STAR_RIM * scale * sqrt(flux);
+    vec3 r = (dist - radius * ALBEDO_STAR_RIM_WAVE) / wide;
+    return flux * ALBEDO_STAR_RIM_LIGHT * width / wide * exp(-0.5 * r * r);
+}
+
+// The light of one spike line along the unit direction dir of the tangent plane, for each channel.
+vec3 albedoSpikeLine(vec2 uv, vec2 dir, float span, float gain, float blur2, float scale) {
+    float along = abs(uv.x * dir.x + uv.y * dir.y);
+    float across = uv.y * dir.x - uv.x * dir.y;
+    vec3 out3 = vec3(0.0);
+    for (int c = 0; c < 3; c++) {
+        float reach = span * ALBEDO_STAR_SPIKE_WAVE[c];
+        if (along >= reach) continue;
+        float taper = 1.0 - along / reach;
+        float width = ALBEDO_STAR_SPIKE_WIDTH * scale * ALBEDO_STAR_SPIKE_WAVE[c];
+        float wide = sqrt(width * width + blur2);
+        float x = across / wide;
+        out3[c] = gain * taper * taper * taper * width / wide * exp(-0.5 * x * x);
+    }
+    return out3;
+}
+
+// The light of the spikes of a bright star s at the offset d from it: three lines at 60 degrees and a faint horizontal line.
+vec3 albedoSpikes(vec3 s, vec3 d, float flux, float maxFlux, float spikes, float blur2, float scale) {
+    float span = ALBEDO_STAR_SPIKE_LENGTH * scale * sqrt((flux - ALBEDO_STAR_SPIKE_FLUX) / (maxFlux - ALBEDO_STAR_SPIKE_FLUX));
+    // The tangent frame of the star: east along the layer horizon and north toward the layer zenith, so the spikes do not turn.
+    float ex = s.z, ez = -s.x, el = sqrt(ex * ex + ez * ez);
+    if (el < 1e-4) {
+        ex = 1.0;
+        ez = 0.0;
+    } else {
+        ex /= el;
+        ez /= el;
+    }
+    vec3 north = vec3(s.y * ez, s.z * ex - s.x * ez, -s.y * ex);
+    vec2 uv = vec2(d.x * ex + d.z * ez, d.x * north.x + d.y * north.y + d.z * north.z);
+    float gain = spikes * ALBEDO_STAR_SPIKE_LIGHT * sqrt(flux);
+    vec3 light = albedoSpikeLine(uv, vec2(0.0, 1.0), span, gain, blur2, scale);
+    light += albedoSpikeLine(uv, vec2(0.8660254, 0.5), span, gain, blur2, scale);
+    light += albedoSpikeLine(uv, vec2(-0.8660254, 0.5), span, gain, blur2, scale);
+    light += albedoSpikeLine(uv, vec2(1.0, 0.0), span * 0.7, gain * 0.5, blur2, scale);
+    return light;
+}
+
+// The light of the stars of one grid (SkyStars.Tier) at p, where each star stays in its cell and reaches at most half a cell.
+vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float maxFlux, float slope, int salt, bool bright,
+        float density, float spikes, float scale, int seed) {
+    vec3 light = vec3(0.0);
+    float n = cells / scale;
+    float reach = 0.5 * scale / cells;
+    float blur = ALBEDO_STAR_PIXEL * footprint, blur2 = blur * blur;
+    // The 2 x 2 x 2 cells nearest to the point, because no star reaches into a cell that is not next to its own.
+    ivec3 base = ivec3(floor(p * n - 0.5));
+    for (int i = 0; i <= 1; i++) {
+        for (int j = 0; j <= 1; j++) {
+            for (int k = 0; k <= 1; k++) {
+                ivec3 h = base + ivec3(i, j, k);
+                uint hb = albedoHash(h, seed * 31 + salt);
+                float chance = float(hb >> 24u) / 256.0;
+                if (chance >= density) continue;
+                uint hj = albedoHash(h, seed * 31 + salt + 1);
+                vec3 v = vec3(h) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
+                float len = length(v);
+                if (len < 1e-3) continue;
+                vec3 s = v / len;
+                // The star is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
+                if (ivec3(floor(s * n)) != h) continue;
+                // The sphere crosses more cells near a diagonal of the grid, so fewer of them keep a star there.
+                if (chance >= density * (abs(s.x) + abs(s.y) + abs(s.z)) / 1.7320508) continue;
+                vec3 d = p - s;
+                float d2 = dot(d, d);
+                if (d2 >= reach * reach) continue;
+                float flux = min(maxFlux, minFlux * pow((float((hb >> 12u) & 4095u) + 0.5) / 4096.0, -1.0 / slope));
+                float dist = sqrt(d2);
+                // The core keeps its light when the footprint widens it, so that a star smaller than a pixel does not flicker.
+                float core = ALBEDO_STAR_CORE * scale, core2 = core * core + blur2;
+                float glow = flux * core / sqrt(core2) * exp(-d2 / (2.0 * core2));
+                float halo = ALBEDO_STAR_HALO * scale * sqrt(flux), halo2 = halo * halo + blur2;
+                float q = 1.0 + d2 / halo2;
+                glow += flux * ALBEDO_STAR_HALO_LIGHT * halo * halo / halo2 / (q * q);
+                vec3 detail = vec3(0.0);
+                if (bright) {
+                    detail = albedoStarRim(flux, dist, blur2, scale);
+                    if (spikes > 0.0 && flux > ALBEDO_STAR_SPIKE_FLUX) detail += albedoSpikes(s, d, flux, maxFlux, spikes, blur2, scale);
+                }
+                vec3 color = albedoStarColor((float(hb & 4095u) + 0.5) / 4096.0);
+                // The light goes to 0 before the edge of the reach, so that no star is cut.
+                float fade = 1.0 - albedoSmooth(0.8 * reach, reach, dist);
+                light += color * fade * (glow + detail);
+            }
+        }
+    }
+    return light;
+}
+
+// Stars with the brightness spread and the colors of real stars, where AMOUNT is the count and HEIGHT is the strength of the spikes.
 vec4 albedoStars(int layer, vec3 p, float footprint) {
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
-    float n = (10.0 + values.z * 40.0) / shape.x;
-    vec3 q = p * n;
-    ivec3 cell = ivec3(floor(q));
-    float grow = n * shape.x / ALBEDO_STAR_CELLS;
-    float minRadius = 1.5 * footprint * n;
-    float best = 0.0;
-    float warm = 0.0;
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            for (int k = -1; k <= 1; k++) {
-                ivec3 h = cell + ivec3(i, j, k);
-                if (albedoUnit(albedoHash(h, seed * 31 + 7)) > 0.15) continue;
-                vec3 s = vec3(h) + 0.15 + 0.7 * vec3(albedoUnit(albedoHash(h, seed + 101)), albedoUnit(albedoHash(h, seed + 202)),
-                        albedoUnit(albedoHash(h, seed + 303)));
-                float len = length(s);
-                if (len < 1e-3) continue;
-                s = s / len * n;
-                float d = length(q - s);
-                float size = albedoUnit(albedoHash(h, seed + 404));
-                float base = (0.05 + 0.22 * size * size * size) * grow;
-                float radius = max(minRadius, base);
-                if (d >= radius) continue;
-                float bright = (0.15 + 0.85 * size * size) * min(1.0, 2.0 * base / radius);
-                float v = bright * (1.0 - albedoSmooth(radius * 0.35, radius, d));
-                if (v > best) {
-                    best = v;
-                    warm = albedoUnit(albedoHash(h, seed + 505)) - 0.5;
-                }
-            }
-        }
-    }
-    vec3 c = albedoLayer(layer, 3).rgb;
-    return vec4(c.r * (1.0 + warm * 0.3), c.g, c.b * (1.0 - warm * 0.3), clamp(best, 0.0, 1.0) * shape.z);
+    float m = 0.2 + 0.8 * values.z;
+    float density = m * m, spikes = values.w * 2.0;
+    vec3 light = albedoStarTier(p, footprint, 88.0, 0.04, 0.9, 1.3, 7, false, density, spikes, shape.x, seed);
+    light += albedoStarTier(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, true, density, spikes, shape.x, seed);
+    light *= albedoLayer(layer, 3).rgb;
+    float peak = max(light.r, max(light.g, light.b));
+    // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
+    float a = min(1.0, peak);
+    return vec4(a > 0.0 ? light / a : albedoLayer(layer, 3).rgb, a * shape.z);
 }
 
 // Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover.

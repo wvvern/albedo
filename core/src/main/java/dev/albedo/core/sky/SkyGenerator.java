@@ -22,8 +22,6 @@ public final class SkyGenerator {
     }
 
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
-    /** The star grid density per radian at which the star sizes are set, between the Nebula and Galaxy counts. */
-    private static final float STAR_CELLS = 36f;
     /** The distance in degrees from the horizon over which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
     private static final float HAZE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
@@ -259,6 +257,8 @@ public final class SkyGenerator {
         final float alpha1, alpha2, amount, height;
         final int seed;
         final int termSlot;
+        /** The stars of a stars layer, else null. */
+        final SkyStars stars;
 
         /** Reads the numbers of layer {@code index} from the program, the same numbers that the sky shader reads. */
         Layer(SkyLayer layer, float[] block, int index) {
@@ -278,6 +278,7 @@ public final class SkyGenerator {
             height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
             seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
+            stars = layer.kind() == SkyLayer.Kind.STARS ? new SkyStars(amount, height * 2, scale, seed) : null;
         }
 
         private static float[] slice(float[] block, int from) {
@@ -390,50 +391,9 @@ public final class SkyGenerator {
         out[3] = clamp01(disk + core + haze) * Math.max(l.alpha1, l.alpha2);
     }
 
-    /** Points in a jittered 3D grid on the layer sphere, where AMOUNT sets how many and the size sets how far apart and how large. */
+    /** Stars with the brightness spread and the colors of real stars, where the footprint of a texel widens only their thin parts. */
     private void stars(Layer l, float[] p, float[] out) {
-        float n = (10f + l.amount * 40f) / l.scale;
-        float px = p[0] * n, py = p[1] * n, pz = p[2] * n;
-        int cx = (int) Math.floor(px), cy = (int) Math.floor(py), cz = (int) Math.floor(pz);
-        // The star radius in cells grows with the count, so that a star has the same size in degrees at each AMOUNT.
-        float grow = n * l.scale / STAR_CELLS;
-        // The smallest star is 1.5 texels across, so that it does not flicker between pixels.
-        float minRadius = 1.5f * texel * n;
-        float best = 0;
-        float warm = 0;
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                for (int k = -1; k <= 1; k++) {
-                    int hx = cx + i, hy = cy + j, hz = cz + k;
-                    int hash = Noise.hash(hx, hy, hz, l.seed * 31 + 7);
-                    if (Noise.unit(hash) > 0.15f) continue;
-                    float sx = hx + 0.15f + 0.7f * Noise.unit(Noise.hash(hx, hy, hz, l.seed + 101));
-                    float sy = hy + 0.15f + 0.7f * Noise.unit(Noise.hash(hx, hy, hz, l.seed + 202));
-                    float sz = hz + 0.15f + 0.7f * Noise.unit(Noise.hash(hx, hy, hz, l.seed + 303));
-                    float len = (float) Math.sqrt(sx * sx + sy * sy + sz * sz);
-                    if (len < 1e-3f) continue;
-                    sx = sx / len * n;
-                    sy = sy / len * n;
-                    sz = sz / len * n;
-                    float dx = px - sx, dy = py - sy, dz = pz - sz;
-                    float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    float size = Noise.unit(Noise.hash(hx, hy, hz, l.seed + 404));
-                    float base = (0.05f + 0.22f * size * size * size) * grow;
-                    float radius = Math.max(minRadius, base);
-                    if (d >= radius) continue;
-                    float bright = (0.15f + 0.85f * size * size) * Math.min(1f, 2f * base / radius);
-                    float v = bright * (1 - smooth(radius * 0.35f, radius, d));
-                    if (v > best) {
-                        best = v;
-                        warm = Noise.unit(Noise.hash(hx, hy, hz, l.seed + 505)) - 0.5f;
-                    }
-                }
-            }
-        }
-        out[0] = l.color1[0] * (1 + warm * 0.3f);
-        out[1] = l.color1[1];
-        out[2] = l.color1[2] * (1 - warm * 0.3f);
-        out[3] = clamp01(best) * l.alpha1;
+        l.stars.shade(p, texel, l.color1, l.alpha1, out);
     }
 
     // ---------------------------------------------------------------- filters: each writes its result for all of img into tmp

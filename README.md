@@ -75,7 +75,7 @@ There are two types of layer:
 
 A higher layer is drawn over the lower layers. Click a layer to edit it:
 
-- **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern.
+- **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern. A Stars layer has many faint stars and few bright stars, with the colors of real stars. Count sets how many stars there are, and Spikes sets the strength of the thin lines of light on the bright stars.
 - **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
 - **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
 
@@ -162,7 +162,7 @@ To share a profile, push Export in the settings screen. This saves it to `config
 ## Known limits
 
 - On 1.21.2 and later, clouds can only be hidden, not colored.
-- A custom sky has about 6 pixels for each degree of the sky, so small stars look soft on a large screen.
+- With "Sharp render" off, a custom sky has about 6 pixels for each degree of the sky, so small stars look soft on a large screen.
 - When small plants are hidden, their items are hidden too.
 - With OptiFine shaders or very large resource packs, a settings change reloads all resources, which can take a while.
 

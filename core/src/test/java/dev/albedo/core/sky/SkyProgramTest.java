@@ -66,10 +66,12 @@ class SkyProgramTest {
         SkyProgram nebula = SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program();
         assertTrue(nebula.drawsSharp(), "the blur and the bloom are terms, the hue shift is calculated for each pixel");
         assertEquals(2, nebula.terms());
-        assertEquals(0, nebula.termSlot(4), "the blur");
-        assertEquals(-1, nebula.termSlot(5), "the hue shift");
+        assertEquals(0, nebula.termSlot(3), "the blur");
+        assertEquals(-1, nebula.termSlot(4), "the hue shift");
+        assertEquals(-1, nebula.termSlot(5), "the stars over the blur");
         assertEquals(1, nebula.termSlot(6), "the bloom");
-        assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(4, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_STARS, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
         SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
         assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy and the bloom term");
         assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
@@ -143,7 +145,7 @@ class SkyProgramTest {
         assertEquals(2, b[SkyProgram.at(3, SkyProgram.MASK_INDEX)], "the stars use the third layer as their mask");
         assertEquals(1, b[SkyProgram.at(3, SkyProgram.MASK_DARK)]);
         assertEquals(SkyProgram.BLEND_ADD, b[SkyProgram.at(3, SkyProgram.BLEND)]);
-        assertEquals(0.55f, b[SkyProgram.at(3, SkyProgram.OPACITY)], 1e-6f);
+        assertEquals(0.75f, b[SkyProgram.at(3, SkyProgram.OPACITY)], 1e-6f);
         assertEquals(-1, b[SkyProgram.at(0, SkyProgram.MASK_INDEX)]);
         assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)], 1e-6f, "an identity rotation");
         float[] fog = img.fogRgb(180, 1);

@@ -130,7 +130,8 @@ final class Labels {
             case COLOR_2:
                 return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : "Light";
             case HEIGHT:
-                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold" : "Height";
+                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
+                        : k == SkyLayer.Kind.STARS ? "Spikes" : "Height";
             case SEED: return "Seed";
             default: return amount(k);
         }

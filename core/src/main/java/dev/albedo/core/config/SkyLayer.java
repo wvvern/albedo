@@ -66,7 +66,7 @@ public final class SkyLayer {
         GALAXY(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(135, 45, 20, 100),
                 Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 50, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
-                Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.SEED, 1),
+                Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.HEIGHT, 50, Param.SEED, 1),
         BLUR(Role.FILTER, EnumSet.noneOf(Transform.Axis.class), Transform.IDENTITY, Param.AMOUNT, 30),
         CRYSTALLIZE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY, Param.SEED, 1),
         PIXELATE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY),
