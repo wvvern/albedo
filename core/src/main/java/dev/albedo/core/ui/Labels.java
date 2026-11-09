@@ -131,8 +131,9 @@ final class Labels {
     static String param(SkyLayer.Kind k, SkyLayer.Param p) {
         switch (p) {
             case COLOR_1:
-                return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : k == SkyLayer.Kind.AURORA ? "Bottom" : "Color";
+                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "Low"
+                        : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : "Color";
             case COLOR_2:
                 return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
                         : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
