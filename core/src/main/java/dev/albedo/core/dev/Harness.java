@@ -9,7 +9,9 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.Toggle;
+import dev.albedo.core.sky.SkyPresets;
 import dev.albedo.core.ui.SettingsEditor;
 
 import java.io.File;
@@ -119,6 +121,7 @@ public final class Harness {
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
         else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
+        else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -162,6 +165,15 @@ public final class Harness {
         }
         CategorySettings settings = profile.get(category);
         return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, chroma)));
+    }
+
+    /** Sets the sky to a preset of custom layers ({@code sky dusk}), or back to the vanilla sky with {@code sky off}. */
+    static Profile withSky(Profile profile, String name) {
+        CategorySettings sky = profile.get(Category.SKY);
+        if (name.equals("off")) return profile.with(Category.SKY, sky.withAppearance(Appearance.ORIGINAL));
+        SkyDesign design = SkyPresets.byName(name);
+        if (design == null) throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off>");
+        return profile.with(Category.SKY, sky.withAppearance(Appearance.of(Appearance.Mode.LAYERS)).withSky(design));
     }
 
     /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */

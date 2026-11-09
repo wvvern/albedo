@@ -90,8 +90,9 @@ foreach ($target in $Targets) {
     # Use the default config and a new world each time, so the screenshots are the same each run.
     Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
-    # First the scene for this version, then the shots for all versions.
-    $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$Shots")
+    # First the scene for this version, then the shots for all versions; a shot list for modern has a copy for 1.8.9.
+    $shotList = if ($loader -eq "forge") { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
+    $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
     (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)

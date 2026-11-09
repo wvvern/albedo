@@ -15,6 +15,11 @@ public final class MixinPlugin implements IMixinConfigPlugin {
     /** The Forge tweaker of OptiFine, whose jar FML puts on the class path before the mixins apply. */
     private static final boolean OPTIFINE = MixinPlugin.class.getClassLoader().getResource("optifine/OptiFineForgeTweaker.class") != null;
 
+    /** True when OptiFine is in the game. */
+    public static boolean optiFine() {
+        return OPTIFINE;
+    }
+
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         String name = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);

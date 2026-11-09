@@ -6,6 +6,8 @@ import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyBaker;
+import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.TextureStore;
 
@@ -41,6 +43,8 @@ public final class Albedo {
     /** The state the player chose on this server with F6, F7 or the settings, which lasts until the player leaves. */
     private Config.State visitState;
     private final TextureStore store = new TextureStore();
+    /** The sky in the world, which bakes only when a config with new layers is applied. */
+    private final SkyBaker skyBaker;
 
     private long lastModified;
     private int ticks;
@@ -54,7 +58,11 @@ public final class Albedo {
         this.dir = new File(platform.configDir(), MOD_ID);
         this.configFile = new File(dir, "config.json");
         this.harness = Harness.fromSystemProperty(platform);
+        this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
+
+    /** The size of the sky image in the world: about 5.7 texels for each degree, from 15 degrees below the horizon to the zenith. */
+    public static final int SKY_WIDTH = 2048, SKY_HEIGHT = 512;
 
     /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {
@@ -96,6 +104,16 @@ public final class Albedo {
         else if (rule != null) c = c.withState(new Config.State(true, rule.profile()));
         effective = c;
         policy = Policy.of(c);
+        skyBaker.request(policy.skyDesign());
+    }
+
+    /**
+     * The custom sky to draw, or null for the vanilla or flat sky and until the first bake is done, which an adapter
+     * reads on the render thread.
+     */
+    public static SkyImage skyImage() {
+        Albedo sc = instance;
+        return sc == null || sc.policy.skyStyle() != Policy.SkyStyle.LAYERS ? null : sc.skyBaker.image();
     }
 
     public Platform platform() { return platform; }

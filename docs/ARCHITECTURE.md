@@ -11,6 +11,8 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 |   texture/           TextureClassifier, AtlasPaths, Foliage,   |
 |                      PixelTransformer, TextureStore,           |
 |                      Layout, Sheets                            |
+|   sky/               SkyGenerator, SkyBaker, SkyImage,         |
+|                      SkyPresets, SkyLight, Oklab               |
 |   Albedo             init, processTexture, catalog, tick       |
 |   ui/                settings screen (SettingsEditor, Ui)      |
 |   dev/Harness        screenshot harness (development only)     |
@@ -26,7 +28,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
 | TextureUploads              |   |                             |
-| 17 mixins + 4 accessors     |   | 16 mixins, MixinPlugin      |
+| 18 mixins + 4 accessors     |   | 17 mixins, MixinPlugin      |
 +-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -39,7 +41,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 - The core is plain Java 8. It compiles into every jar from `core/src`. It does not change for a new Minecraft version.
 - The core decides how everything looks: config, groups, matching, colors, pixel math, presets, keys and config reload.
 - `Platform` is the port for the game: config folder, logging, resource reload, chunk rebuild, repaint end, messages, key state, clipboard, the settings screen and the harness host.
-- `Canvas` is the port for drawing: `width`, `height`, `fill`, `text` and `textWidth`.
+- `Canvas` is the port for drawing: `width`, `height`, `fill`, `text`, `textWidth` and `image`. The default `image` draws coarse fills, so tests need no textures. Each adapter screen keeps one texture for each image id and size, writes new pixels into it when the serial of the image changes, and frees the textures when the screen closes.
 
 The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.
 
@@ -64,12 +66,25 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Full reload progress | - | `SimpleReloadableResourceManager.notifyReloadListeners` |
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
+| Custom sky (Layers) | 26.x and 1.21.11: `SkyRenderer` `renderSkyDisc`, `renderDarkDisc`, `renderSunriseAndSunset`, `renderStars`; 1.21.1: the draws in `LevelRenderer.renderSky` by ordinal | `RenderGlobal.renderSky` draws by ordinal (`LegacySkyVanillaMixin`) |
 | Clouds | `CloudRenderer.prepare` | - |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
 The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false`. Their targets contain no Minecraft types. If the renderer is not installed, Mixin skips them. Sodium uses the vanilla atlas, colormaps, `BiomeColors`, face shade and lightmap, so the other hooks also apply to Sodium. To test with Sodium or Embeddium, add `-Pcompat=sodium` or `-Pcompat=embeddium` to a `runClient` task. This adds the mod to the dev run only. The versions are in `modern/versions/<v>/gradle.properties`. `tools/screenshots.ps1` has the parameters `-Compat`, `-Extra scene-compat.txt` and `-OutDir`.
 
 Iris uses Sodium, so `-Pcompat=iris` also adds Sodium. Iris has no Albedo hooks of its own. Without a shader pack, Iris renders the same as Sodium. A shader pack can draw its own sky, clouds, light and shadows, and then the sky, cloud, fullbright, shading and shadow hooks have no effect. To test with a shader pack, give `tools/screenshots.ps1` the parameters `-Compat iris -ShaderPack <zip>`. The script copies the pack into the run folder and writes `config/iris.properties` in each run, also with shaders off.
+
+### Custom sky
+
+The sky style Layers keeps a `SkyDesign` (a list of `SkyLayer`) in the sky category. `config/SkyCodec` reads and writes it, and writes nothing new when the sky does not use Layers.
+
+- `sky/SkyGenerator` bakes a design into one equirectangular `SkyImage`: north at the left, east to the right, from the zenith down to 15 degrees below the horizon. Rows below the image take the color of its last row. It works from the bottom layer up in linear light. Generators work on directions, so the image has no seam and no pinch at the zenith. Filter sizes are in degrees, so a small preview matches. A mask names a lower layer by id, so one pass makes the sky. The bake uses only integer hashes, so the same design gives the same pixels.
+- `sky/SkyBaker` bakes in the background on a small pool of low priority threads. The newest request wins: an older bake stops at its next row. `Albedo` has one baker for the world (2048x512), which bakes only when a config with new layers is applied. The editor has one for the preview (512x128).
+- The adapters (`ModernSky`, `LegacySky`) upload a new image on the render thread into one texture of a fixed size, and draw it on a sphere of radius 100 in place of the sky disc. They leave out the dark lower discs and the sunrise fan, and the stars when the sky hides them. On 26.x the upload is before the sky pass, because a texture write is not allowed in a render pass. 1.21.11 and 26.x use their own pipeline (`core/position_tex`, no blend, no depth, triangles), and the Light setting goes in as the color of the transform.
+- `sky/SkyLight` gives the brightness for "Darker at night" from the time of day and the weather with the vanilla formula, so all versions match. The fog takes `SkyImage.fogRgb`: the sky color near the horizon in the direction of the camera.
+- A sky edit does not repaint textures: `Policy.sameTextures` compares only the Celestial switch of the layers, which hides the sun and moon textures.
+- With OptiFine on 1.8.9, `MixinPlugin` turns off `LegacySkyVanillaMixin` and the sky stays vanilla.
+- The texture has about 5.7 texels for each degree. A star is at least 1.5 texels wide, so that it does not flicker, and looks soft on a large screen.
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
 
@@ -155,6 +170,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 - `./gradlew :core:test` in `modern/` tests the config model and codec, texture classification, pixel transforms and the settings screen. A fake `Canvas` records the position of each label. The tests click the labels and examine the saved config. A fuzz test clicks across the full screen at five GUI sizes.
 - `tools/screenshots.ps1` runs each version on a hidden desktop through `core/dev/Harness`. It saves the same scene for each profile to `docs/screenshots/<target>/`.
 - `tools/harness/repaint-modern.txt` and `repaint-legacy.txt` change the settings in a running game and take a screenshot after each change. `repaint-reload.txt` does the same after a resource reload. Compare the screenshots with a run where each change reloads resources. Only animated textures, particles and clouds can differ.
+- `tools/harness/sky-modern.txt` and `sky-legacy.txt` set each sky preset with the harness command `sky <dusk|nebula|galaxy|off>`, take screenshots toward the horizon and up, and of the sky editor with a masked filter. Run `./tools/screenshots.ps1 -Shots sky-modern.txt -OutDir build\sky`; the script takes the legacy copy for 1.8.9.
 - `tools/harness/particles-legacy.txt` adds particle and painting groups on 1.8.9 with the harness command `group <category> <name> <color or mode> <pattern>...`, and changes a group color to show a repaint.
 
 ## Known gaps

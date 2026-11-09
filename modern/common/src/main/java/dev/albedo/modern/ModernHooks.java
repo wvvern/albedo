@@ -3,6 +3,7 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
+import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.TextureStore;
 import dev.albedo.modern.mixin.SpriteContentsAccessor;
@@ -91,8 +92,12 @@ public final class ModernHooks {
         return Albedo.currentPolicy().overridesSky();
     }
 
+    /** The flat sky color, or the custom sky near the horizon where the camera looks, so that the fog meets the sky. */
     public static void overrideFog(Vector4f color) {
-        float[] rgb = Albedo.currentPolicy().skyRgb();
+        SkyImage img = Albedo.skyImage();
+        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+        if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
+        float[] rgb = img != null ? img.fogRgb(ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
         if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
     }
 

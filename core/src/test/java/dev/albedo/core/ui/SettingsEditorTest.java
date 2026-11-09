@@ -13,8 +13,12 @@ import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.ServerRule;
+import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -641,6 +645,94 @@ class SettingsEditorTest {
                 }
             }
         }
+    }
+
+    /** The sky design of the active profile in the saved config. */
+    private static SkyDesign savedSky() {
+        return sc.config().activeProfile().get(Category.SKY).sky();
+    }
+
+    @Test
+    void theSkyLayersEditorAddsMovesMasksAndDeletesLayers() {
+        sc.apply(withOwnProfile());
+        SettingsEditor editor = new SettingsEditor(sc);
+        editor.ui.tipDelay = 0;
+        RecordingCanvas canvas = new RecordingCanvas(640, 360);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        click(editor, canvas, "Layers");
+        assertNotNull(canvas.find("Gradient 1"), "a new custom sky starts from Dusk: " + canvas.texts.keySet());
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.DUSK, savedSky());
+        assertEquals(Appearance.Mode.LAYERS, sc.config().activeProfile().get(Category.SKY).appearance().mode());
+
+        click(editor, canvas, "+ Add layer");
+        assertNotNull(canvas.find("Make"), "the add screen: " + canvas.texts.keySet());
+        click(editor, canvas, "Blur");
+        assertNotNull(canvas.find("Blur 4 of 4"), "the new layer opens: " + canvas.texts.keySet());
+        click(editor, canvas, "None  >");
+        assertNotNull(canvas.find("Light"), "a mask can use light or dark parts: " + canvas.texts.keySet());
+        click(editor, canvas, "Dark");
+        click(editor, canvas, "Place");
+        assertNotNull(canvas.find("has no place"), "a blur changes the whole sky: " + canvas.texts.keySet());
+        editor.keyPressed(UiKey.ESCAPE, false);
+        render(editor, canvas);
+        assertNotNull(canvas.find("masked by Gradient 1"), "the list names the mask: " + canvas.texts.keySet());
+        click(editor, canvas, "Apply");
+        SkyDesign d = savedSky();
+        assertEquals(4, d.layers().size());
+        assertEquals(SkyMask.of(1, SkyMask.Mode.DARK), d.layers().get(3).mask());
+
+        // The last "^" drawn is on the bottom row: the gradient moves over the glow, still below the blur it masks.
+        click(editor, canvas, "^");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyLayer.Kind.GLOW, savedSky().layers().get(0).kind());
+        assertEquals(SkyLayer.Kind.GRADIENT, savedSky().layers().get(1).kind());
+
+        click(editor, canvas, "Dusk");
+        assertNotEquals(SkyPresets.DUSK, sc.config().activeProfile().get(Category.SKY).sky(), "the first click only asks");
+        click(editor, canvas, "Dusk");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.DUSK, savedSky(), "a preset replaces the layers after a second click");
+    }
+
+    @Test
+    void theSkyLayersEditorFitsAtEverySize() {
+        int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}};
+        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}};
+        for (int[] size : sizes) {
+            for (String[] path : paths) {
+                Config c = withOwnProfile();
+                Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
+                        Collections.<Rule>emptyList(), SkyPresets.GALAXY));
+                sc.apply(c.withProfile(p));
+                SettingsEditor editor = new SettingsEditor(sc);
+                editor.ui.tipDelay = 0;
+                RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
+                editor.render(canvas, 0, 0);
+                click(editor, canvas, "Sky");
+                for (String label : path) if (canvas.find(label) != null) click(editor, canvas, label);
+                for (int y = 0; y < size[1]; y += 7) {
+                    for (int x = 0; x < size[0]; x += 11) {
+                        if (editor.isClosed()) break;
+                        editor.mousePressed(0);
+                        editor.render(canvas, x, y);
+                        editor.mouseReleased(0);
+                        editor.mouseScrolled(-1);
+                        editor.render(canvas, x + 1, y);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void theCanvasImageFallbackStaysInsideItsRectangle() {
+        RecordingCanvas canvas = new RecordingCanvas(50, 20);
+        int[] px = new int[8 * 2];
+        java.util.Arrays.fill(px, 0xFF336699);
+        canvas.image("t", new CanvasImage(px, 8, 2, 1), 3, 4, 45, 13);
+        assertEquals(0, canvas.texts.size());
     }
 
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {

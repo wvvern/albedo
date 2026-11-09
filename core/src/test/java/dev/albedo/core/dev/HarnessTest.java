@@ -6,6 +6,7 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -43,5 +44,14 @@ class HarnessTest {
         p = Harness.withEffects(p, "blocks outline 70".split(" "));
         assertEquals(before.withEffects(0, 70, 0), p.get(Category.BLOCKS).appearance());
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
+    }
+
+    @Test
+    void theSkyCommandSetsAPresetOrTheVanillaSky() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
+        assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());
+        assertEquals(SkyPresets.NEBULA, p.get(Category.SKY).sky());
+        assertEquals(Appearance.Mode.ORIGINAL, Harness.withSky(p, "off").get(Category.SKY).appearance().mode());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "rainbow"));
     }
 }

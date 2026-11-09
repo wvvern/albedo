@@ -51,6 +51,7 @@ public final class ConfigCodec {
     private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
     private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
     private static final List<String> CATEGORY_KEYS = plus(LOOK_KEYS, "removeTint", "onlyGroups", "groups");
+    private static final List<String> SKY_CATEGORY_KEYS = plus(CATEGORY_KEYS, SkyCodec.KEYS.toArray(new String[0]));
     private static final List<String> GROUP_KEYS = plus(LOOK_KEYS, "name", "match");
     /** The first key of a profile file; its value is the file format version. */
     private static final String PROFILE_FILE = "albedoProfile";
@@ -139,7 +140,7 @@ public final class ConfigCodec {
             Category c = Category.byKey(e.getKey());
             if (c == null) throw new IllegalArgumentException("profile '" + name + "': unknown setting '" + e.getKey() + "'");
             String where = name + "." + e.getKey();
-            cats.put(c, decodeCategory(c, where, object(e.getValue(), where, CATEGORY_KEYS)));
+            cats.put(c, decodeCategory(c, where, object(e.getValue(), where, c == Category.SKY ? SKY_CATEGORY_KEYS : CATEGORY_KEYS)));
         }
         return new Profile(name, cats, on);
     }
@@ -171,7 +172,8 @@ public final class ConfigCodec {
                 rules.add(new Rule(str(rm, "name", ""), patterns, decodeAppearance(category, at, rm, appearance), own));
             }
         }
-        return new CategorySettings(appearance, bool(map, "removeTint", false), onlyGroups, rules);
+        SkyDesign sky = category == Category.SKY ? SkyCodec.decode(where, map, appearance.mode() == Appearance.Mode.LAYERS) : SkyDesign.NONE;
+        return new CategorySettings(appearance, bool(map, "removeTint", false), onlyGroups, rules, sky);
     }
 
     /** Unspecified fields inherit from {@code parent} (the category's look for groups). */
@@ -229,12 +231,16 @@ public final class ConfigCodec {
         for (Toggle t : Toggle.values()) if (p.is(t) != t.defaultOn) out.put(t.key, p.is(t));
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
             CategorySettings cs = e.getValue();
+            // Sky layers are kept only for the style "layers", so that an older version can still read the file.
+            boolean layers = cs.appearance().mode() == Appearance.Mode.LAYERS;
+            if (!layers && cs.withSky(SkyDesign.NONE).equals(CategorySettings.UNTOUCHED)) continue;
             Map<String, Object> m = new LinkedHashMap<String, Object>();
             // Recolor and effect fields only where a look uses them, so that an older version can still read the file.
             boolean recolor = uses(cs, a -> a.mode() == Appearance.Mode.RECOLOR);
             boolean effects = uses(cs, Appearance::hasEffects);
             Appearance written = unused(cs.appearance(), Appearance.ORIGINAL, recolor, effects);
             encodeAppearance(m, written, Appearance.ORIGINAL);
+            if (layers) SkyCodec.encode(m, cs.sky());
             if (cs.removeTint()) m.put("removeTint", true);
             if (cs.onlyGroups()) m.put("onlyGroups", true);
             if (!cs.rules().isEmpty()) {
@@ -288,7 +294,7 @@ public final class ConfigCodec {
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> object(Object o, String where, List<String> known) {
+    static Map<String, Object> object(Object o, String where, List<String> known) {
         if (!(o instanceof Map)) throw new IllegalArgumentException("'" + where + "' must be a JSON object");
         Map<String, Object> map = (Map<String, Object>) o;
         if (known != null) {

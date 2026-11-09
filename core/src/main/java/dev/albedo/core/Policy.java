@@ -5,11 +5,14 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.texture.Foliage;
 import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.TextureKey;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -39,10 +42,28 @@ public final class Policy {
         return profile != null;
     }
 
+    /** How the sky of the overworld is drawn. */
+    public enum SkyStyle {
+        VANILLA,
+        /** One flat color for the sky and fog, with no sun, moon or stars. */
+        FLAT,
+        /** The custom sky of {@link #skyDesign()}. */
+        LAYERS
+    }
+
     /** Whether both policies give every texture the same look. */
     public boolean sameTextures(Policy other) {
         if (profile == null || other.profile == null) return profile == other.profile;
-        return profile.configured().equals(other.profile.configured()) && profile.is(Toggle.FOLIAGE) == other.profile.is(Toggle.FOLIAGE);
+        return textureLooks(profile).equals(textureLooks(other.profile)) && profile.is(Toggle.FOLIAGE) == other.profile.is(Toggle.FOLIAGE);
+    }
+
+    /** The categories of a profile with only the part of the sky layers that changes textures, so that a layer edit repaints nothing. */
+    private static Map<Category, CategorySettings> textureLooks(Profile p) {
+        Map<Category, CategorySettings> out = new EnumMap<Category, CategorySettings>(Category.class);
+        out.putAll(p.configured());
+        CategorySettings sky = out.get(Category.SKY);
+        if (sky != null) out.put(Category.SKY, sky.withSky(sky.sky().texturesOnly()));
+        return out;
     }
 
     public Appearance appearanceFor(TextureKey key) {
@@ -75,6 +96,11 @@ public final class Policy {
                 // A flat sky has no sun, moon or stars; the End's sky texture takes the flat color instead.
                 return Appearance.of(Appearance.Mode.HIDDEN);
             }
+            if (c == Category.SKY && skyStyle() == SkyStyle.LAYERS) {
+                // The layers are drawn by the sky hooks, so the textures only show or hide the sun and moon.
+                boolean hide = s.sky().celestial() == SkyDesign.Celestial.HIDE && !key.id().contains("end_sky");
+                return hide ? Appearance.of(Appearance.Mode.HIDDEN) : Appearance.ORIGINAL;
+            }
         }
         return s.lookOf(group);
     }
@@ -90,7 +116,21 @@ public final class Policy {
 
     /** True when the sky (and fog, so the horizon blends) should be one flat color. */
     public boolean overridesSky() {
-        return profile != null && profile.get(Category.SKY).appearance().mode() == Appearance.Mode.SOLID;
+        return skyStyle() == SkyStyle.FLAT;
+    }
+
+    public SkyStyle skyStyle() {
+        if (profile == null) return SkyStyle.VANILLA;
+        switch (profile.get(Category.SKY).appearance().mode()) {
+            case SOLID: return SkyStyle.FLAT;
+            case LAYERS: return SkyStyle.LAYERS;
+            default: return SkyStyle.VANILLA;
+        }
+    }
+
+    /** The custom sky to draw, or null when the style is not {@link SkyStyle#LAYERS}. */
+    public SkyDesign skyDesign() {
+        return skyStyle() == SkyStyle.LAYERS ? profile.get(Category.SKY).sky() : null;
     }
 
     /** The flat sky color as {r, g, b} in 0..1 (what fog and clear-color APIs take), or null when not overridden. */

@@ -14,6 +14,7 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.Toggle;
+import dev.albedo.core.sky.SkyPresets;
 import dev.albedo.core.texture.PixelTransformer;
 import dev.albedo.core.texture.TextureKey;
 
@@ -155,6 +156,7 @@ public final class SettingsEditor {
     private int picked;
     private int suggestion;
     private final Hsv hsv = new Hsv();
+    private final SkyLayersEditor skyLayers;
 
     private final TextField hex = new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#');
     private final TextField search = new TextField(64, TextField.ANY);
@@ -167,6 +169,7 @@ public final class SettingsEditor {
     public SettingsEditor(final Albedo sc) {
         this.sc = sc;
         this.ui = new Ui(() -> sc.platform().clipboard());
+        this.skyLayers = new SkyLayersEditor(ui, () -> changed = true, e -> sc.platform().warn("Cannot make the sky preview", e));
         this.saved = sc.config();
         setDraft(saved);
     }
@@ -247,6 +250,7 @@ public final class SettingsEditor {
     /** Takes an Esc that no text field or header mode took this frame, for an armed button, the open group, then the screen. */
     private void escape() {
         if (!ui.takeKey(UiKey.ESCAPE) || ui.disarm()) return;
+        if (page.view == View.CATEGORY && page.category == Category.SKY && skyLayers.back()) return;
         if (page.inGroup()) go(page.withGroup(-1));
         else done();
     }
@@ -289,6 +293,7 @@ public final class SettingsEditor {
             notice = null;
         }
         if (otherCategory) ui.resetScroll("groups");
+        if (otherCategory || next.view != prev.view) skyLayers.reset();
     }
 
     // ---------------------------------------------------------------- header: title, on/off, profiles
@@ -538,6 +543,14 @@ public final class SettingsEditor {
         String tintHint = tint && !cs.removeTint() && mixes
                 ? "Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color." : null;
         int hintH = tintHint == null ? 0 : ui.paragraphHeight(tintHint, w) + GAP;
+        if (category == Category.SKY && look.mode() == Appearance.Mode.LAYERS) {
+            int cy = lookEditor(x, y, w, bottom, cs, -1);
+            CategorySettings now = profile().get(category);
+            if (now.appearance().mode() == Appearance.Mode.LAYERS) {
+                skyLayers.draw(x, cy, w, bottom, ui.c.height(), now.sky(), d -> setCategory(profile().get(Category.SKY).withSky(d)));
+            }
+            return;
+        }
         int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? TINT_ROW_H : 0) + hintH;
         int cy = lookEditor(x, y, w, bottom - below, cs, -1);
         if (cs.onlyGroups()) {
@@ -551,7 +564,9 @@ public final class SettingsEditor {
                     category == Category.BLOCKS ? "Grass and leaves do not get the biome color" : "Water does not get the biome color");
             if (remove != cs.removeTint()) setCategory(cs.withRemoveTint(remove));
         }
-        if (category == Category.SKY) ui.paragraph("This also sets the fog to the sky color.", x, cy, w, Ui.FAINT);
+        if (category == Category.SKY && look.mode() == Appearance.Mode.SOLID) {
+            ui.paragraph("This also sets the fog to the sky color.", x, cy, w, Ui.FAINT);
+        }
     }
 
     /**
@@ -585,7 +600,10 @@ public final class SettingsEditor {
         int cy = y + ui.segmentedHeight(labels, cw) + GAP;
         if (chosen != selected) {
             if (rule != null && cs.onlyGroups() && chosen == 0) setRule(cs, index, rule.withGlobalLook());
-            else setLook(cs, index, target.withMode(modes.get(chosen)));
+            else if (modes.get(chosen) == Appearance.Mode.LAYERS && cs.sky().isEmpty()) {
+                // A new custom sky starts from a preset, so that the first look is a sky and not black.
+                setCategory(cs.withAppearance(target.withMode(Appearance.Mode.LAYERS)).withSky(SkyPresets.DUSK));
+            } else setLook(cs, index, target.withMode(modes.get(chosen)));
             return cy; // the rest depends on the style, and the frame draws again with it
         }
         if (global) {
@@ -1268,6 +1286,7 @@ public final class SettingsEditor {
     /** Selects a different profile, which closes a group of the previous one. */
     private void switchProfile(Config c) {
         setDraft(c);
+        skyLayers.reset();
         go(page.withGroup(-1));
     }
 

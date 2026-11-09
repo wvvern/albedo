@@ -40,10 +40,11 @@ public enum Category {
      */
     public List<Appearance.Mode> supportedModes() {
         switch (this) {
-            case SKY: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID);
+            case SKY: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID, Appearance.Mode.LAYERS);
             case CLOUDS: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.HIDDEN);
             case WEATHER: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID, Appearance.Mode.HIDDEN);
-            default: return Arrays.asList(Appearance.Mode.values());
+            default: return Arrays.asList(Appearance.Mode.ORIGINAL, Appearance.Mode.SOLID, Appearance.Mode.RECOLOR,
+                    Appearance.Mode.AVERAGE, Appearance.Mode.GRAYSCALE, Appearance.Mode.HIDDEN);
         }
     }
 

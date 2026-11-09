@@ -62,6 +62,27 @@ Each part of the world has a style:
 - **Gray** removes the color and keeps the detail.
 - **Hide** makes the textures invisible.
 
+The sky has three styles: Vanilla, Color (one flat color for the sky and the fog) and Layers.
+
+### Custom sky
+
+With the style **Layers**, you make your own sky from up to 8 layers. The first time, the sky starts from the Dusk preset. Push Dusk, Nebula or Galaxy two times to start again from a preset.
+
+There are two types of layer:
+
+- **Make** layers paint: Gradient, Glow, Noise, Fractal, Galaxy and Stars.
+- **Change** layers change the layers below them: Blur, Crystallize, Pixelate, Posterize, Hue shift, Bloom, Swirl and Vignette. You can put many of them on top of each other.
+
+A higher layer is drawn over the lower layers. Click a layer to edit it:
+
+- **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern.
+- **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
+- **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
+
+The preview above the layers shows all of the sky, from the horizon (the white line) to the zenith (the top edge), with north at the left. The yellow dashed lines are the sun path: the sun comes up in the east, goes through the zenith and goes down in the west. On a layer page, "This layer" shows only that layer, also when it is only a mask. The sky in the world changes when you push Apply or Done.
+
+"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. The fog takes the color of your sky near the horizon.
+
 ### Groups
 
 A group gives some textures a different look from the rest of their category. For example, a group can make grass and dirt green while all other blocks stay white.
@@ -110,19 +131,38 @@ All settings are saved in `config/albedo/config.json`. You can also edit this fi
 }
 ```
 
-The parts of the world are `blocks`, `fluids`, `block_entities`, `decorations`, `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds` and `weather`. The styles are `original`, `solid`, `recolor`, `average`, `grayscale` and `hidden`.
+The parts of the world are `blocks`, `fluids`, `block_entities`, `decorations`, `items`, `entities`, `players`, `particles`, `block_breaking`, `sky`, `clouds` and `weather`. The styles are `original`, `solid`, `recolor`, `average`, `grayscale` and `hidden`, and `layers` for the sky.
+
+A custom sky in the file:
+
+```json
+"sky": {
+  "mode": "layers",
+  "celestial": "hide",
+  "light": "day_night",
+  "layers": [
+    { "id": 1, "kind": "gradient", "color1": "#F08A4B", "color2": "#1A1F4D", "height": 22, "amount": 45 },
+    { "id": 2, "kind": "noise", "output": "mask_only", "amount": 55, "seed": 12 },
+    { "id": 3, "kind": "stars", "blend": "add", "opacity": 80, "amount": 60, "seed": 3, "transform": { "scale": 150 } },
+    { "id": 4, "kind": "blur", "amount": 25, "mask": { "layer": 2, "mode": "light" } }
+  ]
+}
+```
+
+The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height` and `seed` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 
 ## Works with
 
 - **Sodium and Embeddium:** everything works.
-- **OptiFine on 1.8.9:** everything works. Shaders are not tested.
-- **Iris:** everything works with shaders off. Many shader packs draw their own sky, clouds, light and shadows. With those packs, the sky, clouds, fullbright, shading and shadow settings have no effect.
+- **OptiFine on 1.8.9:** everything works, but the sky style Layers shows the vanilla sky, because OptiFine changes how the sky is drawn. Shaders are not tested.
+- **Iris:** everything works with shaders off. Many shader packs draw their own sky, clouds, light and shadows. With those packs, the sky (also Layers), clouds, fullbright, shading and shadow settings have no effect.
 
 ## Known limits
 
 - On 1.21.2 and later, clouds can only be hidden, not colored.
+- A custom sky has about 6 pixels for each degree of the sky, so small stars look soft on a large screen.
 - Downloaded player skins do not change.
 - When small plants are hidden, their items are hidden too.
 - With OptiFine shaders or very large resource packs, a settings change reloads all resources, which can take a while.
