@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
  */
 final class OptiFine {
     private static final Method IS_SHADERS = method(type("Config"), "isShaders");
+    private static final Method IS_SKY_ENABLED = method(type("Config"), "isSkyEnabled");
     /** A copy of the sprite in its own GL texture, with "Multitexture" on (anisotropic filtering, antialiasing). */
     private static final Field SPRITE_SINGLE = field(TextureAtlasSprite.class, "spriteSingle");
     private static final Field SPRITE_TEXTURE = field(TextureAtlasSprite.class, "glSpriteTextureId");
@@ -25,6 +26,17 @@ final class OptiFine {
             return (Boolean) IS_SHADERS.invoke(null);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return true; // unknown: the caller falls back to a resource reload
+        }
+    }
+
+    /** True when the sky of the game draws, which it does not with the OptiFine setting Sky off or with a shader pack. */
+    static boolean drawsSky() {
+        if (shaders()) return false;
+        if (IS_SKY_ENABLED == null) return true;
+        try {
+            return (Boolean) IS_SKY_ENABLED.invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false; // unknown: the vanilla sky draws
         }
     }
 

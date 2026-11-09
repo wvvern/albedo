@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
@@ -29,9 +30,10 @@ public final class LegacySky {
 
     private LegacySky() {}
 
-    /** The custom sky to draw, or null; OptiFine changes the sky renderer, so the custom sky is off with it. */
+    /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack). */
     public static SkyImage image() {
-        return MixinPlugin.optiFine() ? null : Albedo.skyImage();
+        SkyImage img = Albedo.skyImage();
+        return img == null || !LegacySkyPatch.hooked() || !OptiFine.drawsSky() ? null : img;
     }
 
     public static boolean active() {
@@ -64,7 +66,7 @@ public final class LegacySky {
      *
      * @return false when there is no custom sky, so that the vanilla disc draws
      */
-    public static boolean draw() {
+    private static boolean draw() {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);
@@ -113,9 +115,44 @@ public final class LegacySky {
         }
     }
 
-    /** Ends a mesh that vanilla built for a draw that the custom sky leaves out, so that the next mesh can start. */
-    public static void discard(Tessellator tessellator) {
+    /** Draws the sky disc of renderSky, or the custom sky in its place. */
+    public static void drawSky(VertexBuffer buffer, int mode) {
+        if (!draw()) buffer.drawArrays(mode);
+    }
+
+    public static void drawSky(int list) {
+        if (!draw()) GlStateManager.callList(list);
+    }
+
+    public static void drawStars(VertexBuffer buffer, int mode) {
+        if (!hidesStars()) buffer.drawArrays(mode);
+    }
+
+    public static void drawStars(int list) {
+        if (!hidesStars()) GlStateManager.callList(list);
+    }
+
+    /** Draws a dark disc below the horizon, which the custom sky leaves out. */
+    public static void drawDark(VertexBuffer buffer, int mode) {
+        if (!active()) buffer.drawArrays(mode);
+    }
+
+    public static void drawDark(int list) {
+        if (!active()) GlStateManager.callList(list);
+    }
+
+    /** Draws the sunrise fan or the box below the horizon, or ends the mesh when the custom sky leaves it out. */
+    public static void drawMesh(Tessellator tessellator) {
+        if (!active()) {
+            tessellator.draw();
+            return;
+        }
         tessellator.getWorldRenderer().finishDrawing();
         tessellator.getWorldRenderer().reset();
+    }
+
+    /** Whether the sky of an OptiFine resource pack hides the stars, which it does not when the custom sky replaces it. */
+    public static boolean customSkyLayers(boolean layers) {
+        return layers && !active();
     }
 }
