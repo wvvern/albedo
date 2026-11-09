@@ -52,8 +52,10 @@ class HarnessTest {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
         SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
         assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
-        assertEquals(SkyTurning.NONE.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
-        assertEquals(SkyTurning.NONE.withAmount(100).withTrails(45).withTrailLight(80),
+        assertEquals(SkyTurning.DEFAULT, p.get(Category.SKY).sky().turning(), "a preset turns with the default turning");
+        assertEquals(SkyTurning.STILL, Harness.withSkyTurning(p, new String[]{"0"}).get(Category.SKY).sky().turning());
+        assertEquals(SkyTurning.STILL.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
+        assertEquals(SkyTurning.STILL.withAmount(100).withTrails(45).withTrailLight(80),
                 Harness.withSkyTurning(p, "100 trails 45 light 80".split(" ")).get(Category.SKY).sky().turning());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 speed".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 fast 2".split(" ")));

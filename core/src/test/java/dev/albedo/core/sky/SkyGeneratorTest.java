@@ -91,7 +91,7 @@ class SkyGeneratorTest {
         assertSame(sharp.argb(), baker.image().argb());
         assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
         assertFalse(baker.image().drawsSharp());
-        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.NONE.withAmount(50));
+        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.STILL.withAmount(50));
         baker.request(turning);
         assertTrue(baker.current(), "a new turning also keeps the pixels");
         assertSame(sharp.argb(), baker.image().argb());

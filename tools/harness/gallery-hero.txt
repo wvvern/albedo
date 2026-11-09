@@ -5,6 +5,7 @@ wait 60
 profile pastel
 run time set 6000
 sky galaxy
+skyturn 0
 skyrender sharp
 run kill @e[type=!player]
 wait 5
@@ -65,6 +66,7 @@ wait 40
 screenshot h01-galaxy-close
 # Close views of the Nebula stars at a field of view of 30, sharp and then baked.
 sky nebula
+skyturn 0
 wait 160
 run tp @p 0.5 -60 6.5 180 -40
 fov 30

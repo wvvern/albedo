@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- feat: Turn the custom sky slowly by default, at 1x in real time
+
 ## 0.4.1
 
 - feat: Show sky stars with the colors of real stars, many faint stars and few bright stars
