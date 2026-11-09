@@ -4,6 +4,7 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.SkyTurning;
+import dev.albedo.core.config.Transform;
 
 import java.util.List;
 
@@ -135,7 +136,7 @@ public final class SkyProgram {
                 block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             } else if (l.kind() == SkyLayer.Kind.STARS) {
                 block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
-                if (design.turning().showsTrails()) trails(design.turning(), l.transform().rotation(), base);
+                if (design.turning().showsTrails()) trails(design.turning(), l.transform(), base);
             } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
                 block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
             }
@@ -231,9 +232,15 @@ public final class SkyProgram {
         return LAYERS + layer * LAYER_VEC4S * 4 + offset;
     }
 
-    /** Writes the trails of a stars layer: the arc, the light and the trail axis turned into the layer frame. */
-    private void trails(SkyTurning turning, double[] rotation, int base) {
-        block[base + TRAIL] = (float) Math.toRadians(turning.trails());
+    /**
+     * Writes the trails of a stars layer: the arc, the light and the trail axis turned into the layer frame, where the arc
+     * of a layer smaller than 100 is at most the largest Trails times its size, because a pixel reads the cells along the
+     * whole arc and a smaller layer has more cells.
+     */
+    private void trails(SkyTurning turning, Transform transform, int base) {
+        double arc = Math.toRadians(turning.trails()), longest = Math.toRadians(SkyTurning.MAX_TRAILS) * transform.scale() / 100.0;
+        block[base + TRAIL] = (float) Math.min(arc, longest);
+        double[] rotation = transform.rotation();
         block[base + TRAIL_LIGHT] = turning.trailLight() / 100f;
         double[] axis = SkyTurn.trailAxis(turning);
         for (int row = 0; row < 3; row++) {

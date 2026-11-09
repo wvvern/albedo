@@ -70,6 +70,23 @@ class SkyProgramTest {
     }
 
     @Test
+    void aSmallStarsLayerHasShorterTrailsSoThatAPixelReadsNoMoreCells() {
+        SkyDesign trails = SkyPresets.TRAILS.withTurning(new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 40, SkyTurning.Direction.NORMAL, 0,
+                SkyTurning.MAX_TRAILS, 60));
+        int stars = 0;
+        while (trails.layers().get(stars).kind() != SkyLayer.Kind.STARS) stars++;
+        SkyLayer layer = trails.layers().get(stars);
+        SkyLayer small = layer.withTransform(layer.transform().with(Transform.Axis.SCALE, 25));
+        float full = arc(trails, stars), quarter = arc(trails.withLayer(stars, small), stars);
+        assertEquals(Math.toRadians(SkyTurning.MAX_TRAILS), full, 1e-6);
+        assertEquals(Math.toRadians(SkyTurning.MAX_TRAILS) * 0.25, quarter, 1e-6, "the arc in cells is never longer than at size 100");
+    }
+
+    private static float arc(SkyDesign design, int layer) {
+        return SkyProgram.of(design, new float[SkyImage.RING * 3]).block()[SkyProgram.at(layer, SkyProgram.TRAIL)];
+    }
+
+    @Test
     void theBlockOfAFrameHasTheTimeTheAuroraClockAndTheTurn() {
         SkyProgram aurora = SkyProgram.of(SkyPresets.AURORA, new float[SkyImage.RING * 3]);
         float[] still = aurora.block();
