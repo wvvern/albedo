@@ -16,36 +16,72 @@ sky dusk
 wait 160
 screenshot perf-1080-dusk
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 sky nebula
 wait 160
 screenshot perf-1080-nebula
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 sky galaxy
 wait 160
 screenshot perf-1080-galaxy
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 sky meteors
 wait 160
 screenshot perf-1080-meteors
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 sky aurora
 wait 160
 screenshot perf-1080-aurora
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 sky trails
 wait 160
 screenshot perf-1080-trails
 fps 10
+skycompare
+wait 20
+skytime 1920 1080
+wait 10
+skytime 1920 1080
+wait 10
 skytime 1920 1080
 wait 20
 window 2560 1440
@@ -57,30 +93,54 @@ sky dusk
 wait 160
 fps 10
 skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
 wait 20
 sky nebula
 wait 160
 fps 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
 skytime 2560 1440
 wait 20
 sky galaxy
 wait 160
 fps 10
 skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
 wait 20
 sky meteors
 wait 160
 fps 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
 skytime 2560 1440
 wait 20
 sky aurora
 wait 160
 fps 10
 skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
 wait 20
 sky trails
 wait 160
 fps 10
+skytime 2560 1440
+wait 10
+skytime 2560 1440
+wait 10
 skytime 2560 1440
 wait 20
 window 3840 2160
@@ -92,71 +152,135 @@ sky dusk
 wait 160
 fps 10
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky nebula
 wait 160
 fps 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky galaxy
 wait 160
 fps 10
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky meteors
 wait 160
 fps 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky aurora
 wait 160
 fps 10
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky trails
 wait 160
 fps 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 # The GPU time of the first layers of each preset at 3840x2160, where the difference to the line before is the cost of one layer.
 sky nebula 1
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky nebula 2
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky nebula 3
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky nebula 4
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky nebula 5
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky nebula 6
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky galaxy 1
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky galaxy 2
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky galaxy 3
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky galaxy 4
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 # The galaxy itself is in the south-east, so this view shows its full cost.
@@ -169,17 +293,33 @@ wait 20
 sky meteors 2
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky meteors 3
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 sky aurora 2
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky aurora 3
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 # The aurora is in the north near the horizon.
@@ -190,13 +330,25 @@ wait 20
 sky trails 1
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky dusk 2
 wait 100
 skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
+skytime 3840 2160
 wait 20
 sky dusk 3
 wait 100
+skytime 3840 2160
+wait 10
+skytime 3840 2160
+wait 10
 skytime 3840 2160
 wait 20
 quit
