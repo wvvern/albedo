@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+- feat: Draw the custom sky sharp at all zoom levels, with stars and clouds that stay smooth on all versions
+- feat: Add the Sharp render switch to the sky editor, so a slow graphics card can use the baked sky
+- feat: Add a Full sphere switch, so that the custom sky continues below the horizon
+- feat: Move the Chroma colors over time, and set them with the Speed, Vivid and Bright sliders
+- feat: Put Chroma, Bevel and Outline in an Effects section that opens and closes
+- fix: Make mouse clicks work in the settings screen on 26.3
+- config: Chroma from an older config file moves at speed 30, so set Speed to 0 to keep it still
+
 ## 0.3.0
 
 - feat: Add the sky style Layers to build your own sky from gradients, glows, noise, fractals, galaxies and stars

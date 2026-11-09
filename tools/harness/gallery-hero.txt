@@ -1,0 +1,38 @@
+# Store page images of the 0.4.0 features: the pastel world under the sharp Galaxy sky, and a close view of sharp stars.
+# Run it after scene-modern.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery-hero.txt -OutDir build\gallery-hero
+wait 60
+profile pastel
+run time set 6000
+# A lantern in place of the torch: torch smoke drifts through the sky shots.
+run setblock 0 -59 -6 lantern
+sky galaxy
+skyrender sharp
+run kill @e[type=!player]
+wait 5
+run kill @e[type=item]
+run summon pig -10.2 -60 -8.6 {NoAI:1b,Rotation:[135f,0f]}
+run summon sheep -8.8 -60 -10 {NoAI:1b,Color:14,Rotation:[135f,0f]}
+run summon villager -6 -60 -12.8 {NoAI:1b,Rotation:[135f,0f]}
+run summon cow -4.6 -60 -14.2 {NoAI:1b,Rotation:[135f,0f]}
+wait 160
+run tp @p -14.5 -60 -18.5 -45 -20
+wait 40
+screenshot h01-pastel-galaxy-a
+run tp @p -14.5 -60 -18.5 -40 -24
+wait 40
+screenshot h01-pastel-galaxy-b
+# Close views of the Nebula stars at a field of view of 30, sharp and then baked.
+sky nebula
+wait 160
+run tp @p 0.5 -60 6.5 180 -40
+fov 30
+wait 40
+screenshot h02-nebula-sharp
+skyrender fast
+wait 160
+screenshot h02-nebula-fast
+skyrender sharp
+fov 70
+wait 20
+quit
