@@ -118,7 +118,7 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
-        return LegacySharpSky.drawEquirect(sky, width, height, repeat, png, done);
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        return LegacySharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
     }
 }

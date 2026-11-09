@@ -53,12 +53,22 @@ public final class SkyPresets {
             .add(Kind.BLOOM, Param.AMOUNT, 35, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
+    /** A clear dark night with stars, a faint band of dust and a shower of shooting stars from the north-east. */
+    public static final SkyDesign METEORS = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF101A33, Param.COLOR_2, 0xFF02040A, Param.HEIGHT, 25, Param.AMOUNT, 60)
+            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF26304D, Param.AMOUNT, 40, Param.SEED, 6)
+            .blend(SkyLayer.Blend.ADD).opacity(45).place(new Transform(0, 0, 60, 200))
+            .add(Kind.STARS, Param.AMOUNT, 55, Param.SEED, 11).blend(SkyLayer.Blend.ADD)
+            .add(Kind.METEORS, Param.SHOWER, 70).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
+
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 
     static {
         ALL.put("dusk", DUSK);
         ALL.put("nebula", NEBULA);
         ALL.put("galaxy", GALAXY);
+        ALL.put("meteors", METEORS);
     }
 
     private SkyPresets() {}
