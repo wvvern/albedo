@@ -54,11 +54,13 @@ public final class SettingsEditor {
         "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
         "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
     /** The height of the three Recolor sliders on their own rows. */
-    private static final int RECOLOR_H = slidersH(RECOLOR_LABELS.length);
+    private static final int RECOLOR_H = Form.slidersHeight(RECOLOR_LABELS.length);
     /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
     private static final int ROW = 11;
+    /** The distance between the panel rows of the group and server lists. */
+    private static final int LIST_ROW = 16;
     private static final int GAP = 6;
     private static final int MAX_W = 620, MAX_H = 380;
     private static final long TOAST_MS = 6000;
@@ -514,7 +516,7 @@ public final class SettingsEditor {
             go(page.withGroup(-1));
         }
         String name = Labels.name(category);
-        int cy = y + pageTitle(x, y, w, name, Labels.description(category));
+        int cy = y + ui.title(x, y, w, name, Labels.description(category));
         Tab tab = category.hasGroups() ? page.tab : Tab.LOOK;
         // A category without groups shows only the Look tab, so that the Style row has the same place on every page.
         String lookTip = category.hasGroups() ? "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group"
@@ -597,8 +599,9 @@ public final class SettingsEditor {
         } else if (rule != null) {
             tips[0] = "Do not change these blocks";
         }
-        int lx = x + labelW, cw = w - labelW;
-        ui.text("Style", x, y + 3, Ui.MUTED);
+        Form form = new Form(ui, x, w, labelW);
+        int lx = form.lx(), cw = form.cw();
+        form.label(y, Ui.H, "Style", null);
         int chosen = ui.segmented("mode", lx, y, cw, labels, selected, tips);
         int cy = y + ui.segmentedHeight(labels, cw) + GAP;
         if (chosen != selected) {
@@ -623,83 +626,44 @@ public final class SettingsEditor {
                 ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
         int noteH = shapeNote == null ? 0 : ui.paragraphHeight(shapeNote, w) + GAP;
         int shapeH = usesShape ? Ui.H + GAP + noteH : 0;
-        int effectsH = effects ? slidersH(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
+        int effectsH = effects ? Form.slidersHeight(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
         if (m == Appearance.Mode.SOLID || recolor) {
-            ui.text("Color", x, cy + 3, Ui.MUTED);
-            ui.tip(x, cy, labelW, Ui.H, recolor ? "The average color of the result" : null);
+            form.label(cy, Ui.H, "Color", recolor ? "The average color of the result" : null);
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
             int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH;
             if (room < 24) cy = compactColor(lx, cy, cw, cs, index, target);
             else cy = colorPicker(lx, cy, cw, Math.min(44, room), cs, index, target);
             // A very short window puts each set of sliders on one row and names them in their tooltips.
             int effectsMin = effects ? Ui.SLIDER_H + GAP : 0;
-            if (recolor) cy = recolorSliders(x, cy, w, cs, index, target, bottom - cy - shapeH - effectsMin < RECOLOR_H);
+            if (recolor) cy = recolorSliders(form, cy, cs, index, target, bottom - cy - shapeH - effectsMin < RECOLOR_H);
         }
         if (usesShape) {
-            String[] shapes = {"Keep", "Cut-out", "Solid"};
-            ui.text("Shape", x, cy + 3, Ui.MUTED);
-            int a = ui.segmented("alpha", lx, cy, cw, shapes, target.alpha().ordinal(),
-                    new String[]{"Keep transparent parts (glass, leaves)",
-                            "Make each part fully solid or fully transparent",
-                            "Fill all holes. Leaves and glass become solid cubes."});
-            if (a != target.alpha().ordinal()) setLook(cs, index, target.withAlpha(Appearance.Alpha.values()[a]));
-            cy += ui.segmentedHeight(shapes, cw) + GAP;
+            Appearance.Alpha[] shapes = Appearance.Alpha.values();
+            form.label(cy, Ui.H, "Shape", null);
+            Appearance.Alpha a = ui.choice("alpha", lx, cy, cw, shapes, target.alpha(), Labels::alpha, Labels::alphaTip);
+            if (a != target.alpha()) setLook(cs, index, target.withAlpha(a));
+            cy += ui.choiceHeight(shapes, Labels::alpha, cw) + GAP;
             // The effects come first in a short window.
             if (shapeNote != null && bottom - cy - noteH >= (effects ? Ui.SLIDER_H : 0)) cy += ui.paragraph(shapeNote, x, cy, w, Ui.FAINT) + GAP;
         }
         // The smallest windows have no row left for the effects, which then keep their values.
-        if (effects && bottom - cy >= Ui.SLIDER_H) cy = effectSliders(x, cy, w, cs, index, target, bottom - cy < effectsH);
+        if (effects && bottom - cy >= Ui.SLIDER_H) cy = effectSliders(form, cy, cs, index, target, bottom - cy < effectsH);
         return cy;
     }
 
-    /** The height of {@code n} sliders on their own rows. */
-    private static int slidersH(int n) {
-        return n * (Ui.SLIDER_H + 3);
-    }
-
-    /**
-     * Percent sliders on their own rows, or on one row under {@code title} that names them in their tooltips, which
-     * change {@code values} in place.
-     *
-     * @return the next y
-     */
-    private int sliders(String id, String title, String[] labels, String[] tips, int[] values, int x, int y, int w, boolean oneRow) {
-        int n = labels.length, lx = x + labelW, cw = w - labelW, partW = (cw - (n - 1) * GAP) / n;
-        if (oneRow) ui.text(title, x, y + 2, Ui.MUTED);
-        for (int i = 0; i < n; i++) {
-            int sy = oneRow ? y : y + slidersH(i);
-            if (!oneRow) {
-                ui.text(labels[i], x, sy + 2, Ui.MUTED);
-                ui.tip(x, sy, labelW, Ui.SLIDER_H, tips[i]);
-            }
-            int sx = oneRow ? lx + i * (partW + GAP) : lx, sw = oneRow ? partW : cw;
-            if (oneRow) {
-                // Each part names its slider, in full when the track keeps room and by its initial when not.
-                String name = sw - ui.width(labels[i]) - 4 >= ui.width("100%") + 36 ? labels[i] : labels[i].substring(0, 1);
-                int nameW = ui.width(name) + 4;
-                ui.text(name, sx, sy + 2, Ui.MUTED);
-                ui.tip(sx, sy, nameW, Ui.SLIDER_H, tips[i]);
-                sx += nameW;
-                sw -= nameW;
-            }
-            values[i] = ui.slider(id + "." + i, sx, sy, sw, values[i], tips[i]);
-        }
-        return y + (oneRow ? Ui.SLIDER_H : slidersH(n) - 3) + GAP;
-    }
-
-    private int recolorSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
+    private int recolorSliders(Form form, int y, CategorySettings cs, int index, Appearance target, boolean oneRow) {
         int[] v = {target.detail(), target.keepColors(), target.keepLight()};
-        int next = sliders("recolor", "Recolor", RECOLOR_LABELS, RECOLOR_TIPS, v, x, y, w, oneRow);
+        int next = form.sliders("recolor", "Recolor", RECOLOR_LABELS, RECOLOR_TIPS, v, y, oneRow);
         Appearance changed = target.withRecolor(v[0], v[1], v[2]);
         if (!changed.equals(target)) setLook(cs, index, changed);
         return next;
     }
 
     /** Bevel, Outline and Chroma for blocks and fluids, and only Chroma elsewhere. */
-    private int effectSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
+    private int effectSliders(Form form, int y, CategorySettings cs, int index, Appearance target, boolean oneRow) {
         int n = page.category.hasEdgeEffects() ? EFFECT_LABELS.length : 1;
         int[] v = {target.chroma(), target.bevel(), target.outline()};
-        int next = sliders("effects", "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, x, y, w, oneRow);
+        int next = form.sliders("effects", "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, y, oneRow);
         Appearance changed = target.withEffects(v[1], v[2], v[0]);
         if (!changed.equals(target)) setLook(cs, index, changed);
         return next;
@@ -710,11 +674,12 @@ public final class SettingsEditor {
     private void groupsTab(int x, int y, int w, int h, CategorySettings cs) {
         String name = Labels.name(page.category);
         String[] scopes = {"Everything", "Only groups"};
-        ui.text("Scope", x, y + 3, Ui.MUTED);
-        int scope = ui.segmented("scope", x + labelW, y, w - labelW, scopes, cs.onlyGroups() ? 1 : 0, new String[]{
+        Form form = new Form(ui, x, w, labelW);
+        form.label(y, Ui.H, "Scope", null);
+        int scope = ui.segmented("scope", form.lx(), y, form.cw(), scopes, cs.onlyGroups() ? 1 : 0, new String[]{
                 "The " + name + " look applies to all. Groups change their own blocks.",
                 "Only blocks in groups change. All other blocks stay vanilla."});
-        int cy = y + ui.segmentedHeight(scopes, w - labelW) + GAP;
+        int cy = y + ui.segmentedHeight(scopes, form.cw()) + GAP;
         if (scope != (cs.onlyGroups() ? 1 : 0)) {
             Rule blocker = cs.blocksScopeSwitch();
             if (blocker == null) {
@@ -743,22 +708,7 @@ public final class SettingsEditor {
                     : "There are no groups. All textures use the " + name + " look.", x, cy + 2, w, Ui.FAINT);
             return;
         }
-        rowList("groups", x, cy, w, y + h - cy, rules.size(), (i, rx, ry, rw, rh) -> groupRow(rx, ry, rw, rh, cs, i));
-    }
-
-    /** Draws one row of a {@link #rowList} and returns true when a click changed the list. */
-    private interface Row {
-        boolean draw(int index, int x, int y, int w, int h);
-    }
-
-    /** A scrolling list of panel rows, which stops drawing after a row that changed the list. */
-    private void rowList(String id, int x, int y, int w, int h, int count, Row row) {
-        int rowH = 16, visible = Math.max(1, h / rowH);
-        int first = ui.scroll(id, x, y, w, h, count, rowH);
-        int listW = count > visible ? w - 6 : w;
-        for (int i = first; i < Math.min(count, first + visible); i++) {
-            if (row.draw(i, x, y + (i - first) * rowH, listW, rowH - 2)) return;
-        }
+        RowList.draw(ui, "groups", x, cy, w, y + h - cy, rules.size(), LIST_ROW, (i, rx, ry, rw, rh) -> groupRow(rx, ry, rw, rh, cs, i));
     }
 
     /** One row of the group list, which returns true when a click opened or deleted a group. */
@@ -796,7 +746,7 @@ public final class SettingsEditor {
 
     private void groupPage(int x, int y, int w, int bottom, CategorySettings cs, int index) {
         Rule rule = cs.rules().get(index);
-        if (ui.button("back", x, y - 3, 13, Ui.H, "<", Ui.Style.GHOST, true, "Back to the groups (Esc)")) {
+        if (ui.backButton("back", x, y - 3, "Back to the groups (Esc)")) {
             go(page.withGroup(-1));
             return;
         }
@@ -826,8 +776,9 @@ public final class SettingsEditor {
         Category category = page.category;
         Map<String, Integer> catalog = sc.catalog(category);
         String members = Labels.members(category);
-        ui.text(members, x, y + 3, Ui.MUTED);
-        int fx = x + labelW, fw = w - labelW;
+        Form form = new Form(ui, x, w, labelW);
+        form.label(y, Ui.H, members, null);
+        int fx = form.lx(), fw = form.cw();
         // Keys the list reacts to are taken before the field would (Enter would unfocus it); typing goes to the field.
         boolean focused = ui.isFocused("add");
         boolean down = focused && ui.takeKey(UiKey.DOWN), up = focused && ui.takeKey(UiKey.UP);
@@ -999,7 +950,7 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- servers page
 
     private void serversPage(int x, int y, int w, int h) {
-        int cy = y + pageTitle(x, y, w, "Servers", "For all profiles") + 1;
+        int cy = y + ui.title(x, y, w, "Servers", "For all profiles") + 1;
         cy += ui.paragraph("On a server in this list, Albedo uses its profile. F6 or F7 on the server changes it until you leave.",
                 x, cy, w, Ui.FAINT) + GAP;
         String active = draft.activeProfileName();
@@ -1040,15 +991,8 @@ public final class SettingsEditor {
             ui.paragraph("No servers yet.", x, cy + 2, w, Ui.FAINT);
             return;
         }
-        rowList("servers", x, cy, w, y + h - cy, rules.size(), (i, rx, ry, rw, rh) -> serverRow(rx, ry, rw, rh, rules.get(i), active));
-    }
-
-    /** Draws a page title with a muted subtitle beside it when it fits, and returns the height it takes. */
-    private int pageTitle(int x, int y, int w, String title, String subtitle) {
-        ui.text(title, x, y, Ui.TEXT);
-        int nameW = ui.width(title) + 8;
-        ui.textFit(subtitle, x + nameW, y, w - nameW, Ui.MUTED);
-        return 13;
+        RowList.draw(ui, "servers", x, cy, w, y + h - cy, rules.size(), LIST_ROW,
+                (i, rx, ry, rw, rh) -> serverRow(rx, ry, rw, rh, rules.get(i), active));
     }
 
     /** One server rule, which returns true when a click deleted it. */
@@ -1081,7 +1025,7 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- world page
 
     private void worldPage(int x, int y, int w, int h) {
-        int cy = y + pageTitle(x, y, w, "World", "These settings apply to all categories") + 3;
+        int cy = y + ui.title(x, y, w, "World", "These settings apply to all categories") + 3;
         // Each row shows its explanation when all rows fit with it; otherwise the explanation is the tooltip only.
         int need = 0;
         for (Toggle t : Toggle.values()) need += 18 + ui.paragraphHeight(Labels.explain(t), w - 12) + 4;

@@ -1,0 +1,76 @@
+package dev.albedo.core.ui;
+
+/** A column of rows with a muted label at the left and a control at {@link #lx()}, as wide as {@link #cw()}. */
+final class Form {
+    /** How much further right the labels of {@link #indented()} rows start. */
+    static final int INDENT = 8;
+    private static final int GAP = 6;
+
+    private final Ui ui;
+    private final int x, w, labelW;
+
+    /** @param labelW the width of the label column, gap included */
+    Form(Ui ui, int x, int w, int labelW) {
+        this.ui = ui;
+        this.x = x;
+        this.w = w;
+        this.labelW = labelW;
+    }
+
+    /** The left edge of the controls. */
+    int lx() { return x + labelW; }
+
+    /** The width of the controls. */
+    int cw() { return w - labelW; }
+
+    /** The same rows with labels {@link #INDENT} further right and the controls at the same {@link #lx()}. */
+    Form indented() { return new Form(ui, x + INDENT, w - INDENT, labelW - INDENT); }
+
+    /** Draws the vertical line that shows which rows are under a heading, for the rows of {@link #indented()}. */
+    void guide(int y, int h) {
+        ui.fill(x + 3, y, 1, h, Ui.BORDER);
+    }
+
+    /** Draws a label for a row of height {@code h}, with {@code tip} as the tooltip of the label. */
+    void label(int y, int h, String text, String tip) {
+        ui.text(text, x, y + (h - Ui.LINE) / 2 + 1, Ui.MUTED);
+        ui.tip(x, y, labelW, h, tip);
+    }
+
+    /** A labelled percent slider on its own row, which returns the value after a click or drag. */
+    int slider(String id, int y, String label, String tip, int value) {
+        label(y, Ui.SLIDER_H, label, tip);
+        return ui.slider(id, lx(), y, cw(), value, tip);
+    }
+
+    /** The height of {@code n} sliders on their own rows. */
+    static int slidersHeight(int n) {
+        return n * (Ui.SLIDER_H + 3);
+    }
+
+    /**
+     * Percent sliders on their own rows, or on one row under {@code title} that names them in their tooltips, which
+     * change {@code values} in place.
+     *
+     * @return the next y
+     */
+    int sliders(String id, String title, String[] labels, String[] tips, int[] values, int y, boolean oneRow) {
+        int n = labels.length;
+        if (!oneRow) {
+            for (int i = 0; i < n; i++) values[i] = slider(id + "." + i, y + slidersHeight(i), labels[i], tips[i], values[i]);
+            return y + slidersHeight(n) - 3 + GAP;
+        }
+        int partW = (cw() - (n - 1) * GAP) / n;
+        ui.text(title, x, y + 2, Ui.MUTED);
+        for (int i = 0; i < n; i++) {
+            int sx = lx() + i * (partW + GAP), sw = partW;
+            // Each part names its slider, in full when the track keeps room and by its initial when not.
+            String name = sw - ui.width(labels[i]) - 4 >= ui.width("100%") + 36 ? labels[i] : labels[i].substring(0, 1);
+            int nameW = ui.width(name) + 4;
+            ui.text(name, sx, y + 2, Ui.MUTED);
+            ui.tip(sx, y, nameW, Ui.SLIDER_H, tips[i]);
+            values[i] = ui.slider(id + "." + i, sx + nameW, y, sw - nameW, values[i], tips[i]);
+        }
+        return y + Ui.SLIDER_H + GAP;
+    }
+}

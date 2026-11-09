@@ -1,10 +1,12 @@
 package dev.albedo.core.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** An immediate-mode GUI where each widget call draws the widget and returns what the user did to it since the last frame. */
 final class Ui {
@@ -518,6 +520,36 @@ final class Ui {
         return (flipped || press(id, x, y, w, h)) != on;
     }
 
+    /** Draws a page title with a muted subtitle beside it when it fits, and returns the height it takes. */
+    int title(int x, int y, int w, String title, String subtitle) {
+        text(title, x, y, TEXT);
+        int nameW = width(title) + 8;
+        textFit(subtitle, x + nameW, y, w - nameW, MUTED);
+        return 13;
+    }
+
+    /** The "<" button that goes back to the page above, which returns true when clicked. */
+    boolean backButton(String id, int x, int y, String tipText) {
+        return button(id, x, y, 13, H, "<", Style.GHOST, true, tipText);
+    }
+
+    /** A {@link #segmented} control with one segment for each of {@code values}, which returns the selected value. */
+    <E extends Enum<E>> E choice(String id, int x, int y, int w, E[] values, E selected, Function<E, String> label, Function<E, String> tip) {
+        int index = segmented(id, x, y, w, words(values, label), Arrays.asList(values).indexOf(selected), words(values, tip));
+        return values[index];
+    }
+
+    /** The height {@link #choice} uses. */
+    <E extends Enum<E>> int choiceHeight(E[] values, Function<E, String> label, int w) {
+        return segmentedHeight(words(values, label), w);
+    }
+
+    private static <E> String[] words(E[] values, Function<E, String> f) {
+        String[] out = new String[values.length];
+        for (int i = 0; i < values.length; i++) out[i] = f.apply(values[i]);
+        return out;
+    }
+
     /** Page tabs, which look different from {@link #segmented} because tabs change the page and segments change a value. */
     int tabs(String id, int x, int y, int w, String[] labels, int selected, String[] tips) {
         int n = labels.length, total = 0;
@@ -692,18 +724,29 @@ final class Ui {
     int scroll(String id, int x, int y, int w, int h, int rows, int rowHeight) {
         int visible = Math.max(1, h / rowHeight);
         int max = Math.max(0, rows - visible);
+        return scrollIndex(id, new Rect(x, y, w, h), max, 3, max > 0 ? h * visible / rows : h);
+    }
+
+    /**
+     * Scrolls a list with a scrollbar at its right edge when {@code max} is above 0, and returns the first visible index.
+     *
+     * @param max the highest first index, at which the last entry is visible
+     * @param step the entries that one wheel step moves
+     * @param thumb the height of the scrollbar thumb before its minimum
+     */
+    int scrollIndex(String id, Rect area, int max, int step, int thumb) {
         Integer stored = scrolls.get(id);
         int first = stored == null ? 0 : stored;
-        if (wheel != 0 && hover(x, y, w, h)) first -= wheel * 3;
+        if (wheel != 0 && hover(area.x, area.y, area.w, area.h)) first -= wheel * step;
         if (max > 0) {
-            int trackX = x + w - 3;
+            int trackX = area.x + area.w - 3;
             String bar = id + ".bar";
-            float[] grab = dragArea(bar, trackX - 2, y, 5, h);
+            float[] grab = dragArea(bar, trackX - 2, area.y, 5, area.h);
             if (grab != null) first = Math.round(grab[1] * max);
-            fill(trackX, y, 2, h, CARD);
-            int thumb = Math.max(8, h * visible / rows);
-            int ty = y + (h - thumb) * Math.max(0, Math.min(first, max)) / max;
-            fill(trackX, ty, 2, thumb, dragging(bar) ? TEXT : MUTED);
+            fill(trackX, area.y, 2, area.h, CARD);
+            int th = Math.max(8, thumb);
+            int ty = area.y + (area.h - th) * Math.max(0, Math.min(first, max)) / max;
+            fill(trackX, ty, 2, th, dragging(bar) ? TEXT : MUTED);
         }
         first = Math.max(0, Math.min(first, max));
         scrolls.put(id, first);
