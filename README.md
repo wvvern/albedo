@@ -66,7 +66,7 @@ The sky has three styles: Vanilla, Color (one flat color for the sky and the fog
 
 ### Custom sky
 
-With the style **Layers**, you make your own sky from up to 8 layers. The first time, the sky starts from the Dusk preset. Push Dusk, Nebula, Galaxy, Meteors or Aurora two times to start again from a preset. Meteors is a clear night sky with shooting stars. Aurora is a night sky with the northern light.
+With the style **Layers**, you make your own sky from up to 8 layers. The first time, the sky starts from the Dusk preset. Push Dusk, Nebula, Galaxy, Meteors, Aurora or Trails two times to start again from a preset. Meteors is a clear night sky with shooting stars. Aurora is a night sky with the northern light. Trails is a turning night sky with star trails, as in a long photo. A preset keeps your Motion settings, but Trails sets its own turning.
 
 There are two types of layer:
 
@@ -93,6 +93,8 @@ Open the **Motion** section under the switches to make your full sky turn around
 - **Pole height:** the angle of the pole above the horizon, from 0 (on the horizon) to 90 (the top of the sky).
 - **Direction:** Normal turns the sky as the sun goes, up in the east and down in the west. Reverse turns it the other way.
 - **Pole:** the compass direction of the pole, from 0 (north) to 359. 90 is east.
+- **Trails:** each bright star of a Stars layer draws an arc behind it along its circle around the pole, as in a long photo of the night sky. The value is the length of the arc, from 0 (no trails) to 90 degrees. Near the pole, the arcs are short and tight. Far from the pole, they are long. The faint stars become too faint to see, except near the pole.
+- **Trail light:** how bright the trails are.
 
 The preview turns at the speed in real time. When the pole is low, the part of your sky below the horizon comes up, so set "Full sphere" on. The fog follows the turn.
 
@@ -162,7 +164,7 @@ A custom sky in the file:
 }
 ```
 
-Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height`, `seed`, `speed`, `length`, `shower`, `twinkle` and `pulse` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). To make the sky turn, add for example `"turning": { "amount": 100, "speed": 2, "clock": "real", "height": 45, "direction": "reverse", "pole": 0 }`. `amount` is Turning (0 to 100), `speed` is 1 to 10, `clock` is `world` (Follow time on, the default) or `real`, `height` is the pole height (0 to 90, the default is 45) and `pole` is the compass direction of the pole (0 to 359). A missing value takes its default. An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
+Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height`, `seed`, `speed`, `length`, `shower`, `twinkle` and `pulse` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). To make the sky turn, add for example `"turning": { "amount": 100, "speed": 2, "clock": "real", "height": 45, "direction": "reverse", "pole": 0 }`. `amount` is Turning (0 to 100), `speed` is 1 to 10, `clock` is `world` (Follow time on, the default) or `real`, `height` is the pole height (0 to 90, the default is 45) and `pole` is the compass direction of the pole (0 to 359). `trails` is the length of the star trails (0 to 90 degrees, the default is 0) and `trailLight` is the Trail light (0 to 100, the default is 50). A missing value takes its default. An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 

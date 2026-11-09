@@ -3,6 +3,7 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 
 import java.util.List;
 
@@ -68,6 +69,10 @@ public final class SkyProgram {
     static final int LOCAL = 28;
     /** The linear jet color, one channel in the free last float of each row of the matrix. */
     static final int COLOR_3 = LOCAL + 3;
+    /** The trail arc of the stars in radians (0 for no trails) and the trail light, in the same free floats as the galaxy dust and jets. */
+    static final int TRAIL = 23, TRAIL_LIGHT = 27;
+    /** The trail axis of the stars in the layer frame ({@link SkyTurn#trailAxis}), in the same free floats as the jet color. */
+    static final int TRAIL_AXIS = COLOR_3;
 
     private final float[] block = new float[FLOATS];
     private final Path[] paths;
@@ -123,6 +128,7 @@ public final class SkyProgram {
                 block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             } else if (l.kind() == SkyLayer.Kind.STARS) {
                 block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
+                if (design.turning().showsTrails()) trails(design.turning(), l.transform().rotation(), base);
             } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
                 block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
             }
@@ -198,6 +204,18 @@ public final class SkyProgram {
     /** The float index of a value of a layer. */
     static int at(int layer, int offset) {
         return LAYERS + layer * LAYER_VEC4S * 4 + offset;
+    }
+
+    /** Writes the trails of a stars layer: the arc, the light and the trail axis turned into the layer frame. */
+    private void trails(SkyTurning turning, double[] rotation, int base) {
+        block[base + TRAIL] = (float) Math.toRadians(turning.trails());
+        block[base + TRAIL_LIGHT] = turning.trailLight() / 100f;
+        double[] axis = SkyTurn.trailAxis(turning);
+        for (int row = 0; row < 3; row++) {
+            double v = 0;
+            for (int c = 0; c < 3; c++) v += rotation[c * 3 + row] * axis[c];
+            block[base + TRAIL_AXIS + row * 4] = (float) v;
+        }
     }
 
     private void color(int argb, int alpha, int linear, int lab) {

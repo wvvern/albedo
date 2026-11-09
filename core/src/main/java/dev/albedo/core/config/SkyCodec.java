@@ -22,7 +22,8 @@ import static dev.albedo.core.config.ConfigCodec.object;
 final class SkyCodec {
     /** The keys of the sky category that exist only with the style "layers". */
     static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "turning", "layers");
-    private static final List<String> TURNING_KEYS = Arrays.asList("amount", "speed", "clock", "height", "direction", "pole");
+    private static final List<String> TURNING_KEYS = Arrays.asList("amount", "speed", "clock", "height", "direction", "pole", "trails",
+            "trailLight");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
             "color3", "amount", "height", "tilt", "dust", "jets", "seed", "speed", "length", "shower", "twinkle", "pulse",
             "transform");
@@ -77,7 +78,9 @@ final class SkyCodec {
                 choice(map, "clock", d.clock(), at),
                 number(map, "height", 0, SkyTurning.MAX_POLE_HEIGHT, d.poleHeight(), at),
                 choice(map, "direction", d.direction(), at),
-                number(map, "pole", 0, SkyTurning.MAX_POLE, d.pole(), at));
+                number(map, "pole", 0, SkyTurning.MAX_POLE, d.pole(), at),
+                number(map, "trails", 0, SkyTurning.MAX_TRAILS, d.trails(), at),
+                number(map, "trailLight", 0, 100, d.trailLight(), at));
     }
 
     /** The whole number at {@code key}, or {@code def} when the key is not there. */
@@ -162,6 +165,8 @@ final class SkyCodec {
         if (t.poleHeight() != d.poleHeight()) m.put("height", t.poleHeight());
         if (t.direction() != d.direction()) m.put("direction", t.direction().key());
         if (t.pole() != d.pole()) m.put("pole", t.pole());
+        if (t.trails() != d.trails()) m.put("trails", t.trails());
+        if (t.trailLight() != d.trailLight()) m.put("trailLight", t.trailLight());
         return m;
     }
 

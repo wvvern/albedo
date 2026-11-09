@@ -111,6 +111,34 @@ class SkyCodecTest {
     }
 
     @Test
+    void theTrailsAreOffByDefaultAndAreWrittenOnlyWhenTheyAreNotTheDefault() {
+        assertEquals(0, SkyTurning.NONE.trails());
+        assertEquals(SkyTurning.TRAIL_LIGHT, SkyTurning.NONE.trailLight());
+        assertFalse(SkyTurning.NONE.withTrails(40).showsTrails(), "a still sky has no trails");
+        assertTrue(SkyTurning.NONE.withAmount(10).withTrails(40).showsTrails());
+        SkyDesign stars = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        SkyTurning turning = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 45, SkyTurning.Direction.NORMAL, 0);
+        String plain = ConfigCodec.encode(withSky(layers(stars.withTurning(turning))));
+        assertFalse(plain.contains("trails") || plain.contains("trailLight"), "a turning with no trails is written as before: " + plain);
+        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"turning\": {\"amount\": 100},"
+                + " \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(0, old.turning().trails(), "a file from before trails loads with no trails");
+        assertEquals(SkyTurning.TRAIL_LIGHT, old.turning().trailLight());
+
+        SkyDesign trails = stars.withTurning(turning.withTrails(45).withTrailLight(70));
+        String text = ConfigCodec.encode(withSky(layers(trails)));
+        assertTrue(text.contains("\"trails\": 45") && text.contains("\"trailLight\": 70"), text);
+        assertEquals(trails, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        String lengthOnly = ConfigCodec.encode(withSky(layers(stars.withTurning(turning.withTrails(30)))));
+        assertTrue(lengthOnly.contains("\"trails\": 30") && !lengthOnly.contains("trailLight"), "only the values that differ: " + lengthOnly);
+
+        assertEquals("night.sky.turning.trails: use a whole number from 0 to 90",
+                error("{\"mode\": \"layers\", \"turning\": {\"trails\": 91}, \"layers\": []}"));
+        assertEquals("night.sky.turning.trailLight: use a whole number from 0 to 100",
+                error("{\"mode\": \"layers\", \"turning\": {\"trailLight\": -1}, \"layers\": []}"));
+    }
+
+    @Test
     void transformsAreWrittenOnlyForTheAxesOfTheKind() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         d = d.withLayer(0, d.layers().get(0).withTransform(new Transform(90, 20, 0, 150)));

@@ -309,8 +309,12 @@ public final class SkyGenerator {
             float[] up = new float[3];
             local(0, 1, 0, up);
             // The bake is a still sky, so the stars twinkle as at time 0.
+            float[] axis = new float[3];
+            for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
             stars = layer.kind() == SkyLayer.Kind.STARS
-                    ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up) : null;
+                    ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up,
+                            block[SkyProgram.at(index, SkyProgram.TRAIL)], block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis)
+                    : null;
         }
 
         private static float[] slice(float[] block, int from) {

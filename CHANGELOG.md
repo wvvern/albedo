@@ -17,6 +17,7 @@
 - feat: Make the Nebula clouds glow brighter and darker slowly, with a Pulse slider on the Noise and Fractal layers
 - feat: Turn the custom sky around a pole as the real night sky does, with the Motion section of the sky editor
 - feat: Set the speed, the pole and the direction of the turning sky, and turn it with the time of the world or in real time
+- feat: Add star trails that follow the turning sky, and a Trails preset with them
 - feat: Show the Nebula stars sharp in all areas of the sky
 - fix: Stop the cut edges on large stars in the sharp sky
 - fix: Remove the blurred band of horizon color across the custom sky at the horizon

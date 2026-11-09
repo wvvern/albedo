@@ -76,6 +76,17 @@ public final class SkyTurn {
     }
 
     /**
+     * The unit axis in the design around which a turn by a positive angle moves a star back to where it was earlier, so that
+     * its trail is the arc from the star by the trail angle around this axis.
+     */
+    static double[] trailAxis(SkyTurning t) {
+        double az = Math.toRadians(t.pole()), el = Math.toRadians(t.poleHeight());
+        // The sky turns by a negative angle around the pole for the normal direction, so a star was at a positive angle before.
+        double sign = t.direction() == SkyTurning.Direction.REVERSE ? -1 : 1;
+        return new double[]{sign * Math.sin(az) * Math.cos(el), sign * Math.sin(el), -sign * Math.cos(az) * Math.cos(el)};
+    }
+
+    /**
      * The top rows of an image as the turned sky shows them, scaled to a new size, for the editor preview.
      *
      * @param rows the rows from the top of the image that the result shows

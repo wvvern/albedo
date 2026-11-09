@@ -3,6 +3,8 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
+import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -98,6 +100,36 @@ class SkyProgramTest {
         String glsl = skyLayersSource();
         assertTrue(glsl.contains("float twinkle = albedoLayer(layer, 4).w"));
         assertTrue(glsl.contains("float amount = albedoLayer(layer, 4).w"));
+    }
+
+    @Test
+    void theTrailsAreInTheBlockOnlyForTheStarsOfASkyThatTurns() throws IOException {
+        SkyLayer stars = SkyLayer.of(1, SkyLayer.Kind.STARS).withTransform(new Transform(70, 20, 10, 100));
+        SkyLayer galaxy = SkyLayer.of(2, SkyLayer.Kind.GALAXY);
+        SkyDesign still = new SkyDesign(Arrays.asList(stars, galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
+                SkyDesign.Extent.SPHERE);
+        SkyTurning turning = new SkyTurning(100, 2, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.REVERSE, 30, 45, 70);
+        float[] block = SkyProgram.of(still.withTurning(turning), new float[SkyImage.RING * 3]).block();
+        assertEquals((float) Math.toRadians(45), block[SkyProgram.at(0, SkyProgram.TRAIL)], 1e-6f);
+        assertEquals(0.7f, block[SkyProgram.at(0, SkyProgram.TRAIL_LIGHT)], 1e-6f);
+        double[] axis = SkyTurn.trailAxis(turning);
+        for (int row = 0; row < 3; row++) {
+            double v = 0;
+            for (int c = 0; c < 3; c++) v += block[SkyProgram.at(0, SkyProgram.LOCAL + row * 4 + c)] * axis[c];
+            assertEquals(v, block[SkyProgram.at(0, SkyProgram.TRAIL_AXIS + row * 4)], 1e-6, "the axis in the layer frame, row " + row);
+        }
+        assertArrayEquals(SkyProgram.of(still, new float[SkyImage.RING * 3]).block(),
+                SkyProgram.of(still.withTurning(turning.withTrails(0)), new float[SkyImage.RING * 3]).block(), "no trails");
+        assertArrayEquals(SkyProgram.of(still, new float[SkyImage.RING * 3]).block(),
+                SkyProgram.of(still.withTurning(turning.withAmount(0)), new float[SkyImage.RING * 3]).block(), "a still sky has no trails");
+        // The stars read the trail arc, the trail light and the axis from the last values of slots 5 to 9, as the bake does.
+        assertEquals(5 * 4 + 3, SkyProgram.TRAIL);
+        assertEquals(6 * 4 + 3, SkyProgram.TRAIL_LIGHT);
+        assertEquals(7 * 4 + 3, SkyProgram.TRAIL_AXIS);
+        String glsl = skyLayersSource();
+        assertTrue(glsl.contains("vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, "
+                + "albedoLayer(layer, 5).w);"));
+        assertTrue(glsl.contains("seed, trail, albedoLayer(layer, 6).w);"));
     }
 
     private static SkyProgram program(SkyLayer... layers) {

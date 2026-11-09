@@ -352,18 +352,21 @@ public final class Harness {
     }
 
     /**
-     * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [reverse] [real]}, where a
-     * missing option keeps its default ({@code skyturn 100 speed 10 real}).
+     * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]},
+     * where a missing option keeps its default ({@code skyturn 100 speed 10 trails 45 real}).
      */
     static Profile withSkyTurning(Profile profile, String[] args) {
         SkyTurning t = SkyTurning.NONE.withAmount(Integer.parseInt(args[0]));
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("reverse")) t = t.withDirection(SkyTurning.Direction.REVERSE);
             else if (args[i].equals("real")) t = t.withClock(SkyTurning.Clock.REAL);
-            else if (i + 1 >= args.length) throw new IllegalArgumentException("skyturn <percent> [speed N] [height N] [pole N] [reverse] [real]");
-            else if (args[i].equals("speed")) t = t.withSpeed(Integer.parseInt(args[++i]));
+            else if (i + 1 >= args.length) {
+                throw new IllegalArgumentException("skyturn <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]");
+            } else if (args[i].equals("speed")) t = t.withSpeed(Integer.parseInt(args[++i]));
             else if (args[i].equals("height")) t = t.withPoleHeight(Integer.parseInt(args[++i]));
             else if (args[i].equals("pole")) t = t.withPole(Integer.parseInt(args[++i]));
+            else if (args[i].equals("trails")) t = t.withTrails(Integer.parseInt(args[++i]));
+            else if (args[i].equals("light")) t = t.withTrailLight(Integer.parseInt(args[++i]));
             else throw new IllegalArgumentException("unknown skyturn option: " + args[i]);
         }
         CategorySettings sky = profile.get(Category.SKY);

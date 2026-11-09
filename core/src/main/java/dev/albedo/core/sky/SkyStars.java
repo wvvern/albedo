@@ -83,11 +83,23 @@ final class SkyStars {
     /** The change of red against blue for each part of twinkle near the horizon, where the air spreads the colors. */
     private static final float TWINKLE_COLOR = 0.5f;
 
+    /** The standard deviation of the width of a trail for each pixel of footprint, more than the core so that a thin arc is not dotted. */
+    static final float TRAIL_PIXEL = 0.6f;
+    /** The distance across a trail, in standard deviations of its width, at which its light ends. */
+    static final float TRAIL_REACH = 4f;
+    /** The light of a trail at a trail light of 1, for each unit of the root of the light of its star. */
+    static final float TRAIL_GAIN = 1f;
+    /** The arc of a faint star at a layer size of 100 at which it keeps half of its light in a sky with trails. */
+    static final float FIELD_SPREAD = 1.5f * RADIAN;
+
     private final float density, spikes, scale;
     private final int seed;
     /** The twinkle from 0 to 1, the time in seconds, and the zenith of the sky in the layer frame. */
     private final float twinkle, time;
     private final float[] up;
+    /** The trail arc in radians (0 for no trails), the trail light, and the trail axis in the layer frame. */
+    private final float trail, trailLight;
+    private final float[] axis;
 
     /**
      * Stars that do not twinkle.
@@ -106,6 +118,18 @@ final class SkyStars {
      * @param up the unit direction of the sky zenith in the layer frame, which the twinkle uses to find the horizon
      */
     SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up) {
+        this(amount, spikes, scale, seed, twinkle, time, up, 0, 0, new float[] {0, 1, 0});
+    }
+
+    /**
+     * Stars with trails.
+     *
+     * @param trail the arc of each trail in radians, 0 for no trails
+     * @param trailLight the light of the trails from 0 to 1
+     * @param axis the unit trail axis in the layer frame, around which a positive angle goes back along the trail
+     */
+    SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up, float trail, float trailLight,
+            float[] axis) {
         float m = 0.2f + 0.8f * amount;
         density = m * m;
         this.spikes = spikes;
@@ -114,6 +138,9 @@ final class SkyStars {
         this.twinkle = twinkle;
         this.time = time;
         this.up = up.clone();
+        this.trail = trail;
+        this.trailLight = trailLight;
+        this.axis = axis.clone();
     }
 
     /** The linear light of the stars in the unit direction {@code p} of the layer frame, as color and alpha into {@code out}. */
@@ -144,6 +171,99 @@ final class SkyStars {
                 }
             }
         }
+        if (trail > 0) trails(p, footprint, star, work, light);
+    }
+
+    /**
+     * Adds the light of the trails of the bright stars at {@code p} to {@code light}, where each trail is the arc that its
+     * star goes along around the trail axis, which fades from the star to its end.
+     */
+    void trails(float[] p, float footprint, float[] star, float[] work, float[] light) {
+        Tier t = Tier.BRIGHT;
+        float n = t.cells / scale;
+        float ax = axis[0], ay = axis[1], az = axis[2];
+        // The point as its height along the axis and its offset across it, the radius of its circle around the axis.
+        float h = p[0] * ax + p[1] * ay + p[2] * az;
+        float rx = p[0] - ax * h, ry = p[1] - ay * h, rz = p[2] - az * h;
+        float radius = (float) Math.sqrt(rx * rx + ry * ry + rz * rz);
+        if (radius < 1e-5f) return;
+        // The side vector goes along the circle, so that the point turned back by an angle a is h axis + cos(a) r - sin(a) side.
+        float sx = ay * rz - az * ry, sy = az * rx - ax * rz, sz = ax * ry - ay * rx;
+        float cut = TRAIL_REACH * trailWidth(footprint);
+        // Each part of the arc is at most one cell long, so that the box of cells around its chord is small.
+        int parts = Math.max(1, (int) Math.ceil(trail * radius * n));
+        float step = trail / parts;
+        float margin = (cut + radius * (1 - (float) Math.cos(step * 0.5f))) * n + 0.01f;
+        float lx = p[0] * n, ly = p[1] * n, lz = p[2] * n;
+        for (int part = 0; part < parts; part++) {
+            float a = (part + 1) * step, c = (float) Math.cos(a), s = (float) Math.sin(a);
+            float qx = (ax * h + rx * c - sx * s) * n, qy = (ay * h + ry * c - sy * s) * n, qz = (az * h + rz * c - sz * s) * n;
+            int x0 = (int) Math.floor(Math.min(lx, qx) - margin), x1 = (int) Math.floor(Math.max(lx, qx) + margin);
+            int y0 = (int) Math.floor(Math.min(ly, qy) - margin), y1 = (int) Math.floor(Math.max(ly, qy) + margin);
+            int z0 = (int) Math.floor(Math.min(lz, qz) - margin), z1 = (int) Math.floor(Math.max(lz, qz) + margin);
+            for (int x = x0; x <= x1; x++) {
+                for (int y = y0; y <= y1; y++) {
+                    for (int z = z0; z <= z1; z++) {
+                        if (!star(t, x, y, z, star)) continue;
+                        // The height difference is never more than the angle difference, so a star that it puts far away is far away.
+                        float sh = star[0] * ax + star[1] * ay + star[2] * az;
+                        if (Math.abs(sh - h) >= cut) continue;
+                        float back = (float) Math.atan2(-(star[0] * sx + star[1] * sy + star[2] * sz), star[0] * rx + star[1] * ry + star[2] * rz);
+                        // Only the part whose piece of the arc holds the star adds it, so that no star adds its trail twice.
+                        if (back <= 0 || back >= trail || Math.min(parts - 1, (int) (back / step)) != part) continue;
+                        addTrail(star, p, footprint, work, light);
+                    }
+                }
+            }
+            lx = qx;
+            ly = qy;
+            lz = qz;
+        }
+    }
+
+    /**
+     * The part of its light that a faint star keeps in a sky with trails, because its light spreads along its arc, which is
+     * long far from the axis, and its trail is too faint to see.
+     */
+    float spread(float[] s) {
+        float h = s[0] * axis[0] + s[1] * axis[1] + s[2] * axis[2];
+        float arc = trail * (float) Math.sqrt(Math.max(0f, 1 - h * h)) / (FIELD_SPREAD * scale);
+        return 1 / (1 + arc * arc);
+    }
+
+    /** The standard deviation of the width of a trail: the core of a star, widened by the footprint. */
+    private float trailWidth(float footprint) {
+        float core = CORE * scale, blur = TRAIL_PIXEL * footprint;
+        return (float) Math.sqrt(core * core + blur * blur);
+    }
+
+    /**
+     * Adds the light at {@code p} of the trail of the star {@code s} to {@code light}, which is 0 ahead of the star, past the
+     * end of the trail and from {@link #TRAIL_REACH} widths across it.
+     */
+    void addTrail(float[] s, float[] p, float footprint, float[] work, float[] light) {
+        float ax = axis[0], ay = axis[1], az = axis[2];
+        float h = p[0] * ax + p[1] * ay + p[2] * az;
+        float rx = p[0] - ax * h, ry = p[1] - ay * h, rz = p[2] - az * h;
+        float radius = (float) Math.sqrt(rx * rx + ry * ry + rz * rz);
+        if (radius < 1e-5f) return;
+        float sx = ay * rz - az * ry, sy = az * rx - ax * rz, sz = ax * ry - ay * rx;
+        // The angle around the axis from the star back to the point, which is the age of this part of the trail.
+        float back = (float) Math.atan2(-(s[0] * sx + s[1] * sy + s[2] * sz), s[0] * rx + s[1] * ry + s[2] * rz);
+        if (back <= 0 || back >= trail) return;
+        float sh = s[0] * ax + s[1] * ay + s[2] * az;
+        float width = trailWidth(footprint), cut = TRAIL_REACH * width;
+        // The distance across the trail is the difference of the angles from the axis of the star and the point.
+        float d = (float) (Math.atan2(Math.sqrt(Math.max(0f, 1 - sh * sh)), sh) - Math.atan2(radius, h)), ad = Math.abs(d);
+        if (ad >= cut) return;
+        float across = (float) Math.exp(-d * d / (2 * width * width)) * (1 - SkyGenerator.smooth(0.75f * cut, cut, ad));
+        float x = back / trail, fade = (1 - x) * (1 - x);
+        // The trail starts in the core of the star and fades to nothing at its end.
+        float start = SkyGenerator.smooth(0, 3 * width, back * radius);
+        // The peak falls with the width, as the core of a star does, so that a trail keeps its light at each footprint.
+        float k = trailLight * TRAIL_GAIN * CORE * scale / width * (float) Math.sqrt(s[3]) * across * fade * start;
+        color(s[4], work, 3);
+        for (int c = 0; c < 3; c++) light[c] += work[3 + c] * k;
     }
 
     /** The star of a cell into {@code out}, or false when the cell has no star. */
@@ -188,6 +308,7 @@ final class SkyStars {
         float reach = 0.5f * scale / t.cells;
         if (d2 >= reach * reach) return;
         float d = (float) Math.sqrt(d2), flux = s[3], tint = 0;
+        if (trail > 0 && !t.detail) flux *= spread(s);
         if (twinkle > 0 && t.detail) {
             // A bright star twinkles more near the horizon, where its light goes through more air.
             float air = 1 - SkyGenerator.smooth(0.05f, 0.75f, s[0] * up[0] + s[1] * up[1] + s[2] * up[2]);

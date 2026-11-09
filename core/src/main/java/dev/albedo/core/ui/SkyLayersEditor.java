@@ -75,9 +75,9 @@ final class SkyLayersEditor {
     /** The id of the Motion section in {@link #sections}. */
     private static final String MOTION = "sky.motion";
     private static final String TURNING = "Turning", SPEED = "Speed", FOLLOW_TIME = "Follow time", POLE_HEIGHT = "Pole height",
-            DIRECTION = "Direction", POLE = "Pole";
+            DIRECTION = "Direction", POLE = "Pole", TRAILS = "Trails", TRAIL_LIGHT = "Trail light";
     /** The labels of the options under Turning, which show only while the sky turns. */
-    private static final String[] TURNING_OPTIONS = {SPEED, FOLLOW_TIME, POLE_HEIGHT, DIRECTION, POLE};
+    private static final String[] TURNING_OPTIONS = {SPEED, FOLLOW_TIME, POLE_HEIGHT, DIRECTION, POLE, TRAILS, TRAIL_LIGHT};
 
     private final Ui ui;
     private final Runnable relayout;
@@ -247,7 +247,9 @@ final class SkyLayersEditor {
             px -= bw;
             if (ui.confirmButton("sky.preset." + e.getKey(), px, cy, bw, Ui.H, name, "Start from the " + name + " sky",
                     "Click again to replace all layers with the " + name + " sky")) {
-                set.accept(e.getValue().withTurning(design.turning())); // the Motion settings stay
+                // The Motion settings stay, except for a preset that turns, such as Trails.
+                set.accept(e.getValue().turning().turns() ? e.getValue() : e.getValue().withTurning(design.turning()));
+                relayout.run();
                 return;
             }
             px -= 3;
@@ -380,6 +382,14 @@ final class SkyLayersEditor {
         rows.add(y -> {
             int pole = options.range("sky.turning.pole", y, POLE, Labels.POLE_TIP, t.pole(), 0, SkyTurning.MAX_POLE, "");
             if (pole != t.pole()) put.accept(t.withPole(pole));
+        });
+        rows.add(y -> {
+            int trails = options.range("sky.turning.trails", y, TRAILS, Labels.TRAILS_TIP, t.trails(), 0, SkyTurning.MAX_TRAILS, "");
+            if (trails != t.trails()) put.accept(t.withTrails(trails));
+        });
+        rows.add(y -> {
+            int light = options.slider("sky.turning.light", y, TRAIL_LIGHT, Labels.TRAIL_LIGHT_TIP, t.trailLight());
+            if (light != t.trailLight()) put.accept(t.withTrailLight(light));
         });
         return rows;
     }

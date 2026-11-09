@@ -5,6 +5,7 @@ import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyLayer.Kind;
 import dev.albedo.core.config.SkyLayer.Param;
 import dev.albedo.core.config.SkyMask;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 
 import java.util.ArrayList;
@@ -71,6 +72,13 @@ public final class SkyPresets {
             .add(Kind.AURORA, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
 
+    /** A long exposure of a dark clear night: the stars turn around the pole in the north and draw arcs behind them. */
+    public static final SkyDesign TRAILS = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF14203A, Param.COLOR_2, 0xFF020308, Param.HEIGHT, 20, Param.AMOUNT, 55)
+            .add(Kind.STARS, Param.AMOUNT, 75, Param.HEIGHT, 30, Param.SEED, 8).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE)
+            .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
+
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 
     static {
@@ -79,6 +87,7 @@ public final class SkyPresets {
         ALL.put("galaxy", GALAXY);
         ALL.put("meteors", METEORS);
         ALL.put("aurora", AURORA);
+        ALL.put("trails", TRAILS);
     }
 
     private SkyPresets() {}

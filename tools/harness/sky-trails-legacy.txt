@@ -1,0 +1,72 @@
+# The same shots as sky-trails-modern.txt for 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-trails-modern.txt -OutDir build\sky-trails (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 18000
+wait 40
+fov 70
+sky nebula
+wait 160
+skytime
+wait 40
+sky galaxy
+wait 160
+skytime
+wait 40
+sky trails
+wait 300
+run tp @p 0 3000 0 180 -40
+wait 40
+screenshot trails-01-pole
+skycompare
+wait 40
+skytime
+wait 40
+run tp @p 0 3000 0 0 -30
+wait 20
+screenshot trails-02-away
+run tp @p 0 3000 0 -90 -20
+wait 20
+screenshot trails-03-east
+skyrender fast
+wait 40
+screenshot trails-04-east-fast
+run tp @p 0 3000 0 180 -40
+wait 20
+screenshot trails-05-pole-fast
+skyrender sharp
+wait 40
+fov 30
+run tp @p 0 3000 0 200 -55
+wait 20
+screenshot trails-06-pole-fov30
+fov 70
+skyturn 100 height 40
+wait 300
+run tp @p 0 3000 0 180 -40
+wait 20
+screenshot trails-07-pole-no-trails
+skycompare
+wait 40
+skytime
+wait 40
+skyturn 100 height 40 trails 60 light 100
+wait 300
+screenshot trails-08-pole-60-light-100
+skycompare
+wait 40
+skytime
+wait 40
+settings open
+wait 20
+ui click Sky
+wait 60
+ui click Motion
+wait 20
+screenshot trails-09-settings-motion
+ui scroll -5 Pole
+wait 10
+screenshot trails-10-settings-trails
+settings close
+wait 10
+quit
