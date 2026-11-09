@@ -28,7 +28,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
 | TextureUploads              |   |                             |
-| 20 mixins + 4 accessors     |   | 20 mixins, MixinPlugin      |
+| 20 mixins + 4 accessors     |   | 21 mixins, MixinPlugin      |
 +-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/

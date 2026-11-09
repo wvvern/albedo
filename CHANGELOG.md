@@ -2,10 +2,20 @@
 
 ## 0.3.0
 
-- feat: Add the sky style Layers: make your own sky from gradients, glows, noise, fractals, galaxies and stars, with filters and masks
-- feat: Add a sky preview with the horizon, the zenith, the compass and the sun path, and the presets Dusk, Nebula and Galaxy
-- note: A config file with a Layers sky does not load in Albedo 0.2.0 or earlier. That version keeps a copy in `config/albedo/config.invalid.json` and starts with the default settings. Files without Layers do not change.
-- note: With OptiFine on 1.8.9, and with Iris or OptiFine shader packs, the sky style Layers shows the vanilla sky.
+- feat: Add the sky style Layers to build your own sky from gradients, glows, noise, fractals, galaxies and stars
+- feat: Stack sky filters such as blur, crystallize and bloom, and show a layer only where another layer is light or dark
+- feat: Turn, tilt, roll and scale each sky layer, and see the result in a preview with the horizon and the compass
+- feat: Add the sky presets Dusk, Nebula and Galaxy
+- feat: Add the effects Chroma, Bevel and Outline, which stack on top of a style
+- feat: Add the built-in profile pastel, a soft world where each kind of block has its own color
+- feat: Repaint downloaded player skins, capes and elytra on all versions
+- fix: Keep the default player skin repainting on 1.21.1 after a downloaded skin loads
+- fix: Show the new rows at once when you change a style, so the settings screen does not jump
+- fix: Keep the Style row in the same place for every category
+- fix: Show the name of each slider when a small window puts the sliders on one row
+- compat: Show the vanilla sky for the Layers style with OptiFine on 1.8.9 and with shader packs
+- config!: Remove the Image style and its textures folder, so use a resource pack for your own textures
+- config: Write the sky layers and the effects to the file only where you use them, so that older versions read other files
 
 ## 0.2.0
 
