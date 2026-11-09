@@ -4,6 +4,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
+import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
@@ -14,8 +15,11 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+
+import java.nio.FloatBuffer;
 
 /**
  * Draws the custom sky on a sphere in place of the 1.8.9 sky disc, with {@link LegacySharpSky} when it can, else from
@@ -27,6 +31,8 @@ public final class LegacySky {
     private static long uploaded = -1;
     /** The display list of the sphere, or -1 before the first draw. */
     private static int sphere = -1;
+    /** The matrix of a turning sky for the GL, which each frame fills again. */
+    private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
 
     private LegacySky() {}
 
@@ -58,7 +64,13 @@ public final class LegacySky {
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         World world = Minecraft.getMinecraft().theWorld;
         if (img == null || view == null || world == null || !world.provider.isSurfaceWorld()) return null;
-        return img.fogRgb(view.rotationYaw, brightness(img));
+        return img.fogRgb(turn(img).yaw(view.rotationYaw), brightness(img));
+    }
+
+    /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
+    private static SkyTurn turn(SkyImage img) {
+        World world = Minecraft.getMinecraft().theWorld;
+        return SkyTurn.at(img.design().turning(), world == null ? 0 : world.getWorldTime());
     }
 
     /**
@@ -72,17 +84,26 @@ public final class LegacySky {
         prepare(img);
         LegacySharpSky.prepare(img);
         float k = brightness(img);
-        if (LegacySharpSky.draw(img, sphere, k)) return true;
-        GlStateManager.enableTexture2D();
-        GlStateManager.disableFog();
-        GlStateManager.disableCull();
-        GlStateManager.color(k, k, k, 1f);
-        GlStateManager.bindTexture(texture.getGlTextureId());
-        GlStateManager.callList(sphere);
-        GlStateManager.enableCull();
-        GlStateManager.enableFog();
-        GlStateManager.disableTexture2D();
-        GlStateManager.color(1f, 1f, 1f, 1f);
+        SkyTurn turn = turn(img);
+        GlStateManager.pushMatrix();
+        if (!turn.still()) {
+            TURN.clear();
+            TURN.put(turn.matrix()).flip();
+            GL11.glMultMatrix(TURN);
+        }
+        if (!LegacySharpSky.draw(img, sphere, k)) {
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableFog();
+            GlStateManager.disableCull();
+            GlStateManager.color(k, k, k, 1f);
+            GlStateManager.bindTexture(texture.getGlTextureId());
+            GlStateManager.callList(sphere);
+            GlStateManager.enableCull();
+            GlStateManager.enableFog();
+            GlStateManager.disableTexture2D();
+            GlStateManager.color(1f, 1f, 1f, 1f);
+        }
+        GlStateManager.popMatrix();
         return true;
     }
 

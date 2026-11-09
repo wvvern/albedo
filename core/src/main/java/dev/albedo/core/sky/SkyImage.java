@@ -67,9 +67,9 @@ public final class SkyImage {
     /** True when the sky shader draws this image: the design asks for the sharp render and the shader can draw all its layers. */
     public boolean drawsSharp() { return design.render() == SkyDesign.Render.SHARP && program.drawsSharp(); }
 
-    /** The same pixels for a design that differs only in its render, which the bake does not read. */
-    SkyImage withRender(SkyDesign.Render render) {
-        return new SkyImage(argb, width, height, design.withRender(render), ring, program, termWidth, termHeight, terms);
+    /** The same pixels for a design with the same {@link SkyDesign#baked} part. */
+    SkyImage withDesign(SkyDesign next) {
+        return new SkyImage(argb, width, height, next, ring, program, termWidth, termHeight, terms);
     }
 
     /** The pixels, row by row from the top, which the caller must not change. */

@@ -86,6 +86,31 @@ class SkyCodecTest {
     }
 
     @Test
+    void theTurningIsWrittenOnlyWhenItIsNotTheDefaultAndAnOldFileLoadsStill() {
+        SkyDesign still = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        assertFalse(ConfigCodec.encode(withSky(layers(still))).contains("turning"));
+        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
+                + "[{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(SkyTurning.NONE, old.turning(), "a file from before turning loads with a still sky");
+
+        SkyDesign turning = still.withTurning(new SkyTurning(40, 3, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.REVERSE, 270));
+        Config c = withSky(layers(turning));
+        String text = ConfigCodec.encode(c);
+        assertTrue(text.contains("\"amount\": 40") && text.contains("\"clock\": \"real\"") && text.contains("\"pole\": 270"), text);
+        assertEquals(turning, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        String amountOnly = ConfigCodec.encode(withSky(layers(still.withTurning(SkyTurning.NONE.withAmount(30)))));
+        assertTrue(amountOnly.contains("\"turning\": {\n          \"amount\": 30\n        },"), "only the values that differ: " + amountOnly);
+
+        assertEquals("night.sky.turning.height: use a whole number from 0 to 90",
+                error("{\"mode\": \"layers\", \"turning\": {\"height\": 91}, \"layers\": []}"));
+        assertEquals("night.sky.turning.clock: use one of [world, real]",
+                error("{\"mode\": \"layers\", \"turning\": {\"clock\": \"moon\"}, \"layers\": []}"));
+        assertTrue(error("{\"mode\": \"layers\", \"turning\": {\"tilt\": 3}, \"layers\": []}").contains("unknown setting 'tilt'"));
+        assertEquals("night.sky: 'turning' works only with \"mode\": \"layers\"",
+                error("{\"mode\": \"solid\", \"turning\": {\"amount\": 50}}"));
+    }
+
+    @Test
     void transformsAreWrittenOnlyForTheAxesOfTheKind() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         d = d.withLayer(0, d.layers().get(0).withTransform(new Transform(90, 20, 0, 150)));

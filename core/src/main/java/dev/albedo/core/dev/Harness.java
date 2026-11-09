@@ -11,6 +11,7 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
 import dev.albedo.core.sky.SkyClock;
@@ -212,6 +213,7 @@ public final class Harness {
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
         else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
+        else if (verb.equals("skyturn")) sc.apply(config.withProfile(withSkyTurning(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skyclock")) skyClock(arg);
@@ -342,6 +344,25 @@ public final class Harness {
         CategorySettings sky = profile.get(Category.SKY);
         SkyDesign.Extent e = SkyDesign.Extent.valueOf(extent.trim().toUpperCase(Locale.ROOT));
         return profile.with(Category.SKY, sky.withSky(sky.sky().withExtent(e)));
+    }
+
+    /**
+     * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [reverse] [real]}, where a
+     * missing option keeps its default ({@code skyturn 100 speed 10 real}).
+     */
+    static Profile withSkyTurning(Profile profile, String[] args) {
+        SkyTurning t = SkyTurning.NONE.withAmount(Integer.parseInt(args[0]));
+        for (int i = 1; i < args.length; i++) {
+            if (args[i].equals("reverse")) t = t.withDirection(SkyTurning.Direction.REVERSE);
+            else if (args[i].equals("real")) t = t.withClock(SkyTurning.Clock.REAL);
+            else if (i + 1 >= args.length) throw new IllegalArgumentException("skyturn <percent> [speed N] [height N] [pole N] [reverse] [real]");
+            else if (args[i].equals("speed")) t = t.withSpeed(Integer.parseInt(args[++i]));
+            else if (args[i].equals("height")) t = t.withPoleHeight(Integer.parseInt(args[++i]));
+            else if (args[i].equals("pole")) t = t.withPole(Integer.parseInt(args[++i]));
+            else throw new IllegalArgumentException("unknown skyturn option: " + args[i]);
+        }
+        CategorySettings sky = profile.get(Category.SKY);
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withTurning(t)));
     }
 
     /**

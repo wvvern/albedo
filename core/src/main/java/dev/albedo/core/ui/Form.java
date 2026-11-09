@@ -43,6 +43,12 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
+    /** A labelled slider from {@code min} to {@code max} on its own row, which returns the value after a click or drag. */
+    int range(String id, int y, String label, String tip, int value, int min, int max, String unit) {
+        label(y, Ui.SLIDER_H, label, tip);
+        return ui.rangeSlider(id, lx(), y, cw(), value, min, max, unit, tip);
+    }
+
     /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
     static int slidersHeight(int n, boolean oneRow) {
         return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;

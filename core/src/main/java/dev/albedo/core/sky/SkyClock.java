@@ -16,6 +16,12 @@ public final class SkyClock {
         return Float.isNaN(h) ? Math.floorMod(System.nanoTime() / 1_000_000L, PERIOD_MS) / 1000f : h;
     }
 
+    /** The time in seconds with no wrap, for a slow move such as the turning sky, which a wrap would make jump. */
+    public static double longSeconds() {
+        float h = held;
+        return Float.isNaN(h) ? System.nanoTime() / 1e9 : h;
+    }
+
     /** Holds the clock still at a time in seconds, so that a screenshot of the moving layers is the same each time. */
     public static void hold(float seconds) {
         held = seconds;
