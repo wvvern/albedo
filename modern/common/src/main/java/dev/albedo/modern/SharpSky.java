@@ -36,11 +36,11 @@ import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.ShaderManager;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
+import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -83,11 +83,14 @@ final class SharpSky {
 
         private void start() {
             state = Compile.RUNNING;
+            Source source = null;
             try {
-                Source source = new Source();
+                source = new Source();
+                Source started = source;
                 pending = RenderSystem.getDevice().compilePipeline(pipeline, source, Util.backgroundExecutor());
-                pending.whenComplete((done, error) -> source.close());
+                pending.whenComplete((done, error) -> started.close());
             } catch (IOException | RuntimeException e) {
+                if (source != null) source.close();
                 fail(e);
             }
         }
@@ -126,13 +129,17 @@ final class SharpSky {
 
         /** Sends the term images of a sky to a new texture, which has one texel of 0 when the sky has no terms. */
         static Terms upload(SkyImage img, String label) {
-            int count = img.program().terms();
-            int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
+            int width = img.termTextureWidth(), height = img.termTextureHeight();
             GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label, GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
                     GpuFormat.RGBA16_FLOAT, width, height, 1, 1);
-            ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
-            if (count > 0) bytes.asShortBuffer().put(img.terms());
-            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, bytes, 0, 0, 0, 0, width, height);
+            // The write copies the bytes at once, so they can go free after it.
+            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
+            try {
+                bytes.asShortBuffer().put(img.terms());
+                RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, bytes, 0, 0, 0, 0, width, height);
+            } finally {
+                MemoryUtil.memFree(bytes);
+            }
             return new Terms(texture, RenderSystem.getDevice().createTextureView(texture));
         }
 
@@ -186,12 +193,15 @@ final class SharpSky {
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
+    /** True when the last {@link #prepare} sent the image of this frame and the pipeline is ready, so that the sky pass draws sharp. */
+    private static boolean ready;
 
     private SharpSky() {}
 
     /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
     static void prepare(SkyImage img) {
-        if (!ModernSky.wantsSharp(img) || SHARP.get() == null || blockSerial == img.serial()) return;
+        ready = ModernSky.wantsSharp(img) && SHARP.get() != null;
+        if (!ready || blockSerial == img.serial()) return;
         if (block != null) block.close();
         if (terms != null) terms.close();
         block = upload(img.program(), "Albedo sky block");
@@ -199,9 +209,12 @@ final class SharpSky {
         blockSerial = img.serial();
     }
 
-    /** Draws the image sharp in the sky pass and returns true, or returns false when the baked texture must draw it. */
-    static boolean draw(RenderPass pass, SkyImage img, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
-        if (!ModernSky.wantsSharp(img) || SHARP.compiled == null || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
+    /**
+     * Draws the image of the last {@link #prepare} sharp in the sky pass, also when a newer image came after it, and returns
+     * true, or returns false when the baked texture must draw it.
+     */
+    static boolean draw(RenderPass pass, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
+        if (!ready) return false;
         pass.pushDebugGroup(() -> "Albedo sharp sky");
         pass.setPipeline(SHARP.compiled);
         RenderSystem.bindDefaultUniforms(pass);
@@ -217,10 +230,13 @@ final class SharpSky {
     /** A uniform buffer with the block of a program. */
     private static GpuBuffer upload(SkyProgram program, String label) {
         float[] values = program.block();
-        ByteBuffer bytes = ByteBuffer.allocateDirect(values.length * 4).order(ByteOrder.nativeOrder());
-        for (float v : values) bytes.putFloat(v);
-        bytes.flip();
-        return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+        ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
+        try {
+            bytes.asFloatBuffer().put(values);
+            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+        } finally {
+            MemoryUtil.memFree(bytes);
+        }
     }
 
     /**
@@ -312,7 +328,7 @@ final class SharpSky {
         public String getShader(Identifier id, ShaderType type) {
             if (!id.getNamespace().equals(Albedo.MOD_ID)) return null;
             try {
-                return SkyShaderSource.read(id.getPath() +(type == ShaderType.VERTEX ? ".vsh" : ".fsh"));
+                return SkyShaderSource.read(id.getPath() + (type == ShaderType.VERTEX ? ".vsh" : ".fsh"));
             } catch (IOException e) {
                 Albedo.get().platform().warn("Cannot read the sky shader " + id, e);
                 return null;

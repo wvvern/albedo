@@ -58,6 +58,20 @@ public final class SkyImage {
     /** The height of each term image. */
     public int termHeight() { return termHeight; }
 
+    /** The width of the texture of all term images, which is 1 when there are no terms, because a sampler needs a texture. */
+    public int termTextureWidth() { return program.terms() == 0 ? 1 : termWidth; }
+
+    /** The height of the texture of all term images one under the other, which is 1 when there are no terms. */
+    public int termTextureHeight() { return program.terms() == 0 ? 1 : termHeight * program.terms(); }
+
+    /** True when the sky shader draws this image: the design asks for the sharp render and the shader can draw all its layers. */
+    public boolean drawsSharp() { return design.render() == SkyDesign.Render.SHARP && program.drawsSharp(); }
+
+    /** The same pixels for a design that differs only in its render, which the bake does not read. */
+    SkyImage withRender(SkyDesign.Render render) {
+        return new SkyImage(argb, width, height, design.withRender(render), ring, program, termWidth, termHeight, terms);
+    }
+
     /** The pixels, row by row from the top, which the caller must not change. */
     public int[] argb() { return argb; }
 

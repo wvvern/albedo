@@ -47,6 +47,13 @@ public final class SkyBaker {
             return;
         }
         if (design.equals(requested)) return;
+        SkyImage last = image;
+        if (last != null && last.design().equals(requested) && design.equals(requested.withRender(design.render()))) {
+            // Only the render changed, which the bake does not read, so the finished image stays with the new design.
+            requested = design;
+            image = last.withRender(design.render());
+            return;
+        }
         requested = design;
         long mine = generation.incrementAndGet();
         BooleanSupplier stale = () -> generation.get() != mine;

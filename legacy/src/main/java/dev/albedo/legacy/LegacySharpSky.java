@@ -1,7 +1,6 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
-import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
@@ -27,7 +26,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import javax.imageio.ImageIO;
@@ -152,14 +150,9 @@ final class LegacySharpSky {
         return null;
     }
 
-    /** True when the image draws with the sky shader: the design and the setting permit it. */
-    private static boolean wanted(SkyImage img) {
-        return img.design().render() == SkyDesign.Render.SHARP && img.program().drawsSharp();
-    }
-
     /** Compiles the program and sends the term images of a new image to the GPU. */
     static void prepare(SkyImage img) {
-        if (!wanted(img) || !SHARP.ready() || blockSerial == img.serial()) return;
+        if (!img.drawsSharp() || !SHARP.ready() || blockSerial == img.serial()) return;
         if (termTexture != 0) GlStateManager.deleteTexture(termTexture);
         block = new Block(img.program());
         termTexture = uploadTerms(img);
@@ -172,7 +165,7 @@ final class LegacySharpSky {
      * @return false when the baked texture must draw the sky
      */
     static boolean draw(SkyImage img, int sphere, float brightness) {
-        if (!wanted(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
+        if (!img.drawsSharp() || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
         SHARP.use(block, termTexture, brightness);
         GlStateManager.disableCull();
         GlStateManager.callList(sphere);
@@ -196,11 +189,12 @@ final class LegacySharpSky {
 
     /** A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms. */
     private static int uploadTerms(SkyImage img) {
-        int count = img.program().terms();
-        int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
-        ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
-        if (count > 0) bytes.asShortBuffer().put(img.terms());
+        int width = img.termTextureWidth(), height = img.termTextureHeight();
+        ByteBuffer bytes = BufferUtils.createByteBuffer(width * height * 8);
+        bytes.asShortBuffer().put(img.terms());
         int texture = GlStateManager.generateTexture();
+        // Unit 1 holds the lightmap, so the terms go on unit 0.
+        GlStateManager.setActiveTexture(GL13.GL_TEXTURE0);
         GlStateManager.bindTexture(texture);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);

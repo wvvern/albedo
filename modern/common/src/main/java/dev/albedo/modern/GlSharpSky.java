@@ -28,11 +28,11 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
+import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 
 // Draws the custom sky with the sky shader for each screen pixel on 1.21.1, so that it is sharp at each resolution and
@@ -185,11 +185,9 @@ final class GlSharpSky {
 
     // A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms.
     private static int uploadTerms(SkyImage img) {
-        int count = img.program().terms();
-        int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
-        ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
-        if (count > 0) bytes.asShortBuffer().put(img.terms());
+        int width = img.termTextureWidth(), height = img.termTextureHeight();
         int texture = GlStateManager._genTexture();
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(texture);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
@@ -199,7 +197,13 @@ final class GlSharpSky {
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+        ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
+        try {
+            bytes.asShortBuffer().put(img.terms());
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+        } finally {
+            MemoryUtil.memFree(bytes);
+        }
         return texture;
     }
 

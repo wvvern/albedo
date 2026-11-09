@@ -32,12 +32,13 @@ import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Screenshot;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
@@ -82,19 +83,23 @@ final class PrecompiledSharpSky {
 
         // Sends the term images of a sky to a new texture, which has one texel of 0 when the sky has no terms.
         static Terms upload(SkyImage img, String label) {
-            int count = img.program().terms();
-            int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
+            int width = img.termTextureWidth(), height = img.termTextureHeight();
             GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label, GpuTexture.USAGE_TEXTURE_BINDING, TextureFormat.RGBA8,
                     width, height, 1, 1);
-            ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
-            if (count > 0) bytes.asShortBuffer().put(img.terms());
             // The game has no half float format, so the GL gets the level again in half floats.
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             GlStateManager._bindTexture(((GlTexture) texture).glId());
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
+            try {
+                bytes.asShortBuffer().put(img.terms());
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+            } finally {
+                MemoryUtil.memFree(bytes);
+            }
             return new Terms(texture, RenderSystem.getDevice().createTextureView(texture));
         }
 
@@ -183,10 +188,13 @@ final class PrecompiledSharpSky {
     // A uniform buffer with the block of a program.
     private static GpuBuffer upload(SkyProgram program, String label) {
         float[] values = program.block();
-        ByteBuffer bytes = ByteBuffer.allocateDirect(values.length * 4).order(ByteOrder.nativeOrder());
-        for (float v : values) bytes.putFloat(v);
-        bytes.flip();
-        return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+        ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
+        try {
+            bytes.asFloatBuffer().put(values);
+            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+        } finally {
+            MemoryUtil.memFree(bytes);
+        }
     }
 
     // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives

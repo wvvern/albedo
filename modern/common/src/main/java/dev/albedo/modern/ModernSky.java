@@ -77,7 +77,7 @@ public final class ModernSky {
 
     /** True when the image draws with the sky shader in this frame: the design and the setting permit it, and no shader pack draws the sky. */
     static boolean wantsSharp(SkyImage img) {
-        return img.design().render() == SkyDesign.Render.SHARP && img.program().drawsSharp() && !shaderPackInUse();
+        return img.drawsSharp() && !shaderPackInUse();
     }
 
     /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture. */
@@ -185,7 +185,7 @@ public final class ModernSky {
         float k = brightness(img);
         com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
                 .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));
-        if (SharpSky.draw(pass, img, transforms, sphere, vertexCount)) return true;
+        if (SharpSky.draw(pass, transforms, sphere, vertexCount)) return true;
         pass.pushDebugGroup(() -> "Albedo sky");
         pass.setPipeline(com.mojang.blaze3d.systems.RenderSystem.getCompiledPipeline(PIPELINE));
         com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);

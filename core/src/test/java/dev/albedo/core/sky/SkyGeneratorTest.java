@@ -51,6 +51,20 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void aNewRenderKeepsThePixelsWithNoBake() throws InterruptedException {
+        SkyBaker baker = new SkyBaker(W, H, e -> fail(e));
+        baker.request(SkyPresets.NEBULA);
+        for (int i = 0; i < 400 && !baker.current(); i++) Thread.sleep(10);
+        SkyImage sharp = baker.image();
+        assertTrue(sharp.drawsSharp());
+        baker.request(SkyPresets.NEBULA.withRender(SkyDesign.Render.FAST));
+        assertTrue(baker.current(), "the image is ready at once");
+        assertSame(sharp.argb(), baker.image().argb());
+        assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
+        assertFalse(baker.image().drawsSharp());
+    }
+
+    @Test
     void noSeamWhereTheImageWrapsAndNoPinchAtTheZenith() {
         int[] px = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.NOISE).withTransform(new Transform(0, 0, 0, 400))), W, H).argb();
         for (int y = 0; y < H; y++) {
@@ -227,6 +241,7 @@ class SkyGeneratorTest {
         assertEquals(0x7BFF, SkyGenerator.half(65504f));
         assertEquals(0x7BFF, SkyGenerator.half(1e9f), "the largest half float");
         assertEquals(0, SkyGenerator.half(-1f), "no negative glow");
+        assertEquals(0, SkyGenerator.half(Float.NaN), "no bright speck from a NaN");
         assertEquals(1, SkyGenerator.half(5.9604645e-8f), "the smallest subnormal");
         assertEquals(0x0200, SkyGenerator.half(3.0517578e-5f), "a subnormal");
         for (float v = 1e-6f; v < 60000; v *= 1.37f) assertEquals(v, fromHalf(SkyGenerator.half(v)), v / 1024 + 6e-8f, "" + v);
@@ -238,6 +253,9 @@ class SkyGeneratorTest {
         SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
         SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4)), w, h);
         assertEquals(0, below.terms().length);
+        assertEquals(1, below.termTextureWidth() * below.termTextureHeight(), "one texel for the sampler");
+        assertEquals(w / 2, full.termTextureWidth());
+        assertEquals(h / 2, full.termTextureHeight());
         assertEquals(w / 2, full.termWidth());
         assertEquals(h / 2, full.termHeight());
         assertEquals(w / 2 * h / 2 * 4, full.terms().length, "one term image of half float RGBA");
