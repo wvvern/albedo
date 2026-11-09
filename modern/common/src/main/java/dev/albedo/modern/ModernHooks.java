@@ -40,6 +40,11 @@ public final class ModernHooks {
         ChromaAtlases.frameEnd();
     }
 
+    /** Whether an item icon of a screen must draw again in each frame, as an animated item does, because Chroma colors move. */
+    public static boolean itemIconMoves() {
+        return ChromaAtlases.moving();
+    }
+
     /**
      * Atlas sprites, before mipmaps are generated.
      *
