@@ -7,7 +7,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Skip the sky (overworld and End); the clear color set in EntityRendererMixin shows instead. */
+/**
+ * Skip the sky (overworld and End) for a flat sky color, and MixinPlugin also sends the sky draws of this target
+ * through LegacySky with LegacySkyPatch, with and without OptiFine.
+ */
 @Mixin(RenderGlobal.class)
 public abstract class RenderGlobalMixin {
     @Inject(method = "renderSky(FI)V", at = @At("HEAD"), cancellable = true)

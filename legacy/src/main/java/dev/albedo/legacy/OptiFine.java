@@ -1,8 +1,11 @@
 package dev.albedo.legacy;
 
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.world.World;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -16,6 +19,11 @@ final class OptiFine {
     private static final Field SPRITE_TEXTURE = field(TextureAtlasSprite.class, "glSpriteTextureId");
     private static final Method BIND_SPRITE_TEXTURE = method(TextureAtlasSprite.class, "bindSpriteTexture");
 
+    /** The OptiFine method that draws the sky of a resource pack, found on first use because LegacySkyPatch finds its class. */
+    private static final class CustomSky {
+        static final Method RENDER = method(type(LegacySkyPatch.customSkyOwner()), "renderSky", World.class, TextureManager.class, float.class);
+    }
+
     private OptiFine() {}
 
     /** True with a shader pack: OptiFine then uploads textures with its own code (normal and specular maps). */
@@ -25,6 +33,16 @@ final class OptiFine {
             return (Boolean) IS_SHADERS.invoke(null);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return true; // unknown: the caller falls back to a resource reload
+        }
+    }
+
+    /** Draws the sky of a resource pack with the OptiFine class that renderSky calls. */
+    static void renderCustomSky(World world, TextureManager textures, float partialTicks) {
+        if (CustomSky.RENDER == null) return;
+        try {
+            CustomSky.RENDER.invoke(null, world, textures, partialTicks);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new IllegalStateException("OptiFine CustomSky.renderSky failed", e);
         }
     }
 
@@ -41,6 +59,7 @@ final class OptiFine {
     }
 
     private static Class<?> type(String name) {
+        if (name == null) return null;
         try {
             return Class.forName(name, false, OptiFine.class.getClassLoader());
         } catch (ClassNotFoundException | LinkageError e) {
@@ -56,9 +75,9 @@ final class OptiFine {
         }
     }
 
-    private static Method method(Class<?> owner, String name) {
+    private static Method method(Class<?> owner, String name, Class<?>... parameters) {
         try {
-            return owner == null ? null : owner.getMethod(name);
+            return owner == null ? null : owner.getMethod(name, parameters);
         } catch (NoSuchMethodException | RuntimeException e) {
             return null;
         }

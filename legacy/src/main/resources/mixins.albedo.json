@@ -17,7 +17,6 @@
     "ForgeVertexLighterMixin",
     "FullbrightMixin",
     "GuiConnectingMixin",
-    "LegacySkyVanillaMixin",
     "MinecraftMixin",
     "ReloadListenersMixin",
     "RenderGlobalMixin",

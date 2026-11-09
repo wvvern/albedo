@@ -75,7 +75,7 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Full reload progress | - | `SimpleReloadableResourceManager.notifyReloadListeners` |
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
-| Custom sky (Layers) | 26.x and 1.21.11: `SkyRenderer` `renderSkyDisc`, `renderDarkDisc`, `renderSunriseAndSunset`, `renderStars`; 1.21.1: the draws in `LevelRenderer.renderSky` by ordinal | `RenderGlobal.renderSky` draws by ordinal (`LegacySkyVanillaMixin`) |
+| Custom sky (Layers) | 26.x and 1.21.11: `SkyRenderer` `renderSkyDisc`, `renderDarkDisc`, `renderSunriseAndSunset`, `renderStars`; 1.21.1: the draws in `LevelRenderer.renderSky` by ordinal | `RenderGlobal.renderSky` draws by the field that they read (`LegacySkyPatch`) |
 | Clouds | `CloudRenderer.prepare` | - |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
@@ -97,7 +97,8 @@ The sky style Layers keeps a `SkyDesign` (a list of `SkyLayer`) in the sky categ
 - The other versions use the classic shaders (`core/sky_sharp_classic` and `core/sky_equirect_classic`). `sky/SkyShaderSource` gives each one as one text, with the sky include in it and a header for the GL of the version (`SkyShaderSource.Dialect`). On 1.21.11, `PrecompiledSharpSky` gives this text to `GpuDevice.precompilePipeline` before each sky pass, because a resource reload empties the pipeline cache. 1.21.11 has no half float texture format, so the term texture gets its level again in half floats through the GL. On 1.21.1, `GlSharpSky` and on 1.8.9, `LegacySharpSky` compile their own GL program, set the sky block as three uniform arrays and draw the sphere of the baked path. The terms go on texture unit 0, and the brightness is a uniform. 1.8.9 uses GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4, else the baked image. If a compile fails, the version logs one warning and draws the baked image.
 - `sky/SkyLight` gives the brightness for "Darker at night" from the time of day and the weather with the vanilla formula, so all versions match. The fog takes `SkyImage.fogRgb`: the sky color near the horizon in the direction of the camera.
 - A sky edit does not repaint textures: `Policy.sameTextures` compares only the Celestial switch of the layers, which hides the sun and moon textures.
-- With OptiFine on 1.8.9, `MixinPlugin` turns off `LegacySkyVanillaMixin` and the sky stays vanilla.
+- On 1.8.9, `MixinPlugin` gives `RenderGlobal` to `LegacySkyPatch` before `RenderGlobalMixin` applies. The patch finds each draw in `renderSky` by the field that it reads (the sky, star and dark vertex buffers and display lists), not by its order, because OptiFine adds draws to this method. It also finds the first and the last `Tessellator.draw` (the sunrise fan and the box below the horizon), and the calls to OptiFine `CustomSky.renderSky` and `CustomSky.hasSkyLayers`. Each call goes to a `LegacySky` method with the same stack. Thus the same patch works with and without OptiFine. A Layers sky replaces the sky of an OptiFine resource pack, and with the other sky styles the resource pack sky draws as before. If the patch does not find the sky draw, it logs a warning and the sky stays vanilla.
+- With an OptiFine shader pack (`Config.isShaders()`), the sky stays vanilla, because the shader pack draws the sky.
 - The texture has about 5.7 texels for each degree. A star is at least 1.5 texels wide, so that it does not flicker, and looks soft on a large screen.
 
 Foliage has no hook of its own. The texture hooks set the alpha of plant textures to zero, and cut-out rendering does not draw those pixels.
@@ -222,6 +223,6 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
   - Iris on Fabric 1.21.1 cannot start in the dev run: after the remap, one of its mixins has no target descriptor.
   - On NeoForge 26.3, Sodium 0.9.3 does not accept Iris 1.11.7, and Sodium 0.9.2 does not start on the NeoForge version of the build.
 - The Sodium and Embeddium hooks use internal method names of these mods. A new version can rename them. Then the hook does not apply (`require = 0`) and fixed tints stay. Test each new version with `-Pcompat` and `tools/harness/scene-compat.txt`.
-- 1.8.9 with OptiFine: the project tests only OptiFine HD U M6 pre2 (with `tools/optifine.ps1`). OptiFine shaders are not tested.
+- 1.8.9 with OptiFine: the project tests only OptiFine HD U M6 pre2 and HD U L5 (with `tools/optifine.ps1`). OptiFine shaders are not tested.
 - Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
 - `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible. To hide it, add a group with `"mode": "hidden"`.

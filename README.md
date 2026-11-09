@@ -156,7 +156,7 @@ To share a profile, push Export in the settings screen. This saves it to `config
 ## Works with
 
 - **Sodium and Embeddium:** everything works.
-- **OptiFine on 1.8.9:** everything works, but the sky style Layers shows the vanilla sky, because OptiFine changes how the sky is drawn. Shaders are not tested.
+- **OptiFine on 1.8.9:** everything works. The sky style Layers replaces the sky of an OptiFine resource pack. When the OptiFine setting Sky is off, the sky style Layers is not drawn. With an OptiFine shader pack, the sky style Layers shows the vanilla sky, because the shader pack draws the sky. Shaders are not tested.
 - **Iris:** everything works with shaders off. Many shader packs draw their own sky, clouds, light and shadows. With those packs, the sky (also Layers), clouds, fullbright, shading and shadow settings have no effect.
 
 ## Known limits
