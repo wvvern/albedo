@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- fix: Make the pulse of the Nebula clouds easy to see, and let a high Pulse value be strong
+
 ## 0.4.2
 
 - fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on

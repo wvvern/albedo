@@ -37,27 +37,47 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void theCloudsPulseSlowlyAndGentlyInSomeRegionsOnly() {
-        int still = 0, pulsing = 0;
+    void theCloudsPulseSmoothlyInMostRegions() {
+        int still = 0, strong = 0;
         for (int i = 0; i < 400; i++) {
             double az = i * 0.7, el = (i % 17) * 0.09 - 0.7;
             float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
             assertEquals(1f, SkyGenerator.pulse(0, 1, 7, p, 1, 5), "a pulse of 0 keeps the clouds still");
-            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(1, 1, 7, p, 1, 0);
+            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(0.5f, 1, 7, p, 1, 0);
             for (int t = 0; t <= 60 * 30; t++) {
-                float k = SkyGenerator.pulse(1, 1, 7, p, 1, t / 60f);
+                float k = SkyGenerator.pulse(0.5f, 1, 7, p, 1, t / 60f);
                 min = Math.min(min, k);
                 max = Math.max(max, k);
                 step = Math.max(step, Math.abs(k - last));
                 last = k;
             }
-            assertTrue(min >= 0.25f && max <= 1.75f, "a pulse of 100 percent from " + min + " to " + max);
-            assertTrue(step < 0.01f, "a slow pulse, with a step of " + step + " in a frame");
-            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 903), 1e-4f, "the waves repeat in 900 s");
+            assertTrue(min >= 0.5f && max <= 2f, "a pulse of 50 percent from " + min + " to " + max);
+            assertTrue(step < 0.03f, "a smooth pulse, with a step of " + step + " in a frame");
+            float full = SkyGenerator.pulse(1, 1, 7, p, 1, 2);
+            assertTrue(full > 0.09f && full < 11.1f, "a pulse of 100 percent of " + full);
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 183), 1e-3f, "the waves repeat in 180 s");
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 0), SkyGenerator.pulse(1, 1, 7, p, 1, 3600), 1e-3f, "no jump at the hour");
             if (max - min < 1e-6f) still++;
-            else if (max - min > 0.1f) pulsing++;
+            else if (max / min > 1.5f) strong++;
         }
-        assertTrue(still > 80 && pulsing > 80, still + " still and " + pulsing + " pulsing places");
+        assertTrue(still > 10 && strong > 120, still + " still and " + strong + " strong places");
+    }
+
+    @Test
+    void aBrighterCloudKeepsItsHueAndStopsSmoothlyAtThePeak() {
+        float[] pink = {1f, 0.16f, 0.43f};
+        SkyGenerator.brighten(5, pink);
+        assertArrayEquals(new float[] {1f, 0.16f, 0.43f}, pink, 2e-4f, "a peak of 1 cannot get brighter");
+        float[] dim = {0.4f, 0.1f, 0.2f};
+        SkyGenerator.brighten(5, dim);
+        assertTrue(dim[0] < 1 && dim[0] > 0.9f, "the peak goes up to 1 but not over it: " + dim[0]);
+        assertEquals(0.25f, dim[1] / dim[0], 1e-4f, "the hue stays");
+        float[] small = {0.4f, 0.1f, 0.2f}, smaller = {0.4f, 0.1f, 0.2f};
+        SkyGenerator.brighten(1.001f, small);
+        SkyGenerator.brighten(0.999f, smaller);
+        assertEquals(small[0] - 0.4f, 0.4f - smaller[0], 1e-5f, "the curve has no corner at a factor of 1");
+        SkyGenerator.brighten(0.1f, smaller);
+        assertTrue(smaller[0] > 0, "a darker cloud stays above black");
     }
 
     @Test

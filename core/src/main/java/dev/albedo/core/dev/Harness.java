@@ -215,6 +215,7 @@ public final class Harness {
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
+        else if (verb.equals("skyparam")) sc.apply(config.withProfile(withSkyParam(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
         else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
         else if (verb.equals("skyturn")) sc.apply(config.withProfile(withSkyTurning(config.activeProfile(), arg.split("\\s+"))));
@@ -335,6 +336,15 @@ public final class Harness {
         }
         SkyLayer.Kind k = SkyLayer.Kind.valueOf(kind.trim().toUpperCase(Locale.ROOT));
         return profile.with(Category.SKY, sky.withSky(sky.sky().withAdded(k)));
+    }
+
+    /** Sets a setting of a layer of the custom sky, where the lowest layer is 1 ({@code skyparam 2 pulse 100}). */
+    static Profile withSkyParam(Profile profile, String[] args) {
+        CategorySettings sky = profile.get(Category.SKY);
+        int index = Integer.parseInt(args[0]) - 1;
+        SkyLayer.Param param = SkyLayer.Param.valueOf(args[1].toUpperCase(Locale.ROOT));
+        SkyLayer layer = sky.sky().layers().get(index).withParam(param, Integer.parseInt(args[2]));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withLayer(index, layer)));
     }
 
     /** Sets the render of the custom sky to {@code sharp} or {@code fast}. */

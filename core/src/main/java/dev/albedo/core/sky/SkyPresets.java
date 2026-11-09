@@ -30,7 +30,7 @@ public final class SkyPresets {
     /** Pink and violet clouds of gas that slowly pulse, partly blurred and changed in hue through a noise mask, with sharp stars over them. */
     public static final SkyDesign NEBULA = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF1A0F33, Param.COLOR_2, 0xFF05060F, Param.HEIGHT, 35, Param.AMOUNT, 70)
-            .add(Kind.FRACTAL, Param.COLOR_1, 0xFF3B1C6E, Param.COLOR_2, 0xFFFF6FB0, Param.AMOUNT, 60, Param.PULSE, 100, Param.SEED, 7)
+            .add(Kind.FRACTAL, Param.COLOR_1, 0xFF3B1C6E, Param.COLOR_2, 0xFFFF6FB0, Param.AMOUNT, 60, Param.PULSE, 50, Param.SEED, 7)
             .blend(SkyLayer.Blend.ADD).opacity(90).place(new Transform(40, 10, 0, 130))
             .add(Kind.NOISE, Param.AMOUNT, 55, Param.SEED, 12).output(SkyLayer.Output.MASK_ONLY).place(new Transform(0, 0, 0, 80))
             .add(Kind.BLUR, Param.AMOUNT, 25).mask(3, SkyMask.Mode.LIGHT)
