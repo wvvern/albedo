@@ -43,6 +43,13 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
+    /** A labelled switch on its own row, where a click on the label flips it too, which returns the new state. */
+    boolean toggle(String id, int y, String label, String tip, boolean on) {
+        label(y, Ui.H, label, tip);
+        boolean flipped = ui.toggle(id, lx(), y + 2, on, tip) != on;
+        return (flipped || ui.press(id + ".label", x, y, labelW, Ui.H)) != on;
+    }
+
     /** A labelled slider from {@code min} to {@code max} on its own row, which returns the value after a click or drag. */
     int range(String id, int y, String label, String tip, int value, int min, int max, String unit) {
         label(y, Ui.SLIDER_H, label, tip);

@@ -242,7 +242,8 @@ final class Ui {
         drawingOverlay = false;
     }
 
-    private boolean press(String id, int x, int y, int w, int h) {
+    /** Gives the press of this frame to the widget {@code id} when the pointer is on the rectangle, and returns true then. */
+    boolean press(String id, int x, int y, int w, int h) {
         if (!pointer.click || !hover(x, y, w, h)) return false;
         pointer.click = false;
         pointer.owner = id;

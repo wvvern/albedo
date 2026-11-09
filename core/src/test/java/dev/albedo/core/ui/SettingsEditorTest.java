@@ -908,6 +908,14 @@ class SettingsEditorTest {
         assertEquals(SkyTurning.Clock.WORLD, t.clock(), "Follow time starts on");
         assertEquals(SkyPresets.GALAXY.layers(), savedSky().layers(), "the turning does not change the layers");
 
+        // A click on the label flips the switch, as on the other switch rows.
+        click(editor, canvas, "Follow time");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyTurning.Clock.REAL, savedSky().turning().clock(), "a click on the label turns Follow time off");
+        click(editor, canvas, "Follow time");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyTurning.Clock.WORLD, savedSky().turning().clock());
+
         click(editor, canvas, "Nebula");
         click(editor, canvas, "Nebula");
         click(editor, canvas, "Apply");

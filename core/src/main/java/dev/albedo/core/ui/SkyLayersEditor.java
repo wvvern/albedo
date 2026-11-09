@@ -362,8 +362,7 @@ final class SkyLayersEditor {
         });
         rows.add(y -> {
             boolean follow = t.clock() == SkyTurning.Clock.WORLD;
-            options.label(y, Ui.H, FOLLOW_TIME, Labels.TURNING_FOLLOW_TIP);
-            if (ui.toggle("sky.turning.follow", options.lx(), y + 2, follow, Labels.TURNING_FOLLOW_TIP) != follow) {
+            if (options.toggle("sky.turning.follow", y, FOLLOW_TIME, Labels.TURNING_FOLLOW_TIP, follow) != follow) {
                 put.accept(t.withClock(follow ? SkyTurning.Clock.REAL : SkyTurning.Clock.WORLD));
             }
         });
