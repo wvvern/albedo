@@ -396,7 +396,8 @@ public final class Harness {
             return;
         }
         boolean started = host.drawSharpSky(world, SkyClock.seconds(), TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
-                log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
+                log(nanos < 0 ? "! skytime: the GPU gave no time"
+                        : String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
         if (!started) again("skytime", tries);
     }
 
