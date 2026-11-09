@@ -29,6 +29,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
+import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Screenshot;
 import net.minecraft.resources.Identifier;
@@ -51,16 +52,18 @@ final class PrecompiledSharpSky {
     // A pipeline whose shaders come from the jar of the mod, because the game does not load the shaders of a mod as resources.
     private static final class Pipeline {
         final RenderPipeline pipeline;
+        final String steps;
         Compile state = Compile.NOT_STARTED;
 
-        Pipeline(RenderPipeline pipeline) {
+        Pipeline(RenderPipeline pipeline, String steps) {
             this.pipeline = pipeline;
+            this.steps = steps;
         }
 
         // Gives the pipeline to the game before each use, because a resource reload empties the pipeline cache, and returns true when it compiled.
         boolean ready() {
             if (state == Compile.FAILED) return false;
-            if (RenderSystem.getDevice().precompilePipeline(pipeline, PrecompiledSharpSky::source).isValid()) {
+            if (RenderSystem.getDevice().precompilePipeline(pipeline, (id, type) -> source(id, type, steps)).isValid()) {
                 if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
                 state = Compile.READY;
                 return true;
@@ -115,13 +118,18 @@ final class PrecompiledSharpSky {
         }
     }
 
+    // The shaders of each sky that came recently; the game keeps a compiled pipeline until the next resource reload.
+    private static final int CACHE = 4;
+    // The number of pipelines, which gives each pipeline its own name.
+    private static int pipelines;
+
     // The sky on the sphere with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
-    private static final Pipeline SHARP = new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
             .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
             .withSampler("AlbedoTerms")
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_sharp"))
+            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_sharp_" + pipelines++))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.SHARP))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.SHARP))
             .withoutBlend()
@@ -129,13 +137,13 @@ final class PrecompiledSharpSky {
             .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withCull(false)
             .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES)
-            .build());
+            .build(), steps), pipeline -> { });
 
     // The sky into the equirectangular image of the CPU bake, for the harness.
-    private static final Pipeline EQUIRECT = new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
             .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
             .withSampler("AlbedoTerms")
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect"))
+            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect_" + pipelines++))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.EQUIRECT))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.EQUIRECT))
             .withoutBlend()
@@ -143,7 +151,7 @@ final class PrecompiledSharpSky {
             .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withCull(false)
             .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES)
-            .build());
+            .build(), steps), pipeline -> { });
 
     // The bytes of the time for writeTime, which the write copies at once, so one buffer serves all frames.
     private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
@@ -152,13 +160,15 @@ final class PrecompiledSharpSky {
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
+    // The pipeline of the image of the last prepare, or null when the baked texture must draw it.
+    private static Pipeline ready;
 
     private PrecompiledSharpSky() {}
 
-    // The complete text of a shader of the mod, with the sky include in it.
-    private static String source(Identifier id, ShaderType type) {
+    // The complete text of a shader of the mod, with the sky include and its layer steps in it.
+    private static String source(Identifier id, ShaderType type, String steps) {
         try {
-            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, SkyShaderSource.Dialect.BLOCKS_330);
+            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, SkyShaderSource.Dialect.BLOCKS_330, steps);
         } catch (IOException e) {
             Albedo.get().platform().warn("Cannot read the sky shader " + id, e);
             return null;
@@ -167,7 +177,9 @@ final class PrecompiledSharpSky {
 
     // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens.
     static void prepare(SkyImage img) {
-        if (!ModernSky.wantsSharp(img) || !SHARP.ready()) return;
+        Pipeline sharp = ModernSky.wantsSharp(img) ? SHARP.get(img.program().shaderSteps()) : null;
+        ready = sharp != null && sharp.ready() ? sharp : null;
+        if (ready == null) return;
         if (blockSerial != img.serial()) {
             if (block != null) block.close();
             if (terms != null) terms.close();
@@ -186,8 +198,8 @@ final class PrecompiledSharpSky {
 
     // Draws the image sharp in the sky pass and returns true, or returns false when the baked texture must draw it.
     static boolean draw(RenderPass pass, SkyImage img, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
-        if (!ModernSky.wantsSharp(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        pass.setPipeline(SHARP.pipeline);
+        if (ready == null || blockSerial != img.serial()) return false;
+        pass.setPipeline(ready.pipeline);
         RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
         pass.setUniform("AlbedoSky", block);
@@ -212,7 +224,8 @@ final class PrecompiledSharpSky {
     // Draws the program and the term images of a sky repeat times into an image of this size, the equirectangular image when
     // view is null, then gives the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
     static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
-        if (!EQUIRECT.ready()) return false;
+        Pipeline equirect = EQUIRECT.get(sky.program().shaderSteps());
+        if (!equirect.ready()) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, false);
         GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
@@ -227,7 +240,7 @@ final class PrecompiledSharpSky {
             }
             for (int i = 0; i < repeat; i++) {
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", target.getColorTextureView(), OptionalInt.empty())) {
-                    pass.setPipeline(EQUIRECT.pipeline);
+                    pass.setPipeline(equirect.pipeline);
                     pass.setUniform("AlbedoSky", uniforms);
                     skyTerms.bind(pass);
                     pass.setVertexBuffer(0, quad);

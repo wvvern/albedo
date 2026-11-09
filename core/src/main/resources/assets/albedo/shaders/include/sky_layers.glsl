@@ -34,6 +34,14 @@
 #define ALBEDO_USE_MASK 1
 #define ALBEDO_USE_SHOW 2
 
+// The parts of a layer that its values turn on, which SkyShaderSource puts in each layer step, so that the compiler leaves out the parts that are off.
+#define ALBEDO_FLAG_TWINKLE 1
+#define ALBEDO_FLAG_TRAILS 2
+#define ALBEDO_FLAG_SPIKES 4
+#define ALBEDO_FLAG_PULSE 8
+#define ALBEDO_FLAG_DUST 16
+#define ALBEDO_FLAG_JETS 32
+
 #ifdef ALBEDO_PLAIN_UNIFORMS
 // The values of the uniform block below, for the GL programs that set them as three arrays.
 uniform vec4 SkyHeader;
@@ -475,17 +483,18 @@ vec3 albedoStarTrails(vec3 p, float footprint, float cells, float minFlux, float
 }
 
 // Stars with the brightness spread and the colors of real stars, where AMOUNT is the count and HEIGHT is the strength of the spikes.
-vec4 albedoStars(int layer, vec3 p, float footprint) {
+vec4 albedoStars(int layer, vec3 p, float footprint, int flags) {
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
     float m = 0.2 + 0.8 * values.z;
-    float density = m * m, spikes = values.w * 2.0;
+    float density = m * m, spikes = (flags & ALBEDO_FLAG_SPIKES) != 0 ? values.w * 2.0 : 0.0;
     // The stars twinkle at the time of the header, and at time 0 in a still sky, as in the bake.
-    float twinkle = albedoLayer(layer, 4).w, time = max(SkyHeader.w, 0.0);
+    float twinkle = (flags & ALBEDO_FLAG_TWINKLE) != 0 ? albedoLayer(layer, 4).w : 0.0, time = max(SkyHeader.w, 0.0);
     vec3 up = vec3(albedoLayer(layer, 7).y, albedoLayer(layer, 8).y, albedoLayer(layer, 9).y);
     // The trail axis in the free last floats of the matrix rows, and the trail arc in radians, 0 for no trails.
-    vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w);
+    vec4 trail = (flags & ALBEDO_FLAG_TRAILS) != 0
+            ? vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w) : vec4(0.0);
     // Only the bright stars twinkle, because the twinkle of a faint star is too small to see.
     vec3 light = albedoStarTier(p, footprint, 88.0, 0.04, 0.9, 1.3, 7, false, density, spikes, shape.x, seed, 0.0, time, up, trail);
     light += albedoStarTier(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, true, density, spikes, shape.x, seed, twinkle, time, up, trail);
@@ -519,19 +528,19 @@ float albedoPulse(int layer, vec3 p, float v) {
 }
 
 // Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover.
-vec4 albedoClouds(int layer, vec3 p) {
+vec4 albedoClouds(int layer, vec3 p, int flags) {
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     float v = albedoFbm(p * (2.5 / shape.x), int(shape.y), 6) * 0.5 + 0.5;
     vec4 c = albedoMix(layer, v);
     float edge = 1.0 - values.z * 1.2;
     c.a *= albedoSmooth(edge - 0.12, edge + 0.12, v);
-    c.rgb *= albedoPulse(layer, p, v);
+    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, p, v);
     return c;
 }
 
 // Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend.
-vec4 albedoFractal(int layer, vec3 p) {
+vec4 albedoFractal(int layer, vec3 p, int flags) {
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
@@ -542,7 +551,7 @@ vec4 albedoFractal(int layer, vec3 p) {
     v = v * v;
     vec4 c = albedoMix(layer, v);
     c.a *= clamp(v * 1.6, 0.0, 1.0);
-    c.rgb *= albedoPulse(layer, p, v);
+    if ((flags & ALBEDO_FLAG_PULSE) != 0) c.rgb *= albedoPulse(layer, p, v);
     return c;
 }
 
@@ -561,13 +570,15 @@ const float ALBEDO_GALAXY_HALO = 0.4;
 const float ALBEDO_GALAXY_LOBE_RING = 0.16;
 
 // An active galaxy at the layer center, modeled on Centaurus A and Hercules A, with a COLOR_2 bulge in a halo, COLOR_1 arms at TILT, dust and COLOR_3 jets.
-vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
+vec4 albedoGalaxy(int layer, vec3 p, float footprint, int flags) {
     float zz = -p.z;
     if (zz < 0.2) return vec4(0.0);
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
-    float tilt = albedoLayer(layer, 4).w, dust = albedoLayer(layer, 5).w, jets = albedoLayer(layer, 6).w;
+    float tilt = albedoLayer(layer, 4).w;
+    float dust = (flags & ALBEDO_FLAG_DUST) != 0 ? albedoLayer(layer, 5).w : 0.0;
+    float jets = (flags & ALBEDO_FLAG_JETS) != 0 ? albedoLayer(layer, 6).w : 0.0;
     vec3 color1 = albedoLayer(layer, 3).rgb, color2 = albedoLayer(layer, 4).rgb;
     vec3 color3 = vec3(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w);
     // The plane of the image in galaxy units, where 1 is about the radius of the disc.
@@ -1050,18 +1061,6 @@ vec4 albedoAurora(int layer, vec3 p, float footprint) {
     return vec4((e + hot) / alpha, alpha);
 }
 
-vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
-    if (kind == ALBEDO_KIND_GRADIENT) return albedoGradient(layer, p);
-    if (kind == ALBEDO_KIND_GLOW) return albedoGlow(layer, p);
-    if (kind == ALBEDO_KIND_STARS) return albedoStars(layer, p, footprint);
-    if (kind == ALBEDO_KIND_NOISE) return albedoClouds(layer, p);
-    if (kind == ALBEDO_KIND_FRACTAL) return albedoFractal(layer, p);
-    if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p, footprint);
-    if (kind == ALBEDO_KIND_METEORS) return albedoMeteors(layer, p, footprint);
-    if (kind == ALBEDO_KIND_AURORA) return albedoAurora(layer, p, footprint);
-    return vec4(0.0);
-}
-
 vec3 albedoBlend(int blend, vec3 b, vec3 v, float k) {
     if (blend == ALBEDO_BLEND_ADD) return b + v * k;
     if (blend == ALBEDO_BLEND_SCREEN) {
@@ -1130,61 +1129,50 @@ vec3 albedoVignette(int layer, vec3 img, vec3 p) {
     return img + (albedoLayer(layer, 3).rgb - img) * k;
 }
 
-// The color of a filter over the sky below it, where a filter that reads near pixels or other directions reads its term image.
-vec4 albedoFilter(int layer, int kind, vec3 img, vec3 dir, vec3 p) {
-    if (kind == ALBEDO_KIND_BLOOM) {
-        // The term holds only the glow that the bloom adds to the sky below it.
-        return vec4(img + albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
-    }
-    if (kind == ALBEDO_KIND_BLUR || kind == ALBEDO_KIND_PIXELATE || kind == ALBEDO_KIND_CRYSTALLIZE || kind == ALBEDO_KIND_SWIRL) {
-        return vec4(albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
-    }
-    if (kind == ALBEDO_KIND_POSTERIZE) return vec4(albedoPosterize(layer, img), 1.0);
-    if (kind == ALBEDO_KIND_HUE_SHIFT) return vec4(albedoHueShift(layer, img), 1.0);
-    if (kind == ALBEDO_KIND_VIGNETTE) return vec4(albedoVignette(layer, img, p), 1.0);
-    return vec4(img, 1.0);
+// The glow that a bloom adds to the sky below it, from its term image.
+vec4 albedoBloom(int layer, vec3 img, vec3 dir) {
+    return vec4(img + albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
 }
 
-// The linear color of the sky in a unit direction, where the footprint is the width of the pixel in radians.
+// The result of a blur, pixelate, crystallize or swirl, which reads near pixels or other directions, from its term image.
+vec4 albedoTermFilter(int layer, vec3 dir) {
+    return vec4(albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
+}
+
+// The point of a sky direction in the frame of a layer.
+vec3 albedoFrame(int layer, vec3 dir) {
+    return vec3(dot(albedoLayer(layer, 7).xyz, dir), dot(albedoLayer(layer, 8).xyz, dir), dot(albedoLayer(layer, 9).xyz, dir));
+}
+
+// The lightness times the alpha, and the darkness times the alpha, of each layer that a higher layer uses as its mask.
+float albedoMaskLight[ALBEDO_MAX_LAYERS];
+float albedoMaskDark[ALBEDO_MAX_LAYERS];
+
+// Keeps the mask values of a layer s for the higher layers that use it as a mask.
+void albedoMaskSource(int layer, vec4 s) {
+    float a = clamp(s.a, 0.0, 1.0);
+    float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);
+    albedoMaskLight[layer] = lightness * a;
+    albedoMaskDark[layer] = (1.0 - lightness) * a;
+}
+
+// The sky below a layer with the layer s over it, through the mask of a lower layer when maskIndex is not -1.
+vec3 albedoShow(vec3 img, vec4 s, int layer, int blend, int maskIndex, bool maskDark) {
+    float maskValue = maskIndex < 0 ? 1.0 : maskDark ? albedoMaskDark[maskIndex] : albedoMaskLight[maskIndex];
+    float k = albedoLayer(layer, 1).y * maskValue * clamp(s.a, 0.0, 1.0);
+    return k > 0.0 ? albedoBlend(blend, img, s.rgb, k) : img;
+}
+
+// The linear color of the sky in a unit direction, where the footprint is the width of the pixel in radians, and
+// ALBEDO_LAYER_STEPS from SkyShaderSource.layerSteps calls the function of the kind of each layer that shows or masks,
+// with the structure of the layer as constants, so that the shader has only the code that the sky uses.
 vec3 albedoSky(vec3 dir, float footprint) {
-    int count = int(SkyHeader.x);
     float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
     float fade = SkyHeader.y > 0.5 ? 0.0 : albedoSmooth(0.0, ALBEDO_FADE, -el);
     vec3 img = vec3(0.0);
     if (fade < 1.0) {
-        float maskLight[ALBEDO_MAX_LAYERS];
-        float maskDark[ALBEDO_MAX_LAYERS];
-        // A bit for each layer that a higher layer uses as its mask, so that only those layers calculate their lightness.
-        int sources = 0;
-        for (int i = 0; i < ALBEDO_MAX_LAYERS; i++) {
-            if (i >= count) break;
-            int source = int(albedoLayer(i, 0).w);
-            if (source >= 0) sources |= 1 << source;
-        }
-        for (int i = 0; i < ALBEDO_MAX_LAYERS; i++) {
-            maskLight[i] = 0.0;
-            maskDark[i] = 0.0;
-            if (i >= count) break;
-            vec4 head = albedoLayer(i, 0);
-            int use = int(head.z);
-            if (use == ALBEDO_USE_NONE) continue;
-            int kind = int(head.x);
-            vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
-            bool isFilter = kind >= ALBEDO_KIND_BLOOM && kind <= ALBEDO_KIND_VIGNETTE;
-            vec4 s = isFilter ?albedoFilter(i, kind, img, dir, p) : albedoGenerate(i, kind, p, footprint);
-            float a = clamp(s.a, 0.0, 1.0);
-            if (((sources >> i) & 1) != 0) {
-                float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);
-                maskLight[i] = lightness * a;
-                maskDark[i] = (1.0 - lightness) * a;
-            }
-            if (use != ALBEDO_USE_SHOW) continue;
-            vec4 values = albedoLayer(i, 1);
-            int maskIndex = int(head.w);
-            float maskValue = maskIndex < 0 ? 1.0 : values.x > 0.5 ? maskDark[maskIndex] : maskLight[maskIndex];
-            float k = values.y * maskValue * a;
-            if (k > 0.0) img = albedoBlend(int(head.y), img, s.rgb, k);
-        }
+        vec4 s;
+        ALBEDO_LAYER_STEPS
     }
     if (fade > 0.0) img += (albedoRing(degrees(atan(dir.x, -dir.z))) - img) * fade;
     return img;

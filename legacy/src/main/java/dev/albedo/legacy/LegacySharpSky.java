@@ -5,6 +5,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
+import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -63,6 +64,7 @@ final class LegacySharpSky {
     /** A GL program from the classic sky shaders, and the places of its uniforms. */
     private static final class Program {
         final String name;
+        final String steps;
         Compile state = Compile.NOT_STARTED;
         int id;
         int header;
@@ -71,14 +73,21 @@ final class LegacySharpSky {
         int terms;
         int color;
 
-        Program(String name) {
+        Program(String name, String steps) {
             this.name = name;
+            this.steps = steps;
         }
 
         /** Compiles the program on its first use, and returns true when it compiled. */
         boolean ready() {
             if (state == Compile.NOT_STARTED) compile();
             return state == Compile.READY;
+        }
+
+        /** Deletes the GL program. */
+        void close() {
+            if (state == Compile.READY) GL20.glDeleteProgram(id);
+            state = Compile.FAILED;
         }
 
         private void compile() {
@@ -92,8 +101,8 @@ final class LegacySharpSky {
             int vertex = 0;
             int fragment = 0;
             try {
-                vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, dialect));
-                fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, dialect));
+                vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, dialect, steps));
+                fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, dialect, steps));
                 GL20.glAttachShader(program, vertex);
                 GL20.glAttachShader(program, fragment);
                 GL20.glLinkProgram(program);
@@ -134,12 +143,18 @@ final class LegacySharpSky {
         }
     }
 
-    private static final Program SHARP = new Program(SkyShaderSource.SHARP);
-    private static final Program EQUIRECT = new Program(SkyShaderSource.EQUIRECT);
+    /** The programs of each sky that came recently. */
+    private static final int CACHE = 4;
+    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(CACHE, steps -> new Program(SkyShaderSource.SHARP, steps),
+            Program::close);
+    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(CACHE,
+            steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
 
     private static Block block;
     private static int termTexture;
     private static long blockSerial = -1;
+    /** The program of the image of the last {@link #prepare}, or null when the baked texture must draw it. */
+    private static Program ready;
 
     private LegacySharpSky() {}
 
@@ -153,7 +168,9 @@ final class LegacySharpSky {
 
     /** Compiles the program and sends the term images of a new image to the GPU. */
     static void prepare(SkyImage img) {
-        if (!img.drawsSharp() || !SHARP.ready() || blockSerial == img.serial()) return;
+        Program sharp = img.drawsSharp() ? SHARP.get(img.program().shaderSteps()) : null;
+        ready = sharp != null && sharp.ready() ? sharp : null;
+        if (ready == null || blockSerial == img.serial()) return;
         if (termTexture != 0) GlStateManager.deleteTexture(termTexture);
         block = new Block(img.program());
         termTexture = uploadTerms(img);
@@ -166,8 +183,8 @@ final class LegacySharpSky {
      * @return false when the baked texture must draw the sky
      */
     static boolean draw(SkyImage img, int sphere, float brightness) {
-        if (!img.drawsSharp() || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, SkyClock.seconds(), termTexture, brightness);
+        if (ready == null || blockSerial != img.serial()) return false;
+        ready.use(block, SkyClock.seconds(), termTexture, brightness);
         GlStateManager.disableCull();
         GlStateManager.callList(sphere);
         GlStateManager.enableCull();
@@ -220,7 +237,8 @@ final class LegacySharpSky {
      * @return false when the shader cannot compile
      */
     static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
-        if (!EQUIRECT.ready()) return false;
+        Program equirect = EQUIRECT.get(sky.program().shaderSteps());
+        if (!equirect.ready()) return false;
         int texture = uploadTerms(sky);
         Framebuffer target = new Framebuffer(width, height, false);
         target.bindFramebuffer(true);
@@ -228,7 +246,7 @@ final class LegacySharpSky {
         GlStateManager.disableDepth();
         GlStateManager.disableCull();
         GlStateManager.disableAlpha();
-        EQUIRECT.use(new Block(sky.program()), time, texture, 1f);
+        equirect.use(new Block(sky.program()), time, texture, 1f);
         ContextCapabilities caps = GLContext.getCapabilities();
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;

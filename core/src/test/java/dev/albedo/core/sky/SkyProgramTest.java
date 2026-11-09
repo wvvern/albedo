@@ -52,7 +52,7 @@ class SkyProgramTest {
         assertEquals(20, SkyProgram.LAB_1);
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
-        assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
+        assertTrue(glsl.contains("dot(albedoLayer(layer, 7).xyz, dir)"), "the rotation starts at slot 7");
         // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6, and the aurora reads its speed there too.
         assertEquals(4 * 4 + 3, SkyProgram.SPEED);
         assertTrue(glsl.contains("float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;"), "the aurora reads the header time");
@@ -98,7 +98,7 @@ class SkyProgramTest {
         assertEquals(4 * 4 + 3, SkyProgram.TWINKLE);
         assertEquals(4 * 4 + 3, SkyProgram.PULSE);
         String glsl = skyLayersSource();
-        assertTrue(glsl.contains("float twinkle = albedoLayer(layer, 4).w"));
+        assertTrue(glsl.contains("float twinkle = (flags & ALBEDO_FLAG_TWINKLE) != 0 ? albedoLayer(layer, 4).w : 0.0"));
         assertTrue(glsl.contains("float amount = albedoLayer(layer, 4).w"));
     }
 
@@ -127,8 +127,7 @@ class SkyProgramTest {
         assertEquals(6 * 4 + 3, SkyProgram.TRAIL_LIGHT);
         assertEquals(7 * 4 + 3, SkyProgram.TRAIL_AXIS);
         String glsl = skyLayersSource();
-        assertTrue(glsl.contains("vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, "
-                + "albedoLayer(layer, 5).w);"));
+        assertTrue(glsl.contains("? vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w)"));
         assertTrue(glsl.contains("seed, trail, albedoLayer(layer, 6).w);"));
     }
 

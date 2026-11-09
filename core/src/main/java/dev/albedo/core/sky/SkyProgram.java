@@ -78,6 +78,7 @@ public final class SkyProgram {
     private final Path[] paths;
     private final int terms;
     private final boolean moves;
+    private String steps;
 
     private SkyProgram(SkyDesign design, float[] ring) {
         List<SkyLayer> layers = design.layers();
@@ -192,6 +193,12 @@ public final class SkyProgram {
 
     /** True when a layer that shows or masks moves with the time, so that the adapter must write the time into the header for each frame. */
     public boolean moves() { return moves; }
+
+    /** The {@link SkyShaderSource#layerSteps} of this program, which the render thread reads in each frame to find its shader. */
+    public String shaderSteps() {
+        if (steps == null) steps = SkyShaderSource.layerSteps(this);
+        return steps;
+    }
 
     /** The number of term images, from 0 to {@link #MAX_TERMS}. */
     public int terms() { return terms; }

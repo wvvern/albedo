@@ -47,7 +47,7 @@ public final class ModernSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run);
+            .build(), Runnable::run, "");
     //?} elif >=1.21.11 {
     /*private static com.mojang.blaze3d.buffers.GpuBuffer sphere;
     // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
