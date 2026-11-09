@@ -134,6 +134,18 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void quit() {
+        // The dev run of Architectury keeps two thread pools that are not daemons, so the JVM must stop when the game thread ends.
+        Thread game = Thread.currentThread();
+        Thread exit = new Thread(() -> {
+            try {
+                game.join();
+            } catch (InterruptedException e) {
+                return;
+            }
+            System.exit(0);
+        }, "albedo-harness-exit");
+        exit.setDaemon(true);
+        exit.start();
         Minecraft.getInstance().stop();
     }
 
