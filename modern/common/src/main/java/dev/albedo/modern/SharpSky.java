@@ -314,16 +314,18 @@ final class SharpSky {
 
         Source(RenderPipeline pipeline) throws IOException {
             for (Map.Entry<ShaderType, Identifier> e : pipeline.getShaders().entrySet()) {
-                Identifier file = e.getKey().idConverter().idToFile(e.getValue());
-                String text = file.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.read(file.getPath().substring("shaders/".length())) : resource(file);
+                Identifier id = e.getValue();
+                String text = id.getNamespace().equals(Albedo.MOD_ID)
+                        ? SkyShaderSource.read(id.getPath() + (e.getKey() == ShaderType.VERTEX ? ".vsh" : ".fsh"))
+                        : resource(e.getKey().idConverter().idToFile(id));
                 shaders.put(e.getKey(), SkyShaderSource.inline(text, Source::include));
             }
         }
 
         private static String include(String id) throws IOException {
             Identifier parsed = Identifier.parse(id);
-            if (parsed.getNamespace().equals(Albedo.MOD_ID)) return SkyShaderSource.readInclude(id);
-            return resource(parsed.withPrefix("shaders/include/"));
+            return parsed.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.read("include/" + parsed.getPath())
+                    : resource(parsed.withPrefix("shaders/include/"));
         }
 
         private static String resource(Identifier file) throws IOException {

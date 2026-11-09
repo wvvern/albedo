@@ -41,15 +41,20 @@ class SkyShaderSourceTest {
     }
 
     @Test
-    void inlineReplacesEachIncludeLineOnceAndAlsoTheIncludesOfAnInclude() throws IOException {
+    void inlineReplacesEachIncludeLineAlsoInAnIncludeAndKeepsTheLineNumbers() throws IOException {
         Map<String, String> files = new HashMap<String, String>();
         files.put("a:outer.glsl", "outer\n#include <a:inner.glsl>\n");
         files.put("a:inner.glsl", "inner\n");
-        String text = SkyShaderSource.inline("#version 330\n  #include <a:outer.glsl>\n#include <a:inner.glsl>\nmain\n", files::get);
-        assertEquals("#version 330\nouter\ninner\nmain\n", text);
-        assertThrows(IOException.class, () -> SkyShaderSource.inline("#include <a:none.glsl>\n", id -> {
-            throw new IOException(id);
-        }));
+        String text = SkyShaderSource.inline("#version 330\n  #include <a:outer.glsl> // note\n# include \"a:inner.glsl\"\nmain\n", files::get);
+        assertEquals("#version 330\nouter\ninner\n#line 3\n#line 3\ninner\n#line 4\nmain\n", text);
+    }
+
+    @Test
+    void aMissingIncludeOrALoopOfIncludesIsAnError() {
+        Map<String, String> files = new HashMap<String, String>();
+        files.put("a:loop.glsl", "#include <a:loop.glsl>\n");
+        assertThrows(IOException.class, () -> SkyShaderSource.inline("#include <a:none.glsl>\n", files::get));
+        assertThrows(IOException.class, () -> SkyShaderSource.inline("#include <a:loop.glsl>\n", files::get));
     }
 
     @Test
