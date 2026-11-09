@@ -9,7 +9,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -81,6 +84,35 @@ class SkyProgramTest {
         assertEquals(1, galaxy.block()[2], "the header has the term count");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(0, galaxy.termSlot(4));
+    }
+
+    @Test
+    void theGalaxyValuesAreInTheFreeFloatsOfTheLayer() {
+        SkyLayer g = SkyLayer.of(1, SkyLayer.Kind.GALAXY).withParam(SkyLayer.Param.TILT, 45).withParam(SkyLayer.Param.DUST, 30)
+                .withParam(SkyLayer.Param.JETS, 80).withParam(SkyLayer.Param.COLOR_3, 0xFFFF0000);
+        float[] b = SkyProgram.of(SkyPresets.GALAXY.withLayers(Collections.singletonList(g)), new float[SkyImage.RING * 3]).block();
+        assertEquals(0.5f, b[SkyProgram.at(0, SkyProgram.TILT)], 1e-6f);
+        assertEquals(0.3f, b[SkyProgram.at(0, SkyProgram.DUST)], 1e-6f);
+        assertEquals(0.8f, b[SkyProgram.at(0, SkyProgram.JETS)], 1e-6f);
+        assertEquals(1f, b[SkyProgram.at(0, SkyProgram.COLOR_3)], 1e-6f);
+        assertEquals(0f, b[SkyProgram.at(0, SkyProgram.COLOR_3 + 4)], 1e-6f);
+        // The rotation rows keep their own floats.
+        assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)] * b[SkyProgram.at(0, SkyProgram.LOCAL)]
+                + b[SkyProgram.at(0, SkyProgram.LOCAL + 1)] * b[SkyProgram.at(0, SkyProgram.LOCAL + 1)]
+                + b[SkyProgram.at(0, SkyProgram.LOCAL + 2)] * b[SkyProgram.at(0, SkyProgram.LOCAL + 2)], 1e-5f);
+        int[] used = {SkyProgram.KIND, SkyProgram.BLEND, SkyProgram.USE, SkyProgram.MASK_INDEX, SkyProgram.MASK_DARK, SkyProgram.OPACITY,
+            SkyProgram.AMOUNT, SkyProgram.HEIGHT, SkyProgram.SCALE, SkyProgram.SEED, SkyProgram.ALPHA_1, SkyProgram.ALPHA_2,
+            SkyProgram.TERM_SLOT, SkyProgram.TILT, SkyProgram.DUST, SkyProgram.JETS};
+        Set<Integer> taken = new HashSet<Integer>();
+        for (int at : used) assertTrue(taken.add(at), "offset " + at);
+        for (int c = 0; c < 3; c++) {
+            for (int base : new int[]{SkyProgram.COLOR_1, SkyProgram.COLOR_2, SkyProgram.LAB_1, SkyProgram.LAB_2}) {
+                assertTrue(taken.add(base + c), "offset " + (base + c));
+            }
+            assertTrue(taken.add(SkyProgram.COLOR_3 + c * 4), "jet color " + c);
+            for (int r = 0; r < 3; r++) assertTrue(taken.add(SkyProgram.LOCAL + r * 4 + c), "rotation " + r);
+        }
+        assertEquals(SkyProgram.LAYER_VEC4S * 4, taken.size(), "each float of the layer has one use");
     }
 
     @Test

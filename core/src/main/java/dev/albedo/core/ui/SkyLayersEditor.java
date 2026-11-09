@@ -470,6 +470,9 @@ final class SkyLayersEditor {
                     "Make a different pattern of the same kind")) {
                 put.accept(l.withParam(p, (v * 7919 + 17) % (p.max() + 1)));
             }
+        } else if (p == SkyLayer.Param.TILT) {
+            int n = ui.rangeSlider("sky.param." + p.key, lx, y, cw, v, p.min(), p.max(), "", "0 shows the disc from the front, 90 from its edge");
+            if (n != v) put.accept(l.withParam(p, n));
         } else {
             int n = ui.slider("sky.param." + p.key, lx, y, cw, v, label);
             if (n != v) put.accept(l.withParam(p, n));

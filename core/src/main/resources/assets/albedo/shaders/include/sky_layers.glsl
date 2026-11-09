@@ -399,28 +399,141 @@ vec4 albedoFractal(int layer, vec3 p) {
     return c;
 }
 
-// A spiral galaxy at the layer center, with COLOR_1 arms around a COLOR_2 core, where AMOUNT turns the arms more.
-vec4 albedoGalaxy(int layer, vec3 p) {
-    if (p.z >= -0.05) return vec4(0.0);
+// Noise.fbmSoft: fbm where each octave fades out as its cell comes near the size of a pixel, the footprint in noise units.
+float albedoFbmSoft(vec3 p, int seed, int octaves, float footprint) {
+    // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
+    float sum = 0.0, amp = 1.0, norm = 2.0 - 2.0 * pow(0.5, float(octaves)), f = footprint;
+    for (int o = 0; o < octaves; o++) {
+        float t = clamp((f - 0.25) / 0.25, 0.0, 1.0);
+        // Each finer octave has a larger footprint, so all octaves from here are gone.
+        if (t >= 1.0) break;
+        sum += albedoNoise(p, seed + o * 1013) * amp * (1.0 - t * t * (3.0 - 2.0 * t));
+        amp *= 0.5;
+        p *= 2.03;
+        f *= 2.03;
+    }
+    return sum / norm * 1.6;
+}
+
+// An active spiral galaxy at the layer center, modeled on Centaurus A, with a COLOR_2 bulge, COLOR_1 arms at TILT, dust and COLOR_3 jets.
+vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
+    float zz = -p.z;
+    if (zz < 0.2) return vec4(0.0);
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
-    float size = 0.45 * shape.x;
-    float u = p.x / -p.z / size;
-    float v = p.y / -p.z / size / 0.5;
-    float r = sqrt(u * u + v * v);
-    if (r > 2.5) return vec4(0.0);
-    // The angle at the exact center is not defined in GLSL, and the arms have no weight there.
-    float theta = r > 0.0 ? atan(v, u) : 0.0;
-    float twist = 2.0 + values.z * 6.0;
-    float arm = 0.5 + 0.5 * cos(2.0 * (theta - twist * log(r + 0.08)));
-    arm = arm * arm * arm;
-    float n = albedoFbm(p * 9.0, int(shape.y), 5) * 0.5 + 0.5;
-    float disk = exp(-r * 2.2) * arm * (0.4 + 1.2 * n);
-    float core = exp(-(r / 0.16) * (r / 0.16));
-    float haze = exp(-r * 3.5) * 0.35;
-    vec4 c = albedoMix(layer, clamp(core * 1.5 + haze * 0.5, 0.0, 1.0));
-    c.a = clamp(disk + core + haze, 0.0, 1.0) * max(shape.z, shape.w);
-    return c;
+    int seed = int(shape.y);
+    float tilt = albedoLayer(layer, 4).w, dust = albedoLayer(layer, 5).w, jets = albedoLayer(layer, 6).w;
+    vec3 color1 = albedoLayer(layer, 3).rgb, color2 = albedoLayer(layer, 4).rgb;
+    vec3 color3 = vec3(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w);
+    // The plane of the image in galaxy units, where 1 is about the radius of the disc.
+    float size = 0.22 * shape.x;
+    float x = p.x / zz / size, y = p.y / zz / size;
+    float rr = sqrt(x * x + y * y);
+    if (rr > 3.0) return vec4(0.0);
+    // The width of one pixel in galaxy units, where the plane of the image stretches by 1 / zz squared.
+    float fp = footprint / (size * zz * zz);
+    float incl = tilt * (ALBEDO_PI / 2.0);
+    float ci = cos(incl), si = sin(incl);
+    // The axis ratios of the disc of stars and of the thinner layer of dust, each with its own thickness.
+    float qs = sqrt(ci * ci + 0.0225 * si * si), qd = sqrt(ci * ci + 0.0036 * si * si);
+    float bs = y / qs, bd = y / qd;
+    float rs = sqrt(x * x + bs * bs), rd = sqrt(x * x + bd * bd);
+    float twist = 1.5 + values.z * 4.0;
+    float star = 0.0, armMix = 0.0, tau = 0.0, knots = 0.0, pink = 0.0;
+    if (rs < 1.6) {
+        float warp = albedoFbmSoft(vec3(x * 3.0, bs * 3.0, 0.37), seed + 1, 7, fp / qs * 3.0);
+        // The angle at the exact center is not defined in GLSL, and the arms have no weight there.
+        float theta = rs > 0.0 ? atan(bs, x) : 0.0;
+        float wave = 0.5 + 0.5 * cos(2.0 * (theta - twist * log(rs + 0.05)) + 2.2 * warp);
+        float arm = wave * wave * wave;
+        float edge = 1.0 - albedoSmooth(1.1, 1.6, rs);
+        // A steep step of the noise gives the star clouds sharp edges at every zoom.
+        float clumps = albedoSmooth(0.1, 0.6, 0.5 + 0.5 * warp);
+        star = exp(-rs / 0.4) * (0.08 + 2.0 * arm * (0.15 + 0.85 * clumps)) * edge;
+        armMix = clamp(arm * 2.5, 0.0, 1.0) * albedoSmooth(0.08, 0.4, rs);
+        if (dust > 0.0 && rd < 1.4) {
+            // Dust lies along the inner edge of each arm, in clumps and threads.
+            float thetaD = rd > 0.0 ? atan(bd, x) : 0.0;
+            float lane = 0.5 + 0.5 * cos(2.0 * (thetaD - twist * log(rd + 0.05)) + 2.2 * warp + 0.7);
+            lane *= lane;
+            float clump = albedoFbmSoft(vec3(x * 6.0, bd * 6.0, 1.7), seed + 2, 7, fp / qd * 6.0) * 0.5 + 0.5;
+            float density = exp(-rd / 0.5) * (1.0 - albedoSmooth(0.9, 1.4, rd)) * (0.2 + 2.0 * lane * lane) * max(0.0, 3.0 * clump - 1.3);
+            tau = dust * 7.0 * density / sqrt(qd);
+        }
+        if (rs < 1.2) {
+            // Round knots of young stars on a grid of the image plane, which show only on the arms.
+            vec2 g = vec2(x, y) / 0.05;
+            ivec2 cell = ivec2(floor(g));
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    ivec3 h = ivec3(cell.x + i, cell.y + j, 0);
+                    if (albedoUnit(albedoHash(h, seed + 77)) > 0.45) continue;
+                    float dx = (g.x - float(h.x) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 78))) * 0.05;
+                    float dy = (g.y - float(h.y) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 79))) * 0.05;
+                    float big = albedoUnit(albedoHash(h, seed + 80));
+                    float radius = 0.004 + 0.008 * big * big;
+                    float spread = max(radius, 0.8 * fp);
+                    float v = radius / spread * (radius / spread) * exp(-(dx * dx + dy * dy) / (spread * spread));
+                    knots += v;
+                    if (albedoUnit(albedoHash(h, seed + 81)) < 0.35) pink += v;
+                }
+            }
+            float k = arm * exp(-rs / 0.5) * edge * 1.5;
+            knots *= k;
+            pink *= k;
+        }
+    }
+    float rb = sqrt(x * x + y * y / 0.64);
+    float bulge = 1.8 * exp(-5.0 * sqrt(rb)) + 0.04 * exp(-rb / 0.45);
+    // The part of the bulge light behind the dust, more on the near side of the disc, which is below its center.
+    float s = -y * 6.0 * si / max(ci, 0.25);
+    float behind = 0.5 + 0.5 * s / sqrt(1.0 + s * s);
+    float rn = max(0.006, fp);
+    float nucleus = 2.5 * (0.006 / rn) * (0.006 / rn) * exp(-rr * rr / (rn * rn)) + 0.12 / (1.0 + rr * rr / 0.0009);
+    float jet = 0.0, lobe = 0.0, lobeWarm = 0.0, gas = 0.0, hot = 0.0;
+    float side = y < 0.0 ? -1.0 : 1.0;
+    if (jets > 0.0) {
+        float reach = 1.4 * (0.3 + 0.7 * si);
+        float t = abs(y) / reach;
+        // The jets bend in opposite directions, as a precessing jet does, and the near jet is brighter from relativistic beaming.
+        float dx = x - side * 0.12 * t * t;
+        float beam = side > 0.0 ? 1.0 : 0.3;
+        float width = 0.004 + 0.022 * t;
+        float spread = max(width, 0.8 * fp);
+        float fade = 1.0 - albedoSmooth(0.25, 0.5, 16.0 / reach * fp);
+        float knot = max(0.0, 0.5 + 0.9 * fade * albedoNoise(vec3(t * 16.0, side * 7.3, 1.7), seed + 501));
+        jet = 1.4 * beam * width / spread * exp(-dx * dx / (spread * spread)) * knot / (1.0 + 3.0 * t) * (1.0 - albedoSmooth(0.85, 1.05, t));
+        float turb = albedoFbmSoft(vec3(x * 2.4, y * 2.4, side * 5.1), seed + 601, 7, fp * 2.4);
+        float thread = 1.0 - abs(turb);
+        thread *= thread;
+        thread *= thread;
+        // A lobe is longer along the jet than across it, and the turbulence moves its edge.
+        float lx = x - side * 0.19, ly = (y - side * reach * 1.3) / 1.3;
+        float dl = sqrt(lx * lx + ly * ly) / (0.32 * reach) + 0.5 * turb;
+        lobe = exp(-2.0 * dl * dl) * max(0.0, 0.25 + 0.4 * turb + 0.75 * thread) * 0.3;
+        lobeWarm = 0.5 * albedoSmooth(0.3, 1.2, dl);
+        float hx = x - side * 0.12, hy = y - side * reach;
+        float hr = max(0.012, fp);
+        hot = 0.8 * (0.012 / hr) * (0.012 / hr) * exp(-(hx * hx + hy * hy) / (hr * hr)) * jets;
+        // Gas near the jet that its beam lights, less far from the axis.
+        gas = 0.12 * thread * exp(-abs(dx) / (0.08 + 0.15 * t)) * albedoSmooth(0.1, 0.4, t) * (1.0 - albedoSmooth(0.9, 1.3, t));
+        jet *= jets;
+        lobe *= jets;
+        gas *= jets;
+    }
+    // How much more the dust absorbs of red and blue than of green, so that the light through it gets redder.
+    vec3 extinction = tau * vec3(0.75, 1.0, 1.3);
+    vec3 through = exp(-extinction), mixed = 1.0 / (1.0 + 0.5 * extinction);
+    vec3 disc = color2 + (color1 - color2) * armMix;
+    // The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus.
+    vec3 halpha = vec3(1.0, 0.1441, 0.2705), warm = vec3(0.8, 0.18, 1.0), white = vec3(1.0, 0.9047, 0.7913);
+    vec3 light = bulge * color2 * (1.0 - behind * (1.0 - through)) + 0.9 * star * disc * mixed
+            + ((knots - pink) * color1 + pink * halpha) * mixed + (nucleus * sqrt(through) + hot) * white
+            + jet * color3 * (side < 0.0 ? through : vec3(1.0)) + lobe * (color3 + (warm - color3) * lobeWarm) + gas * color3;
+    light *= max(shape.z, shape.w);
+    // The light as a color of at most 1 and an alpha, so that Add gives the full light and Normal stays near it.
+    float a = min(1.0, max(light.r, max(light.g, light.b)));
+    return vec4(light / max(a, 1e-6), a);
 }
 
 vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
@@ -429,7 +542,7 @@ vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
     if (kind == ALBEDO_KIND_STARS) return albedoStars(layer, p, footprint);
     if (kind == ALBEDO_KIND_NOISE) return albedoClouds(layer, p);
     if (kind == ALBEDO_KIND_FRACTAL) return albedoFractal(layer, p);
-    if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p);
+    if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p, footprint);
     return vec4(0.0);
 }
 

@@ -108,7 +108,7 @@ final class Labels {
             case GLOW: return "A band of light along the horizon, as at sunset";
             case NOISE: return "Soft clouds of two colors";
             case FRACTAL: return "Thin bright lines of gas, as in a nebula";
-            case GALAXY: return "A spiral galaxy";
+            case GALAXY: return "A spiral galaxy with dust and two jets from its black hole";
             case STARS: return "Small points of light";
             case BLUR: return "Makes the layers below soft";
             case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
@@ -129,9 +129,13 @@ final class Labels {
                         : k == SkyLayer.Kind.GALAXY ? "Arms" : "Color";
             case COLOR_2:
                 return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : "Light";
+            case COLOR_3: return "Jet color";
             case HEIGHT:
                 return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
                         : k == SkyLayer.Kind.STARS ? "Spikes" : "Height";
+            case TILT: return "Tilt";
+            case DUST: return "Dust";
+            case JETS: return "Jets";
             case SEED: return "Seed";
             default: return amount(k);
         }

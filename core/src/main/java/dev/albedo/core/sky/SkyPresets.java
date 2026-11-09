@@ -38,15 +38,19 @@ public final class SkyPresets {
             .add(Kind.BLOOM, Param.AMOUNT, 40, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
-    /** A spiral galaxy high in the south-east over a field of stars and a faint band of light. */
+    /**
+     * An active galaxy like Centaurus A high in the south-east: a tilted spiral disc with a dark lane of dust across its warm
+     * bulge, and two blue jets from its black hole into turbulent lobes, over faint dust and stars.
+     */
     public static final SkyDesign GALAXY = new Builder()
-            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0C1022, Param.COLOR_2, 0xFF020308, Param.HEIGHT, 30, Param.AMOUNT, 60)
-            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF2B3A66, Param.AMOUNT, 45, Param.SEED, 2)
-            .blend(SkyLayer.Blend.ADD).opacity(60).place(new Transform(0, 0, 70, 200))
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A0D1A, Param.COLOR_2, 0xFF010206, Param.HEIGHT, 30, Param.AMOUNT, 60)
+            .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF1C2238, Param.AMOUNT, 40, Param.SEED, 2)
+            .blend(SkyLayer.Blend.ADD).opacity(45).place(new Transform(0, 0, 70, 200))
             .add(Kind.STARS, Param.AMOUNT, 60, Param.SEED, 9).blend(SkyLayer.Blend.ADD)
-            .add(Kind.GALAXY, Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 55, Param.SEED, 4)
-            .blend(SkyLayer.Blend.ADD).place(new Transform(135, 40, 20, 140))
-            .add(Kind.BLOOM, Param.AMOUNT, 50, Param.HEIGHT, 50)
+            .add(Kind.GALAXY, Param.COLOR_1, 0xFF8FB2FF, Param.COLOR_2, 0xFFFFD9A6, Param.COLOR_3, 0xFF6FC3FF, Param.AMOUNT, 40,
+                    Param.TILT, 68, Param.DUST, 85, Param.JETS, 80, Param.SEED, 4)
+            .blend(SkyLayer.Blend.ADD).place(new Transform(135, 46, 30, 140))
+            .add(Kind.BLOOM, Param.AMOUNT, 35, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
