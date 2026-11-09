@@ -79,13 +79,16 @@ public final class Harness {
         void showTexture(String id);
 
         /**
-         * Mutes sound, disables the narrator and keeps the game running without focus, and must be cheap because it
-         * runs every tick.
+         * Mutes sound, disables the narrator, keeps the game running without focus and keeps the camera where the harness
+         * aims it, and must be cheap because it runs every tick.
          */
         void quiet();
 
         /** Sets the field of view in degrees, in the range of the game option. */
         void setFov(int degrees);
+
+        /** Turns the camera of the player at once to a yaw and a pitch in degrees, with no command to the server. */
+        void look(float yaw, float pitch);
 
         /**
          * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
@@ -423,7 +426,8 @@ public final class Harness {
         double yaw = Math.toDegrees(Math.atan2(peak[1], -peak[3])) + 180;
         double pitch = -Math.toDegrees(Math.asin(peak[2]));
         log(String.format(Locale.ROOT, "meteor at %.3f s, yaw %.1f, pitch %.1f", peak[0], yaw, pitch));
-        host.runCommand(String.format(Locale.ROOT, "tp @p ~ ~ ~ %.1f %.1f", yaw, pitch));
+        // A tp command with a relative place does not turn a falling player on 1.8.9, so the client turns the camera.
+        host.look((float) yaw, (float) pitch);
     }
 
     /** Runs a sky command again on the next tick, until no tries are left. */

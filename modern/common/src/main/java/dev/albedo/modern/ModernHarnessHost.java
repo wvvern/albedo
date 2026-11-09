@@ -205,6 +205,16 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public void look(float yaw, float pitch) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) return;
+        player.setYRot(yaw);
+        player.setXRot(pitch);
+        player.yRotO = yaw;
+        player.xRotO = pitch;
+    }
+
+    @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         //? if >=26.1 {
         return SharpSky.drawEquirect(sky, time, width, height, repeat, png, done);

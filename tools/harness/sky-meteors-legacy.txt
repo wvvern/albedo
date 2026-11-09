@@ -36,11 +36,12 @@ screenshot meteors-08-fov30-later
 meteor
 wait 10
 screenshot meteors-09-fov30
-# The clock runs, and the camera looks at the radiant in the north-east, so the shower meteors move away from it.
-skyclock run
+# The clock runs on from a moment before the next meteor, so that the shots show it move across the sky.
 fov 70
-run tp @p 0 3000 0 225 -45
-wait 20
+meteor
+wait 10
+skyclock add -0.3
+skyclock run
 screenshot meteors-10-running-a
 wait 3
 screenshot meteors-11-running-b

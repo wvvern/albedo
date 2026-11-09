@@ -110,11 +110,21 @@ final class LegacyHarnessHost implements Harness.Host {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);
         mc.gameSettings.pauseOnLostFocus = false;
+        // The view bobbing of 1.8.9 tilts the camera of a falling player by up to 10 degrees, so that the camera does not look where the harness aims.
+        mc.gameSettings.viewBobbing = false;
     }
 
     @Override
     public void setFov(int degrees) {
         Minecraft.getMinecraft().gameSettings.fovSetting = degrees;
+    }
+
+    @Override
+    public void look(float yaw, float pitch) {
+        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
+        if (player == null) return;
+        player.rotationYaw = player.prevRotationYaw = yaw;
+        player.rotationPitch = player.prevRotationPitch = pitch;
     }
 
     @Override
