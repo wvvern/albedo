@@ -7,12 +7,15 @@ import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ThreadDownloadImageData;
 import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.texture.ITextureObject;
 import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.data.AnimationMetadataSection;
 import net.minecraft.util.ResourceLocation;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.util.Locale;
 
 /** What the 1.8.9 mixins call: thin translations from 1.8.9 types to the core. */
 public final class LegacyHooks {
@@ -64,6 +67,51 @@ public final class LegacyHooks {
         else if (texture instanceof ThreadDownloadImageData) upload = null; // a skin placeholder must not replace the default skin
         else upload = TextureStore.RELOAD_ONLY; // a texture type from a different mod
         return process(String.valueOf(location), image, upload);
+    }
+
+    /** The skin cache folder of SkinManager, which SkinManagerMixin gives. */
+    public interface SkinCache {
+        File albedo$skinCacheDir();
+    }
+
+    /** The folder of the texture that SkinManager.loadSkin loads on this thread now ("skins" or "capes"), or null. */
+    private static final ThreadLocal<String> LOADING_SKIN = new ThreadLocal<String>();
+
+    /** SkinManager.loadSkin starts with a texture type ("SKIN", "CAPE"), or ends when {@code type} is null. */
+    public static void skinLoading(String type) {
+        if (type == null) LOADING_SKIN.remove();
+        else LOADING_SKIN.set(type.toLowerCase(Locale.ROOT) + "s");
+    }
+
+    /** Tags a downloaded texture that SkinManager.loadSkin registers, and keeps the tag when a reload loads it again. */
+    public static void loadingTexture(ResourceLocation location, ITextureObject texture) {
+        String folder = LOADING_SKIN.get();
+        if (folder == null || !(texture instanceof ThreadDownloadImageData)) return;
+        LOADING_SKIN.remove(); // one texture for each loadSkin call
+        String path = location.getResourcePath(); // "skins/<hash>" for skins and capes alike
+        String name = location.getResourceDomain() + ":" + folder + path.substring(path.indexOf('/'));
+        ((DownloadedTextureUpload.State) texture).albedo$tag(location, name);
+    }
+
+    /** Drops the kept original of a downloaded texture that the game deletes. */
+    public static void deletingTexture(ResourceLocation location) {
+        ITextureObject texture = Minecraft.getMinecraft().getTextureManager().getTexture(location);
+        if (texture instanceof ThreadDownloadImageData) {
+            String name = ((DownloadedTextureUpload.State) texture).albedo$name();
+            if (name != null) Albedo.forgetTexture(name);
+        }
+    }
+
+    /**
+     * Changes a downloaded skin or cape, on the client thread or a download thread.
+     *
+     * @return the image to keep, which the texture uploads later
+     */
+    public static BufferedImage processDownloaded(ThreadDownloadImageData texture, BufferedImage image) {
+        DownloadedTextureUpload.State state = (DownloadedTextureUpload.State) texture;
+        if (image == null || state.albedo$name() == null || Albedo.repainting()) return image;
+        bootstrap();
+        return process(state.albedo$name(), image, new DownloadedTextureUpload(texture, state.albedo$location()));
     }
 
     private static BufferedImage process(String location, BufferedImage image, TextureStore.Upload upload) {

@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -47,6 +49,21 @@ public final class Harness {
         void quit();
 
         /**
+         * Loads a PNG as a downloaded skin or cape through the path of the game, from its skin cache, so that nothing
+         * goes to the network.
+         *
+         * @param hash the texture hash that the game would get from the profile, which names the cache file
+         * @return the name of the texture, for example "minecraft:skins/<sha1>"
+         */
+        String loadSkin(File png, String hash, boolean cape) throws IOException;
+
+        /** Releases a texture as the game does, for example "minecraft:skins/<sha1>". */
+        void releaseTexture(String id);
+
+        /** Opens a screen that shows a texture large, where "steve" is the default skin. */
+        void showTexture(String id);
+
+        /**
          * Mutes sound, disables the narrator and keeps the game running without focus, and must be cheap because it
          * runs every tick.
          */
@@ -62,6 +79,8 @@ public final class Harness {
     private int waitTicks;
     private boolean waitingForWorld;
     private String lastStatus = "";
+    /** The last texture that {@code skin} loaded. */
+    private String lastSkin;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -129,8 +148,46 @@ public final class Harness {
         else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
         else if (verb.equals("reload")) platform.reloadResources();
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
+        else if (verb.equals("skin")) skin(arg);
+        else if (verb.equals("release")) host.releaseTexture(textureArg(arg));
+        else if (verb.equals("overlay") && arg.equals("off")) host.closeScreen();
+        else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
+    }
+
+    /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */
+    private void skin(String arg) {
+        String[] args = arg.split("\\s+");
+        boolean cape = args.length > 1 && args[1].equals("cape");
+        File png = new File(dir, args[0]);
+        try {
+            lastSkin = host.loadSkin(png, skinHash(Files.readAllBytes(png.toPath()), cape), cape);
+            log("skin " + lastSkin);
+        } catch (IOException e) {
+            log("! cannot load skin " + png + ": " + e);
+        }
+    }
+
+    /** A texture id, where "skin" or no text is the last skin that {@code skin} loaded. */
+    private String textureArg(String arg) {
+        if (!arg.isEmpty() && !arg.equals("skin")) return arg;
+        if (lastSkin == null) throw new IllegalStateException("no skin: run skin <png> first");
+        return lastSkin;
+    }
+
+    /** A hash for the cache file of a skin, from its pixels and type, as the skin server gives one for each image. */
+    static String skinHash(byte[] png, boolean cape) {
+        try {
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            sha.update(png);
+            sha.update((byte) (cape ? 1 : 0));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : sha.digest()) hex.append(String.format("%02x", b & 0xFF));
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**

@@ -218,6 +218,30 @@ final class TextureUploads {
     }
     *///?}
 
+    //? if >=1.21.4 {
+    /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it. */
+    static TextureStore.Upload downloaded(Object id, net.minecraft.client.renderer.texture.DynamicTexture texture) {
+        return pixels -> {
+            NativeImage image = texture.getPixels();
+            if (registered(id) != texture || image == null) return false; // released, which closed the image
+            write(pixels, image);
+            texture.upload();
+            return true;
+        };
+    }
+    //?} else {
+    /*// A downloaded skin, cape or elytra, written with the upload step of HttpTexture.
+    static TextureStore.Upload downloaded(Object id, DownloadedSkin texture) {
+        return pixels -> {
+            if (registered(id) != texture) return false;
+            NativeImage image = new NativeImage(pixels.width(), pixels.height(), false);
+            write(pixels, image);
+            texture.albedo$upload(image);
+            return true;
+        };
+    }
+    *///?}
+
     /** The texture registered at {@code location} now, or null, without making one as TextureManager.getTexture does. */
     private static AbstractTexture registered(Object location) {
         return ((TextureManagerAccessor) Minecraft.getInstance().getTextureManager()).albedo$byPath().get(location);

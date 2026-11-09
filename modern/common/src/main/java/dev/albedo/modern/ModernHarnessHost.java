@@ -108,6 +108,47 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public String loadSkin(File png, String hash, boolean cape) throws IOException {
+        Minecraft mc = Minecraft.getInstance();
+        String folder = cape ? "capes/" : "skins/";
+        // The game names a skin by the SHA-1 of its hash and keeps the file in <cache>/<first 2>/<hash>.
+        var id = id("minecraft:" + folder + com.google.common.hash.Hashing.sha1().hashUnencodedChars(hash));
+        File file = new File(new File(new File(png.getParentFile(), "skin-cache"), hash.substring(0, 2)), hash);
+        java.nio.file.Files.createDirectories(file.getParentFile().toPath());
+        java.nio.file.Files.copy(png.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        String url = "http://127.0.0.1:9/" + hash; // never read, because the cache file exists
+        //? if >=1.21.4 {
+        new net.minecraft.client.renderer.texture.SkinTextureDownloader(java.net.Proxy.NO_PROXY, mc.getTextureManager(), mc)
+                .downloadAndRegisterSkin(id, file.toPath(), url, !cape);
+        //?} else {
+        /*mc.getTextureManager().register(id, new net.minecraft.client.renderer.texture.HttpTexture(file, url,
+                net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture(), !cape, null));
+        *///?}
+        return id.toString();
+    }
+
+    @Override
+    public void releaseTexture(String id) {
+        Minecraft.getInstance().getTextureManager().release(id(id));
+    }
+
+    @Override
+    public void showTexture(String id) {
+        String texture = id.equals("steve") ? net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture().toString() : id;
+        ModernPlatform.setScreen(new TextureScreen(texture));
+    }
+
+    //? if >=1.21.11 {
+    static net.minecraft.resources.Identifier id(String id) {
+        return net.minecraft.resources.Identifier.parse(id);
+    }
+    //?} else {
+    /*static net.minecraft.resources.ResourceLocation id(String id) {
+        return net.minecraft.resources.ResourceLocation.parse(id);
+    }
+    *///?}
+
+    @Override
     public void quiet() {
         Options o = Minecraft.getInstance().options;
         if (o.getSoundSourceOptionInstance(SoundSource.MASTER).get() != 0.0) o.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);

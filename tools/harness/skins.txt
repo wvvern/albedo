@@ -1,0 +1,70 @@
+# Downloaded skins and capes, after the scene, on every target:
+#   ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots skins.txt -OutDir build\skins
+# "skin" copies a PNG from tools/harness/files into the skin cache of the game and loads it as a downloaded skin
+# (nothing goes to the network). "overlay" shows a texture large in the top left corner.
+# Expected: k01 the test skin (yellow head, red hat band, cyan body, orange arms, blue legs) on gray;
+# k02 the same in magenta, where the parts without pixels stay transparent; k03 cyan (a repaint: the log shows
+# "Repainted N textures" and no "Reloaded resources"); k04 the cape in cyan; k05 and k07 the originals again;
+# k06 after a resource reload the skin is magenta again; k08 the default skin in magenta after the skin was released.
+wait 40
+mod off
+wait 60
+skin files/test-skin.png
+wait 40
+overlay skin
+wait 10
+screenshot k01-skin-original
+settings close
+mod on
+group players Paint #FF00FF *
+wait 60
+overlay skin
+wait 10
+screenshot k02-skin-magenta
+settings close
+group players Paint #00C0FF *
+wait 60
+overlay skin
+wait 10
+screenshot k03-skin-cyan-repaint
+settings close
+skin files/test-cape.png cape
+wait 40
+overlay skin
+wait 10
+screenshot k04-cape-cyan
+settings close
+mod off
+wait 60
+overlay skin
+wait 10
+screenshot k05-cape-original
+settings close
+skin files/test-skin.png
+wait 20
+mod on
+group players Paint #FF00FF *
+wait 20
+reload
+wait 300
+overlay skin
+wait 10
+screenshot k06-skin-after-reload
+settings close
+mod off
+wait 60
+overlay skin
+wait 10
+screenshot k07-skin-original-again
+settings close
+release skin
+wait 20
+mod on
+wait 60
+overlay steve
+wait 10
+screenshot k08-steve-magenta
+settings close
+mod off
+wait 60
+quit

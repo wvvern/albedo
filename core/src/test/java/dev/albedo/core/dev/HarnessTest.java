@@ -13,7 +13,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HarnessTest {
     @Test
@@ -53,5 +55,15 @@ class HarnessTest {
         assertEquals(SkyPresets.NEBULA, p.get(Category.SKY).sky());
         assertEquals(Appearance.Mode.ORIGINAL, Harness.withSky(p, "off").get(Category.SKY).appearance().mode());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "rainbow"));
+    }
+
+    @Test
+    void aSkinHashIsHexAndDiffersForACape() {
+        byte[] png = {1, 2, 3};
+        String skin = Harness.skinHash(png, false);
+        assertEquals(64, skin.length());
+        assertTrue(skin.matches("[0-9a-f]+"));
+        assertEquals(skin, Harness.skinHash(png, false));
+        assertNotEquals(skin, Harness.skinHash(png, true));
     }
 }

@@ -28,7 +28,7 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 | ModernHooks, SettingsScreen |   | LegacyHooks, GuiSettings    |
 | ModernHarnessHost           |   | LegacyHarnessHost           |
 | TextureUploads              |   |                             |
-| 18 mixins + 4 accessors     |   | 17 mixins, MixinPlugin      |
+| 20 mixins + 4 accessors     |   | 20 mixins, MixinPlugin      |
 +-----------------------------+   | AlbedoForge (@Mod)          |
      |                  |         +-----------------------------+
  fabric/            neoforge/
@@ -57,6 +57,7 @@ The adapters change data at stable points, not in the renderers. The core proces
 |-------|-------------|------------|
 | Atlas sprites, before mipmaps | `SpriteLoader.stitch` | `TextureAtlasSprite.loadSprite` |
 | Other textures | `TextureContents.load` (1.21.4+), `SimpleTexture.doLoad` | `SimpleTexture.loadTexture` |
+| Downloaded skins, capes and elytra | `TextureManager.register` of a `DynamicTexture` (1.21.4+), `HttpTexture.load(InputStream)` | `ThreadDownloadImageData.setBufferedImage` |
 | Biome colormaps | `GrassColor`, `FoliageColor`, `DryFoliageColor` `init` | `ColorizerGrass`, `ColorizerFoliage` |
 | Block tint | `ModelBlockRenderer`. Sodium and Embeddium: tint index in their `BlockRenderer` | `BlockModelRenderer`, Forge `BlockInfo` |
 | Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
@@ -93,7 +94,8 @@ Foliage has no hook of its own. The texture hooks set the alpha of plant texture
 The general steps are in "Settings changes" below. On 1.8.9:
 
 - `SpriteUpload` (atlas sprites) calls `loadSprite` with the new strip and `generateMipmaps` with the mip levels of the atlas. Then it puts the current frame into the atlas at the origin of the sprite. The frame and tick counters stay, so water, lava and fire continue to animate. OptiFine does its own sprite work in `loadSprite` (transparent pixel color, the "Multitexture" copy), so the repaint gets it too.
-- `SimpleTextureUpload` writes the pixels into the GL texture with the blur and clamp of the first upload. A downloaded skin is not kept: its default skin placeholder must not take the place of the real default skin.
+- `SimpleTextureUpload` writes the pixels into the GL texture with the blur and clamp of the first upload. The default skin placeholder of a downloaded skin is not kept: it must not take the place of the real default skin.
+- `DownloadedTextureUpload` (skins and capes) puts the pixels into the downloaded image before its first upload, and into the GL texture after it. The location `skins/<hash>` is the same for skins and capes. Thus `SkinManager.loadSkin` sets the type, and `TextureManager.loadTexture` gives the texture its core name (`minecraft:skins/<hash>` or `minecraft:capes/<hash>`). A resource reload loads the texture again and keeps its name.
 - An upload returns false when a reload replaced the texture (stale handle). The store then forgets it.
 - `TextureStore` keeps the textures by name, because some textures share a key (the OptiFine connected textures of a block).
 - `rebuildChunks` marks the chunks in render distance for a new mesh (`markBlockRangeForRenderUpdate`). The old meshes stay on screen until the new ones are ready. `loadRenderers` is not used: with Patcher, Essential and OptiFine L5 the chunks sometimes stayed empty after it.
@@ -116,6 +118,17 @@ A settings change (screen, key, harness or config file) goes to `Albedo.apply`. 
 
 The log shows `Repainted N textures in X ms` for a repaint and `Reloaded resources in X ms` for a reload.
 
+### Downloaded skins
+
+The game downloads player skins, capes and elytra and does not load them as resources. Their names have no `textures/` folder and no `.png`, for example `minecraft:skins/<hash>`. The classifier puts them in the `players` category with the ids `minecraft:skins`, `minecraft:capes` and `minecraft:elytra`, one row each in the texture list. A resource reload cannot change them, so the store keeps them in a different way:
+
+- Their originals do not count toward the memory budget, and the log shows their size (`Keeps N KiB of downloaded skins`).
+- When an upload fails, the store forgets the texture and does not reload resources.
+- When the game releases a texture (`TextureManager.release`, 1.8.9 `deleteTexture`), the store forgets it.
+- A skin has two layers in one image. The second layer (hat, jacket, sleeves) is transparent where it has no pixels. Thus all player skins, the default skins too, always keep their shape (alpha), and the Shape setting changes only capes and elytra.
+
+`tools/harness/skins.txt` loads a test skin and cape from `tools/harness/files` through the cache path of the game, with the harness command `skin <png> [cape]`, and shows them with `overlay`.
+
 Modern uploads are in `TextureUploads`:
 
 | Texture | Upload |
@@ -123,6 +136,7 @@ Modern uploads are in `TextureUploads`:
 | Atlas sprite | The upload only examines the sprite and keeps the pixels. `finishRepaint` does the work for all sprites: in parallel, it writes the pixels into `SpriteContents.originalImage` (all animation frames) and makes the mip levels again with `increaseMipLevel`. Then 1.21.1 binds the atlas and calls `uploadFirstFrame`. On 1.21.11 and later, the atlas draws each sprite with a border of its edge pixels (the padding). Thus each still sprite gets this border on the CPU and goes into the atlas texture with `CommandEncoder.writeToTexture`, one write for each mip level. Each animated sprite gets a new `SpriteContents.AnimationState` with new frame textures. |
 | Stand-alone texture | Calls `ReloadableTexture.doLoad` (1.21.4 and later) or `SimpleTexture.doLoad` (1.21.1) with the new image, the same as a reload. |
 | Biome colormap | Writes into the array that the game keeps (core `TextureStore.intoArray`). |
+| Downloaded skin, cape or elytra | 1.21.4 and later: writes into the image of the `DynamicTexture` and calls `upload`. 1.21.1: calls the private `HttpTexture.upload` with a new image. |
 
 A resource reload (a resource pack change or F3+T) replaces sprites and textures. Thus each upload first finds the current object: the sprite in the atlas (`TextureAtlas.getSprite`) or the texture in `TextureManager`. If it is not the object that the hook saw, the upload returns false and the store forgets the texture. The reload records the new objects.
 
@@ -182,5 +196,4 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 - The Sodium and Embeddium hooks use internal method names of these mods. A new version can rename them. Then the hook does not apply (`require = 0`) and fixed tints stay. Test each new version with `-Pcompat` and `tools/harness/scene-compat.txt`.
 - 1.8.9 with OptiFine: the project tests only OptiFine HD U M6 pre2 (with `tools/optifine.ps1`). OptiFine shaders are not tested.
 - Clouds on 1.21.2 and later support only `original` and `hidden`. A new color needs a hook on the cloud color.
-- The game downloads player skins and does not load them as resources. Thus the `players` category changes only the default skins.
 - `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible. To hide it, add a group with `"mode": "hidden"`.

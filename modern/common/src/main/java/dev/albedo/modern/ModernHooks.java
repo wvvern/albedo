@@ -5,6 +5,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
+import dev.albedo.core.texture.TextureClassifier;
 import dev.albedo.core.texture.TextureStore;
 import dev.albedo.modern.mixin.SpriteContentsAccessor;
 import net.minecraft.client.Minecraft;
@@ -49,12 +50,44 @@ public final class ModernHooks {
     /*// Stand-alone textures (entities, environment, ...), as SimpleTexture uploads them.
     public static void processTexture(Object location, NativeImage image, net.minecraft.client.renderer.texture.SimpleTexture texture,
                                       boolean blur, boolean clamp) {
-        processImage(String.valueOf(location), image, TextureUploads.texture(location, texture, blur, clamp));
+        // A skin placeholder loads the default skin, and must not take the place of the real default skin.
+        TextureStore.Upload upload = texture instanceof net.minecraft.client.renderer.texture.HttpTexture ? null
+                : TextureUploads.texture(location, texture, blur, clamp);
+        processImage(String.valueOf(location), image, upload);
     }
     *///?}
 
-    private static void processImage(String location, NativeImage image, TextureStore.Upload upload) {
-        if (NativeImagePixels.supports(image)) Albedo.processTexture(location, new NativeImagePixels(image), upload);
+    private static boolean processImage(String location, NativeImage image, TextureStore.Upload upload) {
+        return NativeImagePixels.supports(image) && Albedo.processTexture(location, new NativeImagePixels(image), upload);
+    }
+
+    //? if >=1.21.4 {
+    /** A texture that TextureManager.register keeps, where only a downloaded skin, cape or elytra changes. */
+    public static void registered(Object id, net.minecraft.client.renderer.texture.AbstractTexture texture) {
+        String name = String.valueOf(id);
+        if (!(texture instanceof net.minecraft.client.renderer.texture.DynamicTexture dynamic) || !TextureClassifier.isDownloaded(name)) return;
+        bootstrap();
+        // The texture made its GPU copy in its constructor, so a changed image goes up again.
+        if (processImage(name, dynamic.getPixels(), TextureUploads.downloaded(id, dynamic))) dynamic.upload();
+    }
+    //?} else {
+    /*// Gives a downloaded skin its name before it loads, because TextureManager.register loads it.
+    public static void registering(Object id, net.minecraft.client.renderer.texture.AbstractTexture texture) {
+        if (texture instanceof DownloadedSkin skin) skin.albedo$setId(id);
+    }
+
+    // A downloaded skin, cape or elytra, as HttpTexture decodes it before its upload.
+    public static void processDownloaded(Object id, NativeImage image, DownloadedSkin texture) {
+        String name = String.valueOf(id);
+        if (id == null || !TextureClassifier.isDownloaded(name)) return;
+        bootstrap();
+        processImage(name, image, TextureUploads.downloaded(id, texture));
+    }
+    *///?}
+
+    /** A texture that the game closes, whose original the core then drops. */
+    public static void released(Object id) {
+        Albedo.forgetTexture(String.valueOf(id));
     }
 
     public static int blockTint(int original) {
