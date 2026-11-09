@@ -39,7 +39,7 @@ public final class SkyBaker {
     }
 
     /** Starts a bake of {@code design} when it differs from the last request; null clears the image. */
-    public void request(SkyDesign design) {
+    public synchronized void request(SkyDesign design) {
         if (design == null) {
             requested = null;
             generation.incrementAndGet();
@@ -54,11 +54,16 @@ public final class SkyBaker {
             if (stale.getAsBoolean()) return;
             try {
                 SkyImage done = SkyGenerator.bake(design, width, height, parallel(stale));
-                if (done != null && !stale.getAsBoolean()) image = done;
+                if (done != null) publish(mine, done);
             } catch (RuntimeException | OutOfMemoryError e) {
                 errors.accept(e);
             }
         });
+    }
+
+    /** Keeps a finished image only while no newer request came, under the lock of {@link #request} so that a clear stays. */
+    private synchronized void publish(long mine, SkyImage done) {
+        if (generation.get() == mine) image = done;
     }
 
     /** The last finished image, which may show an older design while a new bake runs, or null. */

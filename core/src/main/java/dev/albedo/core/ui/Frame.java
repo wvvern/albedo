@@ -11,9 +11,11 @@ final class Frame implements Canvas {
     private Canvas target;
     private final List<String> texts = new ArrayList<String>();
     private final List<CanvasImage> images = new ArrayList<CanvasImage>();
+    /** The id of each image, at the same index as the image. */
+    private final List<String> imageIds = new ArrayList<String>();
     /**
      * For each call: its kind, then x0, y0, x1, y1 and color for a fill, x, y, the text index, unused and color for a
-     * text, or x, y, w, h and the index of the image and of its id in the texts for an image.
+     * text, or x, y, w, h and the image index for an image.
      */
     private int[] ops = new int[STRIDE * 512];
     private int size;
@@ -23,6 +25,7 @@ final class Frame implements Canvas {
         this.target = target;
         texts.clear();
         images.clear();
+        imageIds.clear();
         size = 0;
         return this;
     }
@@ -33,8 +36,8 @@ final class Frame implements Canvas {
             if (ops[i] == TEXT) {
                 target.text(texts.get(ops[i + 3]), ops[i + 1], ops[i + 2], ops[i + 5]);
             } else if (ops[i] == IMAGE) {
-                int ref = ops[i + 5];
-                target.image(texts.get(ref & 0xFFFF), images.get(ref >>> 16), ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4]);
+                int k = ops[i + 5];
+                target.image(imageIds.get(k), images.get(k), ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4]);
             } else {
                 target.fill(ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4], ops[i + 5]);
             }
@@ -43,9 +46,9 @@ final class Frame implements Canvas {
 
     @Override
     public void image(String id, CanvasImage img, int x, int y, int w, int h) {
-        texts.add(id);
+        imageIds.add(id);
         images.add(img);
-        add(IMAGE, x, y, w, h, (images.size() - 1) << 16 | (texts.size() - 1));
+        add(IMAGE, x, y, w, h, images.size() - 1);
     }
 
     private void add(int kind, int a, int b, int c, int d, int argb) {

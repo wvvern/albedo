@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static dev.albedo.core.config.ConfigCodec.object;
+
 /**
  * Reads and writes the layers of a custom sky inside the sky category, for example
  * {@code "sky": {"mode": "layers", "celestial": "hide", "layers": [{"id": 1, "kind": "gradient", ...}]}}, where each
@@ -39,18 +41,8 @@ final class SkyCodec {
             }
             return SkyDesign.NONE;
         }
-        SkyDesign.Celestial celestial = SkyDesign.Celestial.SHOW;
-        SkyDesign.Light light = SkyDesign.Light.FIXED;
-        try {
-            if (category.containsKey("celestial")) celestial = SkyDesign.Celestial.byKey(string(category, "celestial", where));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(where + ".celestial: use one of " + keys(SkyDesign.Celestial.values()), e);
-        }
-        try {
-            if (category.containsKey("light")) light = SkyDesign.Light.byKey(string(category, "light", where));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(where + ".light: use one of " + keys(SkyDesign.Light.values()), e);
-        }
+        SkyDesign.Celestial celestial = choice(category, "celestial", SkyDesign.Celestial.SHOW, where);
+        SkyDesign.Light light = choice(category, "light", SkyDesign.Light.FIXED, where);
         Object raw = category.get("layers");
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         if (raw != null) {
@@ -76,24 +68,9 @@ final class SkyCodec {
         int id = number(map, "id", 1, 99999, at);
         if (below.contains(id)) throw new IllegalArgumentException(at + ".id: another layer has id " + id);
         if (!map.containsKey("kind")) throw new IllegalArgumentException(at + ": set \"kind\" to one of " + keys(SkyLayer.Kind.values()));
-        SkyLayer.Kind kind;
-        try {
-            kind = SkyLayer.Kind.byKey(string(map, "kind", at));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(at + ".kind: use one of " + keys(SkyLayer.Kind.values()), e);
-        }
-        SkyLayer.Blend blend = SkyLayer.Blend.NORMAL;
-        try {
-            if (map.containsKey("blend")) blend = SkyLayer.Blend.byKey(string(map, "blend", at));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(at + ".blend: use one of " + keys(SkyLayer.Blend.values()), e);
-        }
-        SkyLayer.Output output = SkyLayer.Output.SHOW;
-        try {
-            if (map.containsKey("output")) output = SkyLayer.Output.byKey(string(map, "output", at));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(at + ".output: use one of " + keys(SkyLayer.Output.values()), e);
-        }
+        SkyLayer.Kind kind = choice(map, "kind", SkyLayer.Kind.GRADIENT, at);
+        SkyLayer.Blend blend = choice(map, "blend", SkyLayer.Blend.NORMAL, at);
+        SkyLayer.Output output = choice(map, "output", SkyLayer.Output.SHOW, at);
         int opacity = map.containsKey("opacity") ? number(map, "opacity", 0, 100, at) : 100;
         Map<SkyLayer.Param, Integer> params = new EnumMap<SkyLayer.Param, Integer>(SkyLayer.Param.class);
         for (SkyLayer.Param p : SkyLayer.Param.values()) {
@@ -113,13 +90,18 @@ final class SkyCodec {
         if (!map.containsKey("layer")) throw new IllegalArgumentException(at + ": set \"layer\" to the id of a lower layer");
         int layer = number(map, "layer", 1, 99999, at);
         if (!below.contains(layer)) throw new IllegalArgumentException(at + ": no layer below this one has id " + layer);
-        SkyMask.Mode mode = SkyMask.Mode.LIGHT;
+        return SkyMask.of(layer, choice(map, "mode", SkyMask.Mode.LIGHT, at));
+    }
+
+    /** The enum value that {@code key} names in lower case, or {@code def} when the key is not there. */
+    private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def, String where) {
+        if (!m.containsKey(key)) return def;
+        Class<E> type = def.getDeclaringClass();
         try {
-            if (map.containsKey("mode")) mode = SkyMask.Mode.byKey(string(map, "mode", at));
+            return Enum.valueOf(type, string(m, key, where).trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(at + ".mode: use one of " + keys(SkyMask.Mode.values()), e);
+            throw new IllegalArgumentException(where + "." + key + ": use one of " + keys(type.getEnumConstants()), e);
         }
-        return SkyMask.of(layer, mode);
     }
 
     private static Transform transform(String at, Map<String, Object> map, SkyLayer.Kind kind) {
@@ -166,16 +148,6 @@ final class SkyCodec {
         }
         if (!t.isEmpty()) m.put("transform", t);
         return m;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> object(Object o, String where, List<String> known) {
-        if (!(o instanceof Map)) throw new IllegalArgumentException(where + " must be a JSON object");
-        Map<String, Object> map = (Map<String, Object>) o;
-        for (String key : map.keySet()) {
-            if (!known.contains(key)) throw new IllegalArgumentException(where + ": unknown setting '" + key + "'. Use one of " + known);
-        }
-        return map;
     }
 
     private static int number(Map<String, Object> m, String key, int min, int max, String where) {

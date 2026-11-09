@@ -115,10 +115,6 @@ public final class SkyLayer {
         public Transform defaultTransform() { return defaultTransform; }
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Kind byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     /** How a layer mixes with the layers below it, in linear light. */
@@ -126,10 +122,6 @@ public final class SkyLayer {
         NORMAL, ADD, SCREEN, MULTIPLY;
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Blend byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     /** Whether a layer shows in the sky or only serves as a mask for higher layers. */
@@ -139,10 +131,6 @@ public final class SkyLayer {
         MASK_ONLY;
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Output byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     private final int id;

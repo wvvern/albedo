@@ -147,10 +147,10 @@ public final class ModernSky {
         if (img != null) prepare(img);
     }
 
-    // Draws the sky in the shared sky pass, where the next vanilla draw sets its own pipeline again, and returns false when there is no custom sky.
+    // Draws the last uploaded image in the shared sky pass, also when a newer one waits for the next frame, and returns false when there is no custom sky.
     public static boolean draw(com.mojang.renderpearl.api.commands.RenderPass pass) {
         SkyImage img = Albedo.skyImage();
-        if (img == null || texture == null || sphere == null || uploaded != img.serial()) return false;
+        if (img == null || texture == null || sphere == null || uploaded < 0) return false;
         float k = brightness(img);
         com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
                 .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));

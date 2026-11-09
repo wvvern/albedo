@@ -298,7 +298,7 @@ public final class ConfigCodec {
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> object(Object o, String where, List<String> known) {
+    static Map<String, Object> object(Object o, String where, List<String> known) {
         if (!(o instanceof Map)) throw new IllegalArgumentException("'" + where + "' must be a JSON object");
         Map<String, Object> map = (Map<String, Object>) o;
         if (known != null) {

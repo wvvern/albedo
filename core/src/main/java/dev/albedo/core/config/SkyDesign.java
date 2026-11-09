@@ -17,10 +17,6 @@ public final class SkyDesign {
         SHOW, HIDE;
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Celestial byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     /** Whether the custom sky keeps its brightness or gets darker at night and in rain, as the vanilla sky does. */
@@ -28,10 +24,6 @@ public final class SkyDesign {
         FIXED, DAY_NIGHT;
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Light byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     public static final SkyDesign NONE = new SkyDesign(Collections.<SkyLayer>emptyList(), Celestial.SHOW, Light.FIXED);

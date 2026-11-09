@@ -12,10 +12,6 @@ public final class SkyMask {
         DARK;
 
         public String key() { return name().toLowerCase(Locale.ROOT); }
-
-        public static Mode byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
     }
 
     public static final SkyMask NONE = new SkyMask(0, Mode.LIGHT);
