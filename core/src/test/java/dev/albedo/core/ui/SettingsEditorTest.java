@@ -621,6 +621,55 @@ class SettingsEditorTest {
     }
 
     @Test
+    void theStyleRowHasTheSamePlaceWithAndWithoutGroups() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        int blocks = canvas.find("Style")[1];
+        click(editor, canvas, "Sky");
+        assertNotNull(canvas.find("Look"), "a page without groups shows the Look tab: " + canvas.texts.keySet());
+        assertNull(canvas.find("Groups"), "and no Groups tab: " + canvas.texts.keySet());
+        assertEquals(blocks, canvas.find("Style")[1]);
+        click(editor, canvas, "Weather");
+        assertEquals(blocks, canvas.find("Style")[1]);
+    }
+
+    @Test
+    void theToastDoesNotCoverTheOpenSuggestions() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Groups");
+        click(editor, canvas, "+ New group"); // the first change makes quake-white-custom and says so
+        type(editor, canvas, "grass");
+        int[] toast = canvas.find("is built in");
+        assertNotNull(toast, "the toast shows: " + canvas.texts.keySet());
+        int[] first = canvas.find("grass_block");
+        assertNotNull(first, "the suggestions show: " + canvas.texts.keySet());
+        assertTrue(toast[1] < canvas.find("Style")[1], "the toast moves above the dropdown: " + toast[1]);
+    }
+
+    @Test
+    void anArmedDeleteTipStaysInThePanelAndOffTheButtons() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Groups");
+        int[] x = canvas.find("x");
+        click(editor, canvas, "x");
+        String tip = null;
+        for (String t : canvas.texts.keySet()) if (t.startsWith("Click again")) tip = t;
+        assertNotNull(tip, "the armed button explains the next click: " + canvas.texts.keySet());
+        int[] at = canvas.texts.get(tip);
+        int right = at[0] + canvas.textWidth(tip) / 2, panelRight = (533 - 513) / 2 + 513;
+        assertTrue(right <= panelRight, "the tip stays in the panel: " + right + " > " + panelRight);
+        assertTrue(right < x[0] - 3, "the tip does not cover the delete buttons: " + right + " vs " + x[0]);
+    }
+
+    @Test
     void clickingEverywhereAtEverySizeNeverFailsOrDrawsOutside() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         for (int[] size : sizes) {

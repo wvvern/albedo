@@ -79,6 +79,8 @@ final class Ui {
         String wanted;
         /** Show the text now, with no delay (an armed delete button explains its second click). */
         boolean now;
+        /** The widget that asked for the text, which the tooltip does not cover. */
+        Rect control;
         String shown;
         long since;
         /** After a click the result matters more than the explanation: no tooltip until the pointer moves. */
@@ -97,6 +99,10 @@ final class Ui {
     /** A list drawn over other widgets (a dropdown); widgets drawn before it ignore the pointer inside it. */
     private Rect overlay;
     private boolean drawingOverlay;
+    /** The last overlay area of this frame, kept after the overlay ends, so that later drawing can stay off it. */
+    private Rect overlayDrawn;
+    /** The area that tooltips stay in: the screen, or the panel that the owner sets each frame. */
+    private Rect tipBounds;
     private final List<KeyPress> keys = new ArrayList<KeyPress>();
     private final StringBuilder typed = new StringBuilder();
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
@@ -143,7 +149,10 @@ final class Ui {
         pointer.x = mouseX;
         pointer.y = mouseY;
         tip.wanted = null;
+        tip.control = null;
         tip.now = false;
+        overlayDrawn = null;
+        tipBounds = new Rect(0, 0, canvas.width(), canvas.height());
         if (armed != null && now() - armed.at > CONFIRM_MS) armed = null;
         focusAtBegin = focus;
         focusDrawn = false;
@@ -212,7 +221,14 @@ final class Ui {
     /** Widgets drawn from now until {@link #beginOverlay()} ignore the pointer inside {@code area}. */
     void reserveOverlay(Rect area) {
         overlay = area;
+        overlayDrawn = area;
     }
+
+    /** The overlay area that this frame reserved, or null. */
+    Rect overlayDrawn() { return overlayDrawn; }
+
+    /** Keeps the tooltips of this frame inside {@code area}, which must be inside the screen. */
+    void tipBounds(Rect area) { tipBounds = area; }
 
     /** Widgets drawn from now on are the overlay itself. */
     void beginOverlay() {
@@ -241,10 +257,13 @@ final class Ui {
 
     /** Sets the tooltip for this frame when the pointer is on the rectangle. */
     void tip(int x, int y, int w, int h, String text) {
-        if (text != null && hover(x, y, w, h)) tip.wanted = text;
+        if (text != null && hover(x, y, w, h)) {
+            tip.wanted = text;
+            tip.control = new Rect(x, y, w, h);
+        }
     }
 
-    /** A tooltip near the pointer, after the pointer rests for {@link #tipDelay} ms; wrapped and kept on screen. */
+    /** A tooltip near the pointer, after the pointer rests for {@link #tipDelay} ms; wrapped, kept in the tip bounds and off its widget. */
     private void tooltip() {
         if (tip.wanted == null) {
             tip.shown = null;
@@ -255,14 +274,43 @@ final class Ui {
             tip.since = now();
         }
         if (!tip.now && (tip.hiddenByClick || now() - tip.since < tipDelay)) return;
-        int maxW = Math.min(170, c.width() - 8);
-        List<String> lines = wrap(tip.wanted, maxW);
-        int tw = 0;
-        for (String l : lines) tw = Math.max(tw, width(l));
-        int bw = tw + 8, bh = lines.size() * (LINE + 1) + 5;
-        int x = Math.max(2, Math.min(pointer.x + 6, c.width() - bw - 2));
-        int y = pointer.y + 12;
-        if (y + bh > c.height() - 2) y = Math.max(2, pointer.y - bh - 4);
+        Rect b = tipBounds;
+        Rect ctl = tip.control != null ? tip.control : new Rect(pointer.x, pointer.y, 1, 1);
+        // An armed button is clicked again, and the rows under it often hold more of the same buttons, so its tip goes beside it.
+        if (tip.now && tipBeside(b, ctl)) return;
+        List<String> lines = wrap(tip.wanted, Math.min(170, b.w - 8));
+        int bw = linesWidth(lines) + 8, bh = lines.size() * (LINE + 1) + 5;
+        int x = Math.max(b.x + 2, Math.min(pointer.x + 6, b.x + b.w - bw - 2));
+        // A small widget keeps its whole area free; a large one (a list, a picker) only the point under the pointer.
+        boolean small = ctl.h <= 2 * H;
+        int below = small ? Math.max(pointer.y + 12, ctl.bottom() + 2) : pointer.y + 12;
+        int above = (small ? Math.min(pointer.y, ctl.y) : pointer.y) - bh - 4;
+        int y = below + bh <= b.bottom() - 2 ? below : Math.max(b.y + 2, above);
+        tipBox(lines, x, y, bw, bh);
+    }
+
+    /** Draws the tooltip left or right of the control when it fits there, and returns whether it did. */
+    private boolean tipBeside(Rect b, Rect ctl) {
+        int leftRoom = ctl.x - 3 - (b.x + 2), rightRoom = b.x + b.w - 2 - (ctl.x + ctl.w + 3);
+        boolean left = leftRoom >= rightRoom;
+        int room = Math.min(170, Math.max(leftRoom, rightRoom));
+        if (room < 60) return false;
+        List<String> lines = wrap(tip.wanted, room - 8);
+        int bw = linesWidth(lines) + 8, bh = lines.size() * (LINE + 1) + 5;
+        if (bh > b.h - 4) return false;
+        int x = left ? ctl.x - 3 - bw : ctl.x + ctl.w + 3;
+        int y = Math.max(b.y + 2, Math.min(ctl.y + (ctl.h - bh) / 2, b.bottom() - bh - 2));
+        tipBox(lines, x, y, bw, bh);
+        return true;
+    }
+
+    private int linesWidth(List<String> lines) {
+        int w = 0;
+        for (String l : lines) w = Math.max(w, width(l));
+        return w;
+    }
+
+    private void tipBox(List<String> lines, int x, int y, int bw, int bh) {
         round(x, y, bw, bh, BORDER);
         round(x + 1, y + 1, bw - 2, bh - 2, TOOLTIP);
         for (int i = 0; i < lines.size(); i++) text(lines.get(i), x + 4, y + 3 + i * (LINE + 1), TEXT);
@@ -419,6 +467,7 @@ final class Ui {
         textCentered(ellipsize(label, w - 4), x + w / 2, y + (h - LINE) / 2 + 1, 0xFFFFFFFF);
         if (hovered) {
             tip.wanted = confirmTip;
+            tip.control = new Rect(x, y, w, h);
             tip.now = true;
         }
         if (!press(id, x, y, w, h)) return false;
