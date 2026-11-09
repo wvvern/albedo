@@ -16,12 +16,14 @@ import java.util.Map;
 
 /** The built-in custom skies, which the editor offers as starting points. */
 public final class SkyPresets {
-    /** An orange sunset in the west under a deep blue sky, with stars only where the sky is dark. */
+    /** An orange sunset in the west under a deep blue sky, with small stars only high in the sky, where it is dark. */
     public static final SkyDesign DUSK = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFFF08A4B, Param.COLOR_2, 0xFF1A1F4D, Param.HEIGHT, 22, Param.AMOUNT, 45)
             .add(Kind.GLOW, Param.COLOR_1, 0xFFFF9E5E, Param.AMOUNT, 30, Param.HEIGHT, 22)
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFFFFFFFF, Param.COLOR_2, 0xFF000000, Param.HEIGHT, 45, Param.AMOUNT, 15)
+            .output(SkyLayer.Output.MASK_ONLY)
             .add(Kind.STARS, Param.AMOUNT, 25, Param.SEED, 3)
-            .blend(SkyLayer.Blend.ADD).opacity(70).mask(1, SkyMask.Mode.DARK)
+            .blend(SkyLayer.Blend.ADD).opacity(55).mask(3, SkyMask.Mode.DARK)
             .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT);
 
     /** Pink and violet clouds of gas with stars, partly blurred and changed in hue through a noise mask. */
