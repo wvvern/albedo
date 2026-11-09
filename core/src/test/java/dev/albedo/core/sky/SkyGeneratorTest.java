@@ -363,7 +363,7 @@ class SkyGeneratorTest {
                 }
             }
         }
-        assertTrue(glow > 0.02, "the galaxy core glows: " + glow);
+        assertTrue(glow > 0.005, "the galaxy glows: " + glow);
         assertTrue(error / count < 0.004, "the term is the added glow: " + error / count);
     }
 

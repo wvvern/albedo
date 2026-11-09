@@ -39,8 +39,8 @@ public final class SkyPresets {
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
     /**
-     * An active galaxy like Centaurus A high in the south-east: a tilted spiral disc with a dark lane of dust across its warm
-     * bulge, and two blue jets from its black hole into turbulent lobes, over faint dust and stars.
+     * An active galaxy like Centaurus A high in the south-east: a tilted disc in a large warm halo with a dark lane of dust
+     * across its center, and two blue jets from its black hole into red lobes with rings, over faint dust and stars.
      */
     public static final SkyDesign GALAXY = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A0D1A, Param.COLOR_2, 0xFF010206, Param.HEIGHT, 30, Param.AMOUNT, 60)
