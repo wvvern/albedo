@@ -78,6 +78,11 @@ uint albedoHash(ivec3 p, int seed) {
     return h;
 }
 
+// Math.floorMod: the cell i of a row that repeats after n cells, with remainders of numbers that are not negative only.
+int albedoRepeat(int i, int n) {
+    return i < 0 ? n - 1 - (-1 - i) % n : i % n;
+}
+
 // Noise.unit: a hash as a float from 0 to 1.
 float albedoUnit(uint h) {
     return float(h >> 8u) / 16777216.0;
@@ -672,11 +677,13 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
 const float ALBEDO_METEOR_SLOT = 1.0;
 #define ALBEDO_METEOR_CHANNELS 3
 #define ALBEDO_METEOR_SLOTS_BACK 2
+// The slots in one period of SkyClock, after which the hashes repeat, so that the meteors in the sky go on across the wrap of the time.
+#define ALBEDO_METEOR_PERIOD_SLOTS 3600
 // The part of its life after which the trail of a meteor is gone; the head goes out at 1.
 const float ALBEDO_METEOR_TRAIL_END = 1.15;
 
 float albedoMeteorUnit(int slot, int channel, int value, int seed) {
-    return albedoUnit(albedoHash(ivec3(slot, channel, value), seed));
+    return albedoUnit(albedoHash(ivec3(albedoRepeat(slot, ALBEDO_METEOR_PERIOD_SLOTS), channel, value), seed));
 }
 
 // A line across a width in radians, made wider by half a pixel and darker by the same ratio, so that a thin line stays crisp.
