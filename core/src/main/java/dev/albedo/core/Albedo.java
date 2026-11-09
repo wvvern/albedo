@@ -8,7 +8,6 @@ import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyBaker;
 import dev.albedo.core.sky.SkyImage;
-import dev.albedo.core.texture.ChromaAnimator;
 import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.TextureStore;
 
@@ -44,7 +43,6 @@ public final class Albedo {
     /** The state the player chose on this server with F6, F7 or the settings, which lasts until the player leaves. */
     private Config.State visitState;
     private final TextureStore store = new TextureStore();
-    private final ChromaAnimator chroma = new ChromaAnimator(System::nanoTime);
     /** The sky in the world, which bakes only when a config with new layers is applied. */
     private final SkyBaker skyBaker;
 
@@ -138,13 +136,13 @@ public final class Albedo {
             Policy policy = sc.policy;
             Layout layout = Layout.of(location);
             List<Appearance> looks = layout.looks(policy);
-            int[] phases = sc.store.record(location, layout, image, upload, looks, sc.chroma.timeMs());
+            sc.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
             if (sc.policy != policy) {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            boolean changed = layout.paint(looks, phases, image);
+            boolean changed = layout.paint(looks, image);
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
@@ -208,21 +206,7 @@ public final class Albedo {
             }
         }
         if (stale) refresh(policy);
-        animateChroma();
         if (harness != null) harness.tick();
-    }
-
-    /** Moves the Chroma colors one step further, and in a development run logs the time that this takes. */
-    private void animateChroma() {
-        ChromaAnimator.Tick t = chroma.tick(store, policy, platform::finishRepaint);
-        if (!t.uploaded) platform.warn("Cannot send the Chroma colors to the GPU. They stay still until the next settings change.", null);
-        String report = harness == null ? null : chroma.report();
-        if (report != null) platform.info(report);
-    }
-
-    /** Whether some textures keep still Chroma colors because their upload failed, for example with OptiFine shaders. */
-    public boolean chromaStill() {
-        return store.stillCount() > 0;
     }
 
     private boolean pressed(int slot, String keyName, boolean screenOpen) {
@@ -309,7 +293,7 @@ public final class Albedo {
         TextureStore.Result r;
         boolean flushed;
         try {
-            r = store.repaint(now, chroma.timeMs());
+            r = store.repaint(now);
         } finally {
             flushed = platform.finishRepaint();
         }

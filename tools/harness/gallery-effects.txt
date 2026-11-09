@@ -11,13 +11,10 @@ screenshot e02-white-bevel
 effects blocks outline 70
 wait 200
 screenshot e03-white-outline
-effects blocks chroma 80
-wait 200
-screenshot e04-white-chroma
 profile quake-black
-effects blocks chroma 100 bevel 50
+effects blocks bevel 50 outline 50
 wait 200
-screenshot e05-black-chroma-bevel
+screenshot e04-black-bevel-outline
 # The Blocks page with Recolor and the effect sliders.
 profile pastel
 wait 200
@@ -25,9 +22,11 @@ settings open
 wait 20
 ui click Recolor
 wait 10
+ui click Effects
+wait 10
 ui pointer off
 wait 10
-screenshot e06-settings-effects
+screenshot e05-settings-effects
 settings close
 wait 10
 quit

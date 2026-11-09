@@ -1,33 +1,10 @@
 package dev.albedo.core.ui;
 
-import java.util.function.IntFunction;
-
 /** A column of rows with a muted label at the left and a control at {@link #lx()}, as wide as {@link #cw()}. */
 final class Form {
     /** How much further right the labels of {@link #indented()} rows start, under the title of a section heading drawn at x - 4. */
     static final int INDENT = 8;
     private static final int GAP = 6;
-
-    /** A labelled 0 to 100 slider on its own row, with an id that does not change when other rows come or go. */
-    static final class Slider {
-        final String id;
-        final String label;
-        final String tip;
-        /** The text at the right of the slider for each value. */
-        final IntFunction<String> text;
-
-        Slider(String id, String label, String tip, IntFunction<String> text) {
-            this.id = id;
-            this.label = label;
-            this.tip = tip;
-            this.text = text;
-        }
-
-        /** A slider that shows its value in percent. */
-        static Slider percent(String id, String label, String tip) {
-            return new Slider(id, label, tip, v -> v + "%");
-        }
-    }
 
     private final Ui ui;
     private final int x, w, labelW;
@@ -66,13 +43,13 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
-    /** The height of {@link #sliders}, {@link #rows} or {@link #withDependents} for {@code n} slider rows, the gap below them included. */
+    /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
     static int slidersHeight(int n, boolean oneRow) {
         return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
     }
 
-    /** The height of {@code n} sliders on their own rows, with the small gap after each but not the gap below a group. */
-    static int rowsHeight(int n) {
+    /** The height of {@code n} sliders on their own rows, without the gap after the last. */
+    private static int rowsHeight(int n) {
         return n * (Ui.SLIDER_H + 3);
     }
 
@@ -100,44 +77,5 @@ final class Form {
             values[i] = ui.slider(id + "." + i, sx + nameW, y, sw - nameW, values[i], tips[i]);
         }
         return y + slidersHeight(n, true);
-    }
-
-    /**
-     * Sliders on their own rows, which change {@code values} in place.
-     *
-     * @return the y below the last row
-     */
-    int rows(Slider[] sliders, int[] values, int y) {
-        return rows(sliders, values, 0, y);
-    }
-
-    /** Sliders on their own rows, which change {@code values} in place from index {@code from}, and return the y below the last row. */
-    private int rows(Slider[] sliders, int[] values, int from, int y) {
-        for (int i = 0; i < sliders.length; i++) {
-            Slider s = sliders[i];
-            int v = values[from + i];
-            label(y + rowsHeight(i), Ui.SLIDER_H, s.label, s.tip);
-            values[from + i] = ui.slider(s.id, lx(), y + rowsHeight(i), cw(), v, s.text.apply(v), s.tip);
-        }
-        return y + rowsHeight(sliders.length);
-    }
-
-    /**
-     * A slider with dependent sliders under it, which show only while its value is above 0, {@link #INDENT} further
-     * right with their own guide line; {@code values} holds the main value first and changes in place.
-     *
-     * @return the y below the last row
-     */
-    int withDependents(Slider main, Slider[] dependents, int[] values, int y) {
-        boolean shown = values[0] > 0;
-        int next = rows(new Slider[]{main}, values, 0, y);
-        if (!shown) return next;
-        guide(next, rowsHeight(dependents.length) - 3);
-        return indented().rows(dependents, values, 1, next);
-    }
-
-    /** The number of rows that {@link #withDependents} draws for a main value. */
-    static int dependentRows(int mainValue, int dependents) {
-        return 1 + (mainValue > 0 ? dependents : 0);
     }
 }

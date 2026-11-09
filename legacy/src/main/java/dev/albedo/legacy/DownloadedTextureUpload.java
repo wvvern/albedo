@@ -43,11 +43,6 @@ public final class DownloadedTextureUpload implements TextureStore.Upload {
     }
 
     @Override
-    public boolean inPlace() {
-        return true;
-    }
-
-    @Override
     public boolean upload(PixelBuffer pixels) {
         if (Minecraft.getMinecraft().getTextureManager().getTexture(location) != texture) return false; // deleted
         // A reload cannot change a downloaded skin, so with shaders the store forgets it and it keeps its look.
