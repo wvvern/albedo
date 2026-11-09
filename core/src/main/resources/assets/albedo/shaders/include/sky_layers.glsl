@@ -806,20 +806,23 @@ float albedoRayOctave(vec2 q, int seed, float width) {
     return k <= 0.0 ? 0.5 : 0.5 + (albedoValue(q, seed) - 0.5) * k;
 }
 
-// The numbers of Aurora: the earth radius, the altitude of the lower edge and the drift of the rays, in km.
+// The numbers of Aurora: the earth radius, the altitude of the lower edge, the drift of the rays and the reach of a sheet to each side, in km.
 const float ALBEDO_AURORA_EARTH = 6371.0;
 const float ALBEDO_AURORA_BASE = 100.0;
 const float ALBEDO_AURORA_DRIFT = 0.6;
-const float ALBEDO_AURORA_LOOP = 0.9;
-// The radians of view under the lower edge over which its faint glow falls by e, and the number of them where it stops.
-const float ALBEDO_AURORA_GLOW = 0.015;
-const float ALBEDO_AURORA_GLOW_REACH = 4.0;
+const float ALBEDO_AURORA_LOOP = 0.5;
+const float ALBEDO_AURORA_THICK = 14.0;
 #define ALBEDO_AURORA_STEPS 14
 #define ALBEDO_AURORA_CROSSINGS 4
 
-// The distance in km of the near (0) and of the far (1) ribbon at the layer center.
+// The distance in km of the nearest place of the near (0) and of the far (1) ribbon.
 float albedoRibbonDistance(int c) {
     return c == 0 ? 280.0 : 620.0;
+}
+
+// The azimuth from the line through the nearest place of ribbon c at theta, so that each ribbon slants across the sky.
+float albedoRibbonAngle(int c, float theta) {
+    return clamp(theta - (c == 0 ? 0.45 : -0.35), -1.5, 1.5);
 }
 
 // One fold wave of Aurora.Ribbon.offset: adds its azimuth to x, and to d the slope of the azimuth and the loop toward the viewer and its slope.
@@ -835,70 +838,27 @@ float albedoFoldWave(int i, int c, float k, float amp, float rate, float theta, 
 float albedoRibbonOffset(int c, float theta, float a, float t, float scale, int seed, out vec3 d) {
     float f = albedoRibbonDistance(c) / albedoRibbonDistance(0);
     d = vec3(1.0, 0.0, 0.0);
-    float phi = theta + albedoFoldWave(0, c, 9.0 * f / scale, 0.09 * scale / f, 0.02, theta, t, seed, d);
-    phi += albedoFoldWave(1, c, 31.0 * f / scale, 0.03 * scale / f, -0.05, theta, t, seed, d);
-    phi += albedoFoldWave(2, c, 70.0 * f / scale, 0.012 * scale / f, 0.11, theta, t, seed, d);
+    float phi = theta + albedoFoldWave(0, c, 8.0 * f / scale, 0.08 * scale / f, 0.02, theta, t, seed, d);
+    phi += albedoFoldWave(1, c, 21.0 * f / scale, 0.04 * scale / f, -0.05, theta, t, seed, d);
+    phi += albedoFoldWave(2, c, 43.0 * f / scale, 0.019 * scale / f, 0.11, theta, t, seed, d);
     return phi - a;
 }
 
-// Aurora.Ribbon.sheet: the light of COLOR_1 and COLOR_2 of the sheet of ribbon c where the view crosses it at theta, times k.
-vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footprint, float a, float t, float scale, float height,
-        int seed) {
-    vec3 d;
-    albedoRibbonOffset(c, theta, a, t, scale, seed, d);
-    float dist = albedoRibbonDistance(c), f = dist / albedoRibbonDistance(0);
-    float th = clamp(theta, -1.5, 1.5);
-    float co = cos(th), ta = tan(th);
-    float r = dist / co + d.y, dr = dist * ta / co + d.z;
-    for (int i = 0; i < 2; i++) {
-        float kk = (i == 0 ? 5.0 : 17.0) * f / scale;
-        float arg = kk * theta + 6.2831853 * albedoUnit(albedoHash(ivec3(i, c, 1), seed + 602)) + (i == 0 ? -0.015 : 0.04) * t;
-        float amp = i == 0 ? 30.0 : 10.0;
-        r += amp * sin(arg);
-        dr += amp * kk * cos(arg);
-    }
-    float across = abs(r * d.x);
-    float obl = across / sqrt(dr * dr + across * across);
-    float tilt = min(el + r / (2.0 * ALBEDO_AURORA_EARTH), 1.45);
-    float alt = r * tan(tilt);
-    float cosT = cos(tilt);
-    float pixelUp = footprint * r / (cosT * cosT), pixelAlong = wide * r / max(obl, 0.08) / scale;
-    float s = dist * ta / scale, sd = s + ALBEDO_AURORA_DRIFT * t;
-    // The lower edge goes up and down along the ribbon, so that it is not one smooth line.
-    float h = alt - ALBEDO_AURORA_BASE - 7.0 * albedoNoise(vec3(sd / 70.0, t * 0.02, 0.5), seed + 11 + c)
-            - 3.0 * albedoNoise(vec3(sd / 18.0, t * 0.05, 2.5), seed + 13 + c);
-    float soft = max(1.2 * f, 0.6 * pixelUp);
-    // The angle of the view under the lower edge, which is negative under it.
-    float under = min(h, 0.0) * cosT * cosT / r;
-    if (under < -ALBEDO_AURORA_GLOW_REACH * ALBEDO_AURORA_GLOW) return vec2(0.0);
-    float r0 = albedoRayOctave(vec2(sd / 45.0, t * 0.03), seed + 21 + c, pixelAlong / 45.0);
-    float r1 = albedoRayOctave(vec2(sd / 14.0, t * 0.1), seed + 22 + c, pixelAlong / 14.0);
-    float r2 = albedoRayOctave(vec2(sd / 5.0, t * 0.25), seed + 23 + c, pixelAlong / 5.0);
-    float r3 = albedoRayOctave(vec2(sd / 1.8, t * 0.5), seed + 24 + c, pixelAlong / 1.8);
-    float tall = albedoRayOctave(vec2(sd / 14.0 + 31.7, t * 0.08), seed + 25 + c, pixelAlong / 14.0);
-    float bundle = albedoSmooth(0.3, 0.85, r0);
-    float hard = clamp(pixelAlong / 1.8 * 0.5, 0.07, 0.3);
-    float fine = albedoSmooth(0.5 - 0.6 * hard, 0.5 + hard, 0.5 * r1 + 0.3 * r2 + 0.2 * r3);
-    float rays = bundle * fine * (0.3 + 0.7 * tall);
-    // The rays of the far ribbon are shorter, so that it is a low arc with open sky between it and the near ribbon.
-    float top = height * (0.2 + 1.4 * tall * tall) / (f * f);
-    float below = albedoSmooth(-soft, soft, h), up = max(h, 0.0);
-    // A thin bright band along the lower edge, which is dim between the bundles, and above it rays of many heights.
-    float edge = 0.05 + 1.35 * (0.2 + 0.8 * bundle) * (0.4 + 0.6 * fine);
-    float green = below * (exp(-up / 9.0) * edge + 1.1 * rays * exp(-up / (0.4 * top)));
-    // Under the lower edge a faint glow without rays, which a sheet seen edge-on does not brighten, fades smoothly within a few degrees.
-    green += (1.0 - below) * 0.1 * sqrt(obl * obl + 0.0144) * max(0.0, exp(under / ALBEDO_AURORA_GLOW) - exp(-ALBEDO_AURORA_GLOW_REACH));
-    float red = below * 0.2 * bundle * (0.3 + 0.7 * fine) * albedoSmooth(0.3 * top, 0.9 * top, up)
-            * exp(-max(0.0, up - 0.9 * top) / (0.5 * top));
-    float lit = albedoValue(vec2(s / 320.0, t * 0.004), seed + 31 + c) + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);
-    float strength = albedoSmooth(0.3 + 0.15 * float(c), 0.6 + 0.15 * float(c), lit)
-            * (0.4 + 0.9 * albedoValue(vec2(s / 70.0, t * 0.01), seed + 33 + c));
-    float gain = k * (c == 0 ? 1.0 : 0.2) * strength * 0.8 / sqrt(obl * obl + 0.0144);
-    return gain * vec2(green, red);
+// Aurora.Ribbon.speed: the length of ribbon c at theta for each radian of theta, over its distance, from the values d of the offset there.
+float albedoRibbonSpeed(int c, float theta, vec3 d) {
+    float th = albedoRibbonAngle(c, theta);
+    float co = cos(th), dist = albedoRibbonDistance(c);
+    float o = (dist * tan(th) / co + d.z) / (dist / co + d.y);
+    return sqrt(d.x * d.x + o * o);
 }
 
-// Aurora.Ribbon.add: the light of ribbon c at each place where the view crosses it, found in steps over the azimuths of the folds.
-// Puts a crossing at index i of the crossings of a ribbon, with its place theta and its factor k, when there is room.
+// Aurora.cumulative: the part of a triangle of width 2 around 0 that lies left of x.
+float albedoTriangleBelow(float x) {
+    float y = clamp(x, -1.0, 1.0);
+    return y < 0.0 ? 0.5 * (1.0 + y) * (1.0 + y) : 1.0 - 0.5 * (1.0 - y) * (1.0 - y);
+}
+
+// Puts a group of pieces at index i of the kept groups of a ribbon, with its place theta and its light k.
 void albedoCrossing(int i, float theta, float k, inout vec4 thetas, inout vec4 ks) {
     if (i == 0) {
         thetas.x = theta;
@@ -915,33 +875,142 @@ void albedoCrossing(int i, float theta, float k, inout vec4 thetas, inout vec4 k
     }
 }
 
-// Aurora.Ribbon.add: the places where the view crosses ribbon c, found in steps over the azimuths of the folds, and their count.
+// Aurora.moment: the first moment of the part of a triangle of width 2 around 0 that lies left of x.
+float albedoTriangleMoment(float x) {
+    float y = clamp(x, -1.0, 1.0);
+    return y < 0.0 ? y * y * (0.5 + y / 3.0) - 1.0 / 6.0 : y * y * (0.5 - y / 3.0) - 1.0 / 6.0;
+}
+
+// Aurora.Ribbon.flush: keeps the group of pieces in place of the faintest kept group when all places are taken by brighter ones.
+void albedoAuroraFlush(inout vec4 group, inout int found, inout vec4 thetas, inout vec4 ks) {
+    if (group.x > 0.0) {
+        int slot = found;
+        if (found == ALBEDO_AURORA_CROSSINGS) {
+            slot = 0;
+            for (int i = 1; i < ALBEDO_AURORA_CROSSINGS; i++) {
+                if (ks[i] < ks[slot]) slot = i;
+            }
+            if (ks[slot] >= group.x) slot = -1;
+        } else {
+            found++;
+        }
+        if (slot >= 0) albedoCrossing(slot, group.w > 0.0 ? group.z : group.y / group.x, group.x, thetas, ks);
+    }
+    group = vec4(0.0);
+}
+
+// Aurora.Ribbon.piece: adds the light of one straight piece of a ribbon from ta to tb, with the azimuths ga and gb from the view and the
+// speeds sa and sb, to the group of pieces (its light, its light times the place of its light, where the view crosses it and 1 when it does).
+void albedoAuroraPiece(float ta, float ga, float sa, float tb, float gb, float sb, float w, inout vec4 group, inout bool rising,
+        inout int found, inout vec4 thetas, inout vec4 ks) {
+    bool through = (ga <= 0.0) != (gb <= 0.0);
+    float xa = ga / w, xb = gb / w, dx = xb - xa, k = 0.0, mid = 0.5;
+    if (min(abs(xa), abs(xb)) < 1.0 || through) {
+        // The light along the view is the length of the piece near it, so a piece seen edge-on is brighter.
+        float part = albedoTriangleBelow(xb) - albedoTriangleBelow(xa);
+        k = abs(dx) < 1e-3 ? max(0.0, 1.0 - abs(xa)) : part / dx;
+        k *= abs(tb - ta) / w * 0.5 * (sa + sb);
+        // The middle of the light of the piece, which moves smoothly with the view.
+        if (abs(dx) >= 1e-3 && part != 0.0) {
+            mid = clamp((albedoTriangleMoment(xb) - albedoTriangleMoment(xa) - xa * part) / (dx * part), 0.0, 1.0);
+        }
+    }
+    // A group ends where the piece gets farther from the view and the next one nearer, or where a piece has no light.
+    if (k <= 0.0 || rising && (through || abs(gb) < abs(ga))) albedoAuroraFlush(group, found, thetas, ks);
+    rising = through || abs(gb) > abs(ga);
+    if (k <= 0.0) return;
+    group.x += k;
+    group.y += k * (ta + (tb - ta) * mid);
+    if (through) group.zw = vec2(ta + (tb - ta) * ga / (ga - gb), 1.0);
+}
+
+// Aurora.Ribbon.add: the groups of pieces of ribbon c near the view, found in steps over the azimuths of the folds, and their count.
 int albedoCrossings(int c, float wide, float a, float t, float scale, int seed, out vec4 thetas, out vec4 ks) {
     thetas = vec4(0.0);
     ks = vec4(0.0);
-    int found = 0;
-    float reach = 0.132 * scale / (albedoRibbonDistance(c) / albedoRibbonDistance(0)) * 1.02;
+    float w = max(3.0 * wide, ALBEDO_AURORA_THICK / albedoRibbonDistance(c));
+    float reach = 0.139 * scale / (albedoRibbonDistance(c) / albedoRibbonDistance(0)) * 1.02 + w;
     float step = 2.0 * reach / float(ALBEDO_AURORA_STEPS);
     vec3 d;
-    float ta = a - reach, ga = albedoRibbonOffset(c, ta, a, t, scale, seed, d), da = d.x;
+    float ta = a - reach, ga = albedoRibbonOffset(c, ta, a, t, scale, seed, d), da = d.x, sa = albedoRibbonSpeed(c, ta, d);
+    int found = 0;
+    vec4 group = vec4(0.0);
+    bool rising = false;
     for (int i = 1; i <= ALBEDO_AURORA_STEPS; i++) {
         float tb = a - reach + float(i) * step, gb = albedoRibbonOffset(c, tb, a, t, scale, seed, d), db = d.x;
-        if ((ga <= 0.0) != (gb <= 0.0)) {
-            albedoCrossing(found++, ta + step * ga / (ga - gb), 1.0, thetas, ks);
-        } else if ((da < 0.0) != (db < 0.0)) {
-            // The tip of a fold is in this step: the view crosses the sheet twice when the tip is past it.
-            float tm = ta + step * da / (da - db), gm = albedoRibbonOffset(c, tm, a, t, scale, seed, d);
-            if ((gm <= 0.0) != (ga <= 0.0)) {
-                float k = albedoSmooth(0.0, 2.0 * wide, abs(gm));
-                albedoCrossing(found++, ta + (tm - ta) * ga / (ga - gm), k, thetas, ks);
-                albedoCrossing(found++, tm + (tb - tm) * gm / (gm - gb), k, thetas, ks);
-            }
+        float sb = albedoRibbonSpeed(c, tb, d);
+        if ((da < 0.0) != (db < 0.0)) {
+            // The tip of a fold is in this step, which gets a corner there, found in two steps toward the zero of the slope.
+            float tm = ta + step * da / (da - db);
+            albedoRibbonOffset(c, tm, a, t, scale, seed, d);
+            float dm = d.x;
+            tm = (da < 0.0) != (dm < 0.0) ? ta + (tm - ta) * da / (da - dm) : tm + (tb - tm) * dm / (dm - db);
+            float gm = albedoRibbonOffset(c, tm, a, t, scale, seed, d), sm = albedoRibbonSpeed(c, tm, d);
+            albedoAuroraPiece(ta, ga, sa, tm, gm, sm, w, group, rising, found, thetas, ks);
+            albedoAuroraPiece(tm, gm, sm, tb, gb, sb, w, group, rising, found, thetas, ks);
+        } else {
+            albedoAuroraPiece(ta, ga, sa, tb, gb, sb, w, group, rising, found, thetas, ks);
         }
         ta = tb;
         ga = gb;
         da = db;
+        sa = sb;
     }
-    return min(found, ALBEDO_AURORA_CROSSINGS);
+    albedoAuroraFlush(group, found, thetas, ks);
+    return found;
+}
+
+// Aurora.Ribbon.sheet: the light of COLOR_1 and COLOR_2 of the sheet of ribbon c where the view crosses it at theta, times k.
+vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footprint, float a, float t, float scale, float height,
+        int seed) {
+    vec3 d;
+    albedoRibbonOffset(c, theta, a, t, scale, seed, d);
+    float dist = albedoRibbonDistance(c), f = dist / albedoRibbonDistance(0);
+    float th = albedoRibbonAngle(c, theta);
+    float co = cos(th), ta = tan(th);
+    float r = dist / co + d.y, dr = dist * ta / co + d.z;
+    for (int i = 0; i < 2; i++) {
+        float kk = (i == 0 ? 5.0 : 17.0) * f / scale;
+        float arg = kk * theta + 6.2831853 * albedoUnit(albedoHash(ivec3(i, c, 1), seed + 602)) + (i == 0 ? -0.015 : 0.04) * t;
+        float amp = i == 0 ? 30.0 : 10.0;
+        r += amp * sin(arg);
+        dr += amp * kk * cos(arg);
+    }
+    // The sine of the angle between the view and the sheet, which makes the rays narrower in the sky.
+    float across = abs(r * d.x);
+    float obl = across / sqrt(dr * dr + across * across);
+    float tilt = min(el + r / (2.0 * ALBEDO_AURORA_EARTH), 1.45);
+    float alt = r * tan(tilt);
+    float cosT = cos(tilt);
+    float pixelUp = footprint * r / (cosT * cosT), pixelAlong = wide * r / max(obl, 0.02) / scale;
+    float s = dist * ta / scale, sd = s + ALBEDO_AURORA_DRIFT * t;
+    // The lower edge is nearly level, with gentle waves, as its kinks come from the folds.
+    float h = alt - ALBEDO_AURORA_BASE - 2.0 * albedoNoise(vec3(sd / 40.0, t * 0.02, 0.5), seed + 11 + c)
+            - 0.7 * (1.0 - albedoSmooth(0.15, 0.4, pixelAlong / 12.0)) * albedoNoise(vec3(sd / 12.0, t * 0.05, 2.5), seed + 13 + c);
+    if (h < -4.0) return vec2(0.0);
+    float r0 = albedoRayOctave(vec2(sd / 40.0, t * 0.03), seed + 21 + c, pixelAlong / 40.0);
+    float r1 = albedoRayOctave(vec2(sd / 3.0, t * 0.1), seed + 22 + c, pixelAlong / 3.0);
+    float r2 = albedoRayOctave(vec2(sd / 1.1, t * 0.25), seed + 23 + c, pixelAlong / 1.1);
+    float r3 = albedoRayOctave(vec2(sd / 0.5, t * 0.6), seed + 24 + c, pixelAlong / 0.5);
+    float tall = albedoRayOctave(vec2(sd / 2.0 + 31.7, t * 0.12), seed + 25 + c, pixelAlong / 2.0);
+    // Wide bundles of thin rays with dark sky between them, whose edges are never harder than about one pixel.
+    float bundle = 0.35 + 0.65 * albedoSmooth(0.2, 0.8, r0);
+    float hard = clamp(pixelAlong / 0.5 * 0.5, 0.05, 0.3);
+    float rays = bundle * albedoSmooth(0.55 - hard, 0.55 + hard, 0.3 * r1 + 0.38 * r2 + 0.32 * r3);
+    // Each ray fades up over its own height, and the far ribbon is shorter, so that it is a low arc.
+    float top = height * (0.07 + 0.45 * tall * tall) / (f * f);
+    float soft = max(0.3 * f, 0.7 * pixelUp);
+    float below = albedoSmooth(-2.0 * soft, soft, h), up = max(h, 0.0);
+    // The brightest light is a thin band at the lower edge, and above it the rays dissolve into the open sky.
+    float base = (0.15 + 0.4 * bundle + 0.8 * rays) * exp(-up / 3.5);
+    float rise = up / top;
+    float green = below * (base + 1.1 * rays * exp(-rise * (0.5 + 0.5 * rise)));
+    float red = below * 0.25 * rays * tall * exp(-(rise - 1.3) * (rise - 1.3) * 2.0);
+    // Parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
+    float lit = albedoValue(vec2(s / 320.0, t * 0.004), seed + 31 + c) + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);
+    float strength = albedoSmooth(0.3 + 0.15 * float(c), 0.6 + 0.15 * float(c), lit)
+            * (0.4 + 0.9 * albedoValue(vec2(s / 70.0, t * 0.01), seed + 33 + c));
+    return k * (c == 0 ? 1.0 : 0.2) * strength * vec2(green, red);
 }
 
 // Aurora.sample: a near and a far folded ribbon toward the layer center, which move with the header time and stay at time 0 when still.
@@ -958,9 +1027,11 @@ vec4 albedoAurora(int layer, vec3 p, float footprint) {
     float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;
     float height = 40.0 + 220.0 * values.w;
     float wide = footprint / max(cosEl, 0.05);
-    // The search finds the crossings first and then lights them in one loop, so that the shader has one copy of the sheet.
+    // The search finds the groups first and then lights them in one loop, so that the shader has one copy of the sheet.
     vec2 light = vec2(0.0);
     for (int c = 0; c < 2; c++) {
+        // The far ribbon with its short rays is never more than about 15 degrees high.
+        if (c == 1 && el >= 0.3) break;
         vec4 thetas, ks;
         int found = albedoCrossings(c, wide, a, t, shape.x, seed, thetas, ks);
         for (int i = 0; i < ALBEDO_AURORA_CROSSINGS; i++) {
