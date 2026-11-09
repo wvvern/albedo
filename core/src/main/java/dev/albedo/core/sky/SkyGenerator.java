@@ -132,15 +132,14 @@ public final class SkyGenerator {
         }
         tmp = null;
         float[] ring = ring();
-        if (!rows.run(h, y -> horizonRow(y, ring))) return null;
+        if (design.extent() == SkyDesign.Extent.HORIZON && !rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
         return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
     }
 
-    /** Mixes the sky below the horizon into the horizon color (the fog color) of each direction when the sky stops at the horizon. */
+    /** Mixes the sky below the horizon into the horizon color (the fog color) of each direction, for a sky that stops at the horizon. */
     private void horizonRow(int y, float[] ring) {
-        if (design.extent() == SkyDesign.Extent.SPHERE) return;
         float k = smooth(0, FADE, -elevation[y]);
         if (k <= 0) return;
         float[] c = new float[3];

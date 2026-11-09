@@ -165,7 +165,9 @@ class SkyGeneratorTest {
         }
         assertTrue(spread(sphere, low) > 40, "the layers continue below the horizon");
         assertTrue(spread(sphere, h / 2) > 40, "the layers continue just below the horizon");
-        assertTrue(spread(horizon, h / 2 - 1) > 40, "the layers go down to the horizon when the sky stops there");
+        int above = spread(horizon, h / 2 - 1), fading = spread(horizon, row(-1.5, h));
+        assertTrue(above > 40, "the layers go down to the horizon when the sky stops there");
+        assertTrue(fading > 2 && fading < above, "the layers go into the horizon color below it: " + fading);
         for (int i = 0; i < h / 2 * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
     }
 
