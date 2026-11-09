@@ -6,6 +6,7 @@ import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -130,6 +131,24 @@ class SkyGeneratorTest {
             added = Math.max(added, blue(jets[i]) - blue(plain[i]));
         }
         assertTrue(added > 20, "the jet adds " + added);
+    }
+
+    @Test
+    void theShaderHasTheSameGalaxyNumbers() throws IOException {
+        String glsl = SkyProgramTest.skyLayersSource();
+        String[] numbers = {
+            "float ALBEDO_GALAXY_REACH = " + SkyGenerator.GALAXY_REACH,
+            "float ALBEDO_GALAXY_JET_LENGTH = " + SkyGenerator.JET_LENGTH,
+            "float ALBEDO_GALAXY_KNOT_CELL = " + SkyGenerator.KNOT_CELL,
+            "vec3 ALBEDO_GALAXY_DUST_REDDENING = " + vec3(SkyGenerator.DUST_REDDENING),
+            "vec3 ALBEDO_GALAXY_HALPHA = " + vec3(SkyGenerator.HALPHA),
+            "vec3 ALBEDO_GALAXY_LOBE = " + vec3(SkyGenerator.LOBE),
+            "vec3 ALBEDO_GALAXY_NUCLEUS = " + vec3(SkyGenerator.NUCLEUS)};
+        for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
+    }
+
+    private static String vec3(float[] v) {
+        return "vec3(" + v[0] + ", " + v[1] + ", " + v[2] + ")";
     }
 
     private static int blue(int argb) {

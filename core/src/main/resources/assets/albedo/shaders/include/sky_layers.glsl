@@ -406,6 +406,17 @@ vec4 albedoFractal(int layer, vec3 p) {
     return c;
 }
 
+// The numbers of the galaxy of SkyGenerator, in galaxy units where 1 is about the radius of the disc.
+const float ALBEDO_GALAXY_REACH = 3.0;
+const float ALBEDO_GALAXY_JET_LENGTH = 1.4;
+const float ALBEDO_GALAXY_KNOT_CELL = 0.05;
+// How much more the dust absorbs of each linear channel than of green, so that the light through it gets redder.
+const vec3 ALBEDO_GALAXY_DUST_REDDENING = vec3(0.75, 1.0, 1.3);
+// The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus.
+const vec3 ALBEDO_GALAXY_HALPHA = vec3(1.0, 0.1441, 0.2705);
+const vec3 ALBEDO_GALAXY_LOBE = vec3(0.8, 0.18, 1.0);
+const vec3 ALBEDO_GALAXY_NUCLEUS = vec3(1.0, 0.9047, 0.7913);
+
 // An active spiral galaxy at the layer center, modeled on Centaurus A, with a COLOR_2 bulge, COLOR_1 arms at TILT, dust and COLOR_3 jets.
 vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
     float zz = -p.z;
@@ -420,7 +431,7 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
     float size = 0.22 * shape.x;
     float x = p.x / zz / size, y = p.y / zz / size;
     float rr = sqrt(x * x + y * y);
-    if (rr > 3.0) return vec4(0.0);
+    if (rr > ALBEDO_GALAXY_REACH) return vec4(0.0);
     // The width of one pixel in galaxy units, where the plane of the image stretches by 1 / zz squared.
     float fp = footprint / (size * zz * zz);
     float incl = tilt * (ALBEDO_PI / 2.0);
@@ -451,16 +462,16 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
             float density = exp(-rd / 0.5) * (1.0 - albedoSmooth(0.9, 1.4, rd)) * (0.2 + 2.0 * lane * lane) * max(0.0, 3.0 * clump - 1.3);
             tau = dust * 7.0 * density / sqrt(qd);
         }
-        if (rs < 1.2 && fp < 0.5 * 0.05) {
+        if (rs < 1.2 && fp < 0.5 * ALBEDO_GALAXY_KNOT_CELL) {
             // Round knots of young stars on a grid of the image plane, which show only on the arms.
-            vec2 g = vec2(x, y) / 0.05;
+            vec2 g = vec2(x, y) / ALBEDO_GALAXY_KNOT_CELL;
             ivec2 cell = ivec2(floor(g));
             for (int i = -1; i <= 1; i++) {
                 for (int j = -1; j <= 1; j++) {
                     ivec3 h = ivec3(cell.x + i, cell.y + j, 0);
                     if (albedoUnit(albedoHash(h, seed + 77)) > 0.45) continue;
-                    float dx = (g.x - float(h.x) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 78))) * 0.05;
-                    float dy = (g.y - float(h.y) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 79))) * 0.05;
+                    float dx = (g.x - float(h.x) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 78))) * ALBEDO_GALAXY_KNOT_CELL;
+                    float dy = (g.y - float(h.y) - 0.2 - 0.6 * albedoUnit(albedoHash(h, seed + 79))) * ALBEDO_GALAXY_KNOT_CELL;
                     float big = albedoUnit(albedoHash(h, seed + 80));
                     float radius = 0.004 + 0.008 * big * big;
                     float spread = max(radius, 0.8 * fp);
@@ -470,7 +481,7 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
                 }
             }
             // The knots fade out before a pixel is half a cell wide, where the search of 3 x 3 cells would cut the light of a knot.
-            float k = arm * exp(-rs / 0.5) * edge * 1.5 * (1.0 - albedoSmooth(0.25 * 0.05, 0.5 * 0.05, fp));
+            float k = arm * exp(-rs / 0.5) * edge * 1.5 * (1.0 - albedoSmooth(0.25 * ALBEDO_GALAXY_KNOT_CELL, 0.5 * ALBEDO_GALAXY_KNOT_CELL, fp));
             knots *= k;
             pink *= k;
         }
@@ -485,7 +496,7 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
     float jet = 0.0, lobe = 0.0, lobeWarm = 0.0, gas = 0.0, hot = 0.0;
     float side = y < 0.0 ? -1.0 : 1.0;
     if (jets > 0.0) {
-        float reach = 1.4 * (0.3 + 0.7 * si);
+        float reach = ALBEDO_GALAXY_JET_LENGTH * (0.3 + 0.7 * si);
         float t = abs(y) / reach;
         // The jets bend in opposite directions, as a precessing jet does, and the near jet is brighter from relativistic beaming.
         float dx = x - side * 0.12 * t * t;
@@ -513,15 +524,12 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
         lobe *= jets;
         gas *= jets;
     }
-    // How much more the dust absorbs of red and blue than of green, so that the light through it gets redder.
-    vec3 extinction = tau * vec3(0.75, 1.0, 1.3);
+    vec3 extinction = tau * ALBEDO_GALAXY_DUST_REDDENING;
     vec3 through = exp(-extinction), mixed = 1.0 / (1.0 + 0.5 * extinction);
     vec3 disc = color2 + (color1 - color2) * armMix;
-    // The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus.
-    vec3 halpha = vec3(1.0, 0.1441, 0.2705), warm = vec3(0.8, 0.18, 1.0), white = vec3(1.0, 0.9047, 0.7913);
     vec3 light = bulge * color2 * (1.0 - behind * (1.0 - through)) + 0.9 * star * disc * mixed
-            + ((knots - pink) * color1 + pink * halpha) * mixed + (nucleus * sqrt(through) + hot) * white
-            + jet * color3 * (side < 0.0 ? through : vec3(1.0)) + lobe * (color3 + (warm - color3) * lobeWarm) + gas * color3;
+            + ((knots - pink) * color1 + pink * ALBEDO_GALAXY_HALPHA) * mixed + (nucleus * sqrt(through) + hot) * ALBEDO_GALAXY_NUCLEUS
+            + jet * color3 * (side < 0.0 ? through : vec3(1.0)) + lobe * (color3 + (ALBEDO_GALAXY_LOBE - color3) * lobeWarm) + gas * color3;
     light *= max(shape.z, shape.w);
     // The light as a color of at most 1 and an alpha, so that Add gives the full light and Normal stays near it.
     float a = min(1.0, max(light.r, max(light.g, light.b)));

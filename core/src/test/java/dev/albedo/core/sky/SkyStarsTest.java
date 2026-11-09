@@ -2,10 +2,7 @@ package dev.albedo.core.sky;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -133,13 +130,7 @@ class SkyStarsTest {
 
     @Test
     void theShaderHasTheSameTiers() throws IOException {
-        String glsl;
-        try (InputStream in = SkyStarsTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
-            glsl = new String(out.toByteArray(), StandardCharsets.UTF_8);
-        }
+        String glsl = SkyProgramTest.skyLayersSource();
         for (SkyStars.Tier t : SkyStars.Tier.values()) {
             String call = "albedoStarTier(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt
                     + ", " + t.detail + ",";

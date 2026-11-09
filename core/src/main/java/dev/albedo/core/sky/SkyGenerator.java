@@ -23,15 +23,15 @@ public final class SkyGenerator {
 
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
     /** The distance from the galaxy center in galaxy units past which a galaxy has no light, out past its lobes. */
-    private static final float GALAXY_REACH = 3f;
+    static final float GALAXY_REACH = 3f;
     /** The length of a jet of a disc seen from its edge, in galaxy units. */
-    private static final float JET_LENGTH = 1.4f;
+    static final float JET_LENGTH = 1.4f;
     /** The size of the grid cells of the knots of young stars, in galaxy units. */
-    private static final float KNOT_CELL = 0.05f;
+    static final float KNOT_CELL = 0.05f;
     /** How much more the dust absorbs of each linear channel than of green, so that the light through it gets redder. */
-    private static final float[] DUST_REDDENING = {0.75f, 1f, 1.3f};
+    static final float[] DUST_REDDENING = {0.75f, 1f, 1.3f};
     /** The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus. */
-    private static final float[] HALPHA = {1f, 0.1441f, 0.2705f}, LOBE = {0.8f, 0.18f, 1f}, NUCLEUS = {1f, 0.9047f, 0.7913f};
+    static final float[] HALPHA = {1f, 0.1441f, 0.2705f}, LOBE = {0.8f, 0.18f, 1f}, NUCLEUS = {1f, 0.9047f, 0.7913f};
     /** The distance in degrees from the horizon over which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
     private static final float HAZE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */

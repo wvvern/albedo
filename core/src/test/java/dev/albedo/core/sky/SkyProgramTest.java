@@ -26,11 +26,7 @@ class SkyProgramTest {
 
     @Test
     void theShaderHasTheSameLayoutAndCodes() throws IOException {
-        String glsl;
-        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
-            assertNotNull(in, "the shader is a core resource");
-            glsl = new String(readAll(in), StandardCharsets.UTF_8);
-        }
+        String glsl = skyLayersSource();
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
             "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
             "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
@@ -54,11 +50,15 @@ class SkyProgramTest {
         assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
     }
 
-    private static byte[] readAll(InputStream in) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
-        return out.toByteArray();
+    /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
+    static String skyLayersSource() throws IOException {
+        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
+            assertNotNull(in, "the shader is a core resource");
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }
     }
 
     @Test
