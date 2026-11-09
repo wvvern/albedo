@@ -207,6 +207,7 @@ public final class SettingsEditor {
 
     public void render(Canvas canvas, int mouseX, int mouseY) {
         boolean scripted = script.active();
+        ui.recordAreas(scripted);
         if (scripted) canvas = script.beginFrame(canvas, ui);
         int mx = script.x(mouseX), my = script.y(mouseY);
         changed = false;
