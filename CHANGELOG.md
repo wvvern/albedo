@@ -10,10 +10,16 @@
 - feat: Add Tilt, Dust, Jets and a jet color to the Galaxy layer
 - feat: Add a Meteors sky layer with shooting stars, and a Meteors preset with a meteor shower
 - feat: Add an Aurora sky layer with moving curtains of northern light, and an Aurora preset
+- feat: Show the aurora as folded curtains with a bright lower edge, rays and open night sky below them
+- feat: Make the bright stars twinkle, more near the horizon, with a Twinkle slider on the Stars layer
+- feat: Make the Nebula clouds glow brighter and darker slowly, with a Pulse slider on the Noise and Fractal layers
+- feat: Turn the custom sky around a pole as the real night sky does, with the Motion section of the sky editor
+- feat: Set the speed, the pole and the direction of the turning sky, and turn it with the time of the world or in real time
 - feat: Show the Nebula stars sharp in all areas of the sky
 - fix: Stop the cut edges on large stars in the sharp sky
 - fix: Remove the blurred band of horizon color across the custom sky at the horizon
 - fix: Stop the crash on 26.3 when you turn on a custom sky
+- fix: Stop the crash on NeoForge 1.21.11 when the sharp sky starts
 - compat: Show the custom sky with OptiFine on 1.8.9 when the OptiFine Sky setting is on
 - config!: Remove the Chroma effect, and give the pastel profile a pale tint of the block colors
 
