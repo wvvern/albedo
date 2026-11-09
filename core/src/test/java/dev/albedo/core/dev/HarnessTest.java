@@ -94,6 +94,9 @@ class HarnessTest {
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "items bevel 5".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "sky chroma 5".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(),
+                "blocks chroma 100 speed 200".split(" ")), "the next start would not read a speed of 200");
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks bevel -5".split(" ")));
     }
 
     @Test

@@ -328,6 +328,8 @@ public final class Harness {
         int speed = Chroma.DEFAULT_SPEED, saturation = Chroma.DEFAULT_SATURATION, brightness = Chroma.DEFAULT_BRIGHTNESS;
         for (int i = 1; i < args.length; i += 2) {
             int value = Integer.parseInt(args[i + 1]);
+            // The config accepts only percents, and a speed above 100 has no place in the turns of the GPU pass.
+            if (value < 0 || value > 100) throw new IllegalArgumentException(args[i] + " must be from 0 to 100: " + value);
             if (args[i].equals("bevel")) bevel = value;
             else if (args[i].equals("outline")) outline = value;
             else if (args[i].equals("chroma")) chroma = value;
@@ -478,8 +480,10 @@ public final class Harness {
 
     /** Starts {@code frames <count> <name>}: a screenshot at the end of each of the next frames, with the clock time of each. */
     private void frames(String[] args) {
-        if (args.length != 2) throw new IllegalArgumentException("frames <count> <name>");
-        burstLeft = Integer.parseInt(args[0]);
+        int count = args.length == 2 ? Integer.parseInt(args[0]) : 0;
+        // A count below 1 would stop the queue for good, because only a screenshot of the burst counts it down.
+        if (count < 1) throw new IllegalArgumentException("frames <count of 1 or more> <name>");
+        burstLeft = count;
         burstName = args[1];
         burstIndex = 0;
     }
