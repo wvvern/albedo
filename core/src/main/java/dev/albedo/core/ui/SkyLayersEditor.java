@@ -305,8 +305,12 @@ final class SkyLayersEditor {
 
     /** The height of the Motion section: its heading, and when it is open the Turning row and, while the sky turns, its options. */
     private int motionHeight(SkyDesign design) {
-        if (!sections.isOpen(MOTION)) return Ui.H + GAP;
-        return Ui.H + 2 + ROW * (1 + (design.turning().turns() ? TURNING_OPTIONS.length : 0)) + GAP;
+        return sections.isOpen(MOTION) ? Ui.H + 2 + ROW * motionRows(design) + GAP : Ui.H + GAP;
+    }
+
+    /** The rows under the open Motion heading: Turning, and its options while the sky turns. */
+    private static int motionRows(SkyDesign design) {
+        return design.turning().turns() ? 1 + TURNING_OPTIONS.length : 1;
     }
 
     /**
@@ -323,7 +327,7 @@ final class SkyLayersEditor {
             relayout.run();
         }
         if (!open) return y + Ui.H + GAP;
-        int top = y + Ui.H + 2, count = t.turns() ? 1 + TURNING_OPTIONS.length : 1;
+        int top = y + Ui.H + 2, count = motionRows(design);
         int h = Math.max(0, Math.min(count * ROW, bottom - top));
         int motionLabelW = ui.width(TURNING) + Form.INDENT;
         for (String l : TURNING_OPTIONS) motionLabelW = Math.max(motionLabelW, ui.width(l) + 2 * Form.INDENT);

@@ -71,12 +71,17 @@ final class SkyCodec {
     private static SkyTurning turning(String at, Map<String, Object> map) {
         SkyTurning d = SkyTurning.NONE;
         return new SkyTurning(
-                map.containsKey("amount") ? number(map, "amount", 0, 100, at) : d.amount(),
-                map.containsKey("speed") ? number(map, "speed", 1, SkyTurning.MAX_SPEED, at) : d.speed(),
+                number(map, "amount", 0, 100, d.amount(), at),
+                number(map, "speed", 1, SkyTurning.MAX_SPEED, d.speed(), at),
                 choice(map, "clock", d.clock(), at),
-                map.containsKey("height") ? number(map, "height", 0, SkyTurning.MAX_POLE_HEIGHT, at) : d.poleHeight(),
+                number(map, "height", 0, SkyTurning.MAX_POLE_HEIGHT, d.poleHeight(), at),
                 choice(map, "direction", d.direction(), at),
-                map.containsKey("pole") ? number(map, "pole", 0, SkyTurning.MAX_POLE, at) : d.pole());
+                number(map, "pole", 0, SkyTurning.MAX_POLE, d.pole(), at));
+    }
+
+    /** The whole number at {@code key}, or {@code def} when the key is not there. */
+    private static int number(Map<String, Object> m, String key, int min, int max, int def, String where) {
+        return m.containsKey(key) ? number(m, key, min, max, where) : def;
     }
 
     /** One layer, whose mask may name only an id in {@code below}. */
@@ -88,7 +93,7 @@ final class SkyCodec {
         SkyLayer.Kind kind = choice(map, "kind", SkyLayer.Kind.GRADIENT, at);
         SkyLayer.Blend blend = choice(map, "blend", SkyLayer.Blend.NORMAL, at);
         SkyLayer.Output output = choice(map, "output", SkyLayer.Output.SHOW, at);
-        int opacity = map.containsKey("opacity") ? number(map, "opacity", 0, 100, at) : 100;
+        int opacity = number(map, "opacity", 0, 100, 100, at);
         Map<SkyLayer.Param, Integer> params = new EnumMap<SkyLayer.Param, Integer>(SkyLayer.Param.class);
         for (SkyLayer.Param p : SkyLayer.Param.values()) {
             if (!map.containsKey(p.key)) continue;
