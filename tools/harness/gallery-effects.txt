@@ -22,6 +22,8 @@ settings open
 wait 20
 ui click Recolor
 wait 10
+ui click Effects
+wait 10
 ui pointer off
 wait 10
 screenshot e05-settings-effects
