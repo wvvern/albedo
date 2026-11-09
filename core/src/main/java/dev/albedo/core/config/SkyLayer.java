@@ -43,7 +43,11 @@ public final class SkyLayer {
         /** A percent of the longest trail of a moving layer. */
         LENGTH("length", 0, 100),
         /** The percent of meteors that move away from the layer center, as in a meteor shower. */
-        SHOWER("shower", 0, 100);
+        SHOWER("shower", 0, 100),
+        /** A percent of how much the stars twinkle with the time, where 0 keeps them still. */
+        TWINKLE("twinkle", 0, 100),
+        /** A percent of how much some regions of the clouds get brighter and darker with the time, where 0 keeps them still. */
+        PULSE("pulse", 0, 100);
 
         public final String key;
         private final int min, max;
@@ -73,14 +77,14 @@ public final class SkyLayer {
         GLOW(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH, Transform.Axis.ROLL), new Transform(270, 0, 0, 100),
                 Param.COLOR_1, 0xFFFFB36B, Param.AMOUNT, 40, Param.HEIGHT, 25),
         NOISE(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
-                Param.COLOR_1, 0xFF1B1F3A, Param.COLOR_2, 0xFFB0C4FF, Param.AMOUNT, 60, Param.SEED, 1),
+                Param.COLOR_1, 0xFF1B1F3A, Param.COLOR_2, 0xFFB0C4FF, Param.AMOUNT, 60, Param.PULSE, 0, Param.SEED, 1),
         FRACTAL(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
-                Param.COLOR_1, 0xFF5B2A86, Param.COLOR_2, 0xFFFF7AB6, Param.AMOUNT, 50, Param.SEED, 1),
+                Param.COLOR_1, 0xFF5B2A86, Param.COLOR_2, 0xFFFF7AB6, Param.AMOUNT, 50, Param.PULSE, 0, Param.SEED, 1),
         GALAXY(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(135, 45, 20, 100),
                 Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.COLOR_3, 0xFF7CC8FF, Param.AMOUNT, 50, Param.TILT, 60,
                 Param.DUST, 60, Param.JETS, 70, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
-                Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.HEIGHT, 50, Param.SEED, 1),
+                Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.HEIGHT, 50, Param.TWINKLE, 0, Param.SEED, 1),
         /** Shooting stars, which move with the time, so only the sharp render draws them; the center is the radiant of a shower. */
         METEORS(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH), new Transform(45, 55, 0, 100),
                 Param.COLOR_1, 0xFFE4EEFF, Param.COLOR_2, 0xFFA8FFC4, Param.AMOUNT, 50, Param.SPEED, 50, Param.LENGTH, 40,

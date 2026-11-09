@@ -36,6 +36,10 @@ public final class SkyGenerator {
     private static final float FADE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
     private static final int RING_SOFTEN = 5;
+    /** The periods in seconds of the three waves of a pulse, which divide the hour of the sky clock so that no pulse jumps. */
+    private static final float[] PULSE_PERIODS = {12f, 18f, 25f};
+    /** The largest change of brightness of a pulse at a pulse of 100 percent. */
+    private static final float PULSE_LIGHT = 0.7f;
 
     private final SkyDesign design;
     private final int w, h;
@@ -298,7 +302,11 @@ public final class SkyGenerator {
             for (int c = 0; c < 3; c++) color3[c] = block[SkyProgram.at(index, SkyProgram.COLOR_3 + c * 4)];
             seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
-            stars = layer.kind() == SkyLayer.Kind.STARS ? new SkyStars(amount, height * 2, scale, seed) : null;
+            float[] up = new float[3];
+            local(0, 1, 0, up);
+            // The bake is a still sky, so the stars twinkle as at time 0.
+            stars = layer.kind() == SkyLayer.Kind.STARS
+                    ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up) : null;
         }
 
         private static float[] slice(float[] block, int from) {
@@ -376,6 +384,39 @@ public final class SkyGenerator {
         l.mix(v, out);
         float edge = 1 - l.amount * 1.2f;
         out[3] *= smooth(edge - 0.12f, edge + 0.12f, v);
+        pulse(l, p, v, out);
+    }
+
+    /** Multiplies the color of a cloud layer by its pulse, where the bake is a still sky at time 0. */
+    private static void pulse(Layer l, float[] p, float v, float[] out) {
+        float k = pulse(l.block[SkyProgram.at(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0);
+        for (int c = 0; c < 3; c++) out[c] *= k;
+    }
+
+    /**
+     * The factor of the color of a cloud layer that gets brighter and darker in some regions, each at its own phase, with
+     * the same steps as {@code albedoPulse} in the shader.
+     *
+     * @param amount the pulse from 0 to 1
+     * @param p the direction in the layer frame
+     * @param v the cloud value from 0 to 1, high at the bright knots, which pulse more
+     * @param time the seconds of the sky clock
+     */
+    static float pulse(float amount, float scale, int seed, float[] p, float v, float time) {
+        if (amount <= 0) return 1;
+        float f = 1.6f / scale, n = Noise.noise(p[0] * f, p[1] * f, p[2] * f, seed + 71);
+        float region = smooth(-0.1f, 0.25f, n);
+        if (region <= 0) return 1;
+        // One slow noise sets the regions, their phases and the weights of the three waves, so that each region has its own rhythm.
+        float phase = 1.5f * n, m = 0.5f + 0.5f * (float) Math.sin(9 * n);
+        float wave = (1 - m) * (1 - m) * wave(time / PULSE_PERIODS[0] + phase) + 2 * m * (1 - m) * wave(time / PULSE_PERIODS[1] + phase * 1.3f)
+                + m * m * wave(time / PULSE_PERIODS[2] + phase * 1.6f);
+        return 1 + amount * PULSE_LIGHT * region * wave * (0.4f + 0.6f * v);
+    }
+
+    /** A sine wave from -1 to 1 at a number of turns, where only the part after the point counts, so that a large time keeps its precision. */
+    static float wave(float turns) {
+        return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 
     /** Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend. */
@@ -390,6 +431,7 @@ public final class SkyGenerator {
         v = v * v;
         l.mix(v, out);
         out[3] *= clamp01(v * 1.6f);
+        pulse(l, p, v, out);
     }
 
     /**

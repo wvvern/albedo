@@ -23,7 +23,8 @@ final class SkyCodec {
     /** The keys of the sky category that exist only with the style "layers". */
     static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "layers");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
-            "color3", "amount", "height", "tilt", "dust", "jets", "seed", "speed", "length", "shower", "transform");
+            "color3", "amount", "height", "tilt", "dust", "jets", "seed", "speed", "length", "shower", "twinkle", "pulse",
+            "transform");
     private static final List<String> MASK_KEYS = Arrays.asList("layer", "mode");
     private static final List<String> TRANSFORM_KEYS = Arrays.asList("yaw", "pitch", "roll", "scale");
 
@@ -144,6 +145,8 @@ final class SkyCodec {
             m.put("mask", mask);
         }
         for (SkyLayer.Param p : l.kind().params()) {
+            // A layer with no twinkle or pulse leaves the key out, so that a version without these keys can read the file.
+            if ((p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE) && l.param(p) == 0) continue;
             m.put(p.key, p.isColor() ? (Object) Colors.format(l.param(p)) : l.param(p));
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();
