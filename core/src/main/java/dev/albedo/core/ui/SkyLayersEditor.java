@@ -215,14 +215,16 @@ final class SkyLayersEditor {
         }
         cy += Ui.H + GAP;
         boolean celestial = design.celestial() == SkyDesign.Celestial.SHOW, night = design.light() == SkyDesign.Light.DAY_NIGHT;
-        boolean sphere = design.extent() == SkyDesign.Extent.SPHERE;
+        boolean sphere = design.extent() == SkyDesign.Extent.SPHERE, sharp = design.render() == SkyDesign.Render.SHARP;
         Switch[] switches = {
             new Switch("sky.celestial", "Show sun, moon and stars", "The game draws the sun, moon and stars over the layers", celestial,
                     design.withCelestial(celestial ? SkyDesign.Celestial.HIDE : SkyDesign.Celestial.SHOW)),
             new Switch("sky.night", "Darker at night", "The sky gets dark at night and in rain, as the vanilla sky does", night,
                     design.withLight(night ? SkyDesign.Light.FIXED : SkyDesign.Light.DAY_NIGHT)),
             new Switch("sky.extent", "Full sphere", "The layers go around the full sky, also below the horizon", sphere,
-                    design.withExtent(sphere ? SkyDesign.Extent.HORIZON : SkyDesign.Extent.SPHERE))};
+                    design.withExtent(sphere ? SkyDesign.Extent.HORIZON : SkyDesign.Extent.SPHERE)),
+            new Switch("sky.render", "Sharp render", "The GPU draws the sky sharp at all screen sizes. Set it off if the game is slow.", sharp,
+                    design.withRender(sharp ? SkyDesign.Render.FAST : SkyDesign.Render.SHARP))};
         cy = switches(x, cy, w, switches, set) + 2;
         List<SkyLayer> layers = design.layers();
         if (layers.isEmpty()) {

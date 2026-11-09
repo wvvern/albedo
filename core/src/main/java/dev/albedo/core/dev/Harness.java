@@ -11,7 +11,11 @@ import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.Toggle;
+import dev.albedo.core.sky.Oklab;
+import dev.albedo.core.sky.SkyGenerator;
+import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyPresets;
 import dev.albedo.core.ui.SettingsEditor;
 
@@ -26,6 +30,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Development harness, created only with {@code -Dalbedo.harness=<directory>}, that runs the lines of
@@ -75,7 +80,36 @@ public final class Harness {
          * runs every tick.
          */
         void quiet();
+
+        /** Sets the field of view in degrees, in the range of the game option. */
+        void setFov(int degrees);
+
+        /**
+         * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
+         * equirectangular image of this size, and later gives its pixels and the GPU time of one draw to {@code done}.
+         *
+         * @param png a file for the image, or null
+         * @return false while the shader compiles, or when this version or GPU has no sharp sky
+         */
+        default boolean drawSharpSky(SkyImage sky, int width, int height, int repeat, File png, SkyDone done) {
+            return false;
+        }
     }
+
+    /** Receives the image of {@link Host#drawSharpSky}. */
+    public interface SkyDone {
+        /** @param gpuNanos the GPU time of one draw in nanoseconds, or -1 when the GPU did not give it */
+        void accept(int[] argb, long gpuNanos);
+    }
+
+    /** The size of the image that {@code skycompare} draws on the GPU and bakes on the CPU. */
+    private static final int COMPARE_W = 512, COMPARE_H = 256;
+    /** The size and the count of the draws that {@code skytime} measures, about the pixels of the harness window. */
+    private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
+    /** The ticks that a sky command waits for the shader to compile. */
+    private static final int SKY_TRIES = 200;
+    /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
+    static final double COMPARE_LIMIT = 0.02;
 
     private static volatile File logFile;
 
@@ -90,6 +124,8 @@ public final class Harness {
     private String lastSkin;
     /** The GUI position of a {@code ui realclick} whose button is down until the next tick, or null. */
     private int[] pressedAt;
+    /** The CPU bake of the last {@code skycompare}, which its tries share. */
+    private SkyImage compareCpu;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -168,6 +204,11 @@ public final class Harness {
         else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
+        else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
+        else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
+        else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
+        else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
+        else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -262,13 +303,107 @@ public final class Harness {
         return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, c)));
     }
 
-    /** Sets the sky to a preset of custom layers ({@code sky dusk}), or back to the vanilla sky with {@code sky off}. */
-    static Profile withSky(Profile profile, String name) {
+    /**
+     * Sets the sky to a preset of custom layers ({@code sky dusk}), to only its lowest layers ({@code sky galaxy 4}), or
+     * back to the vanilla sky with {@code sky off}.
+     */
+    static Profile withSky(Profile profile, String arg) {
         CategorySettings sky = profile.get(Category.SKY);
-        if (name.equals("off")) return profile.with(Category.SKY, sky.withAppearance(Appearance.ORIGINAL));
-        SkyDesign design = SkyPresets.byName(name);
-        if (design == null) throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off>");
+        if (arg.equals("off")) return profile.with(Category.SKY, sky.withAppearance(Appearance.ORIGINAL));
+        String[] parts = arg.trim().split("\\s+");
+        SkyDesign design = SkyPresets.byName(parts[0]);
+        if (design == null || parts.length > 2) {
+            throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off> [layers]");
+        }
+        if (parts.length == 2) {
+            int keep = Integer.parseInt(parts[1]);
+            if (keep < 1 || keep > design.layers().size()) throw new IllegalArgumentException("layers: 1 to " + design.layers().size());
+            design = design.withLayers(design.layers().subList(0, keep));
+        }
         return profile.with(Category.SKY, sky.withAppearance(Appearance.of(Appearance.Mode.LAYERS)).withSky(design));
+    }
+
+    /** Adds a layer of a kind with its default values at the top of the custom sky ({@code skyadd posterize}). */
+    static Profile withSkyLayer(Profile profile, String kind) {
+        CategorySettings sky = profile.get(Category.SKY);
+        if (sky.sky().layers().size() >= SkyDesign.MAX_LAYERS) {
+            throw new IllegalArgumentException("the sky has " + SkyDesign.MAX_LAYERS + " layers");
+        }
+        SkyLayer.Kind k = SkyLayer.Kind.valueOf(kind.trim().toUpperCase(Locale.ROOT));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withAdded(k)));
+    }
+
+    /** Sets the render of the custom sky to {@code sharp} or {@code fast}. */
+    static Profile withSkyRender(Profile profile, String render) {
+        CategorySettings sky = profile.get(Category.SKY);
+        SkyDesign.Render r = SkyDesign.Render.valueOf(render.trim().toUpperCase(Locale.ROOT));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withRender(r)));
+    }
+
+    /**
+     * Bakes the current sky design on the CPU, draws the same program with the sharp sky shader, and logs how far apart
+     * the two images are; while the shader compiles, it runs again on the next tick.
+     */
+    private void skyCompare(int tries) {
+        SkyImage world = Albedo.skyImage();
+        if (world == null || !world.program().drawsSharp()) {
+            log("! skycompare: the sky is not a custom sky that the shader can draw");
+            return;
+        }
+        if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
+        SkyImage cpu = compareCpu;
+        boolean started = host.drawSharpSky(cpu, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
+            double[] d = difference(cpu.argb(), gpu);
+            log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H, d[0], d[1], d[2],
+                    d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
+        });
+        if (!started) again("skycompare", tries);
+    }
+
+    /** Draws the world sky with the sharp sky shader at about the size of the harness window and logs the GPU time of one draw. */
+    private void skyTime(int tries) {
+        SkyImage world = Albedo.skyImage();
+        if (world == null || !world.program().drawsSharp()) {
+            log("! skytime: the sky is not a custom sky that the shader can draw");
+            return;
+        }
+        boolean started = host.drawSharpSky(world, TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
+                log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
+        if (!started) again("skytime", tries);
+    }
+
+    /** Runs a sky command again on the next tick, until no tries are left. */
+    private void again(String verb, int tries) {
+        if (tries <= 0) {
+            log("! " + verb + ": this version has no sharp sky shader, or it does not compile");
+            return;
+        }
+        queue.addFirst(verb + " " + (tries - 1));
+        waitTicks = 1;
+    }
+
+    /**
+     * The mean, the 99th percentile and the largest OKLab distance between the pixels of two images of the same size.
+     *
+     * @return {mean, 99th percentile, largest}
+     */
+    static double[] difference(int[] a, int[] b) {
+        if (a.length != b.length || a.length == 0) throw new IllegalArgumentException("the images have different sizes");
+        double[] d = new double[a.length];
+        float[] la = new float[3], lb = new float[3];
+        double sum = 0;
+        for (int i = 0; i < a.length; i++) {
+            lab(a[i], la);
+            lab(b[i], lb);
+            d[i] = Math.sqrt((la[0] - lb[0]) * (la[0] - lb[0]) + (la[1] - lb[1]) * (la[1] - lb[1]) + (la[2] - lb[2]) * (la[2] - lb[2]));
+            sum += d[i];
+        }
+        Arrays.sort(d);
+        return new double[]{sum / d.length, d[Math.min(d.length - 1, (int) (d.length * 0.99))], d[d.length - 1]};
+    }
+
+    private static void lab(int argb, float[] out) {
+        Oklab.fromLinear(Oklab.toLinear(argb >> 16), Oklab.toLinear(argb >> 8), Oklab.toLinear(argb), out);
     }
 
     /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */

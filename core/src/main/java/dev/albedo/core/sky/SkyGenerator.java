@@ -39,6 +39,10 @@ public final class SkyGenerator {
     private final float texel;
     private final float[] img;
     private float[] tmp;
+    /** The size of each term image, half the size of the image. */
+    private final int termW, termH;
+    /** The term images as half float RGBA, see {@link SkyImage#terms}. */
+    private short[] terms;
 
     private SkyGenerator(SkyDesign design, int w, int h, Rows rows) {
         this.design = design;
@@ -66,6 +70,8 @@ public final class SkyGenerator {
         used = filled;
         texel = (float) (2 * Math.PI / w);
         img = new float[w * h * 4];
+        termW = Math.max(1, w / 2);
+        termH = Math.max(1, h / 2);
     }
 
     /** Bakes on the calling thread. */
@@ -101,9 +107,13 @@ public final class SkyGenerator {
             if (!m.isNone() && design.indexOf(m.layer()) >= 0 && design.indexOf(m.layer()) < i) lastUse.put(planeKey(m), i);
         }
         Map<Integer, float[]> planes = new HashMap<Integer, float[]>();
+        // The layer numbers do not depend on the horizon colors, which are known only after the layers.
+        SkyProgram layout = SkyProgram.of(design, new float[SkyImage.RING * 3]);
+        float[] block = layout.block();
+        terms = new short[termW * termH * layout.terms() * 4];
         for (int i = 0; i < layers.size(); i++) {
             SkyLayer layer = layers.get(i);
-            Layer ctx = new Layer(layer);
+            Layer ctx = new Layer(layer, block, i);
             float[] light = lastUse.containsKey(layer.id() * 2) ? new float[w * h] : null;
             float[] dark = lastUse.containsKey(layer.id() * 2 + 1) ? new float[w * h] : null;
             float[] mask = layer.mask().isNone() ? null : planes.get(planeKey(layer.mask()));
@@ -125,7 +135,7 @@ public final class SkyGenerator {
         if (!rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
-        return new SkyImage(argb, w, h, design, ring);
+        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
     }
 
     /** Mixes the sky near the horizon, and below it when the sky stops there, into the horizon color (the fog color) of each direction. */
@@ -248,25 +258,32 @@ public final class SkyGenerator {
         final float[] color1, color2, lab1, lab2;
         final float alpha1, alpha2, amount, height;
         final int seed;
+        final int termSlot;
 
-        Layer(SkyLayer layer) {
+        /** Reads the numbers of layer {@code index} from the program, the same numbers that the sky shader reads. */
+        Layer(SkyLayer layer, float[] block, int index) {
             this.layer = layer;
-            this.opacity = layer.opacity() / 100f;
-            double[] rot = layer.transform().rotation();
-            for (int i = 0; i < 9; i++) r[i] = (float) rot[i];
-            scale = layer.transform().scale() / 100f;
-            int c1 = layer.param(SkyLayer.Param.COLOR_1), c2 = layer.param(SkyLayer.Param.COLOR_2);
-            color1 = Oklab.linear(c1);
-            color2 = Oklab.linear(c2);
-            alpha1 = (c1 >>> 24) / 255f;
-            alpha2 = (c2 >>> 24) / 255f;
-            lab1 = new float[3];
-            lab2 = new float[3];
-            Oklab.fromLinear(color1[0], color1[1], color1[2], lab1);
-            Oklab.fromLinear(color2[0], color2[1], color2[2], lab2);
-            amount = layer.param(SkyLayer.Param.AMOUNT) / 100f;
-            height = layer.param(SkyLayer.Param.HEIGHT) / 100f;
-            seed = layer.param(SkyLayer.Param.SEED);
+            opacity = block[SkyProgram.at(index, SkyProgram.OPACITY)];
+            for (int row = 0; row < 3; row++) {
+                for (int c = 0; c < 3; c++) r[c * 3 + row] = block[SkyProgram.at(index, SkyProgram.LOCAL + row * 4 + c)];
+            }
+            scale = block[SkyProgram.at(index, SkyProgram.SCALE)];
+            color1 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_1));
+            color2 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_2));
+            lab1 = slice(block, SkyProgram.at(index, SkyProgram.LAB_1));
+            lab2 = slice(block, SkyProgram.at(index, SkyProgram.LAB_2));
+            alpha1 = block[SkyProgram.at(index, SkyProgram.ALPHA_1)];
+            alpha2 = block[SkyProgram.at(index, SkyProgram.ALPHA_2)];
+            amount = block[SkyProgram.at(index, SkyProgram.AMOUNT)];
+            height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
+            seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
+            termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
+        }
+
+        private static float[] slice(float[] block, int from) {
+            float[] out = new float[3];
+            System.arraycopy(block, from, out, 0, 3);
+            return out;
         }
 
         /** The layer frame direction of a sky direction: the transposed rotation times it. */
@@ -422,21 +439,25 @@ public final class SkyGenerator {
     // ---------------------------------------------------------------- filters: each writes its result for all of img into tmp
 
     private boolean filter(Layer l) {
+        boolean ok;
         switch (l.layer.kind()) {
             case BLUR:
                 System.arraycopy(img, 0, tmp, 0, img.length);
-                return blur(tmp, l.amount * 10f);
+                ok = blur(tmp, l.amount * 10f);
+                break;
             case BLOOM: return bloom(l);
-            case PIXELATE: return rows.run(used, y -> pixelateRow(l, y));
-            case CRYSTALLIZE: return rows.run(used, y -> crystallizeRow(l, y));
-            case POSTERIZE: return rows.run(used, y -> posterizeRow(l, y));
-            case HUE_SHIFT: return rows.run(used, y -> hueRow(l, y));
-            case SWIRL: return rows.run(used, y -> swirlRow(l, y));
-            case VIGNETTE: return rows.run(used, y -> vignetteRow(l, y));
+            case PIXELATE: ok = rows.run(used, y -> pixelateRow(l, y)); break;
+            case CRYSTALLIZE: ok = rows.run(used, y -> crystallizeRow(l, y)); break;
+            case POSTERIZE: ok = rows.run(used, y -> posterizeRow(l, y)); break;
+            case HUE_SHIFT: ok = rows.run(used, y -> hueRow(l, y)); break;
+            case SWIRL: ok = rows.run(used, y -> swirlRow(l, y)); break;
+            case VIGNETTE: ok = rows.run(used, y -> vignetteRow(l, y)); break;
             default:
                 System.arraycopy(img, 0, tmp, 0, img.length);
-                return true;
+                ok = true;
         }
+        // The term image of a filter other than a bloom is its full result.
+        return ok && (l.termSlot < 0 || rows.run(termH, ty -> termRow(l.termSlot, ty, 1f)));
     }
 
     /** Three box passes in each direction, which is close to a Gaussian, with the width across a row wider toward the zenith. */
@@ -519,6 +540,7 @@ public final class SkyGenerator {
         });
         if (!ok || !blur(tmp, 6f)) return false;
         float strength = l.amount * 2.5f;
+        if (l.termSlot >= 0 && !rows.run(termH, ty -> termRow(l.termSlot, ty, strength))) return false;
         return rows.run(used, y -> {
             for (int x = 0; x < w; x++) {
                 int i = (y * w + x) * 4;
@@ -526,6 +548,36 @@ public final class SkyGenerator {
                 tmp[i + 3] = 1;
             }
         });
+    }
+
+    /** Writes one row of a term image: the mean of 2 x 2 texels of {@code tmp} times {@code k}, where the unfilled rows are 0. */
+    private void termRow(int slot, int ty, float k) {
+        int base = (slot * termH + ty) * termW * 4;
+        for (int tx = 0; tx < termW; tx++) {
+            for (int c = 0; c < 3; c++) {
+                float sum = 0;
+                for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
+                    if (y >= used) continue;
+                    for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += tmp[(y * w + Math.min(w - 1, x)) * 4 + c];
+                }
+                terms[base + tx * 4 + c] = half(sum / 4 * k);
+            }
+            terms[base + tx * 4 + 3] = half(1);
+        }
+    }
+
+    /** The IEEE half float bits of a value, which is limited to the range from 0 to 65504 and rounded to the nearest half float. */
+    static short half(float v) {
+        // This test is also false for NaN, which then gives 0 as a negative value does.
+        if (!(v > 0)) return 0;
+        int bits = Float.floatToIntBits(Math.max(0f, Math.min(65504f, v)));
+        int exp = (bits >>> 23) - 127 + 15;
+        int mantissa = bits & 0x7FFFFF;
+        if (exp > 0) return (short) (((exp << 10) | (mantissa >> 13)) + ((mantissa >> 12) & 1));
+        // A value below the smallest normal half float is a subnormal: its mantissa with the hidden bit, moved right.
+        if (exp < -10) return 0;
+        int shift = 14 - exp;
+        return (short) (((mantissa | 0x800000) + (1 << (shift - 1))) >> shift);
     }
 
     /** Cells of equal size in degrees in the layer frame, in rows whose cell count follows the width of the sky at their height. */

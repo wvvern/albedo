@@ -1,0 +1,137 @@
+# The same shots as sky-sharp-modern.txt for 1.8.9, where the sky shader is an LWJGL 2 GL program. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-sharp-modern.txt -OutDir build\sky-sharp (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 6000
+wait 40
+sky dusk
+wait 160
+# Yaw 90 looks west (the Dusk glow), pitch -60 looks up to the stars.
+fov 30
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-01-on-stars-fov30
+run tp @p 0 3000 0 90 -5
+wait 40
+screenshot sharp-02-on-west-fov30
+fov 70
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-03-on-stars-fov70
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+fov 30
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-04-off-stars-fov30
+run tp @p 0 3000 0 90 -5
+wait 40
+screenshot sharp-05-off-west-fov30
+fov 70
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-06-off-stars-fov70
+skyrender sharp
+sky nebula
+wait 160
+run tp @p 0 3000 0 180 -60
+wait 40
+screenshot sharp-07-nebula-on-fov70
+# The generators of Galaxy and Nebula with no filters, so that the shader draws them. Yaw -45 and pitch -40 look at the galaxy.
+sky galaxy 4
+wait 160
+fov 30
+run tp @p 0 3000 0 -45 -40
+wait 40
+screenshot sharp-08-galaxy-on-fov30
+skycompare
+wait 40
+skytime
+wait 40
+sky nebula 4
+wait 160
+run tp @p 0 3000 0 180 -60
+wait 40
+screenshot sharp-09-nebula-on-fov30
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+screenshot sharp-10-nebula-off-fov30
+sky galaxy 4
+skyrender fast
+wait 160
+run tp @p 0 3000 0 -45 -40
+wait 40
+screenshot sharp-11-galaxy-off-fov30
+# The full Galaxy, where the shader adds the glow of the bloom from its term image.
+sky galaxy
+skyrender sharp
+wait 160
+run tp @p 0 3000 0 -45 -40
+wait 40
+screenshot sharp-12-galaxy-bloom-on-fov30
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+screenshot sharp-13-galaxy-bloom-off-fov30
+# The full Nebula, where the shader mixes in the blur and the bloom from their term images and turns the hue for each pixel.
+sky nebula
+skyrender sharp
+wait 160
+run tp @p 0 3000 0 180 -60
+wait 40
+screenshot sharp-14-nebula-full-on-fov30
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+screenshot sharp-15-nebula-full-off-fov30
+# Each other filter over Dusk: the shader calculates posterize and vignette for each pixel, and pixelate, crystallize and swirl are terms.
+skyrender sharp
+sky dusk
+skyadd posterize
+wait 160
+run tp @p 0 3000 0 90 -5
+wait 40
+screenshot sharp-16-dusk-posterize-on-fov30
+skycompare
+wait 40
+sky dusk
+skyadd vignette
+wait 160
+run tp @p 0 3000 0 90 -40
+wait 40
+screenshot sharp-17-dusk-vignette-on-fov30
+skycompare
+wait 40
+sky dusk
+skyadd pixelate
+wait 160
+skycompare
+wait 40
+sky dusk
+skyadd crystallize
+wait 160
+skycompare
+wait 40
+sky dusk
+skyadd swirl
+wait 160
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-18-dusk-swirl-on-fov30
+skycompare
+wait 40
+quit

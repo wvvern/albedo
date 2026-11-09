@@ -81,7 +81,7 @@ A higher layer is drawn over the lower layers. Click a layer to edit it:
 
 The preview above the layers shows the sky from the zenith (the top edge) down to 15 degrees below the horizon (the white line), with north at the left. When "Full sphere" is on, it shows all of the sky, also below the horizon. The yellow dashed lines are the sun path: the sun comes up in the east, goes through the zenith and goes down in the west. On a layer page, "This layer" shows only that layer, also when it is only a mask. The sky in the world changes when you push Apply or Done.
 
-"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon has the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula and Galaxy skies use "Full sphere".
+"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon has the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula and Galaxy skies use "Full sphere". "Sharp render" draws your sky sharp at all screen sizes and with zoom, on all versions. Blur, Bloom, Pixelate, Crystallize and Swirl stay soft, and a sky with more than 4 of these filters draws from an image of the sky. On 1.8.9, the graphics card must have OpenGL 3.0, else the sky draws from an image of the sky. Set it off if the game is slow.
 
 ### Groups
 

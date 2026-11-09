@@ -17,8 +17,8 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 /**
- * Draws the baked custom sky on a sphere in place of the 1.8.9 sky disc, from one texture of a fixed size that is
- * uploaded on the render thread only when the core has a new image.
+ * Draws the custom sky on a sphere in place of the 1.8.9 sky disc, with {@link LegacySharpSky} when it can, else from
+ * one texture of a fixed size that is uploaded on the render thread only when the core has a new image.
  */
 public final class LegacySky {
     private static final float RADIUS = 100f;
@@ -68,7 +68,9 @@ public final class LegacySky {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);
+        LegacySharpSky.prepare(img);
         float k = brightness(img);
+        if (LegacySharpSky.draw(img, sphere, k)) return true;
         GlStateManager.enableTexture2D();
         GlStateManager.disableFog();
         GlStateManager.disableCull();

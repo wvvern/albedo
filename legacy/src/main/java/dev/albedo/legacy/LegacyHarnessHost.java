@@ -111,4 +111,14 @@ final class LegacyHarnessHost implements Harness.Host {
         if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);
         mc.gameSettings.pauseOnLostFocus = false;
     }
+
+    @Override
+    public void setFov(int degrees) {
+        Minecraft.getMinecraft().gameSettings.fovSetting = degrees;
+    }
+
+    @Override
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        return LegacySharpSky.drawEquirect(sky, width, height, repeat, png, done);
+    }
 }
