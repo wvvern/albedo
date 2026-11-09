@@ -648,7 +648,17 @@ public final class SettingsEditor {
                 ui.text(labels[i], x, sy + 2, Ui.MUTED);
                 ui.tip(x, sy, labelW, Ui.SLIDER_H, tips[i]);
             }
-            values[i] = ui.slider(id + "." + i, oneRow ? lx + i * (partW + GAP) : lx, sy, oneRow ? partW : cw, values[i], tips[i]);
+            int sx = oneRow ? lx + i * (partW + GAP) : lx, sw = oneRow ? partW : cw;
+            if (oneRow) {
+                // Each part names its slider, in full when the track keeps room and by its initial when not.
+                String name = sw - ui.width(labels[i]) - 4 >= ui.width("100%") + 36 ? labels[i] : labels[i].substring(0, 1);
+                int nameW = ui.width(name) + 4;
+                ui.text(name, sx, sy + 2, Ui.MUTED);
+                ui.tip(sx, sy, nameW, Ui.SLIDER_H, tips[i]);
+                sx += nameW;
+                sw -= nameW;
+            }
+            values[i] = ui.slider(id + "." + i, sx, sy, sw, values[i], tips[i]);
         }
         return y + (oneRow ? Ui.SLIDER_H : slidersH(n) - 3) + GAP;
     }
