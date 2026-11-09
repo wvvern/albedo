@@ -4,6 +4,7 @@
 
 - feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
 - feat: Set Chroma with the Speed, Vivid and Bright sliders in the Effects section, with Bevel and Outline on top
+- feat: Give the pastel profile soft Chroma colors that move slowly
 - config: Read the keys chroma, chromaSpeed, chromaSaturation and chromaBrightness of the config file again
 
 ## 0.4.1

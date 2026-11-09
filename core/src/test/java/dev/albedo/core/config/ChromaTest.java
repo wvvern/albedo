@@ -1,5 +1,6 @@
 package dev.albedo.core.config;
 
+import dev.albedo.core.Category;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -30,6 +31,17 @@ class ChromaTest {
         assertEquals(0, c.turn(10), 1e-9, "one turn ends where it started");
         assertEquals(0, new Chroma(100, 0, 50, 50).turn(3.3), "speed 0 stays still");
         assertEquals(0, new Chroma(0, 50, 50, 50).turn(3.3), "Chroma off stays still");
+    }
+
+    @Test
+    void thePastelProfileHasSoftChromaColorsThatMoveSlowly() {
+        Profile pastel = Presets.pastel();
+        for (Category category : new Category[]{Category.BLOCKS, Category.BLOCK_ENTITIES}) {
+            Chroma c = pastel.get(category).appearance().chroma();
+            assertTrue(c.moves(), category + " colors move");
+            assertTrue(c.periodMs() >= 90_000, category + " colors take at least 90 s for one turn");
+            assertTrue(c.strength() <= 60 && c.saturation() <= Chroma.DEFAULT_SATURATION, category + " colors stay soft");
+        }
     }
 
     @Test
