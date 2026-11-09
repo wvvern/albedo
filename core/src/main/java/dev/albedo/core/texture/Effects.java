@@ -46,6 +46,8 @@ final class Effects {
         double hue = hue(id);
         Chroma c = a.chroma();
         boolean withHue = !gpuHue || !a.chromaMoves();
+        // Each frame of a block animation gets the next part of the colors, which only the CPU can do, because the texels of
+        // the GPU pass are the same for all frames of a sprite.
         for (int f = 0; f < frames; f++) {
             int y0 = f * frameH;
             if (c.isOn()) chroma(img, y0, frameH, hue + 2 * Math.PI * f / frames, c, withHue);
