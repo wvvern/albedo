@@ -2,7 +2,9 @@ package dev.albedo.core.ui;
 
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
+import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.Toggle;
+import dev.albedo.core.config.Transform;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -38,7 +40,7 @@ final class Labels {
         WORDS.put(Category.PLAYERS, new Words("Players", "Skins", "steve", "Default player skins"));
         WORDS.put(Category.PARTICLES, new Words("Particles", "Particles", "flame", "Smoke, flames, hits, splashes"));
         WORDS.put(Category.BLOCK_BREAKING, new Words("Mining cracks", "Stages", "destroy_stage", "The cracks on a block while you mine it"));
-        WORDS.put(Category.SKY, new Words("Sky", "Textures", "sun", "Sky color. Also hides the sun, moon and stars."));
+        WORDS.put(Category.SKY, new Words("Sky", "Textures", "sun", "One sky color, or your own sky from layers"));
         WORDS.put(Category.CLOUDS, new Words("Clouds", "Textures", "clouds", "Clouds"));
         WORDS.put(Category.WEATHER, new Words("Weather", "Textures", "rain", "Rain and snow"));
     }
@@ -79,6 +81,110 @@ final class Labels {
             case TEXTURE: return "A PNG image from config/albedo/textures";
             case LAYERS: return "Make your own sky from layers: gradients, stars, nebulas and filters";
             default: return "Do not show";
+        }
+    }
+
+    static String kind(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: return "Gradient";
+            case GLOW: return "Glow";
+            case NOISE: return "Noise";
+            case FRACTAL: return "Fractal";
+            case GALAXY: return "Galaxy";
+            case STARS: return "Stars";
+            case BLUR: return "Blur";
+            case CRYSTALLIZE: return "Crystallize";
+            case PIXELATE: return "Pixelate";
+            case POSTERIZE: return "Posterize";
+            case HUE_SHIFT: return "Hue shift";
+            case BLOOM: return "Bloom";
+            case SWIRL: return "Swirl";
+            default: return "Vignette";
+        }
+    }
+
+    static String kindTip(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: return "Two colors from the horizon to the top of the sky";
+            case GLOW: return "A band of light along the horizon, as at sunset";
+            case NOISE: return "Soft clouds of two colors";
+            case FRACTAL: return "Thin bright lines of gas, as in a nebula";
+            case GALAXY: return "A spiral galaxy";
+            case STARS: return "Small points of light";
+            case BLUR: return "Makes the layers below soft";
+            case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
+            case PIXELATE: return "Breaks the layers below into square cells";
+            case POSTERIZE: return "Gives the layers below fewer color steps";
+            case HUE_SHIFT: return "Changes the colors of the layers below";
+            case BLOOM: return "Makes the light parts of the layers below glow";
+            case SWIRL: return "Turns the layers below around a point";
+            default: return "Makes the layers below darker away from a point";
+        }
+    }
+
+    /** The name of a layer parameter, which depends on the kind (Amount is Radius for a blur). */
+    static String param(SkyLayer.Kind k, SkyLayer.Param p) {
+        switch (p) {
+            case COLOR_1:
+                return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : "Color";
+            case COLOR_2:
+                return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : "Light";
+            case HEIGHT:
+                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold" : "Height";
+            case SEED: return "Seed";
+            default: return amount(k);
+        }
+    }
+
+    private static String amount(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: return "Softness";
+            case GLOW: return "Width";
+            case NOISE: return "Cover";
+            case FRACTAL: return "Warp";
+            case GALAXY: case SWIRL: return "Twist";
+            case STARS: return "Count";
+            case BLUR: return "Radius";
+            case POSTERIZE: return "Levels";
+            case HUE_SHIFT: return "Hue";
+            default: return "Strength";
+        }
+    }
+
+    static String blend(SkyLayer.Blend b) {
+        switch (b) {
+            case ADD: return "Add";
+            case SCREEN: return "Screen";
+            case MULTIPLY: return "Multiply";
+            default: return "Normal";
+        }
+    }
+
+    static String blendTip(SkyLayer.Blend b) {
+        switch (b) {
+            case ADD: return "Add the light of this layer to the layers below, for stars and glow";
+            case SCREEN: return "Make the layers below lighter, but not brighter than white";
+            case MULTIPLY: return "Make the layers below darker with the colors of this layer";
+            default: return "Put this layer over the layers below";
+        }
+    }
+
+    static String axis(Transform.Axis a) {
+        switch (a) {
+            case YAW: return "Turn";
+            case PITCH: return "Tilt";
+            case ROLL: return "Roll";
+            default: return "Size";
+        }
+    }
+
+    static String axisTip(Transform.Axis a) {
+        switch (a) {
+            case YAW: return "Turn: the compass direction of the layer center. 0 is north, 90 is east.";
+            case PITCH: return "Tilt: the height of the layer center above the horizon. 90 is the top of the sky.";
+            case ROLL: return "Roll: turns the layer around its center.";
+            default: return "Size: 100% is the normal size.";
         }
     }
 

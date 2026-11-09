@@ -6,12 +6,14 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class HarnessTest {
     @Test
@@ -31,5 +33,14 @@ class HarnessTest {
         assertEquals(Arrays.asList("flame"), rules.get(0).patterns());
         assertEquals(Appearance.solid(0xFF00FF00), particles.lookOf(rules.get(0)));
         assertEquals(Appearance.Mode.HIDDEN, particles.lookOf(rules.get(1)).mode());
+    }
+
+    @Test
+    void theSkyCommandSetsAPresetOrTheVanillaSky() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
+        assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());
+        assertEquals(SkyPresets.NEBULA, p.get(Category.SKY).sky());
+        assertEquals(Appearance.Mode.ORIGINAL, Harness.withSky(p, "off").get(Category.SKY).appearance().mode());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "rainbow"));
     }
 }

@@ -89,6 +89,8 @@ final class ScriptedInput {
 
         @Override public int textWidth(String text) { return c.textWidth(text); }
 
+        @Override public void image(String id, CanvasImage img, int x, int y, int w, int h) { c.image(id, img, x, y, w, h); }
+
         @Override
         public void text(String text, int x, int y, int argb) {
             c.text(text, x, y, argb);
