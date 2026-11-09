@@ -2,7 +2,7 @@
   {
     "modid": "${modid}",
     "name": "Albedo",
-    "description": "Changes blocks, sky, fluids, mobs and more to one flat color, the average color of each texture, or a PNG. Things that move are easy to see.",
+    "description": "Paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.",
     "version": "${version}",
     "mcversion": "${mcversion}",
     "url": "",

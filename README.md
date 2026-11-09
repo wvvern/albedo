@@ -1,8 +1,8 @@
 # Albedo
 
-Albedo is a client-side Minecraft mod that paints the world in flat colors. Blocks, fluids, the sky, mobs and other parts of the world can each get one plain color, so anything that moves is easy to see.
+Albedo is a client-side Minecraft mod that lets you paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
 
-Albedo changes textures as they load, so it also works with modded blocks and resource packs.
+A plain world makes anything that moves easy to see. Albedo changes textures as they load, so it also works with modded blocks and resource packs.
 
 | Vanilla | quake-white | quake-black |
 |---|---|---|
