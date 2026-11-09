@@ -8,6 +8,13 @@ wait 20
 ui pointer off
 wait 10
 screenshot p01-look-blocks
+ui click Effects
+wait 10
+ui pointer off
+wait 10
+screenshot p01b-look-effects
+ui click Effects
+wait 10
 ui click Groups
 wait 10
 ui pointer off

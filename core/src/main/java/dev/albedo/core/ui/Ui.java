@@ -520,6 +520,25 @@ final class Ui {
         return (flipped || press(id, x, y, w, h)) != on;
     }
 
+    /**
+     * The heading of a section that opens and closes, which returns the new open state; the whole row is clickable.
+     *
+     * @param summary muted text at the right edge, such as the values in the closed section, drawn only when it fits
+     */
+    boolean sectionHeader(String id, int x, int y, int w, String title, String summary, boolean open, String tipText) {
+        if (hover(x, y, w, H)) round(x, y, w, H, CARD_HOVER);
+        int ty = y + (H - LINE) / 2 + 1, tx = x + 12;
+        text(open ? "v" : ">", x + 4, ty, MUTED);
+        String shown = ellipsize(title, x + w - 4 - tx);
+        text(shown, tx, ty, TEXT);
+        if (summary != null) {
+            int sw = width(summary), room = x + w - 4 - (tx + width(shown) + 8);
+            textFit(summary, x + w - 4 - sw, ty, room, MUTED);
+        }
+        tip(x, y, w, H, tipText);
+        return press(id, x, y, w, H) != open;
+    }
+
     /** Draws a page title with a muted subtitle beside it when it fits, and returns the height it takes. */
     int title(int x, int y, int w, String title, String subtitle) {
         text(title, x, y, TEXT);

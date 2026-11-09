@@ -480,6 +480,126 @@ class SettingsEditorTest {
         assertEquals(tintY, canvas.find("Remove biome tint")[1], "the tint switch does not move after the click");
     }
 
+    /** The user's own profile with a solid look with Chroma and Bevel for blocks and players. */
+    private static Config withEffects() {
+        Config c = withOwnProfile();
+        Appearance look = new Appearance(Appearance.Mode.SOLID, 0xFFC0A080, Appearance.Alpha.KEEP, Appearance.DEFAULT_DETAIL,
+                Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 0, 50);
+        Profile p = c.activeProfile();
+        for (Category category : new Category[]{Category.BLOCKS, Category.PLAYERS}) {
+            p = p.with(category, new CategorySettings(look, false, Collections.<Rule>emptyList()));
+        }
+        return c.withProfile(p);
+    }
+
+    @Test
+    void theEffectsSectionOpensAndClosesAndTheRowsBelowMoveInTheSameFrame() {
+        sc.apply(withEffects());
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(640, 360);
+            editor.render(canvas, 0, 0);
+            assertNull(canvas.texts.get("Bevel"), "the section starts closed: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Chroma 50%, Bevel 20%"), "the heading names the effects: " + canvas.texts.keySet());
+            int closedY = canvas.find("Remove biome tint")[1];
+
+            int[] at = canvas.find("Effects");
+            editor.mousePressed(0);
+            canvas.texts.clear();
+            editor.render(canvas, at[0], at[1]);
+            editor.mouseReleased(0);
+            assertNotNull(canvas.texts.get("Bevel"), "the sliders show in the frame of the click: " + canvas.texts.keySet());
+            int openY = canvas.find("Remove biome tint")[1];
+            assertTrue(openY > closedY, "the switch moves down under the sliders: " + openY + " <= " + closedY);
+            render(editor, canvas);
+            assertEquals(openY, canvas.find("Remove biome tint")[1], "the switch does not move after the click");
+            assertEquals(at[1], canvas.find("Effects")[1], "the heading stays in its place");
+
+            click(editor, canvas, "Effects");
+            assertNull(canvas.texts.get("Bevel"), "a second click closes the section: " + canvas.texts.keySet());
+            assertEquals(closedY, canvas.find("Remove biome tint")[1]);
+        } finally {
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void theEffectsHeadingTakesNoKeysAndStaysOpenOnOtherPages() {
+        sc.apply(withEffects());
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(533, 300);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "Effects");
+            for (UiKey key : new UiKey[]{UiKey.ENTER, UiKey.TAB, UiKey.UP, UiKey.DOWN}) {
+                editor.keyPressed(key, false);
+                render(editor, canvas);
+            }
+            assertNotNull(canvas.texts.get("Bevel"), "keys do not close the section: " + canvas.texts.keySet());
+            click(editor, canvas, "Players");
+            assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the next page: " + canvas.texts.keySet());
+            assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
+            editor.keyPressed(UiKey.ESCAPE, false);
+            render(editor, canvas);
+            assertTrue(editor.isClosed(), "Esc still closes the screen");
+        } finally {
+            sc.apply(Config.defaults());
+        }
+    }
+
+    /** Fails when a text of the page right of {@code left}, which is not in the footer, goes below the top of the footer line. */
+    private static void assertAboveFooter(RecordingCanvas canvas, int[] size, int left) {
+        int ph = Math.min(size[1] - 2 * (size[1] < 260 ? 4 : 10), 380), bodyBottom = (size[1] - ph) / 2 + ph - 24;
+        for (Map.Entry<String, int[]> e : canvas.texts.entrySet()) {
+            // An empty label belongs to a button with its own drawing.
+            if (e.getKey().isEmpty() || e.getValue()[0] < left) continue;
+            int y = e.getValue()[1] - 4;
+            assertTrue(y + 9 <= bodyBottom || y >= bodyBottom + 5, "\"" + e.getKey() + "\" is on the footer line at " + size[0] + "x" + size[1]);
+        }
+    }
+
+    @Test
+    void theLookTabFitsAtEverySizeWithTheEffectsClosedAndOpen() {
+        int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
+        Map<String, String[]> rows = new LinkedHashMap<String, String[]>();
+        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Players", new String[]{"Style", "Color", "Shape", "Effects", "Chroma"});
+        for (int[] size : sizes) {
+            for (Map.Entry<String, String[]> page : rows.entrySet()) {
+                String where = page.getKey() + " at " + size[0] + "x" + size[1];
+                sc.apply(withEffects());
+                SettingsEditor editor = new SettingsEditor(sc);
+                editor.ui.tipDelay = Integer.MAX_VALUE; // tooltips may cover the footer
+                RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
+                editor.render(canvas, 0, 0);
+                click(editor, canvas, page.getKey());
+                int left = canvas.find("Style")[0] - canvas.textWidth("Style") / 2;
+                assertAboveFooter(canvas, size, left);
+                assertNotNull(canvas.texts.get("Shape"), "the Shape row shows on " + where + ": " + canvas.texts.keySet());
+                assertNotNull(canvas.texts.get("Effects"), "the closed section shows on " + where + ": " + canvas.texts.keySet());
+
+                click(editor, canvas, "Effects");
+                assertAboveFooter(canvas, size, left);
+                assertNotNull(canvas.texts.get("Color"), "the color picker still shows on " + where + ": " + canvas.texts.keySet());
+
+                // One wheel step moves one row, so each row shows on the way to the end.
+                Set<String> seen = new HashSet<String>(canvas.texts.keySet());
+                int[] at = canvas.find("Style");
+                for (int i = 0; i < 12; i++) {
+                    editor.mouseScrolled(-1);
+                    canvas.texts.clear();
+                    editor.render(canvas, at[0] + 20, at[1]);
+                    assertAboveFooter(canvas, size, left);
+                    seen.addAll(canvas.texts.keySet());
+                }
+                for (String row : page.getValue()) assertTrue(seen.contains(row), row + " shows while scrolling on " + where + ": " + seen);
+                String last = page.getValue()[page.getValue().length - 1];
+                assertNotNull(canvas.texts.get(last), "the last row shows at the end on " + where + ": " + canvas.texts.keySet());
+            }
+        }
+        sc.apply(Config.defaults());
+    }
+
     @Test
     void choosingAStyleAndDoneSavesIt() {
         sc.apply(Config.defaults());

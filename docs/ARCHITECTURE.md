@@ -45,6 +45,14 @@ Albedo uses ports and adapters. The core contains almost all of the code and has
 
 The settings screen is also in the core. It is an immediate-mode UI in `core/ui`. In each frame, `SettingsEditor` draws through `Canvas` and reads the input events that the adapter puts in a queue. The screen class of each version only forwards calls. Thus the screen is the same on all versions, and a new widget does not change version code.
 
+`Ui` has the widgets: buttons, switches, segmented controls, sliders, text fields, scrollbars and section headings. The pages build on a small set of shared parts, which know nothing about the config:
+
+- `Form`: a label column at the left and controls at the right, with indented rows under a heading.
+- `RowList`: a scrolling list of rows of one height.
+- `Column`: a scrolling list of rows of different heights. It scrolls by whole rows, because `Canvas` cannot clip.
+- `ColorPicker` and `ColorField`: a color picker and a hex input.
+- `Accordion`: an immutable value that tells which sections are open.
+
 The Textures tab shows the catalog that the core records when it processes textures. Thus it needs no registry access, and it includes modded textures.
 
 Some 1.8.9 textures hold several things that later versions keep in separate textures, for example `particles.png`. `texture/Sheets` gives the tiles of each such texture, as cells of a grid with the later texture names. `texture/Layout` gives each tile the look of its own id, and the catalog shows the tiles in place of the texture. The pixels outside the tiles take the look of the texture. The grid is in fractions of the image, so resource packs of all sizes fit. The adapters do not know about tiles.

@@ -2,7 +2,7 @@ package dev.albedo.core.ui;
 
 /** A column of rows with a muted label at the left and a control at {@link #lx()}, as wide as {@link #cw()}. */
 final class Form {
-    /** How much further right the labels of {@link #indented()} rows start. */
+    /** How much further right the labels of {@link #indented()} rows start, under the title of a section heading drawn at x - 4. */
     static final int INDENT = 8;
     private static final int GAP = 6;
 
@@ -28,7 +28,7 @@ final class Form {
 
     /** Draws the vertical line that shows which rows are under a heading, for the rows of {@link #indented()}. */
     void guide(int y, int h) {
-        ui.fill(x + 3, y, 1, h, Ui.BORDER);
+        ui.fill(x + 2, y, 1, h, Ui.BORDER);
     }
 
     /** Draws a label for a row of height {@code h}, with {@code tip} as the tooltip of the label. */
@@ -43,8 +43,13 @@ final class Form {
         return ui.slider(id, lx(), y, cw(), value, tip);
     }
 
-    /** The height of {@code n} sliders on their own rows. */
-    static int slidersHeight(int n) {
+    /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
+    static int slidersHeight(int n, boolean oneRow) {
+        return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
+    }
+
+    /** The height of {@code n} sliders on their own rows, without the gap after the last. */
+    private static int rowsHeight(int n) {
         return n * (Ui.SLIDER_H + 3);
     }
 
@@ -57,8 +62,8 @@ final class Form {
     int sliders(String id, String title, String[] labels, String[] tips, int[] values, int y, boolean oneRow) {
         int n = labels.length;
         if (!oneRow) {
-            for (int i = 0; i < n; i++) values[i] = slider(id + "." + i, y + slidersHeight(i), labels[i], tips[i], values[i]);
-            return y + slidersHeight(n) - 3 + GAP;
+            for (int i = 0; i < n; i++) values[i] = slider(id + "." + i, y + rowsHeight(i), labels[i], tips[i], values[i]);
+            return y + slidersHeight(n, false);
         }
         int partW = (cw() - (n - 1) * GAP) / n;
         ui.text(title, x, y + 2, Ui.MUTED);
@@ -71,6 +76,6 @@ final class Form {
             ui.tip(sx, y, nameW, Ui.SLIDER_H, tips[i]);
             values[i] = ui.slider(id + "." + i, sx + nameW, y, sw - nameW, values[i], tips[i]);
         }
-        return y + Ui.SLIDER_H + GAP;
+        return y + slidersHeight(n, true);
     }
 }

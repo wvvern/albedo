@@ -36,8 +36,10 @@ public final class SettingsEditor {
             Category.PLAYERS, Category.PARTICLES, Category.BLOCK_BREAKING, Category.SKY, Category.CLOUDS, Category.WEATHER,
     };
     /** The labels left of controls; the label column is as wide as the widest. */
-    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor", "Effects"};
-    /** In the order the effects apply; categories without edge effects show only the first. */
+    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
+    /** The id of the Effects section in {@link #sections}. */
+    private static final String EFFECTS = "effects";
+    /** In the order the effects apply; categories without edge effects show only the first; indented under the Effects heading. */
     private static final String[] EFFECT_LABELS = {"Chroma", "Bevel", "Outline"};
     private static final String[] EFFECT_TIPS = {
         "Chroma: each kind of texture gets its own rainbow color. Animated blocks and fluids go through the colors.",
@@ -49,7 +51,7 @@ public final class SettingsEditor {
         "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
         "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
     /** The height of the three Recolor sliders on their own rows. */
-    private static final int RECOLOR_H = Form.slidersHeight(RECOLOR_LABELS.length);
+    private static final int RECOLOR_H = Form.slidersHeight(RECOLOR_LABELS.length, false);
     /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
@@ -57,6 +59,8 @@ public final class SettingsEditor {
     /** The distance between the panel rows of the group and server lists. */
     private static final int LIST_ROW = 16;
     private static final int GAP = 6;
+    /** The height of a closed section heading. */
+    private static final int SECTION_H = Ui.H + GAP;
     private static final int MAX_W = 620, MAX_H = 380;
     private static final long TOAST_MS = 6000;
 
@@ -127,6 +131,8 @@ public final class SettingsEditor {
     private Page page = Page.of(Category.BLOCKS);
     private Mode mode = Mode.BROWSE;
     private Toast toast;
+    /** The open sections of the look, kept for all categories and groups; only a click on a section heading changes it. */
+    private Accordion sections = Accordion.of();
     /** Shown under the scope switch when a switch was refused. */
     private String notice;
     private boolean closed;
@@ -204,7 +210,7 @@ public final class SettingsEditor {
         for (Category c : CATEGORIES) labelW = Math.max(labelW, ui.width(Labels.members(c)));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
         for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
-        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l));
+        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l) + Form.INDENT);
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -276,6 +282,7 @@ public final class SettingsEditor {
             notice = null;
         }
         if (otherCategory) ui.resetScroll("groups");
+        if (otherCategory || next.view != prev.view || next.tab != prev.tab || next.group != prev.group) ui.resetScroll("look");
         if (otherCategory || next.view != prev.view) skyLayers.reset();
     }
 
@@ -521,57 +528,84 @@ public final class SettingsEditor {
 
     private void lookTab(int x, int y, int w, int bottom, CategorySettings cs) {
         Category category = page.category;
-        boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
-        // Grass, leaves and water get the biome color on top of a recolor or Chroma, which mixes it with the chosen color.
-        Appearance look = cs.appearance();
-        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma() > 0;
-        String tintHint = tint && !cs.removeTint() && mixes
-                ? "Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color." : null;
-        int hintH = tintHint == null ? 0 : ui.paragraphHeight(tintHint, w) + GAP;
-        if (category == Category.SKY && look.mode() == Appearance.Mode.LAYERS) {
-            int cy = lookEditor(x, y, w, bottom, cs, -1);
+        if (category == Category.SKY && cs.appearance().mode() == Appearance.Mode.LAYERS) {
+            // The layer editor scrolls its own list, so the look rows above it do not scroll.
+            int cy = Column.stack(x, y, w, lookItems(cs, -1, w, bottom - y, 0));
             CategorySettings now = profile().get(category);
             if (now.appearance().mode() == Appearance.Mode.LAYERS) {
                 skyLayers.draw(x, cy, w, bottom, ui.c.height(), now.sky(), d -> setCategory(profile().get(Category.SKY).withSky(d)));
             }
             return;
         }
-        int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? TINT_ROW_H : 0) + hintH;
-        int cy = lookEditor(x, y, w, bottom - below, cs, -1);
-        if (cs.onlyGroups()) {
-            cy += ui.paragraph("Only groups change (see Groups). Groups set to Global use this look.", x, cy, w, Ui.FAINT) + GAP;
+        List<Column.Item> after = lookTabItems(cs);
+        int afterH = 0;
+        for (Column.Item item : after) afterH += item.height(w);
+        List<Column.Item> items = lookItems(cs, -1, w, bottom - y, afterH);
+        items.addAll(after);
+        // The tint hint is last and not in the budget of the color picker, so a short window scrolls to it.
+        boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
+        Appearance look = cs.appearance();
+        // Grass, leaves and water get the biome color on top of a recolor or Chroma, which mixes it with the chosen color.
+        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma() > 0;
+        if (tint && !cs.removeTint() && mixes) {
+            items.add(note("Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color."));
         }
-        if (tintHint != null && cy + hintH + TINT_ROW_H <= bottom) {
-            cy += ui.paragraph(tintHint, x, cy, w, Ui.FAINT) + GAP; // a short window keeps the switch and leaves out the hint
+        Column.draw(ui, "look", new Rect(x, y, w, bottom - y), items);
+    }
+
+    /** The rows under the global look: the only-groups note, the biome tint switch and the sky fog note. */
+    private List<Column.Item> lookTabItems(CategorySettings cs) {
+        Category category = page.category;
+        List<Column.Item> items = new ArrayList<Column.Item>();
+        if (cs.onlyGroups()) items.add(note("Only groups change (see Groups). Groups set to Global use this look."));
+        if (category == Category.BLOCKS || category == Category.FLUIDS) {
+            items.add(Column.of(TINT_ROW_H, (x, y, w) -> {
+                boolean remove = ui.toggleRow("tint", x - 4, y, w + 4, "Remove biome tint", cs.removeTint(),
+                        category == Category.BLOCKS ? "Grass and leaves do not get the biome color" : "Water does not get the biome color");
+                if (remove == cs.removeTint()) return false;
+                setCategory(cs.withRemoveTint(remove));
+                return true; // the hint under the switch depends on it
+            }));
         }
-        if (tint) {
-            boolean remove = ui.toggleRow("tint", x - 4, cy, w + 4, "Remove biome tint", cs.removeTint(),
-                    category == Category.BLOCKS ? "Grass and leaves do not get the biome color" : "Water does not get the biome color");
-            if (remove != cs.removeTint()) setCategory(cs.withRemoveTint(remove));
+        if (category == Category.SKY && cs.appearance().mode() == Appearance.Mode.SOLID) {
+            items.add(note("This also sets the fog to the sky color."));
         }
-        if (category == Category.SKY && look.mode() == Appearance.Mode.SOLID) {
-            ui.paragraph("This also sets the fog to the sky color.", x, cy, w, Ui.FAINT);
-        }
+        return items;
+    }
+
+    /** A paragraph of faint text, as a column item. */
+    private Column.Item note(String text) {
+        return Column.of(w -> ui.paragraphHeight(text, w) + GAP, (x, y, w) -> {
+            ui.paragraph(text, x, y, w, Ui.FAINT);
+            return false;
+        });
+    }
+
+    private Form form(int x, int w) {
+        return new Form(ui, x, w, labelW);
     }
 
     /**
-     * Draws style, color and shape controls for the global look or a group, whose first style is "Global" in the only-groups scope.
+     * The rows of the global look or a group's look: style, color, recolor, shape and the Effects section; the first
+     * style of a group is "Global" in the only-groups scope.
      *
      * @param index the group, or -1 for the global look
-     * @return the next y
+     * @param w the width of the column, which the picker size is estimated for
+     * @param viewH the height of the column, which the closed rows fit in when they can
+     * @param after the height of the rows that the page puts under these
      */
-    private int lookEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
+    private List<Column.Item> lookItems(CategorySettings cs, int index, int w, int viewH, int after) {
         Category category = page.category;
         Rule rule = index < 0 ? null : cs.rules().get(index);
         boolean global = rule != null && rule.usesGlobalLook();
         Appearance target = cs.lookOf(rule);
         List<Appearance.Mode> modes = category.supportedModes();
         String[] labels = new String[modes.size()], tips = new String[modes.size()];
-        int selected = 0;
+        int current = 0;
         for (int i = 0; i < modes.size(); i++) {
             labels[i] = Labels.mode(modes.get(i));
             tips[i] = Labels.modeTip(modes.get(i));
-            if (!global && modes.get(i) == target.mode()) selected = i;
+            if (!global && modes.get(i) == target.mode()) current = i;
         }
         if (rule != null && cs.onlyGroups()) {
             labels[0] = "Global";
@@ -579,24 +613,29 @@ public final class SettingsEditor {
         } else if (rule != null) {
             tips[0] = "Do not change these blocks";
         }
-        Form form = new Form(ui, x, w, labelW);
-        int lx = form.lx(), cw = form.cw();
-        form.label(y, Ui.H, "Style", null);
-        int chosen = ui.segmented("mode", lx, y, cw, labels, selected, tips);
-        int cy = y + ui.segmentedHeight(labels, cw) + GAP;
-        if (chosen != selected) {
+        int selected = current;
+        List<Column.Item> items = new ArrayList<Column.Item>();
+        items.add(Column.of(iw -> ui.segmentedHeight(labels, iw - labelW) + GAP, (x, y, iw) -> {
+            Form form = form(x, iw);
+            form.label(y, Ui.H, "Style", null);
+            int chosen = ui.segmented("mode", form.lx(), y, form.cw(), labels, selected, tips);
+            if (chosen == selected) return false;
             if (rule != null && cs.onlyGroups() && chosen == 0) setRule(cs, index, rule.withGlobalLook());
             else if (modes.get(chosen) == Appearance.Mode.LAYERS && cs.sky().isEmpty()) {
                 // A new custom sky starts from a preset, so that the first look is a sky and not black.
                 setCategory(cs.withAppearance(target.withMode(Appearance.Mode.LAYERS)).withSky(SkyPresets.DUSK));
             } else setLook(cs, index, target.withMode(modes.get(chosen)));
-            return cy; // the rest depends on the style, and the frame draws again with it
-        }
+            return true; // the rest depends on the style
+        }));
         if (global) {
-            ui.swatch(lx, cy + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080, null));
-            String text = Labels.modeTip(cs.appearance().mode()) + " (the " + Labels.name(category) + " look)";
-            ui.text(ui.ellipsize(text, cw - 14), lx + 13, cy + 3, Ui.MUTED);
-            return cy + Ui.H + GAP;
+            items.add(Column.of(Ui.H + GAP, (x, y, iw) -> {
+                Form form = form(x, iw);
+                ui.swatch(form.lx(), y + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080, null));
+                String text = Labels.modeTip(cs.appearance().mode()) + " (the " + Labels.name(category) + " look)";
+                ui.text(ui.ellipsize(text, form.cw() - 14), form.lx() + 13, y + 3, Ui.MUTED);
+                return false;
+            }));
+            return items;
         }
         Appearance.Mode m = target.mode();
         boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
@@ -604,56 +643,76 @@ public final class SettingsEditor {
         boolean effects = target.changesPixels() && category.hasChroma();
         String shapeNote = usesShape && category == Category.PLAYERS
                 ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
-        int noteH = shapeNote == null ? 0 : ui.paragraphHeight(shapeNote, w) + GAP;
-        int shapeH = usesShape ? Ui.H + GAP + noteH : 0;
-        int effectsH = effects ? Form.slidersHeight(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
+        Appearance.Alpha[] shapes = Appearance.Alpha.values();
+
+        // The picker gives up height first when the window is short, so the closed rows below it stay in view.
+        int fixed = ui.segmentedHeight(labels, w - labelW) + GAP + after + (effects ? SECTION_H : 0)
+                + (usesShape ? ui.choiceHeight(shapes, Labels::alpha, w - labelW) + GAP : 0);
+        int room = viewH - fixed - GAP - (recolor ? RECOLOR_H : 0), sqH = Math.min(44, room);
+        boolean full = room >= ColorPicker.MIN_SQUARE;
+        int colorH = full ? ColorPicker.height(sqH) : ColorPicker.compactHeight();
+        // A very short window puts the recolor sliders on one row and names them in their tooltips.
+        boolean oneRow = viewH - fixed - colorH < RECOLOR_H;
+        // The shape note shows only when the closed rows keep their room, as the Effects heading comes first.
+        int left = viewH - fixed - colorH - (recolor ? Form.slidersHeight(RECOLOR_LABELS.length, oneRow) : 0);
+        boolean withNote = shapeNote != null && left >= ui.paragraphHeight(shapeNote, w) + GAP;
         if (m == Appearance.Mode.SOLID || recolor) {
-            form.label(cy, Ui.H, "Color", recolor ? "The average color of the result" : null);
-            // The picker gives up height first when the window is short, so the rows below it stay on screen.
-            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH, color = target.color(), next;
-            if (room < ColorPicker.MIN_SQUARE) {
-                next = picker.compact("look", lx, cy, cw, color);
-                cy += ColorPicker.compactHeight();
-            } else {
-                int sqH = Math.min(44, room);
-                next = picker.draw("look", lx, cy, cw, sqH, color);
-                cy += ColorPicker.height(sqH);
-            }
-            if (next != color) setLook(cs, index, target.withColor(next));
-            // A very short window puts each set of sliders on one row and names them in their tooltips.
-            int effectsMin = effects ? Ui.SLIDER_H + GAP : 0;
-            if (recolor) cy = recolorSliders(form, cy, cs, index, target, bottom - cy - shapeH - effectsMin < RECOLOR_H);
+            items.add(Column.of(colorH, (x, y, iw) -> {
+                Form form = form(x, iw);
+                form.label(y, Ui.H, "Color", recolor ? "The average color of the result" : null);
+                int color = target.color();
+                int next = full ? picker.draw("look", form.lx(), y, form.cw(), sqH, color)
+                        : picker.compact("look", form.lx(), y, form.cw(), color);
+                if (next != color) setLook(cs, index, target.withColor(next));
+                return false;
+            }));
+        }
+        if (recolor) {
+            items.add(Column.of(Form.slidersHeight(RECOLOR_LABELS.length, oneRow), (x, y, iw) -> {
+                int[] v = {target.detail(), target.keepColors(), target.keepLight()};
+                form(x, iw).sliders("recolor", "Recolor", RECOLOR_LABELS, RECOLOR_TIPS, v, y, oneRow);
+                Appearance next = target.withRecolor(v[0], v[1], v[2]);
+                if (!next.equals(target)) setLook(cs, index, next);
+                return false;
+            }));
         }
         if (usesShape) {
-            Appearance.Alpha[] shapes = Appearance.Alpha.values();
-            form.label(cy, Ui.H, "Shape", null);
-            Appearance.Alpha a = ui.choice("alpha", lx, cy, cw, shapes, target.alpha(), Labels::alpha, Labels::alphaTip);
-            if (a != target.alpha()) setLook(cs, index, target.withAlpha(a));
-            cy += ui.choiceHeight(shapes, Labels::alpha, cw) + GAP;
-            // The effects come first in a short window.
-            if (shapeNote != null && bottom - cy - noteH >= (effects ? Ui.SLIDER_H : 0)) cy += ui.paragraph(shapeNote, x, cy, w, Ui.FAINT) + GAP;
+            items.add(Column.of(iw -> ui.choiceHeight(shapes, Labels::alpha, iw - labelW) + GAP, (x, y, iw) -> {
+                Form form = form(x, iw);
+                form.label(y, Ui.H, "Shape", null);
+                Appearance.Alpha a = ui.choice("alpha", form.lx(), y, form.cw(), shapes, target.alpha(), Labels::alpha, Labels::alphaTip);
+                if (a != target.alpha()) setLook(cs, index, target.withAlpha(a));
+                return false;
+            }));
+            if (withNote) items.add(note(shapeNote));
         }
-        // The smallest windows have no row left for the effects, which then keep their values.
-        if (effects && bottom - cy >= Ui.SLIDER_H) cy = effectSliders(form, cy, cs, index, target, bottom - cy < effectsH);
-        return cy;
+        if (effects) items.addAll(effectsSection(cs, index, target));
+        return items;
     }
 
-    private int recolorSliders(Form form, int y, CategorySettings cs, int index, Appearance target, boolean oneRow) {
-        int[] v = {target.detail(), target.keepColors(), target.keepLight()};
-        int next = form.sliders("recolor", "Recolor", RECOLOR_LABELS, RECOLOR_TIPS, v, y, oneRow);
-        Appearance changed = target.withRecolor(v[0], v[1], v[2]);
-        if (!changed.equals(target)) setLook(cs, index, changed);
-        return next;
-    }
-
-    /** Bevel, Outline and Chroma for blocks and fluids, and only Chroma elsewhere. */
-    private int effectSliders(Form form, int y, CategorySettings cs, int index, Appearance target, boolean oneRow) {
-        int n = page.category.hasEdgeEffects() ? EFFECT_LABELS.length : 1;
-        int[] v = {target.chroma(), target.bevel(), target.outline()};
-        int next = form.sliders("effects", "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, y, oneRow);
-        Appearance changed = target.withEffects(v[1], v[2], v[0]);
-        if (!changed.equals(target)) setLook(cs, index, changed);
-        return next;
+    /** The Effects heading, and under it when it is open Chroma, Bevel and Outline for blocks and fluids and only Chroma elsewhere. */
+    private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
+        boolean edges = page.category.hasEdgeEffects(), open = sections.isOpen(EFFECTS);
+        int n = edges ? EFFECT_LABELS.length : 1, bodyH = Form.slidersHeight(n, false);
+        List<Column.Item> items = new ArrayList<Column.Item>();
+        items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
+            String tip = (open ? "Hide" : "Show") + " the effects: " + String.join(", ", Arrays.copyOf(EFFECT_LABELS, n));
+            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
+            sections = sections.toggled(EFFECTS);
+            changed = true;
+            return true; // the rows under the heading move
+        }));
+        if (!open) return items;
+        items.add(Column.of(bodyH, (x, y, w) -> {
+            Form form = form(x, w);
+            form.guide(y, bodyH - GAP);
+            int[] v = {target.chroma(), target.bevel(), target.outline()};
+            form.indented().sliders(EFFECTS, "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, y, false);
+            Appearance next = target.withEffects(v[1], v[2], v[0]);
+            if (!next.equals(target)) setLook(cs, index, next);
+            return false;
+        }));
+        return items;
     }
 
     // ---------------------------------------------------------------- groups
@@ -753,8 +812,9 @@ public final class SettingsEditor {
             go(page.withGroup(-1));
             return;
         }
-        // Keep room for the block input and one line of chips under the look.
-        int cy = lookEditor(x, y + Ui.H + 2, w, bottom - Ui.H - 16, cs, index);
+        // The look scrolls above the room for the block input and one line of chips, which the input's suggestions cover.
+        int top = y + Ui.H + 2, viewH = bottom - Ui.H - 16 - top;
+        int cy = Column.draw(ui, "look", new Rect(x, top, w, viewH), lookItems(cs, index, w, viewH, 0));
         patternsEditor(x, cy, w, bottom, cs, index);
     }
 

@@ -210,6 +210,23 @@ final class Labels {
         return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
     }
 
+    /** The effects that are on, such as "Chroma 60%, Bevel 20%", or "Off". */
+    static String effects(Appearance a, boolean edges) {
+        StringBuilder s = new StringBuilder();
+        effect(s, "Chroma", a.chroma());
+        if (edges) {
+            effect(s, "Bevel", a.bevel());
+            effect(s, "Outline", a.outline());
+        }
+        return s.length() == 0 ? "Off" : s.toString();
+    }
+
+    private static void effect(StringBuilder s, String name, int percent) {
+        if (percent <= 0) return;
+        if (s.length() > 0) s.append(", ");
+        s.append(name).append(' ').append(percent).append('%');
+    }
+
     static String axis(Transform.Axis a) {
         switch (a) {
             case YAW: return "Turn";
