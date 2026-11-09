@@ -442,10 +442,7 @@ public final class Harness {
         if (!started) again("skytime", tries);
     }
 
-    /**
-     * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
-     * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
-     */
+    /** Asks the adapter to measure the GPU pass of Chroma in the next frames, and logs when this version cannot. */
     private void chromaTime(int frames) {
         if (!host.timeChroma(frames)) log("! chromatime: this version has no GPU pass of Chroma, or the pass does not run");
     }
@@ -499,6 +496,10 @@ public final class Harness {
         burstLeft--;
     }
 
+    /**
+     * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
+     * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
+     */
     private static void skyClock(String arg) {
         if (arg.equals("run")) SkyClock.run();
         else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
