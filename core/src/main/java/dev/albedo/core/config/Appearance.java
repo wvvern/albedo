@@ -19,7 +19,9 @@ public final class Appearance {
         /** Replace with a user image (stretched to fit) from the config's textures folder; falls back to the color. */
         TEXTURE,
         /** Fully transparent: the thing disappears (useful for clouds, weather, particles). */
-        HIDDEN;
+        HIDDEN,
+        /** A custom sky made of layers ({@link SkyDesign}), only for the sky and never given to a texture. */
+        LAYERS;
 
         public static Mode byKey(String s) {
             return valueOf(s.trim().toUpperCase(Locale.ROOT));
@@ -111,8 +113,8 @@ public final class Appearance {
 
     public boolean isOriginal() { return mode == Mode.ORIGINAL; }
 
-    /** Every style except Vanilla and Hide, the only styles that effects apply to. */
-    public boolean changesPixels() { return mode != Mode.ORIGINAL && mode != Mode.HIDDEN; }
+    /** Every texture style except Vanilla and Hide, the only styles that effects apply to. */
+    public boolean changesPixels() { return mode != Mode.ORIGINAL && mode != Mode.HIDDEN && mode != Mode.LAYERS; }
 
     /** Whether an effect changes the texture: an effect is on and the style changes pixels. */
     public boolean hasEffects() { return changesPixels() && (bevel > 0 || outline > 0 || chroma > 0); }

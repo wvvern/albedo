@@ -18,12 +18,19 @@ public final class CategorySettings {
     private final boolean removeTint;
     private final boolean onlyGroups;
     private final List<Rule> rules;
+    /** The custom sky, which only the sky category with style {@link Appearance.Mode#LAYERS} uses. */
+    private final SkyDesign sky;
 
-    public CategorySettings(Appearance appearance, boolean removeTint, boolean onlyGroups, List<Rule> rules) {
+    public CategorySettings(Appearance appearance, boolean removeTint, boolean onlyGroups, List<Rule> rules, SkyDesign sky) {
         this.appearance = appearance;
         this.removeTint = removeTint;
         this.onlyGroups = onlyGroups;
         this.rules = Collections.unmodifiableList(new ArrayList<Rule>(rules));
+        this.sky = sky;
+    }
+
+    public CategorySettings(Appearance appearance, boolean removeTint, boolean onlyGroups, List<Rule> rules) {
+        this(appearance, removeTint, onlyGroups, rules, SkyDesign.NONE);
     }
 
     public CategorySettings(Appearance appearance, boolean removeTint, List<Rule> rules) {
@@ -62,19 +69,26 @@ public final class CategorySettings {
 
     /** The category with a new global look, which the groups follow in the fields they do not set. */
     public CategorySettings withAppearance(Appearance a) {
-        return new CategorySettings(a, removeTint, onlyGroups, rules);
+        return new CategorySettings(a, removeTint, onlyGroups, rules, sky);
     }
 
     public CategorySettings withRemoveTint(boolean value) {
-        return new CategorySettings(appearance, value, onlyGroups, rules);
+        return new CategorySettings(appearance, value, onlyGroups, rules, sky);
     }
 
     public CategorySettings withOnlyGroups(boolean value) {
-        return new CategorySettings(appearance, removeTint, value, rules);
+        return new CategorySettings(appearance, removeTint, value, rules, sky);
     }
 
     public CategorySettings withRules(List<Rule> value) {
-        return new CategorySettings(appearance, removeTint, onlyGroups, value);
+        return new CategorySettings(appearance, removeTint, onlyGroups, value, sky);
+    }
+
+    /** The custom sky layers, kept also while another style is selected so that a switch back finds them. */
+    public SkyDesign sky() { return sky; }
+
+    public CategorySettings withSky(SkyDesign value) {
+        return new CategorySettings(appearance, removeTint, onlyGroups, rules, value);
     }
 
     /**
@@ -139,9 +153,12 @@ public final class CategorySettings {
     public boolean equals(Object o) {
         if (!(o instanceof CategorySettings)) return false;
         CategorySettings c = (CategorySettings) o;
-        return c.removeTint == removeTint && c.onlyGroups == onlyGroups && c.appearance.equals(appearance) && c.rules.equals(rules);
+        return c.removeTint == removeTint && c.onlyGroups == onlyGroups && c.appearance.equals(appearance) && c.rules.equals(rules)
+                && c.sky.equals(sky);
     }
 
     @Override
-    public int hashCode() { return (appearance.hashCode() * 31 + rules.hashCode()) * 31 + (removeTint ? 1 : 0) + (onlyGroups ? 2 : 0); }
+    public int hashCode() {
+        return ((appearance.hashCode() * 31 + rules.hashCode()) * 31 + sky.hashCode()) * 31 + (removeTint ? 1 : 0) + (onlyGroups ? 2 : 0);
+    }
 }
