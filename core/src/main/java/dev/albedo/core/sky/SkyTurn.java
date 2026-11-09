@@ -76,19 +76,6 @@ public final class SkyTurn {
     }
 
     /**
-     * The camera yaw that looks at the same part of the design in a still sky, for the fog color near the horizon.
-     *
-     * @param cameraYaw the Minecraft yaw in degrees, where 0 looks south and 90 looks west
-     */
-    public float yaw(float cameraYaw) {
-        if (still()) return cameraYaw;
-        double az = Math.toRadians(cameraYaw + 180);
-        double[] d = new double[3];
-        toDesign(Math.sin(az), 0, -Math.cos(az), d);
-        return (float) (Math.toDegrees(Math.atan2(d[0], -d[2])) - 180);
-    }
-
-    /**
      * The top rows of an image as the turned sky shows them, scaled to a new size, for the editor preview.
      *
      * @param rows the rows from the top of the image that the result shows

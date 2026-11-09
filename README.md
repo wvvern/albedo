@@ -89,7 +89,7 @@ The preview above the layers shows the sky from the zenith (the top edge) down t
 Open the **Motion** section under the switches to make your full sky turn around a pole, as the real night sky does. Set **Turning** above 0% to start the turn. Then these options show under it:
 
 - **Speed:** the number of turns in one Minecraft day (20 minutes), from 1x to 10x (one turn in 2 minutes). Turning sets the part of this speed that the sky uses: 50% is half the speed.
-- **Follow time:** when it is on, the sky turns with the time of the world. At 1x and 100%, it turns with the sun and moon, and it stops when the daylight cycle stops. At midnight, the sky is as you made it. When it is off, the sky turns at a steady speed in real time.
+- **Follow time:** when it is on, the sky turns with the time of the world. At 1x and 100%, it turns at the speed of the sun and moon (with Pole height 0 and Pole 0, also on their path), and it stops when the daylight cycle stops. At midnight, the sky is as you made it. When it is off, the sky turns at a steady speed in real time.
 - **Pole height:** the angle of the pole above the horizon, from 0 (on the horizon) to 90 (the top of the sky).
 - **Direction:** Normal turns the sky as the sun goes, up in the east and down in the west. Reverse turns it the other way.
 - **Pole:** the compass direction of the pole, from 0 (north) to 359. 90 is east.

@@ -34,7 +34,7 @@ public final class SkyLight {
         return (d * 2.0 + e) / 3.0;
     }
 
-    /** The factor for a design:{@link #brightness} for {@link SkyDesign.Light#DAY_NIGHT}, otherwise 1. */
+    /** The factor for a design: {@link #brightness} for {@link SkyDesign.Light#DAY_NIGHT}, otherwise 1. */
     public static float of(SkyDesign design, double dayTime, float rain, float thunder) {
         return design.light() == SkyDesign.Light.DAY_NIGHT ? brightness(dayTime, rain, thunder) : 1f;
     }

@@ -17,6 +17,8 @@ public final class SkyImage {
     private static final float HORIZON_BOTTOM = -15f;
     /** The number of azimuth sectors of the horizon colors. */
     public static final int RING = 64;
+    /** The cells across, and half as many down, of the colors that the fog of a turning sky reads. */
+    private static final int CELLS = 64;
     private static final AtomicLong SERIALS = new AtomicLong();
 
     private final int[] argb;
@@ -29,6 +31,8 @@ public final class SkyImage {
     /** The half float RGBA texels of the term images, one under the other in the order of their slots. */
     private final short[] terms;
     private final long serial = SERIALS.incrementAndGet();
+    /** The mean linear {r, g, b} of cells of about 6 degrees on the whole sphere, made at the first fog of a turning sky. */
+    private volatile float[] cells;
 
     SkyImage(int[] argb, int width, int height, SkyDesign design, float[] ring, SkyProgram program, int termWidth, int termHeight,
             short[] terms) {
@@ -102,10 +106,75 @@ public final class SkyImage {
      * @param brightness the factor of {@link SkyLight#brightness}, or 1
      */
     public float[] fogRgb(float cameraYaw, float brightness) {
+        return fogRgb(SkyTurn.STILL, cameraYaw, brightness);
+    }
+
+    /**
+     * The sRGB fog color {r, g, b} from 0 to 1 near the horizon in the direction the camera looks, in a sky that turns, where
+     * the world horizon can show any part of the design.
+     *
+     * @param cameraYaw the Minecraft yaw in degrees, where 0 looks south and 90 looks west
+     * @param brightness the factor of {@link SkyLight#brightness}, or 1
+     */
+    public float[] fogRgb(SkyTurn turn, float cameraYaw, float brightness) {
         float[] out = new float[3];
-        ringAt(ring, cameraYaw + 180, out);
+        if (turn.still()) {
+            ringAt(ring, cameraYaw + 180, out);
+        } else {
+            // The middle of the band of the ring, 3 degrees above the horizon.
+            double az = Math.toRadians(cameraYaw + 180), el = Math.toRadians(3);
+            double[] d = new double[3];
+            turn.toDesign(Math.cos(el) * Math.sin(az), Math.sin(el), -Math.cos(el) * Math.cos(az), d);
+            cellsAt(cells(), Math.toDegrees(Math.atan2(d[0], -d[2])), Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, d[1])))), out);
+        }
         for (int c = 0; c < 3; c++) out[c] = Oklab.toSrgb(out[c] * brightness) / 255f;
         return out;
+    }
+
+    private float[] cells() {
+        float[] c = cells;
+        if (c == null) cells = c = meanCells();
+        return c;
+    }
+
+    /** The mean linear color of each cell, from a grid of at most 8 x 8 pixels in it, which costs little and misses no large part. */
+    private float[] meanCells() {
+        int rows = CELLS / 2;
+        float[] out = new float[CELLS * rows * 3];
+        int cw = Math.max(1, width / CELLS), ch = Math.max(1, height / rows);
+        int sx = Math.max(1, cw / 8), sy = Math.max(1, ch / 8);
+        for (int r = 0; r < rows; r++) {
+            for (int col = 0; col < CELLS; col++) {
+                float[] sum = new float[3];
+                int n = 0;
+                for (int y = r * height / rows; y < (r + 1) * height / rows; y += sy) {
+                    for (int x = col * width / CELLS; x < (col + 1) * width / CELLS; x += sx) {
+                        int p = argb[y * width + x];
+                        sum[0] += Oklab.toLinear(p >> 16);
+                        sum[1] += Oklab.toLinear(p >> 8);
+                        sum[2] += Oklab.toLinear(p);
+                        n++;
+                    }
+                }
+                for (int k = 0; k < 3; k++) out[(r * CELLS + col) * 3 + k] = n == 0 ? 0 : sum[k] / n;
+            }
+        }
+        return out;
+    }
+
+    /** The linear color at an azimuth and an elevation in degrees, mixed from the four nearest cell centers. */
+    private static void cellsAt(float[] cells, double azimuth, double elevation, float[] out) {
+        int rows = CELLS / 2;
+        double u = ((azimuth % 360 + 360) % 360) / 360 * CELLS - 0.5, v = (TOP - elevation) / (TOP - BOTTOM) * rows - 0.5;
+        int x0 = (int) Math.floor(u), y0 = (int) Math.floor(v);
+        float fx = (float) (u - x0), fy = (float) (v - y0);
+        int xa = Math.floorMod(x0, CELLS), xb = Math.floorMod(x0 + 1, CELLS);
+        int ya = Math.max(0, Math.min(rows - 1, y0)), yb = Math.max(0, Math.min(rows - 1, y0 + 1));
+        for (int c = 0; c < 3; c++) {
+            float top = cells[(ya * CELLS + xa) * 3 + c] * (1 - fx) + cells[(ya * CELLS + xb) * 3 + c] * fx;
+            float bottom = cells[(yb * CELLS + xa) * 3 + c] * (1 - fx) + cells[(yb * CELLS + xb) * 3 + c] * fx;
+            out[c] = top * (1 - fy) + bottom * fy;
+        }
     }
 
     /**

@@ -244,7 +244,7 @@ final class Labels {
     static final String TURNING_TIP = "Turning: the full sky turns around the pole, as the real night sky does. "
             + "0% stops it. 100% gives the full Speed. The preview turns in real time.";
     static final String TURNING_SPEED_TIP = "Speed: the number of turns in one Minecraft day (20 minutes) at a Turning of 100%. "
-            + "1x turns with the sun and moon.";
+            + "1x turns at the speed of the sun and moon. With Pole height 0 and Pole 0, the sky also turns on their path.";
     static final String TURNING_FOLLOW_TIP = "On: the sky turns with the time of the world, as the sun and moon do, and stops when "
             + "the daylight cycle stops. At midnight, the sky is as you made it. Off: the sky turns at a steady speed in real time.";
     static final String POLE_HEIGHT_TIP = "Pole height: the angle of the pole above the horizon. 0 is on the horizon, 90 is the top "

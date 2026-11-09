@@ -907,6 +907,12 @@ class SettingsEditorTest {
         assertEquals(SkyTurning.Direction.REVERSE, t.direction());
         assertEquals(SkyTurning.Clock.WORLD, t.clock(), "Follow time starts on");
         assertEquals(SkyPresets.GALAXY.layers(), savedSky().layers(), "the turning does not change the layers");
+
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
+        assertEquals(t, savedSky().turning(), "a preset keeps the turning");
     }
 
     @Test
@@ -948,7 +954,7 @@ class SettingsEditorTest {
             for (String[] path : paths) {
                 Config c = withOwnProfile();
                 Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                        Collections.<Rule>emptyList(), SkyPresets.GALAXY));
+                        Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.NONE.withAmount(50))));
                 sc.apply(c.withProfile(p));
                 SettingsEditor editor = new SettingsEditor(sc);
                 editor.ui.tipDelay = 0;
@@ -956,6 +962,8 @@ class SettingsEditorTest {
                 editor.render(canvas, 0, 0);
                 click(editor, canvas, "Sky");
                 for (String label : path) if (canvas.find(label) != null) click(editor, canvas, label);
+                int[] style = canvas.find("Style");
+                if (style != null) assertAboveFooter(canvas, size, style[0] - 15);
                 for (int y = 0; y < size[1]; y += 7) {
                     for (int x = 0; x < size[0]; x += 11) {
                         if (editor.isClosed()) break;

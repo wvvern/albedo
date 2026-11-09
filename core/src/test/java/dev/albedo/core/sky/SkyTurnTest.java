@@ -1,5 +1,6 @@
 package dev.albedo.core.sky;
 
+import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyTurning;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,6 @@ class SkyTurnTest {
         assertSame(SkyTurn.STILL, SkyTurn.at(SkyTurning.NONE, 12345));
         assertSame(SkyTurn.STILL, SkyTurn.preview(SkyTurning.NONE));
         assertArrayEquals(new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, SkyTurn.STILL.matrix());
-        assertEquals(37f, SkyTurn.STILL.yaw(37f));
     }
 
     @Test
@@ -89,11 +89,21 @@ class SkyTurnTest {
     }
 
     @Test
-    void theFogLooksAtThePartOfTheDesignThatTheCameraSees() {
-        SkyTurning zenithPole = SUN.withPoleHeight(90);
-        SkyTurn quarter = SkyTurn.of(zenithPole, 0.25);
-        // Around a pole at the zenith, the sky goes to the west, so the camera to the south sees the design part from the east.
-        assertEquals(-90, quarter.yaw(0), 1e-3, "the yaw of a camera to the east");
+    void theFogTakesTheColorOfTheDesignPartAtTheHorizon() {
+        SkyImage nebula = SkyGenerator.bake(SkyPresets.NEBULA, 128, 64);
+        assertArrayEquals(nebula.fogRgb(-90, 1), nebula.fogRgb(SkyTurn.STILL, -90, 1), "a still sky reads the ring");
+        // An image that is black at the top and red at the bottom, with a black ring, and a red that shows the elevation.
+        int w = 64, h = 32;
+        int[] argb = new int[w * h];
+        for (int i = 0; i < argb.length; i++) argb[i] = 0xFF000000 | (i / w * 8) << 16;
+        SkyImage img = new SkyImage(argb, w, h, SkyDesign.NONE, new float[SkyImage.RING * 3], null, 1, 1, new short[4]);
+        assertEquals(0, img.fogRgb(-90, 1)[0], 1e-6f);
+        // A quarter turn around the north pole on the horizon puts the bottom of the design at the east horizon.
+        float east = img.fogRgb(SkyTurn.of(SUN, 0.25), -90, 1)[0];
+        assertEquals(248 / 255f, east, 0.01f, "the fog has the color of the last row, near the nadir of the design");
+        // Around a pole at the zenith, the camera to the south sees the design part from the east, near the horizon.
+        float south = img.fogRgb(SkyTurn.of(SUN.withPoleHeight(90), 0.25), 0, 1)[0];
+        assertEquals(0.5f, south, 0.05f);
     }
 
     @Test

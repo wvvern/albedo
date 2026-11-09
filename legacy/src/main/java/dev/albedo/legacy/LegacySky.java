@@ -64,7 +64,7 @@ public final class LegacySky {
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         World world = Minecraft.getMinecraft().theWorld;
         if (img == null || view == null || world == null || !world.provider.isSurfaceWorld()) return null;
-        return img.fogRgb(turn(img).yaw(view.rotationYaw), brightness(img));
+        return img.fogRgb(turn(img), view.rotationYaw, brightness(img));
     }
 
     /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */

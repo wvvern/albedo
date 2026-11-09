@@ -74,8 +74,10 @@ final class SkyLayersEditor {
     private static final double TURN_STEP_S = 0.05;
     /** The id of the Motion section in {@link #sections}. */
     private static final String MOTION = "sky.motion";
+    private static final String TURNING = "Turning", SPEED = "Speed", FOLLOW_TIME = "Follow time", POLE_HEIGHT = "Pole height",
+            DIRECTION = "Direction", POLE = "Pole";
     /** The labels of the options under Turning, which show only while the sky turns. */
-    private static final String[] TURNING_OPTIONS = {"Speed", "Follow time", "Pole height", "Direction", "Pole"};
+    private static final String[] TURNING_OPTIONS = {SPEED, FOLLOW_TIME, POLE_HEIGHT, DIRECTION, POLE};
 
     private final Ui ui;
     private final Runnable relayout;
@@ -149,9 +151,14 @@ final class SkyLayersEditor {
 
     // ---------------------------------------------------------------- preview
 
-    /** The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask. */
-    private SkyDesign previewDesign(SkyDesign design, int index) {
-        if (page.screen != Screen.LAYER || page.source == PreviewSource.RESULT || index < 0) return design;
+    /**
+     * The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask; a layer page keeps
+     * the sky still, so that the place of the layer shows against the compass.
+     */
+    private SkyDesign previewDesign(SkyDesign full, int index) {
+        if (page.screen != Screen.LAYER) return full;
+        SkyDesign design = full.withTurning(SkyTurning.NONE);
+        if (page.source == PreviewSource.RESULT || index < 0) return design;
         SkyLayer layer = design.layers().get(index).withOutput(SkyLayer.Output.SHOW).withMask(SkyMask.NONE).withOpacity(100)
                 .withBlend(SkyLayer.Blend.NORMAL);
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
@@ -205,14 +212,13 @@ final class SkyLayersEditor {
 
     /** Makes {@link #shown} from a new image, and again a short time later while the sky turns, so that the preview turns too. */
     private void showImage(SkyImage img, SkyDesign drawn) {
-        SkyTurn turn = SkyTurn.preview(drawn.turning());
-        boolean turned = !turn.still();
+        boolean turned = drawn.turning().turns();
         double now = SkyClock.longSeconds();
         if (shownFrom == img.serial() && shownTurned == turned && (!turned || Math.abs(now - shownAt) < TURN_STEP_S)) return;
         int rows = SkyPreviewGeometry.rows(drawn, img.height());
         if (turned) {
             int h = Math.max(1, rows * TURNED_W / img.width());
-            shown = new CanvasImage(turn.resample(img, rows, TURNED_W, h), TURNED_W, h, ++shownSerial);
+            shown = new CanvasImage(SkyTurn.preview(drawn.turning()).resample(img, rows, TURNED_W, h), TURNED_W, h, ++shownSerial);
         } else {
             shown = new CanvasImage(Arrays.copyOf(img.argb(), rows * img.width()), img.width(), rows, ++shownSerial);
         }
@@ -241,7 +247,7 @@ final class SkyLayersEditor {
             px -= bw;
             if (ui.confirmButton("sky.preset." + e.getKey(), px, cy, bw, Ui.H, name, "Start from the " + name + " sky",
                     "Click again to replace all layers with the " + name + " sky")) {
-                set.accept(e.getValue());
+                set.accept(e.getValue().withTurning(design.turning())); // the Motion settings stay
                 return;
             }
             px -= 3;
@@ -259,7 +265,7 @@ final class SkyLayersEditor {
             new Switch("sky.render", "Sharp render", "The GPU draws the sky sharp at all screen sizes. Set it off if the game is slow.", sharp,
                     design.withRender(sharp ? SkyDesign.Render.FAST : SkyDesign.Render.SHARP))};
         cy = switches(x, cy, w, switches, set) + 2;
-        cy = motion(x, cy, w, design, set);
+        cy = motion(x, cy, w, bottom, design, set);
         List<SkyLayer> layers = design.layers();
         if (layers.isEmpty()) {
             ui.paragraph("No layers. The sky is black. Add a layer or select a sky above.", x, cy + 2, w, Ui.FAINT);
@@ -307,49 +313,72 @@ final class SkyLayersEditor {
      * The Motion heading, and under it when it is open the Turning slider with its options indented under it while the
      * sky turns, which returns the y below the section.
      */
-    private int motion(int x, int y, int w, SkyDesign design, Consumer<SkyDesign> set) {
+    private int motion(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         SkyTurning t = design.turning();
         boolean open = sections.isOpen(MOTION);
+        if (y + Ui.H > bottom) return y; // a very short window has no room for the section
         String tip = (open ? "Hide" : "Show") + " the turning of the sky";
         if (ui.sectionHeader(MOTION, x - 4, y, w + 4, "Motion", Labels.turning(t), open, tip) != open) {
             sections = sections.toggled(MOTION);
             relayout.run();
         }
         if (!open) return y + Ui.H + GAP;
-        int labelW = ui.width("Turning") + Form.INDENT;
-        for (String l : TURNING_OPTIONS) labelW = Math.max(labelW, ui.width(l) + 2 * Form.INDENT);
-        Form form = new Form(ui, x, w, labelW + 8), turning = form.indented(), options = turning.indented();
-        int cy = y + Ui.H + 2, bottom = y + motionHeight(design) - GAP;
-        form.guide(cy, bottom - cy - 2);
-        int amount = turning.slider("sky.turning", cy, "Turning", Labels.TURNING_TIP, t.amount());
-        if (amount != t.amount()) {
+        int top = y + Ui.H + 2, count = t.turns() ? 1 + TURNING_OPTIONS.length : 1;
+        int h = Math.max(0, Math.min(count * ROW, bottom - top));
+        int motionLabelW = ui.width(TURNING) + Form.INDENT;
+        for (String l : TURNING_OPTIONS) motionLabelW = Math.max(motionLabelW, ui.width(l) + 2 * Form.INDENT);
+        // A short window scrolls the rows, with room for the scroll bar.
+        Form form = new Form(ui, x, count * ROW > h ? w - 6 : w, motionLabelW + 8), turning = form.indented(), options = turning.indented();
+        List<Row> rows = new ArrayList<Row>();
+        rows.add(ry -> {
+            int amount = turning.slider("sky.turning", ry, TURNING, Labels.TURNING_TIP, t.amount());
+            if (amount == t.amount()) return;
             set.accept(design.withTurning(t.withAmount(amount)));
             relayout.run(); // the options show or hide
-        }
-        if (!t.turns()) return bottom + GAP;
-        cy += ROW;
-        turning.guide(cy, bottom - cy - 2);
-        int speed = options.range("sky.turning.speed", cy, "Speed", Labels.TURNING_SPEED_TIP, t.speed(), 1, SkyTurning.MAX_SPEED, "x");
-        if (speed != t.speed()) set.accept(design.withTurning(t.withSpeed(speed)));
-        cy += ROW;
-        boolean follow = t.clock() == SkyTurning.Clock.WORLD;
-        options.label(cy, Ui.H, "Follow time", Labels.TURNING_FOLLOW_TIP);
-        if (ui.toggle("sky.turning.follow", options.lx(), cy + 2, follow, Labels.TURNING_FOLLOW_TIP) != follow) {
-            set.accept(design.withTurning(t.withClock(follow ? SkyTurning.Clock.REAL : SkyTurning.Clock.WORLD)));
-        }
-        cy += ROW;
-        int height = options.range("sky.turning.height", cy, "Pole height", Labels.POLE_HEIGHT_TIP, t.poleHeight(), 0,
-                SkyTurning.MAX_POLE_HEIGHT, "");
-        if (height != t.poleHeight()) set.accept(design.withTurning(t.withPoleHeight(height)));
-        cy += ROW;
-        options.label(cy, Ui.H, "Direction", null);
-        SkyTurning.Direction d = ui.choice("sky.turning.direction", options.lx(), cy, options.cw(), SkyTurning.Direction.values(),
-                t.direction(), Labels::direction, Labels::directionTip);
-        if (d != t.direction()) set.accept(design.withTurning(t.withDirection(d)));
-        cy += ROW;
-        int pole = options.range("sky.turning.pole", cy, "Pole", Labels.POLE_TIP, t.pole(), 0, SkyTurning.MAX_POLE, "");
-        if (pole != t.pole()) set.accept(design.withTurning(t.withPole(pole)));
-        return bottom + GAP;
+        });
+        if (t.turns()) rows.addAll(turningOptions(options, design, set));
+        if (h < ROW) return top; // no room for one row
+        RowList.draw(ui, "sky.motion.rows", x, top, w, h, rows.size(), ROW, (r, rx, ry, rw, rh) -> {
+            form.guide(ry, ROW);
+            if (r > 0) turning.guide(ry, ROW);
+            rows.get(r).draw(ry);
+            return false;
+        });
+        return top + h + GAP;
+    }
+
+    /** The rows of the options of a sky that turns, indented under the Turning slider. */
+    private List<Row> turningOptions(Form options, SkyDesign design, Consumer<SkyDesign> set) {
+        SkyTurning t = design.turning();
+        Consumer<SkyTurning> put = next -> set.accept(design.withTurning(next));
+        List<Row> rows = new ArrayList<Row>();
+        rows.add(y -> {
+            int speed = options.range("sky.turning.speed", y, SPEED, Labels.TURNING_SPEED_TIP, t.speed(), 1, SkyTurning.MAX_SPEED, "x");
+            if (speed != t.speed()) put.accept(t.withSpeed(speed));
+        });
+        rows.add(y -> {
+            boolean follow = t.clock() == SkyTurning.Clock.WORLD;
+            options.label(y, Ui.H, FOLLOW_TIME, Labels.TURNING_FOLLOW_TIP);
+            if (ui.toggle("sky.turning.follow", options.lx(), y + 2, follow, Labels.TURNING_FOLLOW_TIP) != follow) {
+                put.accept(t.withClock(follow ? SkyTurning.Clock.REAL : SkyTurning.Clock.WORLD));
+            }
+        });
+        rows.add(y -> {
+            int height = options.range("sky.turning.height", y, POLE_HEIGHT, Labels.POLE_HEIGHT_TIP, t.poleHeight(), 0,
+                    SkyTurning.MAX_POLE_HEIGHT, "");
+            if (height != t.poleHeight()) put.accept(t.withPoleHeight(height));
+        });
+        rows.add(y -> {
+            options.label(y, Ui.H, DIRECTION, null);
+            SkyTurning.Direction d = ui.choice("sky.turning.direction", options.lx(), y, options.cw(), SkyTurning.Direction.values(),
+                    t.direction(), Labels::direction, Labels::directionTip);
+            if (d != t.direction()) put.accept(t.withDirection(d));
+        });
+        rows.add(y -> {
+            int pole = options.range("sky.turning.pole", y, POLE, Labels.POLE_TIP, t.pole(), 0, SkyTurning.MAX_POLE, "");
+            if (pole != t.pole()) put.accept(t.withPole(pole));
+        });
+        return rows;
     }
 
     private static List<Map.Entry<String, SkyDesign>> reversed(Map<String, SkyDesign> map) {
