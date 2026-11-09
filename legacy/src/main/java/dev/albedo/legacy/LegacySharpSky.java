@@ -2,6 +2,7 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -118,10 +119,10 @@ final class LegacySharpSky {
             Albedo.get().platform().info("Compiled the sharp sky shader " + name + " as " + dialect);
         }
 
-        /** Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness. */
-        void use(Block block, int termTexture, float brightness) {
+        /** Puts the program in use with the numbers of a sky, the time of the layers that move, its term texture on unit 0 and a brightness. */
+        void use(Block block, float time, int termTexture, float brightness) {
             GL20.glUseProgram(id);
-            GL20.glUniform4(header, block.header);
+            GL20.glUniform4f(header, block.header.get(0), block.header.get(1), block.header.get(2), time);
             GL20.glUniform4(layers, block.layers);
             GL20.glUniform4(ring, block.ring);
             // GlStateManager.color has no effect on a program, so the brightness is a uniform.
@@ -166,7 +167,7 @@ final class LegacySharpSky {
      */
     static boolean draw(SkyImage img, int sphere, float brightness) {
         if (!img.drawsSharp() || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, termTexture, brightness);
+        SHARP.use(block, SkyClock.seconds(), termTexture, brightness);
         GlStateManager.disableCull();
         GlStateManager.callList(sphere);
         GlStateManager.enableCull();
@@ -213,10 +214,11 @@ final class LegacySharpSky {
      * Draws the program and the term images of a sky {@code repeat} times into an equirectangular image of this size, then
      * gives the pixels and the GPU time of one draw.
      *
+     * @param time the time of the layers that move, or {@link SkyProgram#STILL}
      * @param png a file for the image, or null
      * @return false when the shader cannot compile
      */
-    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         if (!EQUIRECT.ready()) return false;
         int texture = uploadTerms(sky);
         Framebuffer target = new Framebuffer(width, height, false);
@@ -225,7 +227,7 @@ final class LegacySharpSky {
         GlStateManager.disableDepth();
         GlStateManager.disableCull();
         GlStateManager.disableAlpha();
-        EQUIRECT.use(new Block(sky.program()), texture, 1f);
+        EQUIRECT.use(new Block(sky.program()), time, texture, 1f);
         ContextCapabilities caps = GLContext.getCapabilities();
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;

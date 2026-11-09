@@ -14,9 +14,12 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMeteors;
 import dev.albedo.core.sky.SkyPresets;
+import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.ui.SettingsEditor;
 
 import java.io.File;
@@ -88,10 +91,11 @@ public final class Harness {
          * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an
          * equirectangular image of this size, and later gives its pixels and the GPU time of one draw to {@code done}.
          *
+         * @param time the time in seconds of the layers that move, or {@link SkyProgram#STILL}
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, int width, int height, int repeat, File png, SkyDone done) {
+        default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, File png, SkyDone done) {
             return false;
         }
     }
@@ -108,6 +112,8 @@ public final class Harness {
     private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
     /** The ticks that a sky command waits for the shader to compile. */
     private static final int SKY_TRIES = 200;
+    /** The lowest elevation in degrees of the meteor that {@code meteor} looks at. */
+    private static final int METEOR_ELEVATION = 30;
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
 
@@ -208,6 +214,8 @@ public final class Harness {
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
+        else if (verb.equals("skyclock")) skyClock(arg);
+        else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
@@ -352,7 +360,7 @@ public final class Harness {
         }
         if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
         SkyImage cpu = compareCpu;
-        boolean started = host.drawSharpSky(cpu, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
+        boolean started = host.drawSharpSky(cpu, SkyProgram.STILL, COMPARE_W, COMPARE_H, 1, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
             double[] d = difference(cpu.argb(), gpu);
             log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H, d[0], d[1], d[2],
                     d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
@@ -367,9 +375,38 @@ public final class Harness {
             log("! skytime: the sky is not a custom sky that the shader can draw");
             return;
         }
-        boolean started = host.drawSharpSky(world, TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
+        boolean started = host.drawSharpSky(world, SkyClock.seconds(), TIME_W, TIME_H, TIME_REPEAT, null, (gpu, nanos) ->
                 log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", TIME_W, TIME_H, nanos / 1e6)));
         if (!started) again("skytime", tries);
+    }
+
+    /**
+     * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
+     * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
+     */
+    private static void skyClock(String arg) {
+        if (arg.equals("run")) SkyClock.run();
+        else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
+        else SkyClock.hold(Float.parseFloat(arg));
+    }
+
+    /**
+     * Holds the clock at the next meteor of the world sky that is at its brightest above an elevation in degrees, and
+     * turns the camera to its head, so that a screenshot shows a meteor in flight.
+     */
+    private void meteor(int elevation) {
+        SkyImage world = Albedo.skyImage();
+        float[] peak = world == null ? null : SkyMeteors.nextPeak(world.program(), SkyClock.seconds(), elevation);
+        if (peak == null) {
+            log("! meteor: the sky has no meteors");
+            return;
+        }
+        SkyClock.hold(peak[0]);
+        // The camera yaw is 0 to the south and 90 to the west, and a negative pitch looks up.
+        double yaw = Math.toDegrees(Math.atan2(peak[1], -peak[3])) + 180;
+        double pitch = -Math.toDegrees(Math.asin(peak[2]));
+        log(String.format(Locale.ROOT, "meteor at %.3f s, yaw %.1f, pitch %.1f", peak[0], yaw, pitch));
+        host.runCommand(String.format(Locale.ROOT, "tp @p ~ ~ ~ %.1f %.1f", yaw, pitch));
     }
 
     /** Runs a sky command again on the next tick, until no tries are left. */

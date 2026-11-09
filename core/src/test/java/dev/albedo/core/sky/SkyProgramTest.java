@@ -34,7 +34,8 @@ class SkyProgramTest {
             "KIND_BLOOM " + SkyProgram.KIND_BLOOM, "KIND_BLUR " + SkyProgram.KIND_BLUR, "KIND_PIXELATE " + SkyProgram.KIND_PIXELATE,
             "KIND_CRYSTALLIZE " + SkyProgram.KIND_CRYSTALLIZE, "KIND_SWIRL " + SkyProgram.KIND_SWIRL,
             "KIND_POSTERIZE " + SkyProgram.KIND_POSTERIZE, "KIND_HUE_SHIFT " + SkyProgram.KIND_HUE_SHIFT,
-            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE,
+            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE, "KIND_METEORS " + SkyProgram.KIND_METEORS,
+            "METEOR_CHANNELS " + SkyMeteors.CHANNELS, "METEOR_SLOTS_BACK " + SkyMeteors.SLOTS_BACK,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
             "USE_SHOW " + SkyProgram.USE_SHOW};
@@ -49,6 +50,25 @@ class SkyProgramTest {
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
         assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
+        // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6.
+        assertEquals(4 * 4 + 3, SkyProgram.SPEED);
+        assertEquals(5 * 4 + 3, SkyProgram.LENGTH);
+        assertEquals(6 * 4 + 3, SkyProgram.SHOWER);
+        assertTrue(glsl.contains("const float ALBEDO_METEOR_SLOT = " + SkyMeteors.SLOT + ";"));
+        assertTrue(glsl.contains("const float ALBEDO_METEOR_TRAIL_END = " + SkyMeteors.TRAIL_END + ";"));
+    }
+
+    @Test
+    void theMeteorsPresetDrawsSharpAndMovesWithTheTime() {
+        SkyProgram meteors = SkyGenerator.bake(SkyPresets.METEORS, 64, 32).program();
+        assertTrue(meteors.drawsSharp());
+        assertTrue(meteors.moves());
+        assertEquals(SkyProgram.STILL, meteors.block()[SkyProgram.TIME], "the block is a still sky until the adapter writes the time");
+        assertEquals(SkyProgram.KIND_METEORS, meteors.block()[SkyProgram.at(3, SkyProgram.KIND)]);
+        assertEquals(0.7f, meteors.block()[SkyProgram.at(3, SkyProgram.SHOWER)], 1e-6f);
+        assertFalse(SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program().moves());
+        SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY));
+        assertFalse(SkyProgram.of(hidden, new float[SkyImage.RING * 3]).moves(), "a meteors layer that does not show does not move");
     }
 
     private static byte[] readAll(InputStream in) throws IOException {
@@ -88,7 +108,8 @@ class SkyProgramTest {
                     || kind == SkyLayer.Kind.CRYSTALLIZE || kind == SkyLayer.Kind.SWIRL;
             assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, SkyProgram.path(kind), kind.name());
             boolean filter = kind.role() == SkyLayer.Role.FILTER;
-            assertEquals(filter, SkyProgram.kindCode(kind) >= SkyProgram.KIND_BLOOM, kind.name());
+            int code = SkyProgram.kindCode(kind);
+            assertEquals(filter, code >= SkyProgram.KIND_BLOOM && code != SkyProgram.KIND_METEORS, kind.name());
             assertTrue(SkyProgram.kindCode(kind) > 0, kind.name());
         }
     }

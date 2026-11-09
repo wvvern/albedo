@@ -27,6 +27,7 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -201,12 +202,26 @@ final class SharpSky {
     /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
     static void prepare(SkyImage img) {
         ready = ModernSky.wantsSharp(img) && SHARP.get() != null;
-        if (!ready || blockSerial == img.serial()) return;
-        if (block != null) block.close();
-        if (terms != null) terms.close();
-        block = upload(img.program(), "Albedo sky block");
-        terms = Terms.upload(img, "Albedo sky terms");
-        blockSerial = img.serial();
+        if (!ready) return;
+        if (blockSerial != img.serial()) {
+            if (block != null) block.close();
+            if (terms != null) terms.close();
+            block = upload(img.program(), SkyProgram.STILL, "Albedo sky block");
+            terms = Terms.upload(img, "Albedo sky terms");
+            blockSerial = img.serial();
+        }
+        if (img.program().moves()) writeTime(block, SkyClock.seconds());
+    }
+
+    /** Writes the time of the layers that move into the header of a block, outside a render pass. */
+    private static void writeTime(GpuBuffer target, float time) {
+        ByteBuffer bytes = MemoryUtil.memAlloc(4);
+        try {
+            bytes.putFloat(0, time);
+            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), bytes);
+        } finally {
+            MemoryUtil.memFree(bytes);
+        }
     }
 
     /**
@@ -227,13 +242,13 @@ final class SharpSky {
         return true;
     }
 
-    /** A uniform buffer with the block of a program. */
-    private static GpuBuffer upload(SkyProgram program, String label) {
+    /** A uniform buffer with the block of a program at a time, which {@link #writeTime} can change. */
+    private static GpuBuffer upload(SkyProgram program, float time, String label) {
         float[] values = program.block();
         ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
         try {
-            bytes.asFloatBuffer().put(values);
-            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM, bytes);
+            bytes.asFloatBuffer().put(values).put(SkyProgram.TIME, time);
+            return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, bytes);
         } finally {
             MemoryUtil.memFree(bytes);
         }
@@ -243,13 +258,14 @@ final class SharpSky {
      * Draws the program and the term images of a sky {@code repeat} times into an equirectangular image of this size, then
      * gives the pixels and the GPU time of one draw, and returns false while the shader compiles or when it cannot compile.
      *
+     * @param time the time of the layers that move, or {@link SkyProgram#STILL}
      * @param png a file for the image, or null
      */
-    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
         CompiledRenderPipeline pipeline = EQUIRECT.get();
         if (pipeline == null) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
-        GpuBuffer uniforms = upload(sky.program(), "Albedo sky compare block");
+        GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad();
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();

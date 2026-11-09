@@ -30,7 +30,13 @@ public final class SkyLayer {
         AMOUNT("amount", 0, 100),
         /** A percent of height above the horizon, or a threshold. */
         HEIGHT("height", 0, 100),
-        SEED("seed", 0, 99999);
+        SEED("seed", 0, 99999),
+        /** A percent of the fastest speed of a moving layer. */
+        SPEED("speed", 0, 100),
+        /** A percent of the longest trail of a moving layer. */
+        LENGTH("length", 0, 100),
+        /** The percent of meteors that move away from the layer center, as in a meteor shower. */
+        SHOWER("shower", 0, 100);
 
         public final String key;
         private final int min, max;
@@ -67,6 +73,10 @@ public final class SkyLayer {
                 Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 50, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
                 Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.SEED, 1),
+        /** Shooting stars, which move with the time, so only the sharp render draws them; the center is the radiant of a shower. */
+        METEORS(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH), new Transform(45, 55, 0, 100),
+                Param.COLOR_1, 0xFFE4EEFF, Param.COLOR_2, 0xFFA8FFC4, Param.AMOUNT, 50, Param.SPEED, 50, Param.LENGTH, 40,
+                Param.SHOWER, 0, Param.SEED, 1),
         BLUR(Role.FILTER, EnumSet.noneOf(Transform.Axis.class), Transform.IDENTITY, Param.AMOUNT, 30),
         CRYSTALLIZE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY, Param.SEED, 1),
         PIXELATE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY),

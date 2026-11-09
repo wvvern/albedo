@@ -66,22 +66,23 @@ The sky has three styles: Vanilla, Color (one flat color for the sky and the fog
 
 ### Custom sky
 
-With the style **Layers**, you make your own sky from up to 8 layers. The first time, the sky starts from the Dusk preset. Push Dusk, Nebula or Galaxy two times to start again from a preset.
+With the style **Layers**, you make your own sky from up to 8 layers. The first time, the sky starts from the Dusk preset. Push Dusk, Nebula, Galaxy or Meteors two times to start again from a preset. Meteors is a clear night sky with shooting stars.
 
 There are two types of layer:
 
-- **Make** layers paint: Gradient, Glow, Noise, Fractal, Galaxy and Stars.
+- **Make** layers paint: Gradient, Glow, Noise, Fractal, Galaxy, Stars and Meteors.
 - **Change** layers change the layers below them: Blur, Crystallize, Pixelate, Posterize, Hue shift, Bloom, Swirl and Vignette. You can put many of them on top of each other.
 
 A higher layer is drawn over the lower layers. Click a layer to edit it:
 
 - **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern.
+- **Meteors:** shooting stars that move across the upper sky, each with a small white head and a thin trail that fades. Amount sets how many, Speed how fast, Length how long the trails are, and Shower how many come from one point, the radiant. Turn and Tilt on the Place page move the radiant. Some meteors are bright fireballs. Only "Sharp render" shows the meteors. The preview and the fast render do not show them.
 - **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
 - **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
 
 The preview above the layers shows the sky from the zenith (the top edge) down to 15 degrees below the horizon (the white line), with north at the left. When "Full sphere" is on, it shows all of the sky, also below the horizon. The yellow dashed lines are the sun path: the sun comes up in the east, goes through the zenith and goes down in the west. On a layer page, "This layer" shows only that layer, also when it is only a mask. The sky in the world changes when you push Apply or Done.
 
-"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon has the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula and Galaxy skies use "Full sphere". "Sharp render" draws your sky sharp at all screen sizes and with zoom, on all versions. Blur, Bloom, Pixelate, Crystallize and Swirl stay soft, and a sky with more than 4 of these filters draws from an image of the sky. On 1.8.9, the graphics card must have OpenGL 3.0, else the sky draws from an image of the sky. Set it off if the game is slow.
+"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon has the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula, Galaxy and Meteors skies use "Full sphere". "Sharp render" draws your sky sharp at all screen sizes and with zoom, on all versions. Blur, Bloom, Pixelate, Crystallize and Swirl stay soft, and a sky with more than 4 of these filters draws from an image of the sky. On 1.8.9, the graphics card must have OpenGL 3.0, else the sky draws from an image of the sky. Set it off if the game is slow.
 
 ### Groups
 
@@ -149,7 +150,7 @@ A custom sky in the file:
 }
 ```
 
-Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height` and `seed` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
+Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height`, `seed`, `speed`, `length` and `shower` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 

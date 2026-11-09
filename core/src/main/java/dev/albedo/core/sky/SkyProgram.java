@@ -32,6 +32,10 @@ public final class SkyProgram {
     public static final int RING = LAYERS + SkyDesign.MAX_LAYERS * LAYER_VEC4S * 4;
     /** The number of floats in the block. */
     public static final int FLOATS = RING + SkyImage.RING * 4;
+    /** The float index of the time in seconds, the last value of the header, which each adapter writes for each frame. */
+    public static final int TIME = 3;
+    /** The time of a still sky, in which the layers that move draw nothing, as in the CPU bake. */
+    public static final float STILL = -1f;
 
     /** The kind codes of the generators in the shader. */
     static final int KIND_GRADIENT = 1, KIND_GLOW = 2, KIND_STARS = 3, KIND_NOISE = 4, KIND_FRACTAL = 5, KIND_GALAXY = 6;
@@ -41,6 +45,8 @@ public final class SkyProgram {
     static final int KIND_BLUR = 8, KIND_PIXELATE = 9, KIND_CRYSTALLIZE = 10, KIND_SWIRL = 11;
     /** The kind codes of the filters that the shader calculates for each pixel from the sky below them. */
     static final int KIND_POSTERIZE = 12, KIND_HUE_SHIFT = 13, KIND_VIGNETTE = 14;
+    /** The kind code of the meteors, a generator that only the shader draws, because it moves with the time. */
+    static final int KIND_METEORS = 15;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -49,19 +55,22 @@ public final class SkyProgram {
     // The float offsets in a layer.
     static final int KIND = 0, BLEND = 1, USE = 2, MASK_INDEX = 3, MASK_DARK = 4, OPACITY = 5, AMOUNT = 6, HEIGHT = 7;
     static final int SCALE = 8, SEED = 9, ALPHA_1 = 10, ALPHA_2 = 11, COLOR_1 = 12, TERM_SLOT = 15;
-    static final int COLOR_2 = 16, LAB_1 = 20, LAB_2 = 24;
+    static final int COLOR_2 = 16, SPEED = 19, LAB_1 = 20, LENGTH = 23, LAB_2 = 24, SHOWER = 27;
     /** The three rows of the matrix from sky directions to the layer frame, each a vec4. */
     static final int LOCAL = 28;
 
     private final float[] block = new float[FLOATS];
     private final Path[] paths;
     private final int terms;
+    private final boolean moves;
 
     private SkyProgram(SkyDesign design, float[] ring) {
         List<SkyLayer> layers = design.layers();
-        // The header: the layer count, the extent (1 for the full sphere) and the term count.
+        // The header: the layer count, the extent (1 for the full sphere), the term count and the time.
         block[0] = layers.size();
         block[1] = design.extent() == SkyDesign.Extent.SPHERE ? 1 : 0;
+        block[TIME] = STILL;
+        boolean anyMoves = false;
         paths = new Path[layers.size()];
         boolean[] maskSource = new boolean[layers.size()];
         for (int i = 0; i < layers.size(); i++) {
@@ -87,6 +96,10 @@ public final class SkyProgram {
             block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
             block[base + SCALE] = l.transform().scale() / 100f;
             block[base + SEED] = l.param(SkyLayer.Param.SEED);
+            block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
+            block[base + LENGTH] = l.param(SkyLayer.Param.LENGTH) / 100f;
+            block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
+            anyMoves |= l.kind() == SkyLayer.Kind.METEORS && block[base + USE] == USE_SHOW;
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
             double[] r = l.transform().rotation();
@@ -95,6 +108,7 @@ public final class SkyProgram {
             }
         }
         terms = slots;
+        moves = anyMoves;
         block[2] = slots;
         for (int s = 0; s < SkyImage.RING; s++) System.arraycopy(ring, s * 3, block, RING + s * 4, 3);
     }
@@ -117,6 +131,7 @@ public final class SkyProgram {
             case FRACTAL:
             case GALAXY:
             case STARS:
+            case METEORS:
             case POSTERIZE:
             case HUE_SHIFT:
             case VIGNETTE:
@@ -144,6 +159,9 @@ public final class SkyProgram {
         return true;
     }
 
+    /** True when a shown layer moves with the time, so that the adapter must write the time into the header for each frame. */
+    public boolean moves() { return moves; }
+
     /** The number of term images, from 0 to {@link #MAX_TERMS}. */
     public int terms() { return terms; }
 
@@ -166,7 +184,7 @@ public final class SkyProgram {
         System.arraycopy(out, 0, block, lab, 3);
     }
 
-    /** The kind code of the shader, where the generators are below {@link #KIND_BLOOM} and the filters are from it up. */
+    /** The kind code of the shader, where the generators are below {@link #KIND_BLOOM} or {@link #KIND_METEORS} and the filters are the others. */
     static int kindCode(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT: return KIND_GRADIENT;
@@ -175,6 +193,7 @@ public final class SkyProgram {
             case NOISE: return KIND_NOISE;
             case FRACTAL: return KIND_FRACTAL;
             case GALAXY: return KIND_GALAXY;
+            case METEORS: return KIND_METEORS;
             case BLOOM: return KIND_BLOOM;
             case BLUR: return KIND_BLUR;
             case PIXELATE: return KIND_PIXELATE;

@@ -91,6 +91,7 @@ final class Labels {
             case FRACTAL: return "Fractal";
             case GALAXY: return "Galaxy";
             case STARS: return "Stars";
+            case METEORS: return "Meteors";
             case BLUR: return "Blur";
             case CRYSTALLIZE: return "Crystallize";
             case PIXELATE: return "Pixelate";
@@ -110,6 +111,7 @@ final class Labels {
             case FRACTAL: return "Thin bright lines of gas, as in a nebula";
             case GALAXY: return "A spiral galaxy";
             case STARS: return "Small points of light";
+            case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them. The preview does not show them.";
             case BLUR: return "Makes the layers below soft";
             case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
             case PIXELATE: return "Breaks the layers below into square cells";
@@ -126,12 +128,15 @@ final class Labels {
         switch (p) {
             case COLOR_1:
                 return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : "Color";
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : "Color";
             case COLOR_2:
-                return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : "Light";
+                return k == SkyLayer.Kind.GRADIENT ? "High" : k == SkyLayer.Kind.GALAXY ? "Core" : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
             case HEIGHT:
                 return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold" : "Height";
             case SEED: return "Seed";
+            case SPEED: return "Speed";
+            case LENGTH: return "Length";
+            case SHOWER: return "Shower";
             default: return amount(k);
         }
     }
@@ -144,6 +149,7 @@ final class Labels {
             case FRACTAL: return "Warp";
             case GALAXY: case SWIRL: return "Twist";
             case STARS: return "Count";
+            case METEORS: return "Amount";
             case BLUR: return "Radius";
             case POSTERIZE: return "Levels";
             case HUE_SHIFT: return "Hue";
