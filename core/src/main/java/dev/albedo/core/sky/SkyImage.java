@@ -5,14 +5,14 @@ import dev.albedo.core.config.SkyDesign;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A baked custom sky: an equirectangular ARGB image from {@link #TOP} degrees of elevation down to {@link #BOTTOM}, with
- * north at u = 0 and east to the right, where the rows below the image take the color of its last row.
+ * A baked custom sky: an equirectangular ARGB image of the full sphere from {@link #TOP} degrees of elevation down to
+ * {@link #BOTTOM}, with north at u = 0 and east to the right.
  */
 public final class SkyImage {
     /** The elevation of the first row, in degrees. */
     public static final float TOP = 90f;
-    /** The elevation of the last row, in degrees, below which the sky has the color of that row. */
-    public static final float BOTTOM = -15f;
+    /** The elevation of the last row, in degrees. */
+    public static final float BOTTOM = -90f;
     /** The number of azimuth sectors of the horizon colors. */
     public static final int RING = 64;
     private static final AtomicLong SERIALS = new AtomicLong();
@@ -83,11 +83,10 @@ public final class SkyImage {
      * @param radius the distance of the vertices from the camera
      */
     public static float[] sphere(float radius) {
-        int columns = 64;
-        // Close rows from the zenith to the bottom of the image, then a few for the rest of the lower half.
-        float[] elevations = new float[33];
-        for (int i = 0; i <= 28; i++) elevations[i] = TOP - (TOP - BOTTOM) * i / 28f;
-        for (int i = 1; i <= 4; i++) elevations[28 + i] = BOTTOM + (-90 - BOTTOM) * i / 4f;
+        int columns = 64, bands = 56;
+        // Rows of equal height, so that v is linear in elevation across each triangle.
+        float[] elevations = new float[bands + 1];
+        for (int i = 0; i <= bands; i++) elevations[i] = TOP - (TOP - BOTTOM) * i / bands;
         float[] out = new float[(elevations.length - 1) * columns * 6 * 5];
         int k = 0;
         for (int r = 0; r < elevations.length - 1; r++) {

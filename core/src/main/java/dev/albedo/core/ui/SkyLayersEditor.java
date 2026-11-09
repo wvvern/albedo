@@ -10,6 +10,7 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyPresets;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,7 @@ final class SkyLayersEditor {
     }
 
     /** The size of the preview image, the same shape as the image in the world. */
-    static final int PREVIEW_W = 512, PREVIEW_H = 128;
+    static final int PREVIEW_W = 512, PREVIEW_H = 256;
     /** The height of one control row. */
     private static final int ROW = 16;
     private static final int GAP = 6;
@@ -153,14 +154,18 @@ final class SkyLayersEditor {
         int ph = previewHeight(w) - 10;
         Rect strip = new Rect(x, y, w, ph);
         SkyImage img = preview.image();
+        SkyDesign drawn = img == null ? design : img.design();
         if (img == null) {
             ui.fill(x, y, w, ph, Ui.PANEL);
             ui.textFit("Making the preview", x + 4, y + 4, w - 8, Ui.FAINT);
         } else {
-            if (shown == null || shown.serial() != img.serial()) shown = new CanvasImage(img.argb(), img.width(), img.height(), img.serial());
+            if (shown == null || shown.serial() != img.serial()) {
+                int rows = SkyPreviewGeometry.rows(drawn, img.height());
+                shown = new CanvasImage(Arrays.copyOf(img.argb(), rows * img.width()), img.width(), rows, img.serial());
+            }
             ui.c.image("sky.preview", shown, x, y, w, ph);
         }
-        int horizon = SkyPreviewGeometry.y(strip, 0);
+        int horizon = SkyPreviewGeometry.y(strip, drawn, 0);
         ui.fill(x, horizon, w, 1, 0x99FFFFFF);
         // The vanilla sun rises in the east, passes through the zenith and sets in the west.
         for (int az : new int[]{SkyPreviewGeometry.SUNRISE, SkyPreviewGeometry.SUNSET}) {
@@ -169,7 +174,7 @@ final class SkyLayersEditor {
         }
         ui.fill(x, y, w, 1, 0x66FFFFFF);
         ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, 0xCCFFFFFF);
-        ui.tip(x, y, w, ph, "Preview of the full sky, from the horizon (line) to the zenith (top). Yellow: the sun path. "
+        ui.tip(x, y, w, ph, "Preview of the full sky, with the horizon (line) and the zenith (top). Yellow: the sun path. "
                 + "The sky in the world changes when you push Apply or Done.");
         if (w >= 24) {
             for (int i = 0; i < SkyPreviewGeometry.COMPASS.length; i++) {
@@ -209,15 +214,15 @@ final class SkyLayersEditor {
         }
         cy += Ui.H + GAP;
         boolean celestial = design.celestial() == SkyDesign.Celestial.SHOW, night = design.light() == SkyDesign.Light.DAY_NIGHT;
-        int half = w >= 300 ? (w - GAP) / 2 : w;
-        boolean c = ui.toggleRow("sky.celestial", x - 4, cy, half + 4, "Show sun, moon and stars", celestial,
-                "The game draws the sun, moon and stars over the layers");
-        if (half == w) cy += 14;
-        boolean n = ui.toggleRow("sky.night", half == w ? x - 4 : x + half + GAP - 4, cy, half + 4, "Darker at night", night,
-                "The sky gets dark at night and in rain, as the vanilla sky does");
-        if (c != celestial) set.accept(design.withCelestial(c ? SkyDesign.Celestial.SHOW : SkyDesign.Celestial.HIDE));
-        if (n != night) set.accept(design.withLight(n ? SkyDesign.Light.DAY_NIGHT : SkyDesign.Light.FIXED));
-        cy += 14 + 2;
+        boolean sphere = design.extent() == SkyDesign.Extent.SPHERE;
+        Switch[] switches = {
+            new Switch("sky.celestial", "Show sun, moon and stars", "The game draws the sun, moon and stars over the layers", celestial,
+                    design.withCelestial(celestial ? SkyDesign.Celestial.HIDE : SkyDesign.Celestial.SHOW)),
+            new Switch("sky.night", "Darker at night", "The sky gets dark at night and in rain, as the vanilla sky does", night,
+                    design.withLight(night ? SkyDesign.Light.FIXED : SkyDesign.Light.DAY_NIGHT)),
+            new Switch("sky.extent", "Full sphere", "The layers go around the full sky, also below the horizon", sphere,
+                    design.withExtent(sphere ? SkyDesign.Extent.HORIZON : SkyDesign.Extent.SPHERE))};
+        cy = switches(x, cy, w, switches, set) + 2;
         List<SkyLayer> layers = design.layers();
         if (layers.isEmpty()) {
             ui.paragraph("No layers. The sky is black. Add a layer or select a sky above.", x, cy + 2, w, Ui.FAINT);
@@ -230,6 +235,32 @@ final class SkyLayersEditor {
         for (int r = first; r < Math.min(layers.size(), first + visible); r++) {
             if (layerRow(x, cy + (r - first) * ROW, listW, design, layers.size() - 1 - r, set)) return;
         }
+    }
+
+    /** One on-off row of the list screen and the design that it gives when the user flips it. */
+    private static final class Switch {
+        final String id, label, tip;
+        final boolean on;
+        final SkyDesign flipped;
+
+        Switch(String id, String label, String tip, boolean on, SkyDesign flipped) {
+            this.id = id;
+            this.label = label;
+            this.tip = tip;
+            this.on = on;
+            this.flipped = flipped;
+        }
+    }
+
+    /** Draws the switches in two columns when the width permits, else in one, and returns the y below them. */
+    private int switches(int x, int y, int w, Switch[] switches, Consumer<SkyDesign> set) {
+        int columns = w >= 300 ? 2 : 1, cw = (w - GAP * (columns - 1)) / columns, rowH = 14;
+        for (int i = 0; i < switches.length; i++) {
+            Switch s = switches[i];
+            int sx = x + i % columns * (cw + GAP), sy = y + i / columns * rowH;
+            if (ui.toggleRow(s.id, sx - 4, sy, cw + 4, s.label, s.on, s.tip) != s.on) set.accept(s.flipped);
+        }
+        return y + (switches.length + columns - 1) / columns * rowH;
     }
 
     private static List<Map.Entry<String, SkyDesign>> reversed(Map<String, SkyDesign> map) {

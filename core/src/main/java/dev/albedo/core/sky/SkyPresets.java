@@ -24,7 +24,7 @@ public final class SkyPresets {
             .output(SkyLayer.Output.MASK_ONLY)
             .add(Kind.STARS, Param.AMOUNT, 25, Param.SEED, 3)
             .blend(SkyLayer.Blend.ADD).opacity(55).mask(3, SkyMask.Mode.DARK)
-            .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT);
+            .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT, SkyDesign.Extent.HORIZON);
 
     /** Pink and violet clouds of gas with stars, partly blurred and changed in hue through a noise mask. */
     public static final SkyDesign NEBULA = new Builder()
@@ -36,7 +36,7 @@ public final class SkyPresets {
             .add(Kind.BLUR, Param.AMOUNT, 25).mask(3, SkyMask.Mode.LIGHT)
             .add(Kind.HUE_SHIFT, Param.AMOUNT, 12).mask(3, SkyMask.Mode.DARK)
             .add(Kind.BLOOM, Param.AMOUNT, 40, Param.HEIGHT, 55)
-            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED);
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
     /** A spiral galaxy high in the south-east over a field of stars and a faint band of light. */
     public static final SkyDesign GALAXY = new Builder()
@@ -47,7 +47,7 @@ public final class SkyPresets {
             .add(Kind.GALAXY, Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 55, Param.SEED, 4)
             .blend(SkyLayer.Blend.ADD).place(new Transform(135, 40, 20, 140))
             .add(Kind.BLOOM, Param.AMOUNT, 50, Param.HEIGHT, 50)
-            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED);
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 
@@ -98,8 +98,8 @@ public final class SkyPresets {
 
         Builder place(Transform t) { return change(last().withTransform(t)); }
 
-        SkyDesign build(SkyDesign.Celestial celestial, SkyDesign.Light light) {
-            return new SkyDesign(layers, celestial, light);
+        SkyDesign build(SkyDesign.Celestial celestial, SkyDesign.Light light, SkyDesign.Extent extent) {
+            return new SkyDesign(layers, celestial, light, extent);
         }
     }
 }

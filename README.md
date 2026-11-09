@@ -79,9 +79,9 @@ A higher layer is drawn over the lower layers. Click a layer to edit it:
 - **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
 - **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
 
-The preview above the layers shows all of the sky, from the horizon (the white line) to the zenith (the top edge), with north at the left. The yellow dashed lines are the sun path: the sun comes up in the east, goes through the zenith and goes down in the west. On a layer page, "This layer" shows only that layer, also when it is only a mask. The sky in the world changes when you push Apply or Done.
+The preview above the layers shows all of the sky, with the horizon (the white line) and the zenith (the top edge), and north at the left. The yellow dashed lines are the sun path: the sun comes up in the east, goes through the zenith and goes down in the west. On a layer page, "This layer" shows only that layer, also when it is only a mask. The sky in the world changes when you push Apply or Done.
 
-"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. The fog takes the color of your sky near the horizon.
+"Show sun, moon and stars" draws the vanilla sun, moon and stars over your sky. "Darker at night" makes your sky dark at night and in rain, the same as the vanilla sky. "Full sphere" puts the layers around the full sky, also below the horizon. When it is off, the sky below the horizon has the color of the horizon. The fog takes the color of your sky near the horizon. The Nebula and Galaxy skies use "Full sphere".
 
 ### Groups
 
@@ -149,7 +149,7 @@ A custom sky in the file:
 }
 ```
 
-The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height` and `seed` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
+Add `"extent": "sphere"` to put the layers around the full sky (the default is `"horizon"`). The first layer is the lowest. Each layer has its own `id`, and a `mask` can name only a lower layer. `color1`, `color2`, `amount`, `height` and `seed` are the values of the layer, and each kind uses only some of them. `transform` has `yaw` (0 to 359), `pitch` (-90 to 90), `roll` (-180 to 180) and `scale` (25 to 400 percent). An error message gives the place of the error, for example `my-profile.sky.layers[3].mask: no layer below this one has id 7`.
 
 To share a profile, push Export in the settings screen. This saves it to `config/albedo/profiles/` and copies it to the clipboard. To add a profile that someone gave you, copy its text and push Import.
 

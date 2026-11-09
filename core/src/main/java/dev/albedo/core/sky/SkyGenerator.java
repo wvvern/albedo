@@ -24,8 +24,13 @@ public final class SkyGenerator {
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
     /** The star grid density per radian at which the star sizes are set, between the Nebula and Galaxy counts. */
     private static final float STAR_CELLS = 36f;
-    /** The elevation in degrees below which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
+    /**
+     * The elevation in degrees below which the sky goes smoothly into the horizon color, so that the fog meets it with no
+     * line, where a full sphere also has the band below the horizon in the color of the 0 to 6 degree ring to match the fog.
+     */
     private static final float HAZE = 3f;
+    /** The lowest elevation in degrees that the layers fill when the sky stops at the horizon, as filters near it read rows below it. */
+    private static final float HORIZON_BOTTOM = -15f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
     private static final int RING_SOFTEN = 5;
 
@@ -33,6 +38,8 @@ public final class SkyGenerator {
     private final int w, h;
     private final Rows rows;
     private final float[] sinLon, cosLon, sinEl, cosEl, elevation;
+    /** The number of rows from the top that the layers fill, where each row below repeats the last of them for a filter. */
+    private final int used;
     /** The width of one texel at the horizon, in radians. */
     private final float texel;
     private final float[] img;
@@ -59,6 +66,9 @@ public final class SkyGenerator {
             sinEl[y] = (float) Math.sin(el);
             cosEl[y] = (float) Math.cos(el);
         }
+        int filled = h;
+        if (design.extent() == SkyDesign.Extent.HORIZON) while (filled > 1 && elevation[filled - 1] < HORIZON_BOTTOM) filled--;
+        used = filled;
         texel = (float) (2 * Math.PI / w);
         img = new float[w * h * 4];
     }
@@ -105,10 +115,10 @@ public final class SkyGenerator {
             boolean show = layer.output() == SkyLayer.Output.SHOW;
             boolean ok;
             if (layer.kind().role() == SkyLayer.Role.GENERATOR) {
-                ok = rows.run(h, y -> generatorRow(ctx, y, show, mask, light, dark));
+                ok = rows.run(used, y -> generatorRow(ctx, y, show, mask, light, dark));
             } else {
                 if (tmp == null) tmp = new float[w * h * 4];
-                ok = filter(ctx) && rows.run(h, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
+                ok = filter(ctx) && rows.run(used, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
             }
             if (!ok) return null;
             if (light != null) planes.put(layer.id() * 2, light);
@@ -123,9 +133,10 @@ public final class SkyGenerator {
         return new SkyImage(argb, w, h, design, ring);
     }
 
-    /** Mixes the sky near and below the horizon into the horizon color of each direction, which is also the fog color there. */
+    /** Mixes the sky near the horizon, and below it when the sky stops there, into the horizon color (the fog color) of each direction. */
     private void horizonRow(int y, float[] ring) {
-        float k = 1 - smooth(0, HAZE, elevation[y]);
+        float from = design.extent() == SkyDesign.Extent.SPHERE ? Math.abs(elevation[y]) : elevation[y];
+        float k = 1 - smooth(0, HAZE, from);
         if (k <= 0) return;
         float[] c = new float[3];
         for (int x = 0; x < w; x++) {
@@ -421,12 +432,12 @@ public final class SkyGenerator {
                 System.arraycopy(img, 0, tmp, 0, img.length);
                 return blur(tmp, l.amount * 10f);
             case BLOOM: return bloom(l);
-            case PIXELATE: return rows.run(h, y -> pixelateRow(l, y));
-            case CRYSTALLIZE: return rows.run(h, y -> crystallizeRow(l, y));
-            case POSTERIZE: return rows.run(h, y -> posterizeRow(l, y));
-            case HUE_SHIFT: return rows.run(h, y -> hueRow(l, y));
-            case SWIRL: return rows.run(h, y -> swirlRow(l, y));
-            case VIGNETTE: return rows.run(h, y -> vignetteRow(l, y));
+            case PIXELATE: return rows.run(used, y -> pixelateRow(l, y));
+            case CRYSTALLIZE: return rows.run(used, y -> crystallizeRow(l, y));
+            case POSTERIZE: return rows.run(used, y -> posterizeRow(l, y));
+            case HUE_SHIFT: return rows.run(used, y -> hueRow(l, y));
+            case SWIRL: return rows.run(used, y -> swirlRow(l, y));
+            case VIGNETTE: return rows.run(used, y -> vignetteRow(l, y));
             default:
                 System.arraycopy(img, 0, tmp, 0, img.length);
                 return true;
@@ -436,7 +447,7 @@ public final class SkyGenerator {
     /** Three box passes in each direction, which is close to a Gaussian, with the width across a row wider toward the zenith. */
     private boolean blur(float[] buf, float degrees) {
         if (degrees <= 0) return true;
-        return rows.run(h, y -> {
+        return rows.run(used, y -> {
             int radius = Math.min(w / 2 - 1, Math.round(degrees / 360f * w / Math.max(0.05f, cosEl[y])));
             float[] line = new float[w * 4], out = new float[w * 4];
             System.arraycopy(buf, y * w * 4, line, 0, w * 4);
@@ -449,15 +460,15 @@ public final class SkyGenerator {
             System.arraycopy(line, 0, buf, y * w * 4, w * 4);
         }) && rows.run(w, x -> {
             int radius = Math.round(degrees / RANGE * h);
-            float[] line = new float[h * 4], out = new float[h * 4];
-            for (int y = 0; y < h; y++) System.arraycopy(buf, (y * w + x) * 4, line, y * 4, 4);
+            float[] line = new float[used * 4], out = new float[used * 4];
+            for (int y = 0; y < used; y++) System.arraycopy(buf, (y * w + x) * 4, line, y * 4, 4);
             for (int pass = 0; pass < 3; pass++) {
-                boxClamp(line, out, h, radius);
+                boxClamp(line, out, used, radius);
                 float[] t = line;
                 line = out;
                 out = t;
             }
-            for (int y = 0; y < h; y++) System.arraycopy(line, y * 4, buf, (y * w + x) * 4, 4);
+            for (int y = 0; y < used; y++) System.arraycopy(line, y * 4, buf, (y * w + x) * 4, 4);
         });
     }
 
@@ -502,7 +513,7 @@ public final class SkyGenerator {
     /** Adds a wide blur of the parts lighter than HEIGHT, AMOUNT strong. */
     private boolean bloom(Layer l) {
         float threshold = l.height;
-        boolean ok = rows.run(h, y -> {
+        boolean ok = rows.run(used, y -> {
             for (int x = 0; x < w; x++) {
                 int i = (y * w + x) * 4;
                 float lightness = Oklab.lightness(clamp01(img[i]), clamp01(img[i + 1]), clamp01(img[i + 2]));
@@ -513,7 +524,7 @@ public final class SkyGenerator {
         });
         if (!ok || !blur(tmp, 6f)) return false;
         float strength = l.amount * 2.5f;
-        return rows.run(h, y -> {
+        return rows.run(used, y -> {
             for (int x = 0; x < w; x++) {
                 int i = (y * w + x) * 4;
                 for (int c = 0; c < 3; c++) tmp[i + c] = img[i + c] + tmp[i + c] * strength;
@@ -660,16 +671,16 @@ public final class SkyGenerator {
         v[2] = z;
     }
 
-    /** The bilinear RGBA of an image in a sky direction, where the columns wrap and the rows stop at the ends. */
+    /** The bilinear RGBA of an image in a sky direction, where the columns wrap and the rows stop at the first and the last used row. */
     private void sample(float[] src, float x, float y, float z, float[] out) {
         double lon = Math.atan2(x, -z);
         double el = Math.toDegrees(Math.asin(clamp(y, -1, 1)));
         double fx = (lon / (2 * Math.PI)) * w - 0.5;
         double fy = (SkyImage.TOP - el) / RANGE * h - 0.5;
-        fy = Math.max(0, Math.min(h - 1, fy));
+        fy = Math.max(0, Math.min(used - 1, fy));
         int x0 = (int) Math.floor(fx), y0 = (int) Math.floor(fy);
         float tx = (float) (fx - x0), ty = (float) (fy - y0);
-        int xa = Math.floorMod(x0, w), xb = Math.floorMod(x0 + 1, w), ya = y0, yb = Math.min(h - 1, y0 + 1);
+        int xa = Math.floorMod(x0, w), xb = Math.floorMod(x0 + 1, w), ya = y0, yb = Math.min(used - 1, y0 + 1);
         for (int c = 0; c < 4; c++) {
             float top = src[(ya * w + xa) * 4 + c] * (1 - tx) + src[(ya * w + xb) * 4 + c] * tx;
             float bottom = src[(yb * w + xa) * 4 + c] * (1 - tx) + src[(yb * w + xb) * 4 + c] * tx;

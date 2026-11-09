@@ -63,8 +63,8 @@ public final class Albedo {
         this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
 
-    /** The size of the sky image in the world: about 5.7 texels for each degree, from 15 degrees below the horizon to the zenith. */
-    public static final int SKY_WIDTH = 2048, SKY_HEIGHT = 512;
+    /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
+    public static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
 
     /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {

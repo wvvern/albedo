@@ -15,7 +15,7 @@ class SkyGeneratorTest {
     private static final int W = 128, H = 32;
 
     private static SkyDesign of(SkyLayer... layers) {
-        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED);
+        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
     }
 
     private static SkyLayer layer(int id, SkyLayer.Kind kind) {
@@ -84,7 +84,7 @@ class SkyGeneratorTest {
 
     @Test
     void aStarHasTheSameSizeAtEachCount() {
-        int w = 1024, h = 256;
+        int w = 1024, h = 512;
         int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
         int many = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
         // The count of stars grows as the square of the grid density, from 18 to 42 cells, and their size stays.
@@ -92,9 +92,10 @@ class SkyGeneratorTest {
         assertTrue(ratio > 3.5f && ratio < 8f, "lit pixels " + few + " and " + many);
     }
 
+    /** The count of light pixels above the horizon, where the stars are. */
     private static int lit(SkyImage img) {
         int n = 0;
-        for (int p : img.argb()) if (red(p) > 60) n++;
+        for (int i = 0; i < img.argb().length / 2; i++) if (red(img.argb()[i]) > 60) n++;
         return n;
     }
 
@@ -111,9 +112,51 @@ class SkyGeneratorTest {
     @Test
     void aBlurOfOneColorChangesNothing() {
         SkyLayer flat = layer(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
-        int[] plain = SkyGenerator.bake(of(flat), W, H).argb();
-        int[] blurred = SkyGenerator.bake(of(flat, layer(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100)), W, H).argb();
-        for (int i = 0; i < plain.length; i++) assertTrue(Math.abs(red(plain[i]) - red(blurred[i])) <= 1);
+        SkyLayer blur = layer(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100);
+        for (SkyDesign.Extent e : SkyDesign.Extent.values()) {
+            int[] plain = SkyGenerator.bake(of(flat).withExtent(e), W, H).argb();
+            int[] blurred = SkyGenerator.bake(of(flat, blur).withExtent(e), W, H).argb();
+            for (int i = 0; i < plain.length; i++) assertTrue(Math.abs(red(plain[i]) - red(blurred[i])) <= 1, e + " pixel " + i);
+        }
+    }
+
+    @Test
+    void filtersAtTheHorizonDoNotReadTheRowsThatTheLayersLeaveEmpty() {
+        SkyLayer flat = layer(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
+        SkyDesign d = of(flat, layer(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100), layer(3, SkyLayer.Kind.BLOOM));
+        int w = 64, h = 512;
+        int[] px = SkyGenerator.bake(d, w, h).argb();
+        int high = row(45, h);
+        for (int y = row(15, h); y < row(3, h); y++) {
+            for (int x = 0; x < w; x++) assertEquals(red(px[high * w + x]), red(px[y * w + x]), 1, "row " + y + ", column " + x);
+        }
+    }
+
+    @Test
+    void aFullSphereHasTheLayersBelowTheHorizonAndTheFogColorAtIt() {
+        SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
+        int w = 256, h = 1024;
+        SkyImage horizon = SkyGenerator.bake(of(noise), w, h);
+        SkyImage sphere = SkyGenerator.bake(of(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
+        int low = row(-45, h), min = 255, max = 0;
+        for (int x = 0; x < w; x++) {
+            min = Math.min(min, red(sphere.argb()[low * w + x]));
+            max = Math.max(max, red(sphere.argb()[low * w + x]));
+            float[] fog = horizon.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
+            assertEquals(Math.round(fog[0] * 255), red(horizon.argb()[low * w + x]), 2, "the horizon sky is the fog color at -45");
+        }
+        assertTrue(max - min > 40, "the layers continue below the horizon: " + min + " to " + max);
+        int below = h / 2;
+        for (int x = 0; x < w; x += 7) {
+            float[] fog = sphere.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
+            assertEquals(Math.round(fog[0] * 255), red(sphere.argb()[below * w + x]), 3, "the fog color just below the horizon");
+        }
+        for (int i = 0; i < below * w; i++) assertEquals(horizon.argb()[i], sphere.argb()[i], "the sky above the horizon is the same");
+    }
+
+    /** The row whose center is nearest to an elevation in degrees. */
+    private static int row(double elevation, int h) {
+        return (int) Math.round((SkyImage.TOP - elevation) / (SkyImage.TOP - SkyImage.BOTTOM) * h - 0.5);
     }
 
     @Test
@@ -146,7 +189,7 @@ class SkyGeneratorTest {
             assertEquals(64 * 16, img.argb().length, k.key());
         }
         for (int p : SkyGenerator.bake(new SkyDesign(Collections.<SkyLayer>emptyList(), SkyDesign.Celestial.SHOW,
-                SkyDesign.Light.FIXED), 16, 4).argb()) {
+                SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE), 16, 4).argb()) {
             assertEquals(0xFF000000, p);
         }
     }
