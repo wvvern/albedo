@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
 import dev.albedo.core.sky.SkyTurn;
@@ -120,10 +121,25 @@ public final class ModernSky {
         *///?}
     }
 
+    /** Records the day time at the end of each client tick, for the frames until the next tick. */
+    static void tick() {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level != null) SkyDayTime.tick(dayTime(level));
+    }
+
     /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
     static SkyTurn turn(SkyImage img) {
         ClientLevel level = Minecraft.getInstance().level;
-        return SkyTurn.at(img.design().turning(), level == null ? 0 : dayTime(level));
+        return SkyTurn.at(img.design().turning(), level == null ? 0 : SkyDayTime.at(partialTick()));
+    }
+
+    /** The part of a tick from the last tick to this frame. */
+    private static float partialTick() {
+        //? if >=1.21.11 {
+        return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        //?} else {
+        /*return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        *///?}
     }
 
     /** A copy of the model view matrix of the sky sphere, turned for a sky that turns. */

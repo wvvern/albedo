@@ -2,7 +2,9 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.legacy.mixin.MinecraftAccessor;
 import dev.albedo.core.sky.SkyLight;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
@@ -67,10 +69,17 @@ public final class LegacySky {
         return img.fogRgb(turn(img), view.rotationYaw, brightness(img));
     }
 
+    /** Records the day time at the end of each client tick, for the frames until the next tick. */
+    static void tick() {
+        World world = Minecraft.getMinecraft().theWorld;
+        if (world != null) SkyDayTime.tick(world.getWorldTime());
+    }
+
     /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
     private static SkyTurn turn(SkyImage img) {
-        World world = Minecraft.getMinecraft().theWorld;
-        return SkyTurn.at(img.design().turning(), world == null ? 0 : world.getWorldTime());
+        Minecraft mc = Minecraft.getMinecraft();
+        float partialTick = ((MinecraftAccessor) mc).albedo$timer().renderPartialTicks;
+        return SkyTurn.at(img.design().turning(), mc.theWorld == null ? 0 : SkyDayTime.at(partialTick));
     }
 
     /**
