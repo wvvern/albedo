@@ -66,17 +66,17 @@ final class PrecompiledChromaPass implements ChromaBackend {
     }
 
     @Override
-    public boolean compile() {
-        if (state == Compile.FAILED) return false;
-        // A resource reload empties the pipeline cache, so the pipeline goes to the game before each use.
+    public Shader compile() {
+        if (state == Compile.FAILED) return Shader.FAILED;
+        // A resource reload empties the pipeline cache, so the pipeline goes to the game in each frame before the pass uses it.
         if (RenderSystem.getDevice().precompilePipeline(PIPELINE, PrecompiledChromaPass::source).isValid()) {
             if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the Chroma shader " + PIPELINE.getLocation());
             state = Compile.READY;
-            return true;
+            return Shader.READY;
         }
         state = Compile.FAILED;
         Albedo.get().platform().warn("Cannot compile the Chroma shader " + PIPELINE.getLocation() + ". The Chroma colors stay still.", null);
-        return false;
+        return Shader.FAILED;
     }
 
     @Override

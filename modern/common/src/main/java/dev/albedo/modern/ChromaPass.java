@@ -53,8 +53,9 @@ final class ChromaPass implements ChromaBackend {
             .build(), Runnable::run, "Chroma shader", "The Chroma colors stay still.");
 
     @Override
-    public boolean compile() {
-        return PIPELINE.get() != null || !PIPELINE.failed();
+    public Shader compile() {
+        if (PIPELINE.get() != null) return Shader.READY;
+        return PIPELINE.failed() ? Shader.FAILED : Shader.COMPILING;
     }
 
     @Override

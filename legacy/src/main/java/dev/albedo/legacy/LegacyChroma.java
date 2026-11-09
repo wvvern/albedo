@@ -83,6 +83,8 @@ public final class LegacyChroma {
         if (sc == null || broken) return;
         if (sc.chromaStill()) {
             close();
+        // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
+        restore();
             return;
         }
         long start = System.nanoTime();
@@ -418,19 +420,26 @@ public final class LegacyChroma {
 
     /** Takes the GPU times that the GPU gave, and logs all times when the last measured frame has its times. */
     private static void collectTimes() {
+        // A measurement that did not end yet gives way to the new one, and its queries go.
+        for (int[] q : PENDING) deleteQueries(q);
+        if (frameQueries != null) deleteQueries(frameQueries);
+        frameQueries = null;
         int done = TIMES.size() - PENDING.size();
         for (Iterator<int[]> it = PENDING.iterator(); it.hasNext(); done++) {
             int[] q = it.next();
             long start = 0, end = 0;
             if (timed()) {
                 if (GL15.glGetQueryObjecti(q[1], GL15.GL_QUERY_RESULT_AVAILABLE) == GL11.GL_FALSE) return;
+    private static void deleteQueries(int[] queries) {
+        for (int q : queries) GL15.glDeleteQueries(q);
+    }
+
                 start = GL33.glGetQueryObjecti64(q[0], GL15.GL_QUERY_RESULT);
                 end = GL33.glGetQueryObjecti64(q[1], GL15.GL_QUERY_RESULT);
             }
             long[] row = TIMES.get(done);
             TIMES.set(done, new long[]{row[0], start, end});
-            GL15.glDeleteQueries(q[0]);
-            GL15.glDeleteQueries(q[1]);
+            deleteQueries(q);
             it.remove();
         }
         if (timedLeft > 0) return;

@@ -36,9 +36,9 @@ final class GlChromaPass implements ChromaBackend {
     private static int vertexArray;
 
     @Override
-    public boolean compile() {
+    public Shader compile() {
         if (state == Compile.NOT_STARTED) compileNow();
-        return state == Compile.READY;
+        return state == Compile.READY ? Shader.READY : Shader.FAILED;
     }
 
     private static void compileNow() {

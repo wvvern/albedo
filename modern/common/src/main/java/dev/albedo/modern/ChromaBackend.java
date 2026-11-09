@@ -43,8 +43,14 @@ interface ChromaBackend {
         void close();
     }
 
-    /** Compiles the shader of the pass on the render thread when it is not compiled, and returns false when it cannot compile. */
-    boolean compile();
+    /** The state of the shader of the pass after {@link #compile}. */
+    enum Shader { READY, COMPILING, FAILED }
+
+    /**
+     * Compiles the shader of the pass on the render thread when it is not compiled, or gives it to the game again when a
+     * version needs that after a resource reload, which the pass calls in each frame before it draws.
+     */
+    Shader compile();
 
     /** The width, height and number of mip levels of the GPU texture of an atlas, or null before the atlas has its texture. */
     int[] size(TextureAtlas atlas);

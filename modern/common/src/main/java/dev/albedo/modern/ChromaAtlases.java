@@ -38,6 +38,11 @@ final class ChromaAtlases {
     private static final Set<Object> ATLASES = ConcurrentHashMap.newKeySet();
     /** The GPU target of each atlas with moving texels, by location. */
     private static final Map<Object, ChromaBackend.Target> TARGETS = new HashMap<>();
+    /**
+     * The sprite map of each atlas when its texels were made, by location, because 1.21.1 uploads a reloaded atlas of the
+     * same size into the same GL texture, and the atlas gets a new map in each upload.
+     */
+    private static final Map<Object, Object> LAYOUTS = new HashMap<>();
     private static final float[] TURNS = new float[Chroma.TURN_FLOATS];
     /** The texture paints of the core when the texels were made, so that a change makes them again. */
     private static int paints = Integer.MIN_VALUE;
@@ -64,10 +69,17 @@ final class ChromaAtlases {
         return !broken && sc != null && !sc.chromaStill();
     }
 
+    /** True while the pass moves the colors of some atlas, so that the screens draw their item icons again in each frame. */
+    static boolean moving() {
+        return !TARGETS.isEmpty();
+    }
+
     /** Draws the colors of this frame into the atlases, on the render thread before the frame draws anything. */
     static void frameStart() {
         Albedo sc = Albedo.get();
         if (sc == null || broken) return;
+        // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
+        restore();
         if (sc.chromaStill()) {
             close();
             return;
@@ -82,11 +94,16 @@ final class ChromaAtlases {
                 ChromaBackend.Target target = TARGETS.get(id);
                 if (!(texture instanceof TextureAtlas atlas)) {
                     if (target != null) TARGETS.remove(id).close();
+                    LAYOUTS.remove(id);
                     continue;
                 }
-                if (changed || target != null && !target.sameTexture(atlas)) build(id, atlas);
+                boolean newLayout = LAYOUTS.get(id) != ((TextureAtlasAccessor) atlas).albedo$texturesByName();
+                if (changed || newLayout || target != null && !target.sameTexture(atlas)) build(id, atlas);
             }
             if (TARGETS.isEmpty()) return;
+            ChromaBackend.Shader shader = BACKEND.compile();
+            if (shader == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");
+            if (shader == ChromaBackend.Shader.COMPILING) return;
             seconds = SkyClock.longSeconds();
             Chroma.turns(seconds, TURNS);
             if (timedLeft > 0) frameTimers = new ChromaBackend.Timer[]{BACKEND.timer(), BACKEND.timer()};
@@ -130,17 +147,28 @@ final class ChromaAtlases {
 
     /** Makes the texels of an atlas from its sprites, and keeps a GPU target only for an atlas with moving texels. */
     private static void build(Object id, TextureAtlas atlas) {
-        ChromaBackend.Target target = TARGETS.remove(id);
+        ChromaBackend.Target old = TARGETS.remove(id);
+        try {
+            buildTarget(id, atlas, old);
+        } finally {
+            // The old target closes here unless the atlas keeps it, also when a step throws.
+            if (old != null && TARGETS.get(id) != old) old.close();
+        }
+    }
+
+    /** Makes the texels of an atlas and puts its target, the old one when it fits, in place for an atlas with moving texels. */
+    private static void buildTarget(Object id, TextureAtlas atlas, ChromaBackend.Target old) {
+        Map<?, TextureAtlasSprite> sprites = ((TextureAtlasAccessor) atlas).albedo$texturesByName();
+        LAYOUTS.put(id, sprites);
         int[] size = BACKEND.size(atlas);
         if (size == null) {
-            if (target != null) target.close();
             paints = Integer.MIN_VALUE; // the next frame tries again
             return;
         }
         int width = size[0], height = size[1];
         ChromaTexels.Atlas texels = new ChromaTexels.Atlas(width, height);
         String atlasName = String.valueOf(id);
-        for (TextureAtlasSprite sprite : ((TextureAtlasAccessor) atlas).albedo$texturesByName().values()) {
+        for (TextureAtlasSprite sprite : sprites.values()) {
             //? if >=1.21.11 {
             // u0 = (x + padding) / atlas width, and the padding repeats the edge pixels of the sprite.
             int padding = Math.round(sprite.getU0() * width) - sprite.getX();
@@ -150,14 +178,11 @@ final class ChromaAtlases {
             texels.sprite(AtlasPaths.spriteLocation(atlasName, String.valueOf(sprite.contents().name())), sprite.getX(), sprite.getY(),
                     sprite.contents().width(), sprite.contents().height(), padding);
         }
-        if (!texels.moving()) {
-            if (target != null) target.close();
-            return;
-        }
-        if (!BACKEND.compile()) throw new IllegalStateException("the Chroma shader does not compile");
+        if (!texels.moving()) return;
+        if (BACKEND.compile() == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");
         int[][] levels = texels.levels(size[2]);
+        ChromaBackend.Target target = old;
         if (target == null || !target.sameTexture(atlas)) {
-            if (target != null) target.close();
             target = BACKEND.create(atlas, size);
             Albedo.get().platform().info(String.format(Locale.ROOT, "Moves the Chroma colors of %s on the GPU: %dx%d with %d mip levels, %.1f MiB",
                     atlasName, width, height, size[2], target.bytes() / 1048576.0));
@@ -179,16 +204,25 @@ final class ChromaAtlases {
         restore();
         for (ChromaBackend.Target target : TARGETS.values()) target.close();
         TARGETS.clear();
+        LAYOUTS.clear();
         paints = Integer.MIN_VALUE;
     }
 
     /** Measures the next frames for the harness command chromatime, and returns false when the pass does not run. */
     static boolean time(int frames) {
         if (TARGETS.isEmpty() || broken) return false;
+        // A measurement that did not end yet gives way to the new one, and its timers close.
+        for (ChromaBackend.Timer[] t : PENDING) closeTimers(t);
+        if (frameTimers != null) closeTimers(frameTimers);
+        frameTimers = null;
         TIMES.clear();
         PENDING.clear();
         timedLeft = frames;
         return true;
+    }
+
+    private static void closeTimers(ChromaBackend.Timer[] timers) {
+        for (ChromaBackend.Timer t : timers) t.close();
     }
 
     /** Takes the GPU times that the GPU gave, and logs all times when the last measured frame has its times. */
@@ -200,8 +234,7 @@ final class ChromaAtlases {
             if (start < 0 || end < 0) return;
             long[] row = TIMES.get(done);
             TIMES.set(done, new long[]{row[0], start, end});
-            t[0].close();
-            t[1].close();
+            closeTimers(t);
             it.remove();
         }
         if (timedLeft > 0) return;
