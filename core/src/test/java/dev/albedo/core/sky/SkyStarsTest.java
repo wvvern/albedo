@@ -94,6 +94,30 @@ class SkyStarsTest {
     }
 
     @Test
+    void aDiagonalOfTheGridHasAboutAsManyStarsAsAnAxis() {
+        SkyStars stars = new SkyStars(1f, 1f, 1f, 2);
+        int axis = capStars(stars, new float[] {0f, 0f, 1f}), diagonal = capStars(stars, new float[] {0.57735f, 0.57735f, 0.57735f});
+        float ratio = diagonal / (float) axis;
+        assertTrue(ratio > 0.8f && ratio < 1.1f, axis + " stars near the axis and " + diagonal + " near the diagonal");
+    }
+
+    /** The count of faint stars up to 12 degrees from the unit direction {@code d}. */
+    private static int capStars(SkyStars stars, float[] d) {
+        float n = SkyStars.Tier.FIELD.cells, cap = (float) Math.cos(12 * DEGREE);
+        float[] star = new float[SkyStars.STAR_FLOATS];
+        int r = (int) (n * 0.25f) + 2, count = 0;
+        int cx = (int) Math.floor(d[0] * n), cy = (int) Math.floor(d[1] * n), cz = (int) Math.floor(d[2] * n);
+        for (int x = cx - r; x <= cx + r; x++) {
+            for (int y = cy - r; y <= cy + r; y++) {
+                for (int z = cz - r; z <= cz + r; z++) {
+                    if (stars.star(SkyStars.Tier.FIELD, x, y, z, star) && star[0] * d[0] + star[1] * d[1] + star[2] * d[2] >= cap) count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    @Test
     void theColorsGoFromBlueWhiteToOrangeWithSlightTints() {
         float[] c = new float[3];
         int blue = 0, red = 0;

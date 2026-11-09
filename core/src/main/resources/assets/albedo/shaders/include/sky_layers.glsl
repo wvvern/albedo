@@ -329,8 +329,6 @@ vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float m
                 vec3 s = v / len;
                 // The star is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
                 if (ivec3(floor(s * n)) != h) continue;
-                // The sphere crosses more cells near a diagonal of the grid, so fewer of them keep a star there.
-                if (chance >= density * (abs(s.x) + abs(s.y) + abs(s.z)) / 1.7320508) continue;
                 vec3 d = p - s;
                 float d2 = dot(d, d);
                 if (d2 >= reach * reach) continue;

@@ -72,7 +72,6 @@ final class SkyStars {
         1f, 0.9047f, 0.8228f, 1f, 0.6445f, 0.3564f, 1f, 0.4969f, 0.1981f, 1f, 0.3515f, 0.0802f};
     /** How much of the black body color a star keeps, with the rest white, so that the tints are slight. */
     private static final float TINT = 0.7f;
-    private static final float SQRT3 = 1.7320508f;
 
     private final float density, spikes, scale;
     private final int seed;
@@ -134,8 +133,6 @@ final class SkyStars {
         float x = vx / len, y = vy / len, z = vz / len, n = t.cells / scale;
         // The star is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
         if ((int) Math.floor(x * n) != hx || (int) Math.floor(y * n) != hy || (int) Math.floor(z * n) != hz) return false;
-        // The sphere crosses more cells near a diagonal of the grid, so fewer of them keep a star there.
-        if (chance >= density * (Math.abs(x) + Math.abs(y) + Math.abs(z)) / SQRT3) return false;
         out[0] = x;
         out[1] = y;
         out[2] = z;
