@@ -34,7 +34,7 @@ class SkyProgramTest {
             "KIND_BLOOM " + SkyProgram.KIND_BLOOM, "KIND_BLUR " + SkyProgram.KIND_BLUR, "KIND_PIXELATE " + SkyProgram.KIND_PIXELATE,
             "KIND_CRYSTALLIZE " + SkyProgram.KIND_CRYSTALLIZE, "KIND_SWIRL " + SkyProgram.KIND_SWIRL,
             "KIND_POSTERIZE " + SkyProgram.KIND_POSTERIZE, "KIND_HUE_SHIFT " + SkyProgram.KIND_HUE_SHIFT,
-            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE,
+            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE, "KIND_AURORA " + SkyProgram.KIND_AURORA,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
             "USE_SHOW " + SkyProgram.USE_SHOW};
@@ -45,6 +45,9 @@ class SkyProgramTest {
         assertEquals(12, SkyProgram.COLOR_1);
         assertEquals(15, SkyProgram.TERM_SLOT);
         assertTrue(glsl.contains("int(albedoLayer(layer, 3).w)"), "the term slot is the last value of slot 3");
+        assertEquals(19, SkyProgram.SPEED);
+        assertTrue(glsl.contains("albedoLayer(layer, 4).w"), "the speed is the last value of slot 4");
+        assertTrue(glsl.contains("uniform float albedoTime;") && glsl.contains("uniform AlbedoClock {"), "the time of the moving layers");
         assertEquals(20, SkyProgram.LAB_1);
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
@@ -79,16 +82,22 @@ class SkyProgramTest {
         assertEquals(1, galaxy.block()[2], "the header has the term count");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(0, galaxy.termSlot(4));
+        SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
+        assertTrue(aurora.drawsSharp(), "gradient, glow, stars and aurora");
+        assertEquals(0, aurora.terms());
+        assertEquals(SkyProgram.KIND_AURORA, aurora.block()[SkyProgram.at(3, SkyProgram.KIND)]);
+        assertEquals(0.5f, aurora.block()[SkyProgram.at(3, SkyProgram.SPEED)]);
     }
 
     @Test
-    void theFiltersThatReadOtherPixelsAreTermsAndTheFiltersHaveTheHighCodes() {
+    void theFiltersThatReadOtherPixelsAreTermsAndTheFiltersHaveTheirOwnCodes() {
         for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
             boolean readsOthers = kind == SkyLayer.Kind.BLUR || kind == SkyLayer.Kind.BLOOM || kind == SkyLayer.Kind.PIXELATE
                     || kind == SkyLayer.Kind.CRYSTALLIZE || kind == SkyLayer.Kind.SWIRL;
             assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, SkyProgram.path(kind), kind.name());
             boolean filter = kind.role() == SkyLayer.Role.FILTER;
-            assertEquals(filter, SkyProgram.kindCode(kind) >= SkyProgram.KIND_BLOOM, kind.name());
+            int code = SkyProgram.kindCode(kind);
+            assertEquals(filter, code >= SkyProgram.KIND_BLOOM && code <= SkyProgram.KIND_VIGNETTE, kind.name());
             assertTrue(SkyProgram.kindCode(kind) > 0, kind.name());
         }
     }

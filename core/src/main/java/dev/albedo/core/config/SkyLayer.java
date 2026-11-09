@@ -30,7 +30,9 @@ public final class SkyLayer {
         AMOUNT("amount", 0, 100),
         /** A percent of height above the horizon, or a threshold. */
         HEIGHT("height", 0, 100),
-        SEED("seed", 0, 99999);
+        SEED("seed", 0, 99999),
+        /** A percent of how fast a moving layer moves, where 50 is the speed of the real thing and 0 stops it. */
+        SPEED("speed", 0, 100);
 
         public final String key;
         private final int min, max;
@@ -67,6 +69,8 @@ public final class SkyLayer {
                 Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.AMOUNT, 50, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
                 Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.SEED, 1),
+        AURORA(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(0, 6, 0, 100),
+                Param.COLOR_1, 0xFF3DFF8F, Param.COLOR_2, 0xFFC2337A, Param.HEIGHT, 50, Param.AMOUNT, 50, Param.SPEED, 50, Param.SEED, 1),
         BLUR(Role.FILTER, EnumSet.noneOf(Transform.Axis.class), Transform.IDENTITY, Param.AMOUNT, 30),
         CRYSTALLIZE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY, Param.SEED, 1),
         PIXELATE(Role.FILTER, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY),

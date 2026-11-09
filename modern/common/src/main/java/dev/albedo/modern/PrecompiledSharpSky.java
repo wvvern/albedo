@@ -26,6 +26,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -121,6 +122,7 @@ final class PrecompiledSharpSky {
             .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
+            .withUniform("AlbedoClock", UniformType.UNIFORM_BUFFER)
             .withSampler("AlbedoTerms")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_sharp"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.SHARP))
@@ -135,6 +137,7 @@ final class PrecompiledSharpSky {
     // The sky into the equirectangular image of the CPU bake, for the harness.
     private static final Pipeline EQUIRECT = new Pipeline(RenderPipeline.builder()
             .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
+            .withUniform("AlbedoClock", UniformType.UNIFORM_BUFFER)
             .withSampler("AlbedoTerms")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.EQUIRECT))
@@ -149,6 +152,8 @@ final class PrecompiledSharpSky {
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
+    // The uniform buffer of albedoTime, which prepare writes in each frame.
+    private static GpuBuffer clock;
 
     private PrecompiledSharpSky() {}
 
@@ -162,9 +167,17 @@ final class PrecompiledSharpSky {
         }
     }
 
-    // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens.
+    // Compiles the pipeline and sends the time, and the numbers and the term images of a new image, to the GPU before the sky pass opens.
     static void prepare(SkyImage img) {
-        if (!ModernSky.wantsSharp(img) || !SHARP.ready() || blockSerial == img.serial()) return;
+        if (!ModernSky.wantsSharp(img) || !SHARP.ready()) return;
+        if (clock == null) clock = RenderSystem.getDevice().createBuffer(() -> "Albedo sky clock", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 16);
+        ByteBuffer seconds = clockBytes(SkyClock.seconds());
+        try {
+            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(clock.slice(), seconds);
+        } finally {
+            MemoryUtil.memFree(seconds);
+        }
+        if (blockSerial == img.serial()) return;
         if (block != null) block.close();
         if (terms != null) terms.close();
         block = upload(img.program(), "Albedo sky block");
@@ -179,10 +192,18 @@ final class PrecompiledSharpSky {
         RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
         pass.setUniform("AlbedoSky", block);
+        pass.setUniform("AlbedoClock", clock);
         terms.bind(pass);
         pass.setVertexBuffer(0, sphere);
         pass.draw(0, vertexCount);
         return true;
+    }
+
+    // The 16 bytes of the clock block with albedoTime, which the caller frees.
+    private static ByteBuffer clockBytes(float seconds) {
+        ByteBuffer bytes = MemoryUtil.memCalloc(16);
+        bytes.putFloat(0, seconds);
+        return bytes;
     }
 
     // A uniform buffer with the block of a program.
@@ -203,6 +224,14 @@ final class PrecompiledSharpSky {
         if (!EQUIRECT.ready()) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, false);
         GpuBuffer uniforms = upload(sky.program(), "Albedo sky compare block");
+        // The bake has no time, so the compare draws the moving layers at time 0.
+        ByteBuffer zero = clockBytes(0);
+        GpuBuffer still;
+        try {
+            still = RenderSystem.getDevice().createBuffer(() -> "Albedo sky compare clock", GpuBuffer.USAGE_UNIFORM, zero);
+        } finally {
+            MemoryUtil.memFree(zero);
+        }
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad();
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
@@ -217,6 +246,7 @@ final class PrecompiledSharpSky {
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", target.getColorTextureView(), OptionalInt.empty())) {
                     pass.setPipeline(EQUIRECT.pipeline);
                     pass.setUniform("AlbedoSky", uniforms);
+                    pass.setUniform("AlbedoClock", still);
                     skyTerms.bind(pass);
                     pass.setVertexBuffer(0, quad);
                     pass.draw(0, 6);
@@ -227,6 +257,7 @@ final class PrecompiledSharpSky {
             if (timer != null) timer.close();
             target.destroyBuffers();
             uniforms.close();
+            still.close();
             skyTerms.close();
             quad.close();
             throw e;
@@ -251,6 +282,7 @@ final class PrecompiledSharpSky {
             if (query != null) query.close();
             target.destroyBuffers();
             uniforms.close();
+            still.close();
             skyTerms.close();
             quad.close();
             done.accept(argb, nanos);

@@ -23,7 +23,7 @@ final class SkyCodec {
     /** The keys of the sky category that exist only with the style "layers". */
     static final List<String> KEYS = Arrays.asList("celestial", "light", "extent", "render", "layers");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
-            "amount", "height", "seed", "transform");
+            "amount", "height", "seed", "speed", "transform");
     private static final List<String> MASK_KEYS = Arrays.asList("layer", "mode");
     private static final List<String> TRANSFORM_KEYS = Arrays.asList("yaw", "pitch", "roll", "scale");
 

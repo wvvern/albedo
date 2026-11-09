@@ -49,12 +49,22 @@ public final class SkyPresets {
             .add(Kind.BLOOM, Param.AMOUNT, 50, Param.HEIGHT, 50)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
+    /** Green curtains of the northern light over the north, with red tops, over a dark night sky with stars. */
+    public static final SkyDesign AURORA = new Builder()
+            .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A1424, Param.COLOR_2, 0xFF020409, Param.HEIGHT, 22, Param.AMOUNT, 55)
+            .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 14)
+            .blend(SkyLayer.Blend.ADD).opacity(25).place(new Transform(0, 0, 0, 100))
+            .add(Kind.STARS, Param.AMOUNT, 60, Param.SEED, 6).blend(SkyLayer.Blend.ADD).opacity(85)
+            .add(Kind.AURORA, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
+
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 
     static {
         ALL.put("dusk", DUSK);
         ALL.put("nebula", NEBULA);
         ALL.put("galaxy", GALAXY);
+        ALL.put("aurora", AURORA);
     }
 
     private SkyPresets() {}

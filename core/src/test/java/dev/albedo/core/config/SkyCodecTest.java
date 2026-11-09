@@ -81,6 +81,20 @@ class SkyCodecTest {
     }
 
     @Test
+    void theSpeedIsAValueOnlyOfTheAurora() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.AURORA);
+        d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.SPEED, 80));
+        Config c = withSky(layers(d));
+        assertTrue(ConfigCodec.encode(c).contains("\"speed\": 80"));
+        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"speed\": 3}]}")
+                .startsWith("night.sky.layers[0]: 'speed' has no meaning for stars"));
+        SkyDesign noSpeed = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
+                + "[{\"id\": 1, \"kind\": \"aurora\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(50, noSpeed.layers().get(0).param(SkyLayer.Param.SPEED), "a file with no speed takes the default");
+    }
+
+    @Test
     void theReadmeExampleLoads() {
         String sky = "{\"mode\": \"layers\", \"celestial\": \"hide\", \"light\": \"day_night\", \"layers\": ["
                 + "{\"id\": 1, \"kind\": \"gradient\", \"color1\": \"#F08A4B\", \"color2\": \"#1A1F4D\", \"height\": 22, \"amount\": 45},"

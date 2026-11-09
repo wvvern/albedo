@@ -2,6 +2,7 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -68,6 +69,7 @@ final class LegacySharpSky {
         int layers;
         int ring;
         int terms;
+        int time;
         int color;
 
         Program(String name) {
@@ -113,19 +115,21 @@ final class LegacySharpSky {
             layers = GL20.glGetUniformLocation(program, "SkyLayers");
             ring = GL20.glGetUniformLocation(program, "SkyRing");
             terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
+            time = GL20.glGetUniformLocation(program, "albedoTime");
             color = GL20.glGetUniformLocation(program, "ColorModulator");
             state = Compile.READY;
             Albedo.get().platform().info("Compiled the sharp sky shader " + name + " as " + dialect);
         }
 
-        /** Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness. */
-        void use(Block block, int termTexture, float brightness) {
+        /** Puts the program in use with the numbers of a sky, its term texture on unit 0, a brightness and the seconds of the moving layers. */
+        void use(Block block, int termTexture, float brightness, float seconds) {
             GL20.glUseProgram(id);
             GL20.glUniform4(header, block.header);
             GL20.glUniform4(layers, block.layers);
             GL20.glUniform4(ring, block.ring);
             // GlStateManager.color has no effect on a program, so the brightness is a uniform.
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
+            GL20.glUniform1f(time, seconds);
             GL20.glUniform1i(terms, 0);
             // Unit 1 holds the lightmap, so the terms go on unit 0.
             GlStateManager.setActiveTexture(GL13.GL_TEXTURE0);
@@ -166,7 +170,7 @@ final class LegacySharpSky {
      */
     static boolean draw(SkyImage img, int sphere, float brightness) {
         if (!img.drawsSharp() || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, termTexture, brightness);
+        SHARP.use(block, termTexture, brightness, SkyClock.seconds());
         GlStateManager.disableCull();
         GlStateManager.callList(sphere);
         GlStateManager.enableCull();
@@ -225,7 +229,8 @@ final class LegacySharpSky {
         GlStateManager.disableDepth();
         GlStateManager.disableCull();
         GlStateManager.disableAlpha();
-        EQUIRECT.use(new Block(sky.program()), texture, 1f);
+        // The bake has no time, so the compare draws the moving layers at time 0.
+        EQUIRECT.use(new Block(sky.program()), texture, 1f, 0f);
         ContextCapabilities caps = GLContext.getCapabilities();
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;

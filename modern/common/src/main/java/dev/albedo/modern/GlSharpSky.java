@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -66,6 +67,7 @@ final class GlSharpSky {
         int layers;
         int ring;
         int terms;
+        int time;
         int modelView;
         int projection;
         int color;
@@ -110,6 +112,7 @@ final class GlSharpSky {
             layers = GL20.glGetUniformLocation(program, "SkyLayers");
             ring = GL20.glGetUniformLocation(program, "SkyRing");
             terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
+            time = GL20.glGetUniformLocation(program, "albedoTime");
             modelView = GL20.glGetUniformLocation(program, "ModelViewMat");
             projection = GL20.glGetUniformLocation(program, "ProjMat");
             color = GL20.glGetUniformLocation(program, "ColorModulator");
@@ -117,13 +120,14 @@ final class GlSharpSky {
             Albedo.get().platform().info("Compiled the sharp sky shader " + name);
         }
 
-        // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
-        void use(Block block, int termTexture, float brightness) {
+        // Puts the program in use with the numbers of a sky, its term texture on unit 0, a brightness and the seconds of the moving layers.
+        void use(Block block, int termTexture, float brightness, float seconds) {
             GlStateManager._glUseProgram(id);
             GL20.glUniform4fv(header, block.header);
             GL20.glUniform4fv(layers, block.layers);
             GL20.glUniform4fv(ring, block.ring);
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
+            GL20.glUniform1f(time, seconds);
             GL20.glUniform1i(terms, 0);
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             GlStateManager._bindTexture(termTexture);
@@ -151,7 +155,7 @@ final class GlSharpSky {
     // Draws the image sharp on the sphere and returns true, or returns false when the baked texture must draw it.
     static boolean draw(SkyImage img, VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
         if (!ModernSky.wantsSharp(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
-        SHARP.use(block, termTexture, brightness);
+        SHARP.use(block, termTexture, brightness, SkyClock.seconds());
         GL20.glUniformMatrix4fv(SHARP.modelView, false, modelView.get(new float[16]));
         GL20.glUniformMatrix4fv(SHARP.projection, false, projection.get(new float[16]));
         RenderSystem.disableCull();
@@ -218,7 +222,8 @@ final class GlSharpSky {
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
-        EQUIRECT.use(new Block(sky.program()), texture, 1f);
+        // The bake has no time, so the compare draws the moving layers at time 0.
+        EQUIRECT.use(new Block(sky.program()), texture, 1f, 0f);
         boolean timed = GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);

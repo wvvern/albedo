@@ -41,6 +41,8 @@ public final class SkyProgram {
     static final int KIND_BLUR = 8, KIND_PIXELATE = 9, KIND_CRYSTALLIZE = 10, KIND_SWIRL = 11;
     /** The kind codes of the filters that the shader calculates for each pixel from the sky below them. */
     static final int KIND_POSTERIZE = 12, KIND_HUE_SHIFT = 13, KIND_VIGNETTE = 14;
+    /** The kind code of the aurora, a generator that moves with the time of the shader. */
+    static final int KIND_AURORA = 15;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -49,7 +51,7 @@ public final class SkyProgram {
     // The float offsets in a layer.
     static final int KIND = 0, BLEND = 1, USE = 2, MASK_INDEX = 3, MASK_DARK = 4, OPACITY = 5, AMOUNT = 6, HEIGHT = 7;
     static final int SCALE = 8, SEED = 9, ALPHA_1 = 10, ALPHA_2 = 11, COLOR_1 = 12, TERM_SLOT = 15;
-    static final int COLOR_2 = 16, LAB_1 = 20, LAB_2 = 24;
+    static final int COLOR_2 = 16, SPEED = 19, LAB_1 = 20, LAB_2 = 24;
     /** The three rows of the matrix from sky directions to the layer frame, each a vec4. */
     static final int LOCAL = 28;
 
@@ -87,6 +89,7 @@ public final class SkyProgram {
             block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
             block[base + SCALE] = l.transform().scale() / 100f;
             block[base + SEED] = l.param(SkyLayer.Param.SEED);
+            block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
             double[] r = l.transform().rotation();
@@ -117,6 +120,7 @@ public final class SkyProgram {
             case FRACTAL:
             case GALAXY:
             case STARS:
+            case AURORA:
             case POSTERIZE:
             case HUE_SHIFT:
             case VIGNETTE:
@@ -166,7 +170,7 @@ public final class SkyProgram {
         System.arraycopy(out, 0, block, lab, 3);
     }
 
-    /** The kind code of the shader, where the generators are below {@link #KIND_BLOOM} and the filters are from it up. */
+    /** The kind code of the shader, where the filters are the codes from {@link #KIND_BLOOM} to {@link #KIND_VIGNETTE}. */
     static int kindCode(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT: return KIND_GRADIENT;
@@ -183,6 +187,7 @@ public final class SkyProgram {
             case POSTERIZE: return KIND_POSTERIZE;
             case HUE_SHIFT: return KIND_HUE_SHIFT;
             case VIGNETTE: return KIND_VIGNETTE;
+            case AURORA: return KIND_AURORA;
             default: throw new IllegalArgumentException("no kind code for " + kind);
         }
     }
