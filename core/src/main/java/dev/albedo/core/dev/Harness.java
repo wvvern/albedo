@@ -6,6 +6,7 @@ import dev.albedo.core.Colors;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
@@ -101,6 +102,16 @@ public final class Harness {
         default boolean drawSharpSky(SkyImage sky, float time, int width, int height, int repeat, File png, SkyDone done) {
             return false;
         }
+
+        /**
+         * Measures the GPU and CPU time of the GPU pass of Chroma in each of the next frames, then logs the times, the
+         * atlas sizes and the GPU memory of the pass.
+         *
+         * @return false when this version has no GPU pass of Chroma, or the pass does not run now
+         */
+        default boolean timeChroma(int frames) {
+            return false;
+        }
     }
 
     /** Receives the image of {@link Host#drawSharpSky}. */
@@ -119,6 +130,8 @@ public final class Harness {
     private static final int METEOR_ELEVATION = 30;
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
+    /** The number of frames that {@code chromatime} measures. */
+    private static final int CHROMA_FRAMES = 300;
 
     private static volatile File logFile;
 
@@ -135,6 +148,10 @@ public final class Harness {
     private int[] pressedAt;
     /** The CPU bake of the last {@code skycompare}, which its tries share. */
     private SkyImage compareCpu;
+    /** The screenshots that the running {@code frames} command still takes, its name and the index of the next one. */
+    private int burstLeft;
+    private String burstName;
+    private int burstIndex;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -166,7 +183,8 @@ public final class Harness {
             waitTicks--;
             return;
         }
-        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld) {
+        if (burstLeft > 0) return; // the next commands wait for the screenshots of a frames command
+        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             log("> " + line);
@@ -220,6 +238,9 @@ public final class Harness {
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skyclock")) skyClock(arg);
+        else if (verb.equals("frames")) frames(arg.split("\\s+"));
+        else if (verb.equals("chromagpu")) sc.chromaGpu(arg.equals("on"));
+        else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
@@ -288,21 +309,36 @@ public final class Harness {
         return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
     }
 
-    /** Sets the effects of a category's look from {@code <category> [bevel N] [outline N]}, where a missing effect is off. */
+    /**
+     * Sets the effects of a category's look from
+     * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]}, where a missing
+     * effect is off and a missing Chroma option has its default.
+     */
     static Profile withEffects(Profile profile, String[] args) {
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
-        if (!category.hasEdgeEffects()) throw new IllegalArgumentException("only blocks and fluids have effects");
-        if (args.length % 2 == 0) throw new IllegalArgumentException("effects <category> [bevel N] [outline N]");
-        int bevel = 0, outline = 0;
+        if (!category.hasChroma()) throw new IllegalArgumentException("this category has no effects");
+        if (args.length % 2 == 0) {
+            throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]");
+        }
+        int bevel = 0, outline = 0, chroma = 0;
+        int speed = Chroma.DEFAULT_SPEED, saturation = Chroma.DEFAULT_SATURATION, brightness = Chroma.DEFAULT_BRIGHTNESS;
         for (int i = 1; i < args.length; i += 2) {
             int value = Integer.parseInt(args[i + 1]);
             if (args[i].equals("bevel")) bevel = value;
             else if (args[i].equals("outline")) outline = value;
+            else if (args[i].equals("chroma")) chroma = value;
+            else if (args[i].equals("speed")) speed = value;
+            else if (args[i].equals("saturation")) saturation = value;
+            else if (args[i].equals("brightness")) brightness = value;
             else throw new IllegalArgumentException("unknown effect: " + args[i]);
         }
+        if ((bevel > 0 || outline > 0) && !category.hasEdgeEffects()) {
+            throw new IllegalArgumentException("only blocks and fluids have bevel and outline");
+        }
         CategorySettings settings = profile.get(category);
-        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline)));
+        Chroma c = new Chroma(chroma, speed, saturation, brightness);
+        return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, c)));
     }
 
     /**
@@ -404,6 +440,59 @@ public final class Harness {
      * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
      * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
      */
+    private void chromaTime(int frames) {
+        if (!host.timeChroma(frames)) log("! chromatime: this version has no GPU pass of Chroma, or the pass does not run");
+    }
+
+    /**
+     * Logs the times of the GPU pass of Chroma that an adapter measured for {@code chromatime}.
+     *
+     * @param cpu the CPU time of the pass in each frame, in nanoseconds
+     * @param gpuStart the GPU time of the copy and the draws at the start of each frame, in nanoseconds
+     * @param gpuEnd the GPU time of the copy back at the end of each frame, in nanoseconds
+     * @param bytes the GPU memory of the pass
+     * @param atlases the names of the atlases that the pass turns
+     */
+    public static void logChromaTimes(long[] cpu, long[] gpuStart, long[] gpuEnd, long bytes, String atlases) {
+        long[] gpu = new long[cpu.length];
+        for (int i = 0; i < gpu.length; i++) gpu[i] = gpuStart[i] + gpuEnd[i];
+        log(String.format(Locale.ROOT, "chromatime: %d frames, GPU p50 %.3f ms, p95 %.3f ms, max %.3f ms (start p50 %.3f ms, end p50 %.3f ms),"
+                        + " CPU p50 %.3f ms, p95 %.3f ms, GPU memory %.1f MiB for %s",
+                gpu.length, ms(gpu, 50), ms(gpu, 95), ms(gpu, 100), ms(gpuStart, 50), ms(gpuEnd, 50), ms(cpu, 50), ms(cpu, 95),
+                bytes / 1048576.0, atlases));
+    }
+
+    /** The {@code p}th percentile of nanosecond times, in milliseconds. */
+    static double ms(long[] nanos, int p) {
+        if (nanos.length == 0) return Double.NaN;
+        long[] sorted = nanos.clone();
+        Arrays.sort(sorted);
+        int index = Math.min(sorted.length - 1, Math.max(0, (int) Math.ceil(p / 100.0 * sorted.length) - 1));
+        return sorted[index] / 1e6;
+    }
+
+    /** Starts {@code frames <count> <name>}: a screenshot at the end of each of the next frames, with the clock time of each. */
+    private void frames(String[] args) {
+        if (args.length != 2) throw new IllegalArgumentException("frames <count> <name>");
+        burstLeft = Integer.parseInt(args[0]);
+        burstName = args[1];
+        burstIndex = 0;
+    }
+
+    /**
+     * Takes the next screenshot of a {@code frames} command; the adapter calls it on the render thread at the end of each
+     * frame, after the frame is drawn.
+     *
+     * @param seconds the clock time that the Chroma colors of this frame have
+     */
+    public void frame(double seconds) {
+        if (burstLeft <= 0) return;
+        String name = String.format(Locale.ROOT, "%s-%02d.png", burstName, burstIndex++);
+        log(String.format(Locale.ROOT, "frame %s at %.5f s", name, seconds));
+        host.screenshot(new File(dir, name));
+        burstLeft--;
+    }
+
     private static void skyClock(String arg) {
         if (arg.equals("run")) SkyClock.run();
         else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
