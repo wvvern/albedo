@@ -110,6 +110,20 @@ class SkyCodecTest {
     }
 
     @Test
+    void aTwinkleAndAPulseAreWrittenOnlyWhenTheyAreOn() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS).withAdded(SkyLayer.Kind.FRACTAL);
+        String still = ConfigCodec.encode(withSky(layers(d)));
+        assertFalse(still.contains("twinkle") || still.contains("pulse"), still);
+        d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.TWINKLE, 40));
+        d = d.withLayer(1, d.layers().get(1).withParam(SkyLayer.Param.PULSE, 70));
+        Config c = withSky(layers(d));
+        assertTrue(ConfigCodec.encode(c).contains("\"twinkle\": 40") && ConfigCodec.encode(c).contains("\"pulse\": 70"));
+        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"gradient\", \"pulse\": 3}]}")
+                .startsWith("night.sky.layers[0]: 'pulse' has no meaning for gradient"));
+    }
+
+    @Test
     void theReadmeExampleLoads() {
         String sky = "{\"mode\": \"layers\", \"celestial\": \"hide\", \"light\": \"day_night\", \"layers\": ["
                 + "{\"id\": 1, \"kind\": \"gradient\", \"color1\": \"#F08A4B\", \"color2\": \"#1A1F4D\", \"height\": 22, \"amount\": 45},"

@@ -409,13 +409,13 @@ public final class SkyGenerator {
         if (region <= 0) return 1;
         // One slow noise sets the regions, their phases and the weights of the three waves, so that each region has its own rhythm.
         float phase = 1.5f * n, m = 0.5f + 0.5f * (float) Math.sin(9 * n);
-        float wave = (1 - m) * (1 - m) * wave(time, 0, phase) + 2 * m * (1 - m) * wave(time, 1, phase) + m * m * wave(time, 2, phase);
+        float wave = (1 - m) * (1 - m) * wave(time / PULSE_PERIODS[0] + phase) + 2 * m * (1 - m) * wave(time / PULSE_PERIODS[1] + phase * 1.3f)
+                + m * m * wave(time / PULSE_PERIODS[2] + phase * 1.6f);
         return 1 + amount * PULSE_LIGHT * region * wave * (0.4f + 0.6f * v);
     }
 
-    /** The pulse wave {@code i} from -1 to 1 at a time in seconds, where the phase in turns grows for each wave. */
-    private static float wave(float time, int i, float phase) {
-        float turns = time / PULSE_PERIODS[i] + phase * (1 + 0.3f * i);
+    /** A sine wave from -1 to 1 at a number of turns, where only the part after the point counts, so that a large time keeps its precision. */
+    static float wave(float turns) {
         return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 

@@ -26,7 +26,7 @@ final class Aurora {
     static final int STEPS = 14;
     /** The most crossings of the view with one ribbon that add light, which the shader keeps in one vec4. */
     static final int CROSSINGS = 4;
-    /** The largest azimuth in radians from the layer center that the search starts from, where the ribbons are below the horizon. */
+    /** The largest azimuth in radians from the layer center with aurora light, where the ribbons are low and faint. */
     private static final float MAX_AZIMUTH = 1.35f;
     /** How many km each second the rays move along the ribbon. */
     private static final float DRIFT = 0.6f;
@@ -55,8 +55,9 @@ final class Aurora {
         Ribbon view = new Ribbon(block, layer, a, el, footprint / Math.max(cosEl, 0.05f), footprint, time);
         float[] light = new float[2];
         for (int c = 0; c < DISTANCE.length; c++) view.add(c, light);
-        // The thick air near the horizon dims the light, so that no bright edge lies along the horizon.
-        float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el);
+        // The thick air near the horizon dims the light, so that no bright edge lies along it, and the light fades out before the search stops.
+        float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el)
+                * (1 - smooth(MAX_AZIMUTH - 0.2f, MAX_AZIMUTH, Math.abs(a)));
         float alpha1 = block[SkyProgram.at(layer, SkyProgram.ALPHA_1)], alpha2 = block[SkyProgram.at(layer, SkyProgram.ALPHA_2)];
         float[] e = new float[3];
         float m = 0;
@@ -77,6 +78,8 @@ final class Aurora {
     private static final class Ribbon {
         final float a, el, wide, footprint, t, scale, height;
         final int seed;
+        /** The room for the slopes and the loop of {@link #offset}, which each caller reads before the next call. */
+        private final float[] d = new float[3];
 
         Ribbon(float[] block, int layer, float a, float el, float wide, float footprint, float time) {
             this.a = a;
@@ -93,7 +96,7 @@ final class Aurora {
          * The azimuth of the ribbon {@code c} at {@code theta} minus the azimuth of the view, where {@code d} gets the slope of
          * the azimuth, and the move of the folds toward the viewer in km and its slope.
          */
-        float offset(int c, float theta, float[] d) {
+        float offset(int c, float theta) {
             float f = far(c);
             float phi = theta;
             d[0] = 1;
@@ -117,16 +120,15 @@ final class Aurora {
         void add(int c, float[] light) {
             float reach = (FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2]) * scale / far(c) * 1.02f;
             float step = 2 * reach / STEPS;
-            float[] d = new float[3];
-            float ta = a - reach, ga = offset(c, ta, d), da = d[0];
+            float ta = a - reach, ga = offset(c, ta), da = d[0];
             int found = 0;
             for (int i = 1; i <= STEPS; i++) {
-                float tb = a - reach + i * step, gb = offset(c, tb, d), db = d[0];
+                float tb = a - reach + i * step, gb = offset(c, tb), db = d[0];
                 if ((ga <= 0) != (gb <= 0)) {
                     if (found++ < CROSSINGS) sheet(c, ta + step * ga / (ga - gb), 1, light);
                 } else if ((da < 0) != (db < 0)) {
                     // The tip of a fold is in this step: the view crosses the sheet twice when the tip is past it.
-                    float tm = ta + step * da / (da - db), gm = offset(c, tm, d);
+                    float tm = ta + step * da / (da - db), gm = offset(c, tm);
                     if ((gm <= 0) != (ga <= 0)) {
                         // The two crossings fade out over two pixels at the tip, where they meet and go.
                         float k = smooth(0, 2 * wide, Math.abs(gm));
@@ -142,8 +144,7 @@ final class Aurora {
 
         /** Adds the light of the sheet of ribbon {@code c} where the view crosses it at {@code theta}, times {@code k}. */
         void sheet(int c, float theta, float k, float[] light) {
-            float[] d = new float[3];
-            offset(c, theta, d);
+            offset(c, theta);
             float dPhi = d[0], th = Math.max(-1.5f, Math.min(1.5f, theta));
             float cos = (float) Math.cos(th), tan = (float) Math.tan(th);
             // The distance of a straight east-west line, moved toward and away from the viewer by the folds and by slow waves.

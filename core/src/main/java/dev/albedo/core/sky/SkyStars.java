@@ -166,10 +166,11 @@ final class SkyStars {
         float u = (((h >>> 12) & 4095) + 0.5f) / 4096f;
         out[3] = Math.min(t.maxFlux, t.minFlux * (float) Math.pow(u, -1 / t.slope));
         out[4] = ((h & 4095) + 0.5f) / 4096f;
-        if (twinkle > 0) {
+        if (twinkle > 0 && t.detail) {
+            // The frequencies are whole numbers of turns in the hour of the sky clock, so that no star jumps when the clock starts again.
             int k = Noise.hash(hx, hy, hz, seed * 31 + t.salt + 2);
-            out[5] = 0.5f + (k >>> 24) / 256f;
-            out[6] = 1.3f + 1.7f * ((k >>> 16) & 255) / 256f;
+            out[5] = 0.5f + (k >>> 24) / 225f;
+            out[6] = 1.3f + ((k >>> 16) & 255) / 150f;
             out[7] = ((k >>> 8) & 255) / 256f;
             out[8] = (k & 255) / 256f;
         }
@@ -191,8 +192,8 @@ final class SkyStars {
             // A bright star twinkles more near the horizon, where its light goes through more air.
             float air = 1 - SkyGenerator.smooth(0.05f, 0.75f, s[0] * up[0] + s[1] * up[1] + s[2] * up[2]);
             float change = twinkle * (TWINKLE_ZENITH + TWINKLE_HORIZON * air) * (0.35f + 0.65f * SkyGenerator.smooth(0.2f, 6f, flux));
-            tint = TWINKLE_COLOR * change * air * wave(0.5f * (s[5] + s[6]), s[7] + s[8]);
-            flux *= 1 + change * (0.6f * wave(s[5], s[7]) + 0.4f * wave(s[6], s[8]));
+            tint = TWINKLE_COLOR * change * air * SkyGenerator.wave((s[6] - s[5]) * time + s[7] + s[8]);
+            flux *= 1 + change * (0.6f * SkyGenerator.wave(s[5] * time + s[7]) + 0.4f * SkyGenerator.wave(s[6] * time + s[8]));
         }
         float blur = PIXEL * footprint, blur2 = blur * blur;
         // The footprint widens the core, and its peak falls with the width, not the area, so that a star smaller than a pixel stays visible.
@@ -215,12 +216,6 @@ final class SkyStars {
         // The light goes to 0 before the edge of the reach, so that no star is cut.
         float fade = 1 - SkyGenerator.smooth(0.8f * reach, reach, d);
         for (int c = 0; c < 3; c++) light[c] += work[3 + c] * fade * (glow + work[c]);
-    }
-
-    /** A sine wave from -1 to 1 at a frequency in hertz and a phase in turns, at the time of the stars. */
-    private float wave(float hertz, float phase) {
-        float turns = hertz * time + phase;
-        return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 
     /** Adds the light of the thin rim of a star at the distance {@code d} from it to {@code out}, with red outside and blue inside. */

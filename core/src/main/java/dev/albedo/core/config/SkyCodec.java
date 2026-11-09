@@ -145,6 +145,8 @@ final class SkyCodec {
             m.put("mask", mask);
         }
         for (SkyLayer.Param p : l.kind().params()) {
+            // A layer with no twinkle or pulse leaves the key out, so that a version without these keys can read the file.
+            if ((p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE) && l.param(p) == 0) continue;
             m.put(p.key, p.isColor() ? (Object) Colors.format(l.param(p)) : l.param(p));
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();

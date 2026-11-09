@@ -320,7 +320,7 @@ vec3 albedoSpikes(vec3 s, vec3 d, float flux, float maxFlux, float spikes, float
     return light;
 }
 
-// SkyStars.wave: a sine wave from -1 to 1 at a frequency in hertz and a phase in turns.
+// SkyGenerator.wave: a sine wave from -1 to 1 at a frequency in hertz and a phase in turns.
 float albedoWave(float hertz, float phase, float time) {
     return sin(2.0 * ALBEDO_PI * fract(hertz * time + phase));
 }
@@ -328,13 +328,14 @@ float albedoWave(float hertz, float phase, float time) {
 // The twinkle of SkyStars.add: the factor of the light of a bright star and the shift of its red against its blue, from waves of the cell hash.
 vec2 albedoTwinkle(ivec3 cell, int seed, float flux, float height, float twinkle, float time) {
     uint hk = albedoHash(cell, seed);
-    vec2 hertz = vec2(0.5 + float(hk >> 24u) / 256.0, 1.3 + 1.7 * float((hk >> 16u) & 255u) / 256.0);
+    // The frequencies are whole numbers of turns in the hour of the sky clock, so that no star jumps when the clock starts again.
+    vec2 hertz = vec2(0.5 + float(hk >> 24u) / 225.0, 1.3 + float((hk >> 16u) & 255u) / 150.0);
     vec2 phase = vec2(float((hk >> 8u) & 255u), float(hk & 255u)) / 256.0;
     float wave = 0.6 * albedoWave(hertz.x, phase.x, time) + 0.4 * albedoWave(hertz.y, phase.y, time);
     // The light goes through more air near the horizon, and a bright star shows its twinkle more.
     float air = 1.0 - albedoSmooth(0.05, 0.75, height);
     float change = twinkle * (ALBEDO_STAR_TWINKLE_ZENITH + ALBEDO_STAR_TWINKLE_HORIZON * air) * (0.35 + 0.65 * albedoSmooth(0.2, 6.0, flux));
-    float tint = ALBEDO_STAR_TWINKLE_COLOR * change * air * albedoWave(0.5 * (hertz.x + hertz.y), phase.x + phase.y, time);
+    float tint = ALBEDO_STAR_TWINKLE_COLOR * change * air * albedoWave(hertz.y - hertz.x, phase.x + phase.y, time);
     return vec2(1.0 + change * wave, tint);
 }
 
@@ -855,9 +856,9 @@ vec4 albedoAurora(int layer, vec3 p, float footprint) {
             light += albedoSheet(c, thetas[i], ks[i], el, wide, footprint, a, t, shape.x, height, seed);
         }
     }
-    // The thick air near the horizon dims the light, so that no bright edge lies along the horizon.
+    // The thick air near the horizon dims the light, so that no bright edge lies along the horizon, and the light fades out before the search stops.
     vec3 e = (albedoLayer(layer, 3).rgb * shape.z * light.x + albedoLayer(layer, 4).rgb * shape.w * light.y)
-            * values.z * 2.0 * albedoSmooth(-0.02, 0.22, el);
+            * values.z * 2.0 * albedoSmooth(-0.02, 0.22, el) * (1.0 - albedoSmooth(1.15, 1.35, abs(a)));
     float m = max(e.r, max(e.g, e.b));
     if (m <= 0.0) return vec4(0.0);
     // A light brighter than the screen goes to white, as in a photograph.
