@@ -29,8 +29,6 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 - **World options:** fullbright, shading, foliage and entity shadows.
 - **Keys:** F9 opens the settings, F6 turns the mod on or off, and F7 selects the next profile.
 
-Keep the pointer on a control in the settings screen to see what it does.
-
 ## Install
 
 Put the jar for your Minecraft version and loader in your `mods/` folder. On Fabric you need only Fabric Loader, not Fabric API.
