@@ -8,8 +8,14 @@
 - feat: Keep the size of the stars when you change Count in a Stars layer
 - feat: Change the Galaxy preset to a tilted galaxy with dark dust lanes and two blue jets
 - feat: Add Tilt, Dust, Jets and a jet color to the Galaxy layer
+- feat: Add a Meteors sky layer with shooting stars, and a Meteors preset with a meteor shower
+- feat: Add an Aurora sky layer with moving curtains of northern light, and an Aurora preset
 - feat: Show the Nebula stars sharp in all areas of the sky
 - fix: Stop the cut edges on large stars in the sharp sky
+- fix: Remove the blurred band of horizon color across the custom sky at the horizon
+- fix: Stop the crash on 26.3 when you turn on a custom sky
+- compat: Show the custom sky with OptiFine on 1.8.9 when the OptiFine Sky setting is on
+- config!: Remove the Chroma effect, and give the pastel profile a pale tint of the block colors
 
 ## 0.4.0
 
