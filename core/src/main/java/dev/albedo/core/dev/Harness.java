@@ -10,6 +10,7 @@ import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
 import dev.albedo.core.sky.SkyGenerator;
@@ -202,6 +203,7 @@ public final class Harness {
         else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
+        else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
@@ -307,6 +309,16 @@ public final class Harness {
             design = design.withLayers(design.layers().subList(0, keep));
         }
         return profile.with(Category.SKY, sky.withAppearance(Appearance.of(Appearance.Mode.LAYERS)).withSky(design));
+    }
+
+    /** Adds a layer of a kind with its default values at the top of the custom sky ({@code skyadd posterize}). */
+    static Profile withSkyLayer(Profile profile, String kind) {
+        CategorySettings sky = profile.get(Category.SKY);
+        if (sky.sky().layers().size() >= SkyDesign.MAX_LAYERS) {
+            throw new IllegalArgumentException("the sky has " + SkyDesign.MAX_LAYERS + " layers");
+        }
+        SkyLayer.Kind k = SkyLayer.Kind.valueOf(kind.trim().toUpperCase(Locale.ROOT));
+        return profile.with(Category.SKY, sky.withSky(sky.sky().withAdded(k)));
     }
 
     /** Sets the render of the custom sky to {@code sharp} or {@code fast}. */

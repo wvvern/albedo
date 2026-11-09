@@ -7,6 +7,7 @@ import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
@@ -83,6 +84,18 @@ class HarnessTest {
         assertEquals(SkyPresets.GALAXY.layers().subList(0, 4), p.get(Category.SKY).sky().layers());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "galaxy 0"));
         assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "galaxy 9"));
+    }
+
+    @Test
+    void theSkyAddCommandAddsALayerAtTheTop() {
+        Profile p = Harness.withSkyLayer(Harness.withSky(Config.defaults().activeProfile(), "dusk"), "Posterize");
+        List<SkyLayer> layers = p.get(Category.SKY).sky().layers();
+        assertEquals(SkyPresets.DUSK.layers().size() + 1, layers.size());
+        assertEquals(SkyLayer.Kind.POSTERIZE, layers.get(layers.size() - 1).kind());
+        Profile full = Harness.withSky(Config.defaults().activeProfile(), "nebula");
+        Profile eight = Harness.withSkyLayer(full, "vignette");
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyLayer(eight, "swirl"));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyLayer(full, "rainbow"));
     }
 
     @Test

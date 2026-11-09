@@ -31,7 +31,10 @@ class SkyProgramTest {
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
             "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
             "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
-            "KIND_BLOOM " + SkyProgram.KIND_BLOOM,
+            "KIND_BLOOM " + SkyProgram.KIND_BLOOM, "KIND_BLUR " + SkyProgram.KIND_BLUR, "KIND_PIXELATE " + SkyProgram.KIND_PIXELATE,
+            "KIND_CRYSTALLIZE " + SkyProgram.KIND_CRYSTALLIZE, "KIND_SWIRL " + SkyProgram.KIND_SWIRL,
+            "KIND_POSTERIZE " + SkyProgram.KIND_POSTERIZE, "KIND_HUE_SHIFT " + SkyProgram.KIND_HUE_SHIFT,
+            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
             "USE_SHOW " + SkyProgram.USE_SHOW};
@@ -41,7 +44,7 @@ class SkyProgramTest {
         assertEquals(8, SkyProgram.SCALE);
         assertEquals(12, SkyProgram.COLOR_1);
         assertEquals(15, SkyProgram.TERM_SLOT);
-        assertTrue(glsl.contains("int(albedoLayer(i, 3).w)"), "the term slot is the last value of slot 3");
+        assertTrue(glsl.contains("int(albedoLayer(layer, 3).w)"), "the term slot is the last value of slot 3");
         assertEquals(20, SkyProgram.LAB_1);
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
@@ -56,11 +59,17 @@ class SkyProgramTest {
     }
 
     @Test
-    void theGeneratorsAndTheBloomDrawSharpAndTheOtherFiltersDoNot() {
+    void allPresetsDrawSharp() {
         SkyProgram dusk = SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program();
         assertTrue(dusk.drawsSharp());
         assertEquals(0, dusk.terms());
-        assertFalse(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program().drawsSharp());
+        SkyProgram nebula = SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program();
+        assertTrue(nebula.drawsSharp(), "the blur and the bloom are terms, the hue shift is calculated for each pixel");
+        assertEquals(2, nebula.terms());
+        assertEquals(0, nebula.termSlot(4), "the blur");
+        assertEquals(-1, nebula.termSlot(5), "the hue shift");
+        assertEquals(1, nebula.termSlot(6), "the bloom");
+        assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
         SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
         assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy and the bloom term");
         assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
@@ -70,11 +79,42 @@ class SkyProgramTest {
         assertEquals(1, galaxy.block()[2], "the header has the term count");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(0, galaxy.termSlot(4));
+    }
+
+    @Test
+    void theFiltersThatReadOtherPixelsAreTermsAndTheFiltersHaveTheHighCodes() {
         for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
-            SkyProgram.Path expected = kind.role() == SkyLayer.Role.GENERATOR ? SkyProgram.Path.PIXEL
-                    : kind == SkyLayer.Kind.BLOOM ? SkyProgram.Path.TERM : SkyProgram.Path.BAKED;
-            assertEquals(expected, SkyProgram.path(kind), kind.name());
+            boolean readsOthers = kind == SkyLayer.Kind.BLUR || kind == SkyLayer.Kind.BLOOM || kind == SkyLayer.Kind.PIXELATE
+                    || kind == SkyLayer.Kind.CRYSTALLIZE || kind == SkyLayer.Kind.SWIRL;
+            assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, SkyProgram.path(kind), kind.name());
+            boolean filter = kind.role() == SkyLayer.Role.FILTER;
+            assertEquals(filter, SkyProgram.kindCode(kind) >= SkyProgram.KIND_BLOOM, kind.name());
+            assertTrue(SkyProgram.kindCode(kind) > 0, kind.name());
         }
+    }
+
+    @Test
+    void aWarpTermHoldsTheFullResultOfTheFilter() {
+        int w = 128, h = 64;
+        List<SkyLayer> layers = new ArrayList<SkyLayer>(SkyPresets.GALAXY.layers().subList(0, 4));
+        layers.add(SkyLayer.of(5, SkyLayer.Kind.SWIRL));
+        SkyImage img = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(layers), w, h);
+        assertEquals(0, img.program().termSlot(4));
+        double error = 0;
+        int count = 0;
+        for (int ty = 0; ty < h / 2; ty++) {
+            // The rows near the horizon go into the horizon color after the layers.
+            if (Math.abs(90 - (2 * ty + 1) * 180.0 / h) < 6) continue;
+            for (int tx = 0; tx < w / 2; tx++) {
+                float sum = 0;
+                for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
+                    for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += Oklab.toLinear(img.argb()[y * w + x] >> 8);
+                }
+                error += Math.abs(sum / 4 - SkyGeneratorTest.fromHalf(img.terms()[(ty * (w / 2) + tx) * 4 + 1]));
+                count++;
+            }
+        }
+        assertTrue(error / count < 0.004, "the term is the swirled sky at half size: " + error / count);
     }
 
     @Test

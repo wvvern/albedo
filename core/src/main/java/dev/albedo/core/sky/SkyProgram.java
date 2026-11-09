@@ -18,7 +18,7 @@ public final class SkyProgram {
         PIXEL,
         /** The CPU bake makes a soft term image of the layer, which the sky shader mixes in for each screen pixel. */
         TERM,
-        /** Only the CPU bake makes the layer, so the sky draws from the baked image. */
+        /** Only the CPU bake makes the layer, because the design has no free term slot, so the sky draws from the baked image. */
         BAKED
     }
 
@@ -33,10 +33,14 @@ public final class SkyProgram {
     /** The number of floats in the block. */
     public static final int FLOATS = RING + SkyImage.RING * 4;
 
-    /** The kind codes of the shader, where 0 draws nothing. */
+    /** The kind codes of the generators in the shader. */
     static final int KIND_GRADIENT = 1, KIND_GLOW = 2, KIND_STARS = 3, KIND_NOISE = 4, KIND_FRACTAL = 5, KIND_GALAXY = 6;
     /** The kind code of a bloom, whose term image holds only the glow that it adds. */
     static final int KIND_BLOOM = 7;
+    /** The kind codes of the filters whose term image holds their full result. */
+    static final int KIND_BLUR = 8, KIND_PIXELATE = 9, KIND_CRYSTALLIZE = 10, KIND_SWIRL = 11;
+    /** The kind codes of the filters that the shader calculates for each pixel from the sky below them. */
+    static final int KIND_POSTERIZE = 12, KIND_HUE_SHIFT = 13, KIND_VIGNETTE = 14;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -104,7 +108,7 @@ public final class SkyProgram {
         return new SkyProgram(design, ring);
     }
 
-    /** The path of a kind: a bloom is a term image, and the other filters are baked on the CPU. */
+    /** The path of a kind: a filter that reads near pixels or other directions is a term image, and the other kinds are pixels. */
     public static Path path(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT:
@@ -113,11 +117,18 @@ public final class SkyProgram {
             case FRACTAL:
             case GALAXY:
             case STARS:
+            case POSTERIZE:
+            case HUE_SHIFT:
+            case VIGNETTE:
                 return Path.PIXEL;
+            case BLUR:
+            case PIXELATE:
+            case CRYSTALLIZE:
+            case SWIRL:
             case BLOOM:
                 return Path.TERM;
             default:
-                return Path.BAKED;
+                throw new IllegalArgumentException("no path for " + kind);
         }
     }
 
@@ -155,7 +166,8 @@ public final class SkyProgram {
         System.arraycopy(out, 0, block, lab, 3);
     }
 
-    private static int kindCode(SkyLayer.Kind kind) {
+    /** The kind code of the shader, where the generators are below {@link #KIND_BLOOM} and the filters are from it up. */
+    static int kindCode(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT: return KIND_GRADIENT;
             case GLOW: return KIND_GLOW;
@@ -164,7 +176,14 @@ public final class SkyProgram {
             case FRACTAL: return KIND_FRACTAL;
             case GALAXY: return KIND_GALAXY;
             case BLOOM: return KIND_BLOOM;
-            default: return 0;
+            case BLUR: return KIND_BLUR;
+            case PIXELATE: return KIND_PIXELATE;
+            case CRYSTALLIZE: return KIND_CRYSTALLIZE;
+            case SWIRL: return KIND_SWIRL;
+            case POSTERIZE: return KIND_POSTERIZE;
+            case HUE_SHIFT: return KIND_HUE_SHIFT;
+            case VIGNETTE: return KIND_VIGNETTE;
+            default: throw new IllegalArgumentException("no kind code for " + kind);
         }
     }
 

@@ -439,21 +439,25 @@ public final class SkyGenerator {
     // ---------------------------------------------------------------- filters: each writes its result for all of img into tmp
 
     private boolean filter(Layer l) {
+        boolean ok;
         switch (l.layer.kind()) {
             case BLUR:
                 System.arraycopy(img, 0, tmp, 0, img.length);
-                return blur(tmp, l.amount * 10f);
+                ok = blur(tmp, l.amount * 10f);
+                break;
             case BLOOM: return bloom(l);
-            case PIXELATE: return rows.run(used, y -> pixelateRow(l, y));
-            case CRYSTALLIZE: return rows.run(used, y -> crystallizeRow(l, y));
-            case POSTERIZE: return rows.run(used, y -> posterizeRow(l, y));
-            case HUE_SHIFT: return rows.run(used, y -> hueRow(l, y));
-            case SWIRL: return rows.run(used, y -> swirlRow(l, y));
-            case VIGNETTE: return rows.run(used, y -> vignetteRow(l, y));
+            case PIXELATE: ok = rows.run(used, y -> pixelateRow(l, y)); break;
+            case CRYSTALLIZE: ok = rows.run(used, y -> crystallizeRow(l, y)); break;
+            case POSTERIZE: ok = rows.run(used, y -> posterizeRow(l, y)); break;
+            case HUE_SHIFT: ok = rows.run(used, y -> hueRow(l, y)); break;
+            case SWIRL: ok = rows.run(used, y -> swirlRow(l, y)); break;
+            case VIGNETTE: ok = rows.run(used, y -> vignetteRow(l, y)); break;
             default:
                 System.arraycopy(img, 0, tmp, 0, img.length);
-                return true;
+                ok = true;
         }
+        // The term image of a filter other than a bloom is its full result.
+        return ok && (l.termSlot < 0 || rows.run(termH, ty -> termRow(l.termSlot, ty, 1f)));
     }
 
     /** Three box passes in each direction, which is close to a Gaussian, with the width across a row wider toward the zenith. */

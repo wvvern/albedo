@@ -261,7 +261,7 @@ class SkyGeneratorTest {
         assertTrue(error / count < 0.004, "the term is the added glow: " + error / count);
     }
 
-    private static float fromHalf(short bits) {
+    static float fromHalf(short bits) {
         int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
         return exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
     }

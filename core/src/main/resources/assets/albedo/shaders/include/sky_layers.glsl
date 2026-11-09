@@ -7,6 +7,7 @@
 #define ALBEDO_LAYER_VEC4S 10
 #define ALBEDO_RING 64
 
+// The generators have the kind codes below ALBEDO_KIND_BLOOM, and the filters have the codes from it up.
 #define ALBEDO_KIND_GRADIENT 1
 #define ALBEDO_KIND_GLOW 2
 #define ALBEDO_KIND_STARS 3
@@ -14,6 +15,13 @@
 #define ALBEDO_KIND_FRACTAL 5
 #define ALBEDO_KIND_GALAXY 6
 #define ALBEDO_KIND_BLOOM 7
+#define ALBEDO_KIND_BLUR 8
+#define ALBEDO_KIND_PIXELATE 9
+#define ALBEDO_KIND_CRYSTALLIZE 10
+#define ALBEDO_KIND_SWIRL 11
+#define ALBEDO_KIND_POSTERIZE 12
+#define ALBEDO_KIND_HUE_SHIFT 13
+#define ALBEDO_KIND_VIGNETTE 14
 
 #define ALBEDO_BLEND_NORMAL 0
 #define ALBEDO_BLEND_ADD 1
@@ -128,6 +136,15 @@ float albedoLightness(vec3 c) {
     float m = albedoCbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
     float s = albedoCbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
     return 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+}
+
+vec3 albedoLinearToLab(vec3 c) {
+    float l = albedoCbrt(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b);
+    float m = albedoCbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
+    float s = albedoCbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
+    return vec3(0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s);
 }
 
 vec3 albedoLabToLinear(vec3 lab) {
@@ -306,6 +323,60 @@ vec3 albedoTerm(int slot, vec3 dir) {
     return textureLod(AlbedoTerms, vec2(u, (float(slot) * slotRows + y) / rows), 0.0).rgb;
 }
 
+// One linear channel in sRGB from 0 to 255, as Oklab.toSrgb.
+float albedoToSrgb(float linear) {
+    float c = clamp(linear, 0.0, 1.0);
+    return (c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055) * 255.0;
+}
+
+// One sRGB channel from 0 to 255 in linear light, as Oklab.toLinear of a byte.
+float albedoByteToLinear(float channel) {
+    float c = channel / 255.0;
+    return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+// Fewer color steps: from 2 to 16 for each channel, as AMOUNT sets.
+vec3 albedoPosterize(int layer, vec3 img) {
+    float steps = floor(2.0 + albedoLayer(layer, 1).z * 14.0 + 0.5) - 1.0;
+    vec3 result = vec3(0.0);
+    for (int c = 0; c < 3; c++) {
+        float q = floor(albedoToSrgb(img[c]) / 255.0 * steps + 0.5) / steps;
+        result[c] = albedoByteToLinear(floor(q * 255.0 + 0.5));
+    }
+    return result;
+}
+
+// Turns the hue by AMOUNT of a full turn, in OKLab so that the lightness stays.
+vec3 albedoHueShift(int layer, vec3 img) {
+    float angle = albedoLayer(layer, 1).z * 2.0 * ALBEDO_PI;
+    float c = cos(angle), s = sin(angle);
+    vec3 lab = albedoLinearToLab(max(img, 0.0));
+    return max(albedoLabToLinear(vec3(lab.x, lab.y * c - lab.z * s, lab.y * s + lab.z * c)), 0.0);
+}
+
+// Mixes COLOR_1 in away from the layer center, the -z axis of the layer frame, from 30 percent of 90 degrees times the size out.
+vec3 albedoVignette(int layer, vec3 img, vec3 p) {
+    float radius = radians(90.0 * albedoLayer(layer, 2).x);
+    float dist = acos(clamp(-p.z, -1.0, 1.0));
+    float k = albedoSmooth(radius * 0.3, radius, dist) * albedoLayer(layer, 1).z * albedoLayer(layer, 2).z;
+    return img + (albedoLayer(layer, 3).rgb - img) * k;
+}
+
+// The color of a filter over the sky below it, where a filter that reads near pixels or other directions reads its term image.
+vec4 albedoFilter(int layer, int kind, vec3 img, vec3 dir, vec3 p) {
+    if (kind == ALBEDO_KIND_BLOOM) {
+        // The term holds only the glow that the bloom adds to the sky below it.
+        return vec4(img + albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
+    }
+    if (kind == ALBEDO_KIND_BLUR || kind == ALBEDO_KIND_PIXELATE || kind == ALBEDO_KIND_CRYSTALLIZE || kind == ALBEDO_KIND_SWIRL) {
+        return vec4(albedoTerm(int(albedoLayer(layer, 3).w), dir), 1.0);
+    }
+    if (kind == ALBEDO_KIND_POSTERIZE) return vec4(albedoPosterize(layer, img), 1.0);
+    if (kind == ALBEDO_KIND_HUE_SHIFT) return vec4(albedoHueShift(layer, img), 1.0);
+    if (kind == ALBEDO_KIND_VIGNETTE) return vec4(albedoVignette(layer, img, p), 1.0);
+    return vec4(img, 1.0);
+}
+
 // The linear color of the sky in a unit direction, where the footprint is the width of the pixel in radians.
 vec3 albedoSky(vec3 dir, float footprint) {
     int count = int(SkyHeader.x);
@@ -324,14 +395,8 @@ vec3 albedoSky(vec3 dir, float footprint) {
             int use = int(head.z);
             if (use == ALBEDO_USE_NONE) continue;
             int kind = int(head.x);
-            vec4 s;
-            if (kind == ALBEDO_KIND_BLOOM) {
-                // The term holds only the glow that the bloom adds to the sky below it.
-                s = vec4(img + albedoTerm(int(albedoLayer(i, 3).w), dir), 1.0);
-            } else {
-                vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
-                s = albedoGenerate(i, kind, p, footprint);
-            }
+            vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
+            vec4 s = kind >= ALBEDO_KIND_BLOOM ? albedoFilter(i, kind, img, dir, p) : albedoGenerate(i, kind, p, footprint);
             float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);
             float a = clamp(s.a, 0.0, 1.0);
             maskLight[i] = lightness * a;
@@ -346,12 +411,6 @@ vec3 albedoSky(vec3 dir, float footprint) {
     }
     if (haze > 0.0) img += (albedoRing(degrees(atan(dir.x, -dir.z))) - img) * haze;
     return img;
-}
-
-// One linear channel in sRGB from 0 to 255, as Oklab.toSrgb.
-float albedoToSrgb(float linear) {
-    float c = clamp(linear, 0.0, 1.0);
-    return (c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055) * 255.0;
 }
 
 // The sRGB color of a linear color with the hash dither of the bake, which hides the bands of slow gradients.
