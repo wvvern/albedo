@@ -1,0 +1,240 @@
+package dev.albedo.modern;
+
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import dev.albedo.core.Albedo;
+import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLight;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+
+/**
+ * Draws the baked custom sky on a sphere in place of the vanilla sky disc, from one texture of a fixed size that is
+ * uploaded on the render thread only when the core has a new image.
+ */
+public final class ModernSky {
+    private static final float RADIUS = 100f;
+    private static DynamicTexture texture;
+    private static long uploaded = -1;
+    private static int vertexCount;
+    //? if >=26.1 {
+    private static com.mojang.renderpearl.api.buffers.GpuBuffer sphere;
+    // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
+    private static final com.mojang.renderpearl.api.pipeline.RenderPipeline PIPELINE = com.mojang.renderpearl.api.pipeline.RenderPipeline.builder()
+            .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.GLOBALS)
+            .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.PROJECTION)
+            .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.DYNAMIC_TRANSFORMS)
+            .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.SAMPLER0)
+            .withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_layers"))
+            .withVertexShader("core/position_tex")
+            .withFragmentShader("core/position_tex")
+            .withColorTargetState(com.mojang.renderpearl.api.pipeline.ColorTargetState.DEFAULT)
+            .withDepthStencilState(new com.mojang.renderpearl.api.pipeline.DepthStencilState(
+                    com.mojang.renderpearl.api.pipeline.CompareOp.ALWAYS_PASS, false))
+            .withCull(false)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
+            .withPrimitiveTopology(com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES)
+            .build();
+    //?} elif >=1.21.11 {
+    /*private static com.mojang.blaze3d.buffers.GpuBuffer sphere;
+    // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
+    private static final com.mojang.blaze3d.pipeline.RenderPipeline PIPELINE = com.mojang.blaze3d.pipeline.RenderPipeline.builder()
+            .withUniform("DynamicTransforms", com.mojang.blaze3d.shaders.UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", com.mojang.blaze3d.shaders.UniformType.UNIFORM_BUFFER)
+            .withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_layers"))
+            .withVertexShader("core/position_tex")
+            .withFragmentShader("core/position_tex")
+            .withSampler("Sampler0")
+            .withoutBlend()
+            .withDepthWrite(false)
+            .withDepthTestFunction(com.mojang.blaze3d.platform.DepthTestFunction.NO_DEPTH_TEST)
+            .withCull(false)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX, com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLES)
+            .build();
+    *///?} else {
+    /*private static com.mojang.blaze3d.vertex.VertexBuffer sphere;
+    *///?}
+
+    private ModernSky() {}
+
+    /** True when the custom sky replaces the vanilla sky disc in this frame. */
+    public static boolean active() {
+        return Albedo.skyImage() != null;
+    }
+
+    /** True when the custom sky hides the vanilla stars. */
+    public static boolean hidesStars() {
+        SkyImage img = Albedo.skyImage();
+        return img != null && img.design().celestial() == SkyDesign.Celestial.HIDE;
+    }
+
+    /** The factor of the sky and fog colors for the time of day and the weather, 1 for a sky that stays bright. */
+    static float brightness(SkyImage img) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null || img.design().light() != SkyDesign.Light.DAY_NIGHT) return 1f;
+        //? if >=26.1 {
+        long time = level.getOverworldClockTime();
+        //?} else {
+        /*long time = level.getDayTime();
+        *///?}
+        return SkyLight.brightness(time, level.getRainLevel(1f), level.getThunderLevel(1f));
+    }
+
+    /** The camera yaw in degrees, where 0 looks south. */
+    static float cameraYaw() {
+        //? if >=26.1 {
+        return Minecraft.getInstance().gameRenderer.mainCamera().yRot();
+        //?} elif >=1.21.11 {
+        /*return Minecraft.getInstance().gameRenderer.getMainCamera().yRot();
+        *///?} else {
+        /*return Minecraft.getInstance().gameRenderer.getMainCamera().getYRot();
+        *///?}
+    }
+
+    /** Sends a new image to the texture and makes the sphere once; the render thread calls this. */
+    private static void prepare(SkyImage img) {
+        if (texture == null || texture.getPixels() == null || texture.getPixels().getWidth() != img.width()
+                || texture.getPixels().getHeight() != img.height()) {
+            if (texture != null) texture.close();
+            NativeImage pixels = new NativeImage(img.width(), img.height(), false);
+            //? if >=1.21.11 {
+            texture = new DynamicTexture(() -> "Albedo sky", pixels);
+            //?} else {
+            /*texture = new DynamicTexture(pixels);
+            *///?}
+            uploaded = -1;
+        }
+        if (uploaded != img.serial()) {
+            NativeImagePixels out = new NativeImagePixels(texture.getPixels());
+            int[] argb = img.argb();
+            for (int y = 0; y < img.height(); y++) {
+                for (int x = 0; x < img.width(); x++) out.setArgb(x, y, argb[y * img.width() + x]);
+            }
+            texture.upload();
+            //? if <1.21.11 {
+            /*// A dynamic texture uploads with nearest filtering and repeat in both directions.
+            com.mojang.blaze3d.systems.RenderSystem.bindTexture(texture.getId());
+            com.mojang.blaze3d.platform.GlStateManager._texParameter(3553, 10241, 9729);
+            com.mojang.blaze3d.platform.GlStateManager._texParameter(3553, 10240, 9729);
+            com.mojang.blaze3d.platform.GlStateManager._texParameter(3553, 10242, 10497);
+            com.mojang.blaze3d.platform.GlStateManager._texParameter(3553, 10243, 33071);
+            *///?}
+            uploaded = img.serial();
+        }
+        if (sphere == null) sphere = buildSphere();
+    }
+
+    //? if >=26.1 {
+    private static com.mojang.renderpearl.api.buffers.GpuBuffer buildSphere() {
+        float[] v = SkyImage.sphere(RADIUS);
+        vertexCount = v.length / 5;
+        try (com.mojang.blaze3d.vertex.ByteBufferBuilder bytes = com.mojang.blaze3d.vertex.ByteBufferBuilder.exactlySized(
+                vertexCount * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
+            BufferBuilder b = new BufferBuilder(bytes, com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
+            for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
+            try (com.mojang.blaze3d.vertex.MeshData mesh = b.buildOrThrow()) {
+                return com.mojang.blaze3d.systems.RenderSystem.getDevice().createBuffer(() -> "Albedo sky sphere", 32, mesh.vertexBuffer());
+            }
+        }
+    }
+
+    // Uploads a new image before the sky pass opens, because a texture write is not allowed inside a pass.
+    public static void beforePass() {
+        SkyImage img = Albedo.skyImage();
+        if (img != null) prepare(img);
+    }
+
+    // Draws the sky in the shared sky pass, where the next vanilla draw sets its own pipeline again, and returns false when there is no custom sky.
+    public static boolean draw(com.mojang.renderpearl.api.commands.RenderPass pass) {
+        SkyImage img = Albedo.skyImage();
+        if (img == null || texture == null || sphere == null || uploaded != img.serial()) return false;
+        float k = brightness(img);
+        com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
+                .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));
+        pass.pushDebugGroup(() -> "Albedo sky");
+        pass.setPipeline(com.mojang.blaze3d.systems.RenderSystem.getCompiledPipeline(PIPELINE));
+        com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);
+        pass.setUniform("DynamicTransforms", transforms);
+        pass.setUniform("Sampler0", texture.getTextureView(), com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getSampler(
+                com.mojang.renderpearl.api.textures.AddressMode.REPEAT, com.mojang.renderpearl.api.textures.AddressMode.CLAMP_TO_EDGE,
+                com.mojang.renderpearl.api.textures.FilterMode.LINEAR, com.mojang.renderpearl.api.textures.FilterMode.LINEAR, false));
+        pass.setVertexBuffer(0, sphere.slice());
+        pass.draw(vertexCount, 1, 0, 0);
+        pass.popDebugGroup();
+        return true;
+    }
+    //?} elif >=1.21.11 {
+    /*private static com.mojang.blaze3d.buffers.GpuBuffer buildSphere() {
+        float[] v = SkyImage.sphere(RADIUS);
+        vertexCount = v.length / 5;
+        try (com.mojang.blaze3d.vertex.ByteBufferBuilder bytes = com.mojang.blaze3d.vertex.ByteBufferBuilder.exactlySized(
+                vertexCount * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
+            BufferBuilder b = new BufferBuilder(bytes, com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
+            for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
+            try (com.mojang.blaze3d.vertex.MeshData mesh = b.buildOrThrow()) {
+                return com.mojang.blaze3d.systems.RenderSystem.getDevice().createBuffer(() -> "Albedo sky sphere", 32, mesh.vertexBuffer());
+            }
+        }
+    }
+
+    // Draws the sky in its own render pass in place of the vanilla disc, and returns false when there is no custom sky.
+    public static boolean draw() {
+        SkyImage img = Albedo.skyImage();
+        if (img == null) return false;
+        prepare(img);
+        float k = brightness(img);
+        com.mojang.blaze3d.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
+                .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix(), new org.joml.Vector4f(k, k, k, 1f),
+                        new org.joml.Vector3f(), new org.joml.Matrix4f());
+        com.mojang.blaze3d.pipeline.RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+        try (com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
+                .createRenderPass(() -> "Albedo sky", target.getColorTextureView(), java.util.OptionalInt.empty(),
+                        target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
+            pass.setPipeline(PIPELINE);
+            com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);
+            pass.setUniform("DynamicTransforms", transforms);
+            pass.bindTexture("Sampler0", texture.getTextureView(), com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getSampler(
+                    com.mojang.blaze3d.textures.AddressMode.REPEAT, com.mojang.blaze3d.textures.AddressMode.CLAMP_TO_EDGE,
+                    com.mojang.blaze3d.textures.FilterMode.LINEAR, com.mojang.blaze3d.textures.FilterMode.LINEAR, false));
+            pass.setVertexBuffer(0, sphere);
+            pass.draw(0, vertexCount);
+        }
+        return true;
+    }
+    *///?} else {
+    /*private static com.mojang.blaze3d.vertex.VertexBuffer buildSphere() {
+        float[] v = SkyImage.sphere(RADIUS);
+        vertexCount = v.length / 5;
+        BufferBuilder b = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLES,
+                DefaultVertexFormat.POSITION_TEX);
+        for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
+        com.mojang.blaze3d.vertex.VertexBuffer buffer = new com.mojang.blaze3d.vertex.VertexBuffer(
+                com.mojang.blaze3d.vertex.VertexBuffer.Usage.STATIC);
+        buffer.bind();
+        buffer.upload(b.buildOrThrow());
+        com.mojang.blaze3d.vertex.VertexBuffer.unbind();
+        return buffer;
+    }
+
+    // Draws the sky with the matrices of the vanilla disc, and returns false when there is no custom sky.
+    public static boolean draw(org.joml.Matrix4f modelView, org.joml.Matrix4f projection) {
+        SkyImage img = Albedo.skyImage();
+        if (img == null) return false;
+        prepare(img);
+        float k = brightness(img);
+        com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, texture.getId());
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(k, k, k, 1f);
+        com.mojang.blaze3d.systems.RenderSystem.disableCull();
+        sphere.bind();
+        sphere.drawWithShader(modelView, projection, com.mojang.blaze3d.systems.RenderSystem.getShader());
+        com.mojang.blaze3d.vertex.VertexBuffer.unbind();
+        com.mojang.blaze3d.systems.RenderSystem.enableCull();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        return true;
+    }
+    *///?}
+}

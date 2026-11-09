@@ -573,7 +573,8 @@ final class Ui {
 
     /** A slider from {@code min} to {@code max} with the value and {@code unit} at the right, which returns the value after a click or drag. */
     int rangeSlider(String id, int x, int y, int w, int value, int min, int max, String unit, String tipText) {
-        int textW = Math.max(width(max + unit), width(min + unit)) + 6, trackW = Math.max(10, w - textW);
+        // The same text room for every range, so that sliders on rows below each other line up.
+        int textW = Math.max(width("-180%"), Math.max(width(max + unit), width(min + unit))) + 6, trackW = Math.max(10, w - textW);
         int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * (value - min) / Math.max(1, max - min);
         fill(x, ty, trackW, 3, CARD);
         fill(x, ty, knobX - x + 2, 3, ACCENT);

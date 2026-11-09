@@ -5,7 +5,10 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** Dev harness input for the settings screen, one command per frame: click a label, type text, press a key, or move the pointer off. */
+/**
+ * Dev harness input for the settings screen, one command per frame: click a label, turn the wheel over a label, type
+ * text, press a key, or move the pointer off.
+ */
 final class ScriptedInput {
     private static final Queue<String> QUEUE = new ConcurrentLinkedQueue<String>();
 
@@ -51,14 +54,20 @@ final class ScriptedInput {
         String arg = space < 0 ? "" : command.substring(space + 1);
         switch (verb) {
             case "click": {
-                int[] at = lastTexts.get(arg);
-                if (at == null) {
-                    for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(arg)) at = e.getValue();
-                }
+                int[] at = find(arg);
                 if (at == null) return false;
                 pointer = at;
                 ui.mousePressed();
                 return true;
+            }
+            case "scroll": {
+                // "scroll -3 label": the wheel turns three steps down over the label.
+                int split = arg.indexOf(' ');
+                int[] at = split < 0 ? null : find(arg.substring(split + 1));
+                if (at == null) return false;
+                pointer = at;
+                ui.scrolled(Integer.parseInt(arg.substring(0, split)));
+                return false;
             }
             case "type":
                 for (char ch : arg.toCharArray()) ui.typed(ch);
@@ -72,6 +81,15 @@ final class ScriptedInput {
             default:
                 return false;
         }
+    }
+
+    /** The center of the label drawn as {@code text}, or else of a label that contains it, or null. */
+    private int[] find(String text) {
+        int[] at = lastTexts.get(text);
+        if (at == null) {
+            for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(text)) at = e.getValue();
+        }
+        return at;
     }
 
     /** Passes drawing through and keeps where each text was drawn. */

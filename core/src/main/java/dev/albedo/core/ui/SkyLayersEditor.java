@@ -58,7 +58,7 @@ final class SkyLayersEditor {
     }
 
     /** The size of the preview image, the same shape as the image in the world. */
-    static final int PREVIEW_W = 256, PREVIEW_H = 64;
+    static final int PREVIEW_W = 512, PREVIEW_H = 128;
     /** The height of one control row. */
     private static final int ROW = 16;
     private static final int GAP = 6;

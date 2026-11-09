@@ -1,0 +1,73 @@
+# Screenshots of the custom sky presets, the sky layers editor and a masked filter on 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-modern.txt -OutDir build\sky (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 6000
+wait 40
+sky dusk
+wait 120
+# Yaw 90 looks west (the Dusk glow), yaw -45 looks south-east (the galaxy), pitch -75 looks up.
+run tp @p ~ ~ ~ 90 -8
+wait 40
+screenshot sky-01-dusk-horizon
+run tp @p ~ ~ ~ 90 -75
+wait 40
+screenshot sky-02-dusk-up
+sky nebula
+wait 160
+run tp @p ~ ~ ~ 180 -8
+wait 40
+screenshot sky-03-nebula-horizon
+run tp @p ~ ~ ~ 180 -75
+wait 40
+screenshot sky-04-nebula-up
+sky galaxy
+wait 160
+run tp @p ~ ~ ~ -45 -8
+wait 40
+screenshot sky-05-galaxy-horizon
+run tp @p ~ ~ ~ -45 -45
+wait 40
+screenshot sky-06-galaxy-up
+run tp @p ~ ~ ~ 180 12
+sky nebula
+wait 160
+settings open
+wait 20
+ui click Sky
+wait 60
+ui pointer off
+wait 10
+screenshot sky-07-settings-list
+# The blur is masked by the light parts of the noise (layer 3), which is only a mask.
+ui click Blur 5
+wait 60
+ui pointer off
+wait 10
+screenshot sky-08-masked-blur
+ui click This layer
+wait 60
+ui pointer off
+wait 10
+screenshot sky-09-masked-blur-alone
+ui key ESCAPE
+wait 10
+ui scroll -1 Bloom 7
+wait 10
+ui click Noise 3
+wait 10
+ui click Place
+wait 30
+ui pointer off
+wait 10
+screenshot sky-10-mask-place
+ui key ESCAPE
+wait 10
+ui click + Add layer
+wait 20
+ui pointer off
+wait 10
+screenshot sky-11-add
+settings close
+wait 10
+quit
