@@ -111,7 +111,8 @@ final class Labels {
             case FRACTAL: return "Thin bright lines of gas, as in a nebula";
             case GALAXY: return "A spiral galaxy";
             case STARS: return "Small points of light";
-            case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them. The preview does not show them.";
+            case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them, not the preview. "
+                    + "Blur, Pixelate, Crystallize and Swirl above them hide them.";
             case BLUR: return "Makes the layers below soft";
             case CRYSTALLIZE: return "Breaks the layers below into crystal cells";
             case PIXELATE: return "Breaks the layers below into square cells";

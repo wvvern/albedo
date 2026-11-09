@@ -366,15 +366,16 @@ vec3 albedoMeteor(int layer, int slot, int channel, vec3 q, float footprint) {
     float t = clamp(behind / trail, 0.0, 1.0);
     float soft = trailWidth + footprint;
     float along = albedoSmooth(-soft, soft, behind) * albedoSmooth(-soft, soft, angle) * (1.0 - t) * (1.0 - t);
-    vec3 tint = albedoMix(layer, 0.8 * albedoSmooth(0.1, 1.0, t)).rgb;
-    if (fireball) tint = mix(tint, vec3(1.0, 0.42, 0.1), 0.45 * t);
+    vec4 mixed = albedoMix(layer, 0.8 * albedoSmooth(0.1, 1.0, t));
+    vec3 tint = (fireball ? mix(mixed.rgb, vec3(1.0, 0.42, 0.1), 0.45 * t) : mixed.rgb) * mixed.a;
     float trailLight = rise * (1.0 - albedoSmooth(0.7, ALBEDO_METEOR_TRAIL_END, life)) * brightness * 2.5;
     vec3 light = tint * trailLight * along * albedoMeteorLine(across, trailWidth, footprint);
     if (life < 1.0) {
         // The head gets brighter until it goes out, and its light above 1 makes its center white.
         float headLight = rise * (1.0 - albedoSmooth(0.8, 1.0, life)) * (0.7 + 0.5 * life) * brightness;
         float r = length(vec2(across, behind));
-        light += albedoLayer(layer, 3).rgb * headLight * (3.0 * albedoMeteorLine(r, headWidth, footprint) + 0.12 * exp(-(r / halo) * (r / halo)));
+        float shape = 3.0 * albedoMeteorLine(r, headWidth, footprint) + 0.12 * exp(-(r / halo) * (r / halo));
+        light += albedoLayer(layer, 3).rgb * albedoLayer(layer, 2).z * headLight * shape;
     }
     // The meteors go out at the horizon.
     return light * albedoSmooth(0.0, 0.09, q.y);

@@ -99,7 +99,7 @@ public final class SkyProgram {
             block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             block[base + LENGTH] = l.param(SkyLayer.Param.LENGTH) / 100f;
             block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
-            anyMoves |= l.kind() == SkyLayer.Kind.METEORS && block[base + USE] == USE_SHOW;
+            anyMoves |= l.kind() == SkyLayer.Kind.METEORS && block[base + USE] != USE_NONE;
             color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
             color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
             double[] r = l.transform().rotation();
@@ -159,7 +159,7 @@ public final class SkyProgram {
         return true;
     }
 
-    /** True when a shown layer moves with the time, so that the adapter must write the time into the header for each frame. */
+    /** True when a layer that shows or masks moves with the time, so that the adapter must write the time into the header for each frame. */
     public boolean moves() { return moves; }
 
     /** The number of term images, from 0 to {@link #MAX_TERMS}. */

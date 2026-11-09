@@ -3,6 +3,8 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyLayer;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyMeteorsTest {
@@ -85,6 +87,19 @@ class SkyMeteorsTest {
         SkyImage withMeteors = SkyGenerator.bake(SkyPresets.METEORS, 128, 64);
         assertArrayEquals(still.argb(), withMeteors.argb(), "only the sky shader draws the meteors, so skycompare is the same");
         assertEquals(SkyLayer.Kind.METEORS, SkyPresets.METEORS.layers().get(LAYER).kind());
+    }
+
+    @Test
+    void theShaderHasTheSameModel() throws IOException {
+        String glsl = SkyProgramTest.skyLayersGlsl();
+        // The numbers of SkyMeteors.of, so that the harness command meteor looks where the shader draws a meteor.
+        String[] model = {"int(albedoLayer(layer, 2).y) * 7 + 13", "(2.0 + 118.0 * amount * amount)",
+            "albedoMeteorUnit(slot, channel, 2, seed) < 0.05",
+            "(0.3 + 0.7 * albedoMeteorUnit(slot, channel, 3, seed)) * (fireball ? 1.4 : 1.0)",
+            "radians(8.0 + 32.0 * albedoLayer(layer, 4).w) * (0.7 + 0.6 * albedoMeteorUnit(slot, channel, 4, seed))",
+            "sin(radians(20.0)), high = sin(radians(75.0))", "start * dot(start, radiant) - radiant",
+            "albedoMeteorUnit(slot, channel, 9, seed) < albedoLayer(layer, 6).w", "albedoMeteorUnit(slot, channel, 10, seed)"};
+        for (String s : model) assertTrue(glsl.contains(s), s);
     }
 
     private static double dot(float[] a, float[] b) {

@@ -2,6 +2,7 @@ package dev.albedo.core.sky;
 
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
+import dev.albedo.core.config.SkyMask;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -23,11 +24,7 @@ class SkyProgramTest {
 
     @Test
     void theShaderHasTheSameLayoutAndCodes() throws IOException {
-        String glsl;
-        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
-            assertNotNull(in, "the shader is a core resource");
-            glsl = new String(readAll(in), StandardCharsets.UTF_8);
-        }
+        String glsl = skyLayersGlsl();
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
             "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
             "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
@@ -68,7 +65,19 @@ class SkyProgramTest {
         assertEquals(0.7f, meteors.block()[SkyProgram.at(3, SkyProgram.SHOWER)], 1e-6f);
         assertFalse(SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program().moves());
         SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY));
-        assertFalse(SkyProgram.of(hidden, new float[SkyImage.RING * 3]).moves(), "a meteors layer that does not show does not move");
+        assertFalse(SkyProgram.of(hidden, new float[SkyImage.RING * 3]).moves(), "a meteors layer that does not show or mask does not move");
+        SkyLayer masked = SkyLayer.of(5, SkyLayer.Kind.GRADIENT).withMask(SkyMask.of(4, SkyMask.Mode.LIGHT));
+        List<SkyLayer> layers = new ArrayList<SkyLayer>(hidden.layers());
+        layers.add(masked);
+        assertTrue(SkyProgram.of(hidden.withLayers(layers), new float[SkyImage.RING * 3]).moves(), "a meteors mask moves");
+    }
+
+    /** The text of the sky shader include, a core resource. */
+    static String skyLayersGlsl() throws IOException {
+        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
+            assertNotNull(in, "the shader is a core resource");
+            return new String(readAll(in), StandardCharsets.UTF_8);
+        }
     }
 
     private static byte[] readAll(InputStream in) throws IOException {

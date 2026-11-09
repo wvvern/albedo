@@ -320,7 +320,6 @@ public final class SkyGenerator {
             case GALAXY: galaxy(l, p, out); break;
             case STARS: stars(l, p, out); break;
             // The meteors move with the time, so only the sky shader draws them and the still image has none.
-            case METEORS: out[3] = 0; break;
             default: out[3] = 0;
         }
     }

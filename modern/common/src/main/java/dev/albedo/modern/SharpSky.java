@@ -191,6 +191,8 @@ final class SharpSky {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build());
 
+    /** The bytes of the time for {@link #writeTime}, which the write copies at once, so one buffer serves all frames. */
+    private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
@@ -215,13 +217,8 @@ final class SharpSky {
 
     /** Writes the time of the layers that move into the header of a block, outside a render pass. */
     private static void writeTime(GpuBuffer target, float time) {
-        ByteBuffer bytes = MemoryUtil.memAlloc(4);
-        try {
-            bytes.putFloat(0, time);
-            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), bytes);
-        } finally {
-            MemoryUtil.memFree(bytes);
-        }
+        TIME_BYTES.putFloat(0, time);
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
     }
 
     /**

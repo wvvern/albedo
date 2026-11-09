@@ -76,7 +76,7 @@ There are two types of layer:
 A higher layer is drawn over the lower layers. Click a layer to edit it:
 
 - **Look:** the blend (Normal, Add, Screen, Multiply), the opacity, the colors and the other values of the layer. "New pattern" gives a noise, fractal, galaxy or star layer a different pattern.
-- **Meteors:** shooting stars that move across the upper sky, each with a small white head and a thin trail that fades. Amount sets how many, Speed how fast, Length how long the trails are, and Shower how many come from one point, the radiant. Turn and Tilt on the Place page move the radiant. Some meteors are bright fireballs. Only "Sharp render" shows the meteors. The preview and the fast render do not show them.
+- **Meteors:** shooting stars that move across the upper sky, each with a small white head and a thin trail that fades. Amount sets how many, Speed how fast, Length how long the trails are, and Shower how many come from one point, the radiant. Turn and Tilt on the Place page move the radiant. Some meteors are bright fireballs. Only "Sharp render" shows the meteors. The preview and the fast render do not show them. A Blur, Pixelate, Crystallize or Swirl layer above the meteors hides them, and a Bloom layer does not make them glow.
 - **Mask:** the layer shows only where a lower layer is light (or dark). Set "Mask only" on the lower layer if it must not show itself. For example, a Noise layer with "Mask only" and a Blur layer above it, masked by the noise, blurs the sky only in patches.
 - **Place:** Turn (the compass direction), Tilt (the height above the horizon), Roll and Size. Only the values that change the layer show.
 
