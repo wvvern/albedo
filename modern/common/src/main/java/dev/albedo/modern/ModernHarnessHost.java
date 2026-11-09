@@ -100,6 +100,11 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public boolean timeChroma(int frames) {
+        return ChromaAtlases.time(frames);
+    }
+
+    @Override
     public void closeScreen() {
         ModernPlatform.setScreen(null);
     }

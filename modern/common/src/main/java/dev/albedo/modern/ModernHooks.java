@@ -29,6 +29,16 @@ public final class ModernHooks {
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
+    /** The start of a frame, before it draws anything. */
+    public static void frameStart() {
+        ChromaAtlases.frameStart();
+    }
+
+    /** The end of a frame, after it drew the world and the screens. */
+    public static void frameEnd() {
+        ChromaAtlases.frameEnd();
+    }
+
     /**
      * Atlas sprites, before mipmaps are generated.
      *

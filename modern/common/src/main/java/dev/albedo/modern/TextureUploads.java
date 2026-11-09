@@ -56,25 +56,35 @@ final class TextureUploads {
      * @param atlasId the location of the atlas texture
      */
     static TextureStore.Upload sprite(Object atlasId, SpriteContents contents) {
-        return pixels -> {
-            if (!(registered(atlasId) instanceof TextureAtlas atlas)) return false;
-            TextureAtlasSprite sprite = atlas.getSprite(contents.name());
-            if (sprite.contents() != contents) return false;
-            NativeImage original = ((SpriteContentsAccessor) contents).albedo$originalImage();
-            if (original.getWidth() != pixels.width() || original.getHeight() != pixels.height()) return false;
-            //? if >=1.21.11 {
-            // u0 = (x + padding) / atlas width.
-            int padding = Math.round(sprite.getU0() * atlas.getTexture().getWidth(0)) - sprite.getX();
-            //?} else {
-            /*int padding = 0;
-            *///?}
-            PENDING.add(new Pending(atlas, sprite, pixels, padding));
-            return true;
+        return new TextureStore.Upload() {
+            @Override
+            public boolean upload(PixelBuffer pixels) {
+                if (!(registered(atlasId) instanceof TextureAtlas atlas)) return false;
+                TextureAtlasSprite sprite = atlas.getSprite(contents.name());
+                if (sprite.contents() != contents) return false;
+                NativeImage original = ((SpriteContentsAccessor) contents).albedo$originalImage();
+                if (original.getWidth() != pixels.width() || original.getHeight() != pixels.height()) return false;
+                //? if >=1.21.11 {
+                // u0 = (x + padding) / atlas width.
+                int padding = Math.round(sprite.getU0() * atlas.getTexture().getWidth(0)) - sprite.getX();
+                //?} else {
+                /*int padding = 0;
+                *///?}
+                PENDING.add(new Pending(atlas, sprite, pixels, padding));
+                return true;
+            }
+
+            @Override
+            public boolean gpuHue() {
+                return ChromaAtlases.gpuHue(atlasId);
+            }
         };
     }
 
     /** Puts the repainted sprites into their atlases, and must run after each repaint, also when an upload failed. */
     static void flush() {
+        // The new sprites go into the colors that Albedo painted, which the Chroma pass copies at the start of the next frame.
+        if (!PENDING.isEmpty()) ChromaAtlases.restore();
         try {
             PENDING.parallelStream().forEach(p -> {
                 repaint(p.sprite.contents(), p.pixels);
@@ -243,7 +253,7 @@ final class TextureUploads {
     *///?}
 
     /** The texture registered at {@code location} now, or null, without making one as TextureManager.getTexture does. */
-    private static AbstractTexture registered(Object location) {
+    static AbstractTexture registered(Object location) {
         return ((TextureManagerAccessor) Minecraft.getInstance().getTextureManager()).albedo$byPath().get(location);
     }
 
