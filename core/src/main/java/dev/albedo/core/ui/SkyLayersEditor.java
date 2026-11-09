@@ -1,6 +1,5 @@
 package dev.albedo.core.ui;
 
-import dev.albedo.core.Colors;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
@@ -11,6 +10,7 @@ import dev.albedo.core.sky.SkyPresets;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -70,8 +70,8 @@ final class SkyLayersEditor {
     private final SkyBaker preview;
     private SkyPage page = SkyPage.LIST;
     private CanvasImage shown;
-    private final TextField[] hex = {new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#'),
-        new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#')};
+    /** One color input for each color parameter, so that each keeps its own typed text. */
+    private final Map<SkyLayer.Param, ColorField> colors = new EnumMap<SkyLayer.Param, ColorField>(SkyLayer.Param.class);
     private int labelW;
 
     /**
@@ -82,6 +82,7 @@ final class SkyLayersEditor {
         this.ui = ui;
         this.relayout = relayout;
         this.preview = new SkyBaker(PREVIEW_W, PREVIEW_H, errors);
+        for (SkyLayer.Param p : SkyLayer.Param.values()) if (p.isColor()) colors.put(p, new ColorField(ui));
     }
 
     /** The only way the page changes; a text field or scroll of the old page does not carry over. */
@@ -426,17 +427,8 @@ final class SkyLayersEditor {
         form.label(y, Ui.H, label, null);
         int v = l.param(p);
         if (p.isColor()) {
-            TextField field = hex[p == SkyLayer.Param.COLOR_1 ? 0 : 1];
-            String id = "sky.hex." + p.key;
-            ui.swatch(lx, y + 2, 10, 10, v);
-            if (!ui.isFocused(id)) field.set(Colors.format(v));
-            if (ui.textField(id, field, lx + 14, y, Math.min(62, cw - 14), Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
-                try {
-                    put.accept(l.withParam(p, Colors.parse(field.text)));
-                } catch (IllegalArgumentException ignored) {
-                    // keep typing
-                }
-            }
+            int n = colors.get(p).draw("sky.hex." + p.key, lx, y, cw, v);
+            if (n != v) put.accept(l.withParam(p, n));
         } else if (p == SkyLayer.Param.SEED) {
             String text = "Pattern " + v;
             ui.text(text, lx, y + 3, Ui.TEXT);

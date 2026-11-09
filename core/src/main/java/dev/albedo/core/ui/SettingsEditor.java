@@ -2,7 +2,6 @@ package dev.albedo.core.ui;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
-import dev.albedo.core.Colors;
 import dev.albedo.core.Glob;
 import dev.albedo.core.Policy;
 import dev.albedo.core.RefreshResult;
@@ -35,10 +34,6 @@ public final class SettingsEditor {
     private static final Category[] CATEGORIES = {
             Category.BLOCKS, Category.FLUIDS, Category.BLOCK_ENTITIES, Category.DECORATIONS, Category.ITEMS, Category.ENTITIES,
             Category.PLAYERS, Category.PARTICLES, Category.BLOCK_BREAKING, Category.SKY, Category.CLOUDS, Category.WEATHER,
-    };
-    private static final int[] PALETTE = {
-            0xFFFFFFFF, 0xFFC8C8C8, 0xFF8C8C8C, 0xFF505050, 0xFF141414, 0xFF000000, 0xFF6D4C41, 0xFFFF7043,
-            0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF8E24AA,
     };
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor", "Effects"};
@@ -119,21 +114,6 @@ public final class SettingsEditor {
         }
     }
 
-    /** The color picker's own HSV, kept apart from the color so that hue survives at zero saturation or brightness. */
-    private static final class Hsv {
-        float hue, sat, val;
-        /** The color these values show, or null before the first sync. */
-        Integer color;
-
-        void sync(int argb) {
-            float[] hsv = Ui.toHsv(argb);
-            if (hsv[1] > 0 && hsv[2] > 0) hue = hsv[0];
-            sat = hsv[1];
-            val = hsv[2];
-            color = argb;
-        }
-    }
-
     private final Albedo sc;
     final Ui ui;
     private final GroupMatches matches = new GroupMatches();
@@ -157,10 +137,9 @@ public final class SettingsEditor {
     private int bodyBottom;
     private int picked;
     private int suggestion;
-    private final Hsv hsv = new Hsv();
+    private final ColorPicker picker;
     private final SkyLayersEditor skyLayers;
 
-    private final TextField hex = new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#');
     private final TextField search = new TextField(64, TextField.ANY);
     private final TextField add = new TextField(64, c -> Character.isLetterOrDigit(c) || "_-:*?/.^$|()[]{}+\\,".indexOf(c) >= 0);
     private final TextField groupName = new TextField(32, TextField.ANY);
@@ -171,6 +150,7 @@ public final class SettingsEditor {
     public SettingsEditor(final Albedo sc) {
         this.sc = sc;
         this.ui = new Ui(() -> sc.platform().clipboard());
+        this.picker = new ColorPicker(ui);
         this.skyLayers = new SkyLayersEditor(ui, () -> changed = true, e -> sc.platform().warn("Cannot make the sky preview", e));
         this.saved = sc.config();
         setDraft(saved);
@@ -630,9 +610,16 @@ public final class SettingsEditor {
         if (m == Appearance.Mode.SOLID || recolor) {
             form.label(cy, Ui.H, "Color", recolor ? "The average color of the result" : null);
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
-            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH;
-            if (room < 24) cy = compactColor(lx, cy, cw, cs, index, target);
-            else cy = colorPicker(lx, cy, cw, Math.min(44, room), cs, index, target);
+            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH, color = target.color(), next;
+            if (room < ColorPicker.MIN_SQUARE) {
+                next = picker.compact("look", lx, cy, cw, color);
+                cy += ColorPicker.compactHeight();
+            } else {
+                int sqH = Math.min(44, room);
+                next = picker.draw("look", lx, cy, cw, sqH, color);
+                cy += ColorPicker.height(sqH);
+            }
+            if (next != color) setLook(cs, index, target.withColor(next));
             // A very short window puts each set of sliders on one row and names them in their tooltips.
             int effectsMin = effects ? Ui.SLIDER_H + GAP : 0;
             if (recolor) cy = recolorSliders(form, cy, cs, index, target, bottom - cy - shapeH - effectsMin < RECOLOR_H);
@@ -1039,96 +1026,6 @@ public final class SettingsEditor {
             if (full) ui.paragraph(explain, x + 6, cy + 15, w - 12, Ui.MUTED);
             cy += rh + 4;
         }
-    }
-
-    // ---------------------------------------------------------------- color picker
-
-    private void hexField(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
-        if (!ui.isFocused("hex")) hex.set(Colors.format(target.color()));
-        if (ui.textField("hex", hex, x, y, w, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
-            try {
-                int typed = Colors.parse(hex.text);
-                hsv.sync(typed);
-                setLook(cs, index, target.withColor(typed));
-            } catch (IllegalArgumentException ignored) {
-                // keep typing
-            }
-        }
-    }
-
-    /** One row with a swatch and the hex input, for a window too short for the full picker; returns the next y. */
-    private int compactColor(int x, int y, int w, CategorySettings cs, int index, Appearance target) {
-        ui.swatch(x, y + 2, 10, 10, target.color());
-        hexField(x + 14, y, Math.min(62, w - 14), cs, index, target);
-        return y + Ui.H + GAP;
-    }
-
-    /** Draws a saturation and brightness square, hue and opacity bars, a hex input and a palette, and returns the next y. */
-    private int colorPicker(int x, int y, int w, int sqH, CategorySettings cs, int index, Appearance target) {
-        int color = target.color();
-        if (hsv.color == null || hsv.color != color) hsv.sync(color);
-        int alpha = Colors.alpha(color);
-        int sqW = Math.min(84, w / 3);
-
-        // saturation (x) / brightness (y) square, drawn in 3px cells
-        for (int yy = 0; yy < sqH; yy += 3) {
-            for (int xx = 0; xx < sqW; xx += 3) {
-                int cell = Ui.hsv(hsv.hue, xx / (float) (sqW - 1), 1 - yy / (float) (sqH - 1));
-                ui.fill(x + xx, y + yy, Math.min(3, sqW - xx), Math.min(3, sqH - yy), cell);
-            }
-        }
-        int kx = x + Math.round(hsv.sat * (sqW - 1)), ky = y + Math.round((1 - hsv.val) * (sqH - 1));
-        ui.outline(kx - 2, ky - 2, 5, 5, hsv.val > 0.5f ? 0xFF000000 : 0xFFFFFFFF);
-        ui.tip(x, y, sqW, sqH, "Saturation and brightness");
-        float[] sv = ui.dragArea("sv", x, y, sqW, sqH);
-        if (sv != null) {
-            hsv.sat = sv[0];
-            hsv.val = 1 - sv[1];
-        }
-
-        int hx = x + sqW + 4;
-        for (int yy = 0; yy < sqH; yy += 2) ui.fill(hx, y + yy, 8, Math.min(2, sqH - yy), Ui.hsv(yy / (float) sqH, 1, 1));
-        ui.fill(hx - 1, y + Math.round(hsv.hue * (sqH - 1)), 10, 1, 0xFFFFFFFF);
-        ui.tip(hx, y, 8, sqH, "Hue");
-        float[] hv = ui.dragArea("hue", hx, y, 8, sqH);
-        if (hv != null) hsv.hue = Math.min(hv[1], 0.999f);
-
-        int ax = hx + 12;
-        ui.checker(ax, y, 8, sqH);
-        int rgb = Ui.hsv(hsv.hue, hsv.sat, hsv.val);
-        for (int yy = 0; yy < sqH; yy += 2) ui.fill(ax, y + yy, 8, Math.min(2, sqH - yy), Colors.withAlpha(rgb, 255 - yy * 255 / sqH));
-        ui.fill(ax - 1, y + Math.round((1 - alpha / 255f) * (sqH - 1)), 10, 1, 0xFFFFFFFF);
-        ui.tip(ax, y, 8, sqH, "Opacity " + Math.round(alpha * 100 / 255f) + "%");
-        float[] av = ui.dragArea("alpha.bar", ax, y, 8, sqH);
-        if (av != null) alpha = Math.round((1 - av[1]) * 255);
-
-        // Dragging only the opacity keeps the exact RGB (the HSV round trip could shift it slightly).
-        int next = Colors.withAlpha(av != null && sv == null && hv == null ? color : rgb, alpha);
-        if (next != color) {
-            hsv.color = next;
-            setLook(cs, index, target.withColor(next));
-        }
-
-        // The large preview is left out when it would make the hex field too narrow to show a whole color.
-        int px = ax + 14, pw = Math.max(40, x + w - px);
-        int hexW = Math.min(62, pw), previewW = pw - hexW >= 22 ? 22 : 0;
-        if (previewW > 0) ui.swatch(px, y, 18, 18, next);
-        hexField(px + previewW, y + 2, hexW, cs, index, target);
-        int sw = 9, perRow = Math.max(1, Math.min(8, (pw + 2) / (sw + 2)));
-        for (int i = 0; i < PALETTE.length; i++) {
-            int sx = px + (i % perRow) * (sw + 2), sy = y + 22 + (i / perRow) * (sw + 2);
-            if (sy + sw > y + sqH) break; // rows that do not fit beside the square are left out, never drawn over the next row
-            boolean current = (PALETTE[i] & 0xFFFFFF) == (color & 0xFFFFFF);
-            boolean clicked = ui.button("pal." + i, sx - 1, sy - 1, sw + 2, sw + 2, "", Ui.Style.GHOST, true, Colors.format(PALETTE[i]));
-            if (current) ui.outline(sx - 1, sy - 1, sw + 2, sw + 2, Ui.ACCENT);
-            ui.swatch(sx, sy, sw, sw, PALETTE[i]);
-            if (clicked) {
-                int c = Colors.withAlpha(PALETTE[i], alpha);
-                hsv.sync(c);
-                setLook(cs, index, target.withColor(c));
-            }
-        }
-        return y + sqH + GAP;
     }
 
     // ---------------------------------------------------------------- footer
