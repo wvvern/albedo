@@ -29,13 +29,15 @@ final class Aurora {
     /** How far toward the viewer a fold moves the ribbon, for each km that it moves the ribbon along its line. */
     private static final float LOOP = 0.5f;
     /** The steps of the search for the parts of a ribbon near the view, over the azimuths that the folds can reach. */
-    static final int STEPS = 14;
-    /** The most groups of pieces of one ribbon near the view that add light, which the shader keeps in one vec4. */
-    static final int CROSSINGS = 4;
+    static final int STEPS = 10;
     /** The largest azimuth in radians from the layer center with aurora light, where the ribbons are low and faint. */
     private static final float MAX_AZIMUTH = 1.35f;
     /** How many km each second the rays move along the ribbon. */
     private static final float DRIFT = 0.6f;
+    /** The azimuth in radians of the near ribbon before the tip of a fold over which a curtain fades out at its end. */
+    private static final float TAPER = 0.06f;
+    /** The km under the lower edge over which the faint glow of a curtain fades out. */
+    private static final float SKIRT = 4f;
 
     private Aurora() {}
 
@@ -88,13 +90,19 @@ final class Aurora {
         final int seed;
         /** The room for the slopes and the loop of {@link #offset}, which each caller reads before the next call. */
         private final float[] d = new float[3];
-        /** The group of pieces of {@link #piece}: its light, its light times its place, and where the view crosses it or NaN. */
-        private float weight, weighted, crossing;
-        /** Whether the last piece got farther from the view, and the count of groups. */
-        private boolean rising;
-        private int found;
-        /** The places and the light of the kept groups. */
-        private final float[] anchors = new float[CROSSINGS], weights = new float[CROSSINGS];
+        /** The phases of the waves of the ribbon of the last {@link #add}. */
+        private final float[] phases = new float[7];
+        /** The values of the last {@link #rise}: the km of one pixel up the sheet and the km of the rays in one pixel. */
+        private float pixelUp, pixelAlong;
+        /**
+         * The start of the search, the tips of the folds in their order along the ribbon and the end of the search: their
+         * places, their azimuths from the view, and how much the curtain ends at each tip.
+         */
+        private final float[] tipThetas = new float[STEPS + 2], tipOffsets = new float[STEPS + 2], folds = new float[STEPS + 2];
+        /** The light of each part of the ribbon between two tips: of its band at the lower edge, of its rays and of their red tops. */
+        private final float[] bands = new float[STEPS + 1], beams = new float[STEPS + 1], crowns = new float[STEPS + 1];
+        /** The light and the place where it is seen of the last {@link #aim}. */
+        private float aimed, seen;
 
         Ribbon(float[] block, int layer, float a, float el, float wide, float footprint, float time) {
             this.a = a;
@@ -119,7 +127,7 @@ final class Aurora {
             d[2] = 0;
             for (int i = 0; i < FOLD_K.length; i++) {
                 float k = FOLD_K[i] * f / scale, amp = FOLD_AMP[i] * scale / f;
-                float arg = k * theta + 6.2831853f * Noise.unit(Noise.hash(i, c, 0, seed + 601)) + FOLD_RATE[i] * t;
+                float arg = k * theta + phases[i] + FOLD_RATE[i] * t;
                 float sin = (float) Math.sin(arg), cos = (float) Math.cos(arg);
                 phi += amp * sin;
                 d[0] += amp * k * cos;
@@ -133,15 +141,21 @@ final class Aurora {
 
         /** Adds the light of the near ({@code c} 0) or the far ribbon, as straight pieces between the steps near the view. */
         void add(int c, float[] light) {
-            float w = Math.max(3 * wide, THICK / DISTANCE[c]);
-            float reach = (FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2]) * scale / far(c) * 1.02f + w;
+            // The phases of the three fold waves, of the two waves toward the viewer and of the two waves of the lower edge.
+            for (int i = 0; i < 3; i++) phases[i] = 6.2831853f * Noise.unit(Noise.hash(i, c, 0, seed + 601));
+            for (int i = 0; i < 2; i++) {
+                phases[3 + i] = 6.2831853f * Noise.unit(Noise.hash(i, c, 1, seed + 602));
+                phases[5 + i] = 6.2831853f * Noise.unit(Noise.hash(i, c, 2, seed + 603));
+            }
+            float w = Math.max(3 * wide, THICK / DISTANCE[c]), taper = TAPER / far(c);
+            // The search also reaches past the fade of each tip, so that a tip comes into the search with no light to change.
+            float reach = (FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2]) * scale / far(c) * 1.02f + Math.max(w, taper);
             float step = 2 * reach / STEPS;
             float ta = a - reach, ga = offset(c, ta), da = d[0], sa = speed(c, ta);
-            found = 0;
-            weight = 0;
-            weighted = 0;
-            crossing = Float.NaN;
-            rising = false;
+            tipThetas[0] = ta;
+            tipOffsets[0] = ga;
+            int tips = 1;
+            clear(0);
             for (int i = 1; i <= STEPS; i++) {
                 float tb = a - reach + i * step, gb = offset(c, tb), db = d[0], sb = speed(c, tb);
                 if ((da < 0) != (db < 0)) {
@@ -151,19 +165,83 @@ final class Aurora {
                     float dm = d[0];
                     tm = (da < 0) != (dm < 0) ? ta + (tm - ta) * da / (da - dm) : tm + (tb - tm) * dm / (dm - db);
                     float gm = offset(c, tm), sm = speed(c, tm);
-                    piece(ta, ga, sa, tm, gm, sm, w);
-                    piece(tm, gm, sm, tb, gb, sb, w);
+                    piece(c, tips - 1, ta, ga, sa, tm, gm, sm, w);
+                    tipThetas[tips] = tm;
+                    tipOffsets[tips] = gm;
+                    clear(tips++);
+                    piece(c, tips - 1, tm, gm, sm, tb, gb, sb, w);
                 } else {
-                    piece(ta, ga, sa, tb, gb, sb, w);
+                    piece(c, tips - 1, ta, ga, sa, tb, gb, sb, w);
                 }
                 ta = tb;
                 ga = gb;
                 da = db;
                 sa = sb;
             }
-            flush();
-            // Each group looks like the sheet where the view crosses it, or else at the middle of its light.
-            for (int i = 0; i < found; i++) sheet(c, anchors[i], weights[i], light);
+            tipThetas[tips] = ta;
+            tipOffsets[tips] = ga;
+            folds(tips, taper);
+            // Toward the end of a curtain the light gets fainter, and the rays more than the band, so that they look shorter.
+            for (int b = 0; b < tips; b++) {
+                if (bands[b] + beams[b] <= 0) continue;
+                float end = end(b, tips, taper), gain = GAIN[c] * end;
+                light[0] += gain * (bands[b] + end * beams[b]);
+                light[1] += gain * end * crowns[b];
+            }
+        }
+
+        /** Sets the light of the part {@code b} of the ribbon to 0. */
+        private void clear(int b) {
+            bands[b] = 0;
+            beams[b] = 0;
+            crowns[b] = 0;
+        }
+
+        /** Adds the light of the straight piece of ribbon {@code c} from {@code ta} to {@code tb} to part {@code b} of the ribbon. */
+        private void piece(int c, int b, float ta, float ga, float sa, float tb, float gb, float sb, float w) {
+            aim(ta, ga, sa, tb, gb, sb, w);
+            if (aimed > 0) sheet(c, b, seen, aimed);
+        }
+
+        /**
+         * Sets {@link #folds} for the tips from 1 to {@code last} - 1: how much the curtain ends at each tip, from how far the
+         * ribbon turns back there before it comes past the tip again, so that a small kink of the ribbon stays bright and a
+         * small kink near a large fold does not change it.
+         */
+        void folds(int last, float taper) {
+            for (int i = 1; i < last; i++) {
+                // The ribbon comes to a tip from a smaller azimuth when the tip is a largest azimuth.
+                float turn = tipOffsets[i] > tipOffsets[i - 1] ? 1 : -1, peak = turn * tipOffsets[i], pass = -1e30f;
+                for (int dir = -1; dir <= 1; dir += 2) {
+                    float low = peak;
+                    for (int k = i + dir; ; k += dir) {
+                        float v = turn * tipOffsets[k];
+                        low = Math.min(low, v);
+                        if (v > peak || k == 0 || k == last) break;
+                    }
+                    pass = Math.max(pass, low);
+                }
+                folds[i] = smooth(0, taper, peak - pass);
+            }
+        }
+
+        /**
+         * How much light the part {@code b} of the ribbon between tips {@code b} and {@code b} + 1 keeps near the ends of its
+         * curtain, which ends at the first large fold to each side: the light fades as the view comes near the tip and is
+         * gone past it.
+         */
+        float end(int b, int last, float taper) {
+            float keep = 1;
+            for (int dir = -1; dir <= 1; dir += 2) {
+                float pass = 1;
+                for (int i = dir > 0 ? b + 1 : b; i > 0 && i < last; i += dir) {
+                    // The azimuth from the view to the tip, which is less than 0 when the view is past the tip.
+                    float g = tipOffsets[i], inside = g * Math.signum(g - tipOffsets[i - dir]);
+                    keep *= 1 - pass * folds[i] * (1 - smooth(0, taper, inside));
+                    pass *= 1 - folds[i];
+                }
+            }
+            return keep;
         }
 
         /**
@@ -171,85 +249,54 @@ final class Aurora {
          * values of the last {@link #offset} there.
          */
         float speed(int c, float theta) {
-            float th = Math.max(-1.5f, Math.min(1.5f, theta - SKEW[c]));
+            float th = angle(c, theta);
             float cos = (float) Math.cos(th);
             float out = (DISTANCE[c] * (float) Math.tan(th) / cos + d[2]) / (DISTANCE[c] / cos + d[1]);
             return (float) Math.sqrt(d[0] * d[0] + out * out);
         }
 
         /**
-         * Adds the light of one straight piece of a ribbon from {@code ta} to {@code tb}, with the azimuths {@code ga} and
-         * {@code gb} from the view and the speeds {@code sa} and {@code sb}, for a sheet whose light reaches {@code w} radians
-         * to each side, to the group of pieces around the place nearest to the view.
+         * Sets {@link #aimed} to the light of the straight piece from {@code ta} to {@code tb}, with the azimuths {@code ga}
+         * and {@code gb} from the view and the speeds {@code sa} and {@code sb}, for a sheet whose light reaches {@code w}
+         * radians to each side, and {@link #seen} to the place where the piece is seen.
          */
-        void piece(float ta, float ga, float sa, float tb, float gb, float sb, float w) {
-            boolean cross = (ga <= 0) != (gb <= 0);
-            float xa = ga / w, xb = gb / w, dx = xb - xa, k = 0, mid = 0.5f;
-            if (Math.min(Math.abs(xa), Math.abs(xb)) < 1 || cross) {
-                // The light along the view is the length of the piece near it, so a piece seen edge-on is brighter.
-                float part = cumulative(xb) - cumulative(xa);
-                k = Math.abs(dx) < 1e-3f ? Math.max(0, 1 - Math.abs(xa)) : part / dx;
-                k *= Math.abs(tb - ta) / w * 0.5f * (sa + sb);
-                // The middle of the light of the piece, which moves smoothly with the view.
-                if (Math.abs(dx) >= 1e-3f && part != 0) mid = Math.max(0, Math.min(1, (moment(xb) - moment(xa) - xa * part) / (dx * part)));
-            }
-            // A group ends where the piece gets farther from the view and the next one nearer, or where a piece has no light.
-            if (k <= 0 || rising && (cross || Math.abs(gb) < Math.abs(ga))) flush();
-            rising = cross || Math.abs(gb) > Math.abs(ga);
+        void aim(float ta, float ga, float sa, float tb, float gb, float sb, float w) {
+            float xa = ga / w, xb = gb / w, dx = xb - xa;
+            aimed = 0;
+            if (Math.min(Math.abs(xa), Math.abs(xb)) >= 1 && (xa < 0) == (xb < 0)) return;
+            // The light along the view is the length of the piece near it, so a piece seen edge-on is brighter.
+            float part = cumulative(xb) - cumulative(xa), mid = 0.5f;
+            float k = (Math.abs(dx) < 1e-3f ? Math.max(0, 1 - Math.abs(xa)) : part / dx) * Math.abs(tb - ta) / w * 0.5f * (sa + sb);
             if (k <= 0) return;
-            weight += k;
-            weighted += k * (ta + (tb - ta) * mid);
-            if (cross) crossing = ta + (tb - ta) * ga / (ga - gb);
+            // The middle of the light of the piece, which moves smoothly with the view.
+            if (Math.abs(dx) >= 1e-3f && part != 0) mid = Math.max(0, Math.min(1, (moment(xb) - moment(xa) - xa * part) / (dx * part)));
+            // The piece is seen where its line meets the view, so that the pieces around one crossing show one sharp sheet,
+            // and a piece that runs along the view is seen where its light is.
+            float xm = xa + dx * mid;
+            // A piece that does not cross the view gives light only from the width of its sheet, which fades out faster as
+            // it gets farther, so that the side of a part that runs along the view does not look like a straight cut.
+            aimed = k * (1 - smooth(0, 1, Math.max(0, Math.max(Math.min(xa, xb), -Math.max(xa, xb)))));
+            seen = ta + (tb - ta) * (mid - xm * dx / (dx * dx + 0.25f));
         }
 
-        /** Keeps the group of pieces in place of the faintest kept group when all places are taken by brighter ones. */
-        void flush() {
-            if (weight > 0) {
-                int slot = found;
-                if (found == CROSSINGS) {
-                    slot = 0;
-                    for (int i = 1; i < CROSSINGS; i++) if (weights[i] < weights[slot]) slot = i;
-                    if (weights[slot] >= weight) slot = -1;
-                } else {
-                    found++;
-                }
-                if (slot >= 0) {
-                    anchors[slot] = Float.isNaN(crossing) ? weighted / weight : crossing;
-                    weights[slot] = weight;
-                }
+        /**
+         * Adds the light of a piece of ribbon {@code c} seen at {@code theta} with the light {@code k} to the part {@code b}
+         * of the ribbon, where each piece has its own lower edge and rays, so that the light stays smooth where parts change.
+         */
+        void sheet(int c, int b, float theta, float k) {
+            float th = angle(c, theta), along = DISTANCE[c] * (float) Math.tan(th) / scale, lit = k * strength(c, th, along);
+            if (lit <= 0) return;
+            float h = rise(c, theta, th, along);
+            if (h < -6 * SKIRT) return;
+            // A faint glow around the lower edge that also reaches under it, so that the sky under a curtain does not look like a dark hill.
+            float glow = lit * 0.1f * (float) Math.exp(-Math.abs(h) / SKIRT);
+            float soft = Math.max(0.3f * far(c), 0.7f * pixelUp), below = smooth(-2 * soft, soft, h);
+            if (below <= 0) {
+                bands[b] += glow;
+                return;
             }
-            weight = 0;
-            weighted = 0;
-            crossing = Float.NaN;
-        }
-
-        /** Adds the light of the sheet of ribbon {@code c} where the view crosses it at {@code theta}, times {@code k}. */
-        void sheet(int c, float theta, float k, float[] light) {
-            offset(c, theta);
-            float dPhi = d[0], th = Math.max(-1.5f, Math.min(1.5f, theta - SKEW[c]));
-            float cos = (float) Math.cos(th), tan = (float) Math.tan(th);
-            // The distance of a straight east-west line, moved toward and away from the viewer by the folds and by slow waves.
-            float r = DISTANCE[c] / cos + d[1], dr = DISTANCE[c] * tan / cos + d[2];
-            for (int i = 0; i < NEAR_K.length; i++) {
-                float kk = NEAR_K[i] * far(c) / scale;
-                float arg = kk * theta + 6.2831853f * Noise.unit(Noise.hash(i, c, 1, seed + 602)) + NEAR_RATE[i] * t;
-                r += NEAR_AMP[i] * (float) Math.sin(arg);
-                dr += NEAR_AMP[i] * kk * (float) Math.cos(arg);
-            }
-            // The sine of the angle between the view and the sheet, which makes the rays narrower in the sky.
-            float across = Math.abs(r * dPhi);
-            float obl = across / (float) Math.sqrt(dr * dr + across * across);
-            // The altitude of the view above the ground at the distance of the sheet, with the curve of the earth.
-            float tilt = Math.min(el + r / (2 * EARTH), 1.45f);
-            float alt = r * (float) Math.tan(tilt);
-            float cosT = (float) Math.cos(tilt);
-            // The km of one pixel up the sheet and along it.
-            float pixelUp = footprint * r / (cosT * cosT), pixelAlong = wide * r / Math.max(obl, 0.02f) / scale;
-            float s = DISTANCE[c] * tan / scale, sd = s + DRIFT * t;
-            // The lower edge is nearly level, with gentle waves, as its kinks come from the folds.
-            float h = alt - BASE - 2 * Noise.noise(sd / 40, t * 0.02f, 0.5f, seed + 11 + c)
-                    - 0.7f * (1 - smooth(0.15f, 0.4f, pixelAlong / 12)) * Noise.noise(sd / 12, t * 0.05f, 2.5f, seed + 13 + c);
-            if (h < -4) return;
+            below *= lit;
+            float up = Math.max(h, 0), sd = along + DRIFT * t;
             float r0 = octave(sd / 40, t * 0.03f, seed + 21 + c, pixelAlong / 40);
             float r1 = octave(sd / 3, t * 0.1f, seed + 22 + c, pixelAlong / 3);
             float r2 = octave(sd / 1.1f, t * 0.25f, seed + 23 + c, pixelAlong / 1.1f);
@@ -260,21 +307,48 @@ final class Aurora {
             float hard = Math.max(0.05f, Math.min(0.3f, pixelAlong / 0.5f * 0.5f));
             float rays = bundle * smooth(0.55f - hard, 0.55f + hard, 0.3f * r1 + 0.38f * r2 + 0.32f * r3);
             // Each ray fades up over its own height, and the far ribbon is shorter, so that it is a low arc.
-            float top = height * (0.07f + 0.45f * tall * tall) / (far(c) * far(c));
-            float soft = Math.max(0.3f * far(c), 0.7f * pixelUp);
-            float below = smooth(-2 * soft, soft, h), up = Math.max(h, 0);
+            float rise = up / (height * (0.07f + 0.45f * tall * tall) / (far(c) * far(c)));
             // The brightest light is a thin band at the lower edge, and above it the rays dissolve into the open sky.
-            float base = (0.15f + 0.4f * bundle + 0.8f * rays) * (float) Math.exp(-up / 3.5f);
-            float rise = up / top;
-            float green = below * (base + 1.1f * rays * (float) Math.exp(-rise * (0.5f + 0.5f * rise)));
-            float red = below * 0.25f * rays * tall * (float) Math.exp(-(rise - 1.3f) * (rise - 1.3f) * 2);
-            // Parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
-            float lit = value(s / 320, t * 0.004f, seed + 31 + c) + (c == 0 ? 0.35f * (float) Math.exp(-th * th / 0.25f) : 0);
-            float strength = smooth(0.3f + 0.15f * c, 0.6f + 0.15f * c, lit) * (0.4f + 0.9f * value(s / 70, t * 0.01f, seed + 33 + c));
-            float gain = k * GAIN[c] * strength;
-            light[0] += gain * green;
-            light[1] += gain * red;
+            bands[b] += glow + below * (0.15f + 0.4f * bundle + 0.8f * rays) * (float) Math.exp(-up / 3.5f);
+            beams[b] += below * 1.1f * rays * (float) Math.exp(-rise * (0.5f + 0.5f * rise));
+            crowns[b] += below * 0.25f * rays * tall * (float) Math.exp(-(rise - 1.3f) * (rise - 1.3f) * 2);
         }
+
+        /**
+         * The km of the view above the lower edge of ribbon {@code c} at {@code theta}, with the azimuth {@code th} of
+         * {@link #angle} and the place {@code along} of the rays there, which also sets {@link #pixelUp} and {@link #pixelAlong}.
+         */
+        float rise(int c, float theta, float th, float along) {
+            offset(c, theta);
+            float cos = (float) Math.cos(th);
+            // The distance of a straight east-west line, moved toward and away from the viewer by the folds and by slow waves.
+            float r = DISTANCE[c] / cos + d[1];
+            for (int i = 0; i < NEAR_K.length; i++) {
+                float kk = NEAR_K[i] * far(c) / scale;
+                r += NEAR_AMP[i] * (float) Math.sin(kk * theta + phases[3 + i] + NEAR_RATE[i] * t);
+            }
+            // The altitude of the view above the ground at the distance of the sheet, with the curve of the earth.
+            float tilt = Math.min(el + r / (2 * EARTH), 1.45f), cosT = (float) Math.cos(tilt);
+            pixelUp = footprint * r / (cosT * cosT);
+            // The km of the rays in one pixel, which is more where the view runs along the sheet, as near the tip of a fold.
+            pixelAlong = wide * DISTANCE[c] / (cos * cos * Math.max(Math.abs(d[0]), 0.02f)) / scale;
+            float sd = along + DRIFT * t;
+            // The lower edge is nearly level, with gentle waves, as its kinks come from the folds.
+            float edge = 1.3f * (float) Math.sin(sd / 23 + phases[5] + 0.02f * t) + 0.8f * (float) Math.sin(sd / 9 + phases[6] - 0.05f * t);
+            return r * (float) Math.tan(tilt) - BASE - edge;
+        }
+
+        /**
+         * How bright ribbon {@code c} is at the azimuth {@code th} of {@link #angle} with the place {@code along} of the rays:
+         * parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
+         */
+        float strength(int c, float th, float along) {
+            float part = value(along / 320, t * 0.004f, seed + 31 + c) + (c == 0 ? 0.35f * (float) Math.exp(-th * th / 0.25f) : 0);
+            return smooth(0.3f + 0.15f * c, 0.6f + 0.15f * c, part) * (0.4f + 0.9f * value(along / 70, t * 0.01f, seed + 33 + c));
+        }
+
+        /** The azimuth of {@code theta} from the nearest place of ribbon {@code c}, so that each ribbon slants across the sky. */
+        private static float angle(int c, float theta) { return Math.max(-1.5f, Math.min(1.5f, theta - SKEW[c])); }
 
         /** How many times farther ribbon {@code c} is than the near ribbon, which makes its folds smaller in the sky. */
         private static float far(int c) { return DISTANCE[c] / DISTANCE[0]; }
