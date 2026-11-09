@@ -13,7 +13,7 @@ final class Effects {
     /** Lightness change of Bevel at the edge, and of the Outline color from the tile, at full strength. */
     private static final double BEVEL_DEPTH = 0.22, OUTLINE_CONTRAST = 0.35;
     /** The OKLab hue band in degrees that Chroma skips, because yellow-olive looks muddy at mid lightness. */
-    private static final double MUDDY_FROM = 70, MUDDY_TO = 115;
+    private static final double MUDDY_FROM = 70, MUDDY_TO = 125;
 
     /** Parts of a block that end its texture name and must not change its hue. */
     private static final String[] PART_SUFFIXES = {"_overlay", "_side", "_top", "_bottom", "_front", "_back", "_end", "_inner",
