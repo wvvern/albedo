@@ -6,6 +6,7 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +19,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HarnessTest {
+    @Test
+    void theSkyCompareMeasuresTheOklabDistance() {
+        int[] gray = {0xFF808080, 0xFF808080, 0xFF808080, 0xFF808080};
+        assertEquals(0, Harness.difference(gray, gray.clone())[0], 1e-9);
+        int[] one = gray.clone();
+        one[3] = 0xFFFFFFFF;
+        double[] d = Harness.difference(gray, one);
+        assertTrue(d[2] > 0.3 && d[2] < 0.5, "white is far from gray: " + d[2]);
+        assertEquals(d[2] / 4, d[0], 1e-9, "the mean of one far pixel in four");
+        assertThrows(IllegalArgumentException.class, () -> Harness.difference(gray, new int[2]));
+    }
+
+    @Test
+    void theSkyRenderCommandSetsTheRender() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
+        assertEquals(SkyDesign.Render.FAST, Harness.withSkyRender(p, "fast").get(Category.SKY).sky().render());
+        assertEquals(SkyDesign.Render.SHARP, Harness.withSkyRender(p, "Sharp").get(Category.SKY).sky().render());
+    }
+
     @Test
     void theGroupCommandSetsOrReplacesAGroupByName() {
         Profile p = Config.defaults().activeProfile();

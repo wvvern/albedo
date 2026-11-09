@@ -186,4 +186,16 @@ final class ModernHarnessHost implements Harness.Host {
         // A window on a hidden desktop never has focus; pausing would stop the command queue.
         o.pauseOnLostFocus = false;
     }
+
+    @Override
+    public void setFov(int degrees) {
+        Minecraft.getInstance().options.fov().set(degrees);
+    }
+
+    //? if >=26.1 {
+    @Override
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyProgram program, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        return SharpSky.drawEquirect(program, width, height, repeat, png, done);
+    }
+    //?}
 }

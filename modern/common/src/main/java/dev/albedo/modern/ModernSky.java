@@ -12,8 +12,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 
 /**
- * Draws the baked custom sky on a sphere in place of the vanilla sky disc, from one texture of a fixed size that is
- * uploaded on the render thread only when the core has a new image.
+ * Draws the custom sky on a sphere in place of the vanilla sky disc, with {@link SharpSky} on 26.x when it can, else from
+ * one texture of a fixed size that is uploaded on the render thread only when the core has a new image.
  */
 public final class ModernSky {
     private static final float RADIUS = 100f;
@@ -144,7 +144,9 @@ public final class ModernSky {
     // Uploads a new image before the sky pass opens, because a texture write is not allowed inside a pass.
     public static void beforePass() {
         SkyImage img = Albedo.skyImage();
-        if (img != null) prepare(img);
+        if (img == null) return;
+        prepare(img);
+        SharpSky.prepare(img);
     }
 
     // Draws the last uploaded image in the shared sky pass, also when a newer one waits for the next frame, and returns false when there is no custom sky.
@@ -154,6 +156,7 @@ public final class ModernSky {
         float k = brightness(img);
         com.mojang.renderpearl.api.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
                 .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy(), new org.joml.Vector4f(k, k, k, 1f));
+        if (SharpSky.draw(pass, img, transforms, sphere, vertexCount)) return true;
         pass.pushDebugGroup(() -> "Albedo sky");
         pass.setPipeline(com.mojang.blaze3d.systems.RenderSystem.getCompiledPipeline(PIPELINE));
         com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);

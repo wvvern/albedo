@@ -111,4 +111,9 @@ final class LegacyHarnessHost implements Harness.Host {
         if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);
         mc.gameSettings.pauseOnLostFocus = false;
     }
+
+    @Override
+    public void setFov(int degrees) {
+        Minecraft.getMinecraft().gameSettings.fovSetting = degrees;
+    }
 }

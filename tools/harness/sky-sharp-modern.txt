@@ -1,0 +1,44 @@
+# Dusk with the Sharp render on and off at a field of view of 30 and 70, then the GPU sky compared with the CPU bake and the GPU time of the sharp sky. Run it after scene-modern.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots sky-sharp-modern.txt -OutDir build\sky-sharp
+wait 60
+profile minimal
+run time set 6000
+wait 40
+sky dusk
+wait 160
+# Yaw 90 looks west (the Dusk glow), pitch -60 looks up to the stars.
+fov 30
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-01-on-stars-fov30
+run tp @p 0 3000 0 90 -5
+wait 40
+screenshot sharp-02-on-west-fov30
+fov 70
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-03-on-stars-fov70
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+fov 30
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-04-off-stars-fov30
+run tp @p 0 3000 0 90 -5
+wait 40
+screenshot sharp-05-off-west-fov30
+fov 70
+run tp @p 0 3000 0 0 -60
+wait 40
+screenshot sharp-06-off-stars-fov70
+skyrender sharp
+sky nebula
+wait 160
+run tp @p 0 3000 0 180 -60
+wait 40
+screenshot sharp-07-nebula-baked
+quit

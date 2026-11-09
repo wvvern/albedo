@@ -4,6 +4,11 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyProgramTest {
@@ -12,6 +17,36 @@ class SkyProgramTest {
         assertEquals(0, SkyProgram.FLOATS % 4);
         assertEquals(4 + SkyDesign.MAX_LAYERS * SkyProgram.LAYER_VEC4S * 4 + SkyImage.RING * 4, SkyProgram.FLOATS);
         assertEquals(SkyProgram.LAYER_VEC4S * 4, SkyProgram.LOCAL + 12, "the rotation rows end the layer");
+    }
+
+    @Test
+    void theShaderHasTheSameLayoutAndCodes() throws IOException {
+        String glsl;
+        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
+            assertNotNull(in, "the shader is a core resource");
+            glsl = new String(readAll(in), StandardCharsets.UTF_8);
+        }
+        String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
+            "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
+            "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
+            "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
+            "USE_SHOW " + SkyProgram.USE_SHOW};
+        for (String d : defines) assertTrue(glsl.contains("#define ALBEDO_" + d + "\n"), d);
+        // The shader reads the values of a layer from these vec4 slots.
+        assertEquals(4, SkyProgram.MASK_DARK);
+        assertEquals(8, SkyProgram.SCALE);
+        assertEquals(12, SkyProgram.COLOR_1);
+        assertEquals(20, SkyProgram.LAB_1);
+        assertEquals(24, SkyProgram.LAB_2);
+        assertEquals(28, SkyProgram.LOCAL);
+        assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
+        return out.toByteArray();
     }
 
     @Test
