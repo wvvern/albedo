@@ -156,7 +156,7 @@ final class SkyStars {
         if (d2 >= reach * reach) return;
         float d = (float) Math.sqrt(d2), flux = s[3];
         float blur = PIXEL * footprint, blur2 = blur * blur;
-        // The core keeps its light when the footprint widens it, so that a star smaller than a pixel does not flicker.
+        // The footprint widens the core, and its peak falls with the width, not the area, so that a star smaller than a pixel stays visible.
         float core = CORE * scale, core2 = core * core + blur2;
         float glow = flux * core / (float) Math.sqrt(core2) * (float) Math.exp(-d2 / (2 * core2));
         float halo = HALO * scale * (float) Math.sqrt(flux), halo2 = halo * halo + blur2;

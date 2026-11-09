@@ -343,7 +343,7 @@ vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float m
                 if (d2 >= reach * reach) continue;
                 float flux = min(maxFlux, minFlux * pow((float((hb >> 12u) & 4095u) + 0.5) / 4096.0, -1.0 / slope));
                 float dist = sqrt(d2);
-                // The core keeps its light when the footprint widens it, so that a star smaller than a pixel does not flicker.
+                // The footprint widens the core, and its peak falls with the width, not the area, so that a star smaller than a pixel stays visible.
                 float core = ALBEDO_STAR_CORE * scale, core2 = core * core + blur2;
                 float glow = flux * core / sqrt(core2) * exp(-d2 / (2.0 * core2));
                 float halo = ALBEDO_STAR_HALO * scale * sqrt(flux), halo2 = halo * halo + blur2;

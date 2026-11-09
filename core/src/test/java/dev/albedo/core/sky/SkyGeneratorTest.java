@@ -160,7 +160,7 @@ class SkyGeneratorTest {
         int w = 1024, h = 512;
         int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
         int many = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
-        // The count of stars grows as the square of the grid density, from 18 to 42 cells, and their size stays.
+        // The chance that a cell has a star is (0.2 + 0.8 * count) squared, about 5.4 times more at 80 than at 20, and the star size stays.
         float ratio = many / (float) few;
         assertTrue(ratio > 3.5f && ratio < 8f, "lit pixels " + few + " and " + many);
     }

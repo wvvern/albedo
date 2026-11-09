@@ -29,7 +29,7 @@ public final class SkyLayer {
         COLOR_3("color3", 0, 0),
         /** A percent whose meaning depends on the kind (radius, levels, coverage, strength). */
         AMOUNT("amount", 0, 100),
-        /** A percent of height above the horizon, or a threshold. */
+        /** A percent whose meaning depends on the kind (height above the horizon, middle, threshold, strength of the star spikes). */
         HEIGHT("height", 0, 100),
         /** Degrees from a disc seen from the front (0) to a disc seen from its edge (90). */
         TILT("tilt", 0, 90),
