@@ -259,6 +259,11 @@ final class PrecompiledSharpSky {
             }
             image.close();
             OptionalLong t = query == null ? OptionalLong.empty() : query.getValue();
+            // The screenshot can come back before the GPU has the time, as on NeoForge, so the GL then waits for the draws to end.
+            if (query != null && !t.isPresent()) {
+                GL11.glFinish();
+                t = query.getValue();
+            }
             long nanos = t.isPresent() ? t.getAsLong() / repeat : -1;
             if (query != null) query.close();
             target.destroyBuffers();

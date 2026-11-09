@@ -15,7 +15,8 @@ screenshot meteors-01-fov70-peak
 skyclock add -0.15
 wait 5
 screenshot meteors-02-fov70-early
-skyclock add 0.3
+# The head of the shortest meteor goes out 0.09 s after its peak, so the later shots are 0.08 s after the peak.
+skyclock add 0.23
 wait 5
 screenshot meteors-03-fov70-late
 meteor
@@ -31,7 +32,7 @@ fov 30
 meteor
 wait 10
 screenshot meteors-07-fov30-peak
-skyclock add 0.15
+skyclock add 0.08
 wait 5
 screenshot meteors-08-fov30-later
 meteor
