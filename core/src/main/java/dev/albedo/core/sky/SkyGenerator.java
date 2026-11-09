@@ -32,8 +32,8 @@ public final class SkyGenerator {
     static final float[] DUST_REDDENING = {0.75f, 1f, 1.3f};
     /** The linear colors of the pink knots of hydrogen gas, of the magenta edges of the radio lobes and of the white nucleus. */
     static final float[] HALPHA = {1f, 0.1441f, 0.2705f}, LOBE = {0.8f, 0.18f, 1f}, NUCLEUS = {1f, 0.9047f, 0.7913f};
-    /** The distance in degrees from the horizon over which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
-    private static final float HAZE = 3f;
+    /** The distance in degrees below the horizon over which a sky that stops at the horizon goes into the horizon color. */
+    private static final float FADE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
     private static final int RING_SOFTEN = 5;
 
@@ -140,16 +140,15 @@ public final class SkyGenerator {
         }
         tmp = null;
         float[] ring = ring();
-        if (!rows.run(h, y -> horizonRow(y, ring))) return null;
+        if (design.extent() == SkyDesign.Extent.HORIZON && !rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
         return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
     }
 
-    /** Mixes the sky near the horizon, and below it when the sky stops there, into the horizon color (the fog color) of each direction. */
+    /** Mixes the sky below the horizon into the horizon color (the fog color) of each direction, for a sky that stops at the horizon. */
     private void horizonRow(int y, float[] ring) {
-        float from = design.extent() == SkyDesign.Extent.SPHERE ? Math.abs(elevation[y]) : elevation[y];
-        float k = 1 - smooth(0, HAZE, from);
+        float k = smooth(0, FADE, -elevation[y]);
         if (k <= 0) return;
         float[] c = new float[3];
         for (int x = 0; x < w; x++) {

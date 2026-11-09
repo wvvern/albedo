@@ -60,8 +60,8 @@ uniform sampler2D AlbedoTerms;
 #endif
 
 const float ALBEDO_PI = 3.14159265358979;
-// The distance in degrees from the horizon over which the sky goes into the horizon color.
-const float ALBEDO_HAZE = 3.0;
+// The distance in degrees below the horizon over which a sky that stops at the horizon goes into the horizon color.
+const float ALBEDO_FADE = 3.0;
 
 // Noise.hash, where uint arithmetic wraps as Java int arithmetic does.
 uint albedoHash(ivec3 p, int seed) {
@@ -633,10 +633,9 @@ vec4 albedoFilter(int layer, int kind, vec3 img, vec3 dir, vec3 p) {
 vec3 albedoSky(vec3 dir, float footprint) {
     int count = int(SkyHeader.x);
     float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
-    float from = SkyHeader.y > 0.5 ? abs(el) : el;
-    float haze = 1.0 - albedoSmooth(0.0, ALBEDO_HAZE, from);
+    float fade = SkyHeader.y > 0.5 ? 0.0 : albedoSmooth(0.0, ALBEDO_FADE, -el);
     vec3 img = vec3(0.0);
-    if (haze < 1.0) {
+    if (fade < 1.0) {
         float maskLight[ALBEDO_MAX_LAYERS];
         float maskDark[ALBEDO_MAX_LAYERS];
         for (int i = 0; i < ALBEDO_MAX_LAYERS; i++) {
@@ -661,7 +660,7 @@ vec3 albedoSky(vec3 dir, float footprint) {
             if (k > 0.0) img = albedoBlend(int(head.y), img, s.rgb, k);
         }
     }
-    if (haze > 0.0) img += (albedoRing(degrees(atan(dir.x, -dir.z))) - img) * haze;
+    if (fade > 0.0) img += (albedoRing(degrees(atan(dir.x, -dir.z))) - img) * fade;
     return img;
 }
 

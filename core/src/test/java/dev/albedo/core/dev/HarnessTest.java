@@ -41,6 +41,13 @@ class HarnessTest {
     }
 
     @Test
+    void theSkyExtentCommandSetsTheExtent() {
+        Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
+        assertEquals(SkyDesign.Extent.SPHERE, Harness.withSkyExtent(p, "sphere").get(Category.SKY).sky().extent());
+        assertEquals(SkyDesign.Extent.HORIZON, Harness.withSkyExtent(p, "Horizon").get(Category.SKY).sky().extent());
+    }
+
+    @Test
     void theGroupCommandSetsOrReplacesAGroupByName() {
         Profile p = Config.defaults().activeProfile();
         p = Harness.withGroup(p, "particles Fire #FF0000 flame lava".split(" "));

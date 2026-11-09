@@ -137,8 +137,6 @@ class SkyProgramTest {
         double error = 0;
         int count = 0;
         for (int ty = 0; ty < h / 2; ty++) {
-            // The rows near the horizon go into the horizon color after the layers.
-            if (Math.abs(90 - (2 * ty + 1) * 180.0 / h) < 6) continue;
             for (int tx = 0; tx < w / 2; tx++) {
                 float sum = 0;
                 for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
