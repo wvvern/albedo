@@ -1,0 +1,41 @@
+# The same shots as sky-turning-smooth-modern.txt for 1.8.9. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-turning-smooth-modern.txt -OutDir build\sky-turning-smooth (the script takes this file for forge)
+wait 60
+profile minimal
+run time set 18000
+wait 40
+fov 70
+run tp @p 0 3000 0 -45 -46
+sky galaxy
+wait 160
+skycompare
+wait 40
+skyclock 0
+skyturn 100 speed 10 height 45
+wait 20
+skypartial 0
+wait 2
+screenshot smooth-01-part-0
+skypartial 0.5
+wait 2
+screenshot smooth-02-part-50
+skypartial 1
+wait 2
+screenshot smooth-03-part-100
+skypartial run
+wait 2
+screenshot smooth-04-run
+wait 1
+screenshot smooth-05-run-next-tick
+run gamerule doDaylightCycle false
+wait 60
+screenshot smooth-06-stopped
+wait 7
+screenshot smooth-07-stopped-later
+wait 13
+screenshot smooth-08-stopped-last
+run gamerule doDaylightCycle true
+skyclock run
+skycompare
+wait 40
+quit

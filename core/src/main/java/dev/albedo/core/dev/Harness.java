@@ -15,6 +15,7 @@ import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
 import dev.albedo.core.sky.SkyClock;
+import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMeteors;
@@ -220,6 +221,7 @@ public final class Harness {
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skyclock")) skyClock(arg);
+        else if (verb.equals("skypartial")) skyPartial(arg);
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
@@ -408,6 +410,12 @@ public final class Harness {
         if (arg.equals("run")) SkyClock.run();
         else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
         else SkyClock.hold(Float.parseFloat(arg));
+    }
+
+    /** Holds the frames at a partial tick between the last two ticks ({@code skypartial 0.5}), or lets them move ({@code skypartial run}). */
+    private static void skyPartial(String arg) {
+        if (arg.equals("run")) SkyDayTime.run();
+        else SkyDayTime.hold(Float.parseFloat(arg));
     }
 
     /**
