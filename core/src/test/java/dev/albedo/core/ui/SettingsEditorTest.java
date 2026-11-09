@@ -505,10 +505,10 @@ class SettingsEditorTest {
             int closedY = canvas.find("Remove biome tint")[1];
 
             int[] at = canvas.find("Effects");
-            editor.mousePressed(0);
+            editor.mousePressed();
             canvas.texts.clear();
             editor.render(canvas, at[0], at[1]);
-            editor.mouseReleased(0);
+            editor.mouseReleased();
             assertNotNull(canvas.texts.get("Bevel"), "the sliders show in the frame of the click: " + canvas.texts.keySet());
             int openY = canvas.find("Remove biome tint")[1];
             assertTrue(openY > closedY, "the switch moves down under the sliders: " + openY + " <= " + closedY);
