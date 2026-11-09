@@ -39,15 +39,18 @@ public final class Layout {
     private final List<TextureKey> catalogKeys;
     /** True when the tiles, which do not overlap, fill the whole grid. */
     private final boolean covered;
+    /** True for one piece of a connected texture, which gets no Bevel or Outline. */
+    private final boolean connected;
 
     /** A texture without tiles. */
-    private Layout(TextureKey key) {
+    private Layout(TextureKey key, boolean connected) {
         this.key = key;
         this.cols = 1;
         this.rows = 1;
         this.tiles = Collections.emptyList();
         this.catalogKeys = Collections.singletonList(key);
         this.covered = false;
+        this.connected = connected;
     }
 
     /** A sheet with tiles in a grid of {@code cols} x {@code rows} cells. */
@@ -64,12 +67,14 @@ public final class Layout {
         }
         this.catalogKeys = Collections.unmodifiableList(keys);
         this.covered = cells == cols * rows;
+        this.connected = false;
     }
 
-    /** The tiles of a known sheet, or a layout without tiles. */
-    public static Layout of(TextureKey key) {
+    /** The tiles of the known sheet at {@code location}, or a layout without tiles. */
+    public static Layout of(String location) {
+        TextureKey key = TextureClassifier.classify(location);
         Layout sheet = Sheets.get(key);
-        return sheet != null ? sheet : new Layout(key);
+        return sheet != null ? sheet : new Layout(key, TextureClassifier.isConnected(location));
     }
 
     /** The key of the sheet that has a tile with this key in the same category, or null. */
@@ -108,14 +113,21 @@ public final class Layout {
         for (int i = 0; i < parts.length; i++) {
             if (sheetChanges || !looks.get(i + 1).isOriginal()) parts[i] = copy(img, tiles.get(i));
         }
-        boolean changed = PixelTransformer.apply(looks.get(0), img, textures);
+        // A sheet with tiles gets its edge effects on each tile, not around the whole sheet.
+        boolean changed = look(looks.get(0), img, textures, key, tiles.isEmpty() && !connected);
         for (int i = 0; i < parts.length; i++) {
             if (parts[i] == null) continue;
-            boolean tileChanged = PixelTransformer.apply(looks.get(i + 1), parts[i], textures);
+            boolean tileChanged = look(looks.get(i + 1), parts[i], textures, tiles.get(i).key, true);
             if (changed || tileChanged) paste(parts[i], img, tiles.get(i));
             changed |= tileChanged;
         }
         return changed;
+    }
+
+    /** The style of a look and then its effects, where only block and fluid tiles get edge effects. */
+    private static boolean look(Appearance a, PixelBuffer img, PixelTransformer.TextureSource textures, TextureKey key, boolean edges) {
+        boolean changed = PixelTransformer.apply(a, img, textures);
+        return Effects.apply(a, img, key.id(), edges && key.category().hasEdgeEffects()) || changed;
     }
 
     /** The original average color for each of the {@link #catalogKeys}. */

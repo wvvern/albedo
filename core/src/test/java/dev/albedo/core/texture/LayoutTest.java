@@ -29,7 +29,7 @@ class LayoutTest {
     private static final int RED = 0xFFFF0000;
 
     static Layout sheet(String location) {
-        Layout layout = Layout.of(TextureClassifier.classify(location));
+        Layout layout = Layout.of(location);
         assertFalse(layout.tiles().isEmpty(), location + " is a sheet");
         return layout;
     }
@@ -224,7 +224,7 @@ class LayoutTest {
 
     @Test
     void aPlainTexturePaintsAsOneImage() {
-        Layout layout = Layout.of(TextureClassifier.classify("minecraft:block/stone"));
+        Layout layout = Layout.of("minecraft:block/stone");
         assertTrue(layout.tiles().isEmpty());
         assertEquals(1, layout.catalogKeys().size());
         PixelBuffer.Heap img = cells(16, 16), expected = cells(16, 16);

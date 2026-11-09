@@ -47,6 +47,15 @@ public final class PixelTransformer {
         }
     }
 
+    /** The opaque color of a swatch for {@code original} with the style of {@code a}, and its Chroma when {@code id} is known. */
+    public static int preview(Appearance a, int original, String id) {
+        PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
+        Appearance opaque = a.withAlpha(Appearance.Alpha.OPAQUE);
+        apply(opaque, pixel, null);
+        if (id != null) Effects.apply(opaque, pixel, id, false);
+        return pixel.getArgb(0, 0);
+    }
+
     /**
      * Fills every pixel with {@code color}, and with {@code respectShape} the output alpha follows the source pixel's
      * alpha per {@code alphaMode} (multiplied by the color's own alpha).
@@ -116,8 +125,7 @@ public final class PixelTransformer {
      * width) the image once per square frame, so that every frame looks the same.
      */
     static void stretch(PixelBuffer src, PixelBuffer dst, Appearance.Alpha alphaMode) {
-        int frameH = dst.height();
-        if (dst.height() > dst.width() && dst.height() % dst.width() == 0) frameH = dst.width();
+        int frameH = Effects.frameHeight(dst);
         for (int y = 0; y < dst.height(); y++) {
             int fy = y % frameH;
             int sy = fy * src.height() / frameH;

@@ -4,7 +4,6 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Colors;
 import dev.albedo.core.Glob;
-import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.RefreshResult;
 import dev.albedo.core.config.Appearance;
@@ -21,6 +20,7 @@ import dev.albedo.core.texture.TextureKey;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -40,14 +40,20 @@ public final class SettingsEditor {
             0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF8E24AA,
     };
     /** The labels left of controls; the label column is as wide as the widest. */
-    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope"};
+    private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Image", "Scope", "Recolor", "Effects"};
+    /** In the order the effects apply; categories without edge effects show only the first. */
+    private static final String[] EFFECT_LABELS = {"Chroma", "Bevel", "Outline"};
+    private static final String[] EFFECT_TIPS = {
+        "Chroma: each kind of texture gets its own rainbow color. Animated blocks and fluids go through the colors.",
+        "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
+        "Outline: a line around each block."};
     private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
     private static final String[] RECOLOR_TIPS = {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
         "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
         "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
     /** The height of the three Recolor sliders on their own rows. */
-    private static final int RECOLOR_H = RECOLOR_LABELS.length * (Ui.SLIDER_H + 3);
+    private static final int RECOLOR_H = slidersH(RECOLOR_LABELS.length);
     /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
@@ -129,6 +135,9 @@ public final class SettingsEditor {
     final Ui ui;
     private final GroupMatches matches = new GroupMatches();
     private final ScriptedInput script = new ScriptedInput();
+    private final Frame frame = new Frame();
+    /** Set when this frame changed the draft, the page or the mode. */
+    private boolean changed;
     private Config saved;
     private Config draft;
     private Policy preview;
@@ -192,13 +201,25 @@ public final class SettingsEditor {
     public void render(Canvas canvas, int mouseX, int mouseY) {
         boolean scripted = script.active();
         if (scripted) canvas = script.beginFrame(canvas, ui);
-        ui.begin(canvas, script.x(mouseX), script.y(mouseY));
+        int mx = script.x(mouseX), my = script.y(mouseY);
+        changed = false;
+        draw(frame.begin(canvas), mx, my);
+        // Input that changed the layout drew a mix of old and new state, so the frame draws again with the input used up.
+        if (changed) draw(frame.begin(canvas), mx, my);
+        frame.show();
+        if (scripted) script.endFrame(ui);
+    }
+
+    private void draw(Canvas canvas, int mouseX, int mouseY) {
+        ui.begin(canvas, mouseX, mouseY);
         if (ui.clicked()) toast = null;
 
         int w = canvas.width(), h = canvas.height();
-        labelW = ui.width(Labels.members(page.category));
+        labelW = 0; // the same for every category, so that the controls do not move when the category changes
+        for (Category c : CATEGORIES) labelW = Math.max(labelW, ui.width(Labels.members(c)));
         for (String l : ROW_LABELS) labelW = Math.max(labelW, ui.width(l));
         for (String l : RECOLOR_LABELS) labelW = Math.max(labelW, ui.width(l));
+        for (String l : EFFECT_LABELS) labelW = Math.max(labelW, ui.width(l));
         labelW += 8;
         int pw = Math.min(w - 2 * (w < 440 ? 4 : 10), MAX_W), ph = Math.min(h - 2 * (h < 260 ? 4 : 10), MAX_H);
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
@@ -220,9 +241,7 @@ public final class SettingsEditor {
         toast(cx, bodyBottom - 3, cw);
         if (mode == Mode.PICK_PROFILE) profileList();
         escape();
-
         ui.end();
-        if (scripted) script.endFrame(ui);
     }
 
     /** Takes an Esc that no text field or header mode took this frame, for an armed button, the open group, then the screen. */
@@ -240,6 +259,7 @@ public final class SettingsEditor {
         }
         if (mode == Mode.RENAME) ui.releaseFocus("rename");
         mode = next;
+        changed = true;
         if (next == Mode.PICK_PROFILE) {
             profileSearch.set("");
             picked = Math.max(0, new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName()));
@@ -255,6 +275,7 @@ public final class SettingsEditor {
     private void go(Page next) {
         Page prev = page;
         page = next;
+        changed = true;
         if (next.group != prev.group || next.view != prev.view || next.category != prev.category) {
             add.set("");
             serverName.set("");
@@ -446,7 +467,7 @@ public final class SettingsEditor {
     /** An 8x8 icon for a look: its color, or an empty outline for vanilla. */
     private void lookIcon(int x, int y, Appearance a) {
         if (a.isOriginal()) ui.outline(x, y, 8, 8, Ui.FAINT);
-        else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080));
+        else ui.swatch(x, y, 8, 8, chipColor(a, 0xFF808080, null));
     }
 
     /** A sidebar entry that returns true when clicked, with room at x + 6 for the icon of the caller. */
@@ -511,8 +532,10 @@ public final class SettingsEditor {
     private void lookTab(int x, int y, int w, int bottom, CategorySettings cs) {
         Category category = page.category;
         boolean tint = category == Category.BLOCKS || category == Category.FLUIDS;
-        // Grass, leaves and water get the biome color on top of a recolor, which mixes it with the chosen color.
-        String tintHint = tint && !cs.removeTint() && cs.appearance().mode() == Appearance.Mode.RECOLOR
+        // Grass, leaves and water get the biome color on top of a recolor or Chroma, which mixes it with the chosen color.
+        Appearance look = cs.appearance();
+        boolean mixes = look.mode() == Appearance.Mode.RECOLOR || look.changesPixels() && look.chroma() > 0;
+        String tintHint = tint && !cs.removeTint() && mixes
                 ? "Grass, leaves and water also get the biome color. Turn on Remove biome tint to see only this color." : null;
         int hintH = tintHint == null ? 0 : ui.paragraphHeight(tintHint, w) + GAP;
         int below = (cs.onlyGroups() ? 2 * (Ui.LINE + 1) + GAP : 0) + (tint || category == Category.SKY ? TINT_ROW_H : 0) + hintH;
@@ -563,30 +586,32 @@ public final class SettingsEditor {
         if (chosen != selected) {
             if (rule != null && cs.onlyGroups() && chosen == 0) setRule(cs, index, rule.withGlobalLook());
             else setLook(cs, index, target.withMode(modes.get(chosen)));
-            return cy; // the rest of the layout depends on the style; draw it next frame
+            return cy; // the rest depends on the style, and the frame draws again with it
         }
         if (global) {
-            ui.swatch(lx, cy + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080));
+            ui.swatch(lx, cy + 2, 9, 9, chipColor(cs.appearance(), 0xFF808080, null));
             String text = Labels.modeTip(cs.appearance().mode()) + " (the " + Labels.name(category) + " look)";
             ui.text(ui.ellipsize(text, cw - 14), lx + 13, cy + 3, Ui.MUTED);
             return cy + Ui.H + GAP;
         }
         Appearance.Mode m = target.mode();
-        boolean usesShape = m != Appearance.Mode.ORIGINAL && m != Appearance.Mode.HIDDEN
-                && category != Category.SKY && category != Category.CLOUDS;
+        boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
         boolean recolor = m == Appearance.Mode.RECOLOR;
+        boolean effects = target.changesPixels() && category.hasChroma();
+        int shapeH = usesShape ? Ui.H + GAP : 0;
+        int effectsH = effects ? slidersH(category.hasEdgeEffects() ? EFFECT_LABELS.length : 1) : 0;
         if (m == Appearance.Mode.TEXTURE) cy = imagePicker(x, cy, w, cs, index, target);
         if (m == Appearance.Mode.SOLID || m == Appearance.Mode.TEXTURE || recolor) {
             ui.text("Color", x, cy + 3, Ui.MUTED);
             ui.tip(x, cy, labelW, Ui.H, m == Appearance.Mode.TEXTURE ? "The color to use when the image is not found"
                     : recolor ? "The average color of the result" : null);
             // The picker gives up height first when the window is short, so the rows below it stay on screen.
-            int shapeH = usesShape ? Ui.H + GAP : 0;
-            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0);
+            int room = bottom - cy - GAP - shapeH - (recolor ? RECOLOR_H : 0) - effectsH;
             if (room < 24) cy = compactColor(lx, cy, cw, cs, index, target);
             else cy = colorPicker(lx, cy, cw, Math.min(44, room), cs, index, target);
-            // A very short window puts the three sliders on one row and names them in their tooltips.
-            if (recolor) cy = recolorSliders(x, cy, w, cs, index, target, bottom - cy - shapeH < RECOLOR_H);
+            // A very short window puts each set of sliders on one row and names them in their tooltips.
+            int effectsMin = effects ? Ui.SLIDER_H + GAP : 0;
+            if (recolor) cy = recolorSliders(x, cy, w, cs, index, target, bottom - cy - shapeH - effectsMin < RECOLOR_H);
         }
         if (usesShape) {
             String[] shapes = {"Keep", "Cut-out", "Solid"};
@@ -598,27 +623,52 @@ public final class SettingsEditor {
             if (a != target.alpha().ordinal()) setLook(cs, index, target.withAlpha(Appearance.Alpha.values()[a]));
             cy += ui.segmentedHeight(shapes, cw) + GAP;
         }
+        // The smallest windows have no row left for the effects, which then keep their values.
+        if (effects && bottom - cy >= Ui.SLIDER_H) cy = effectSliders(x, cy, w, cs, index, target, bottom - cy < effectsH);
         return cy;
     }
 
-    /** The Detail, Colors and Light sliders of the Recolor style, on their own rows or on one row, and returns the next y. */
-    private int recolorSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
-        int n = RECOLOR_LABELS.length, lx = x + labelW, cw = w - labelW, partW = (cw - (n - 1) * GAP) / n;
-        int[] values = {target.detail(), target.keepColors(), target.keepLight()};
-        boolean changed = false;
-        if (oneRow) ui.text("Recolor", x, y + 2, Ui.MUTED);
+    /** The height of {@code n} sliders on their own rows. */
+    private static int slidersH(int n) {
+        return n * (Ui.SLIDER_H + 3);
+    }
+
+    /**
+     * Percent sliders on their own rows, or on one row under {@code title} that names them in their tooltips, which
+     * change {@code values} in place.
+     *
+     * @return the next y
+     */
+    private int sliders(String id, String title, String[] labels, String[] tips, int[] values, int x, int y, int w, boolean oneRow) {
+        int n = labels.length, lx = x + labelW, cw = w - labelW, partW = (cw - (n - 1) * GAP) / n;
+        if (oneRow) ui.text(title, x, y + 2, Ui.MUTED);
         for (int i = 0; i < n; i++) {
-            int sy = oneRow ? y : y + i * (Ui.SLIDER_H + 3);
+            int sy = oneRow ? y : y + slidersH(i);
             if (!oneRow) {
-                ui.text(RECOLOR_LABELS[i], x, sy + 2, Ui.MUTED);
-                ui.tip(x, sy, labelW, Ui.SLIDER_H, RECOLOR_TIPS[i]);
+                ui.text(labels[i], x, sy + 2, Ui.MUTED);
+                ui.tip(x, sy, labelW, Ui.SLIDER_H, tips[i]);
             }
-            int v = ui.slider("recolor." + i, oneRow ? lx + i * (partW + GAP) : lx, sy, oneRow ? partW : cw, values[i], RECOLOR_TIPS[i]);
-            changed |= v != values[i];
-            values[i] = v;
+            values[i] = ui.slider(id + "." + i, oneRow ? lx + i * (partW + GAP) : lx, sy, oneRow ? partW : cw, values[i], tips[i]);
         }
-        if (changed) setLook(cs, index, target.withRecolor(values[0], values[1], values[2]));
-        return y + (oneRow ? Ui.SLIDER_H : RECOLOR_H - 3) + GAP;
+        return y + (oneRow ? Ui.SLIDER_H : slidersH(n) - 3) + GAP;
+    }
+
+    private int recolorSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
+        int[] v = {target.detail(), target.keepColors(), target.keepLight()};
+        int next = sliders("recolor", "Recolor", RECOLOR_LABELS, RECOLOR_TIPS, v, x, y, w, oneRow);
+        Appearance changed = target.withRecolor(v[0], v[1], v[2]);
+        if (!changed.equals(target)) setLook(cs, index, changed);
+        return next;
+    }
+
+    /** Bevel, Outline and Chroma for blocks and fluids, and only Chroma elsewhere. */
+    private int effectSliders(int x, int y, int w, CategorySettings cs, int index, Appearance target, boolean oneRow) {
+        int n = page.category.hasEdgeEffects() ? EFFECT_LABELS.length : 1;
+        int[] v = {target.chroma(), target.bevel(), target.outline()};
+        int next = sliders("effects", "Effects", Arrays.copyOf(EFFECT_LABELS, n), Arrays.copyOf(EFFECT_TIPS, n), v, x, y, w, oneRow);
+        Appearance changed = target.withEffects(v[1], v[2], v[0]);
+        if (!changed.equals(target)) setLook(cs, index, changed);
+        return next;
     }
 
     // ---------------------------------------------------------------- groups
@@ -894,7 +944,7 @@ public final class SettingsEditor {
             int original = catalog.get(id);
             ui.swatch(x + 5, ry + 2, 7, 7, original);
             ui.text(">", x + 14, ry + 1, Ui.FAINT);
-            ui.swatch(x + 20, ry + 2, 7, 7, chipColor(preview.appearanceFor(new TextureKey(category, id)), original));
+            ui.swatch(x + 20, ry + 2, 7, 7, chipColor(preview.appearanceFor(new TextureKey(category, id)), original, id));
             String tag = owner == null ? "" : owner.displayName();
             int tagW = tag.isEmpty() ? 0 : Math.min(ui.width(tag), w / 3) + 6;
             ui.text(ui.ellipsize(shortId(id), w - 46 - tagW), x + 31, ry + 1, owner == null ? Ui.MUTED : Ui.TEXT);
@@ -1220,6 +1270,7 @@ public final class SettingsEditor {
     private Profile profile() { return draft.activeProfile(); }
 
     private void setDraft(Config c) {
+        changed = true;
         draft = c;
         preview = Policy.of(c.activeProfile());
     }
@@ -1251,11 +1302,8 @@ public final class SettingsEditor {
         setCategory(cs.withRule(index, r));
     }
 
-    /** The real transform on one pixel of the {@code original} average color, so that previews match the game, or null for hidden. */
-    private static Integer chipColor(Appearance a, int original) {
-        if (a.mode() == Appearance.Mode.HIDDEN) return null;
-        PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
-        PixelTransformer.apply(a.withAlpha(Appearance.Alpha.OPAQUE), pixel, null);
-        return pixel.getArgb(0, 0);
+    /** The real transform on one pixel of the {@code original} average color with the Chroma hue of {@code id}, or null for hidden. */
+    private static Integer chipColor(Appearance a, int original, String id) {
+        return a.mode() == Appearance.Mode.HIDDEN ? null : PixelTransformer.preview(a, original, id);
     }
 }

@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Converts {@link Config} to and from JSON such as the example below, where an unknown key is an error so that a
@@ -37,7 +38,9 @@ import java.util.Set;
  */
 public final class ConfigCodec {
     private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
-    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha", "detail", "keepColors", "keepLight");
+    private static final List<String> EDGE_KEYS = Arrays.asList("bevel", "outline");
+    private static final List<String> LOOK_KEYS = Arrays.asList("mode", "color", "texture", "alpha", "detail", "keepColors", "keepLight",
+            "bevel", "outline", "chroma");
     /** The JSON key of each look field, in the order of {@link Appearance.Field}. */
     private static final Map<String, Appearance.Field> FIELD_KEYS = new LinkedHashMap<String, Appearance.Field>();
 
@@ -185,9 +188,16 @@ public final class ConfigCodec {
             if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
             }
+            if (!category.hasEdgeEffects() && !Collections.disjoint(map.keySet(), EDGE_KEYS)) {
+                throw new IllegalArgumentException(EDGE_KEYS + " work only on blocks and fluids");
+            }
+            if (!category.hasChroma() && map.containsKey("chroma")) {
+                throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
+            }
             return new Appearance(mode, color, texture == null || texture.isEmpty() ? null : texture, alpha,
                     percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
-                    percent(map, "keepLight", parent.keepLight()));
+                    percent(map, "keepLight", parent.keepLight()), percent(map, "bevel", parent.bevel()),
+                    percent(map, "outline", parent.outline()), percent(map, "chroma", parent.chroma()));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(where + ": " + e.getMessage(), e);
         }
@@ -221,10 +231,10 @@ public final class ConfigCodec {
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
             CategorySettings cs = e.getValue();
             Map<String, Object> m = new LinkedHashMap<String, Object>();
-            // Recolor fields only where a look uses them, so that a version without Recolor can still read the file.
-            boolean recolor = cs.appearance().mode() == Appearance.Mode.RECOLOR;
-            for (Rule r : cs.rules()) recolor |= cs.lookOf(r).mode() == Appearance.Mode.RECOLOR;
-            Appearance written = recolor ? cs.appearance() : withRecolorOf(cs.appearance(), Appearance.ORIGINAL);
+            // Recolor and effect fields only where a look uses them, so that an older version can still read the file.
+            boolean recolor = uses(cs, a -> a.mode() == Appearance.Mode.RECOLOR);
+            boolean effects = uses(cs, Appearance::hasEffects);
+            Appearance written = unused(cs.appearance(), Appearance.ORIGINAL, recolor, effects);
             encodeAppearance(m, written, Appearance.ORIGINAL);
             if (cs.removeTint()) m.put("removeTint", true);
             if (cs.onlyGroups()) m.put("onlyGroups", true);
@@ -237,7 +247,8 @@ public final class ConfigCodec {
                     rm.put("match", pats.size() == 1 ? (Object) pats.get(0) : new ArrayList<Object>(pats));
                     if (!r.usesGlobalLook()) {
                         Appearance look = r.lookIn(written);
-                        encodeAppearance(rm, look.mode() == Appearance.Mode.RECOLOR ? look : withRecolorOf(look, written), written);
+                        // A group without effects still writes the 0 that turns off an effect of its category.
+                        encodeAppearance(rm, unused(look, written, look.mode() == Appearance.Mode.RECOLOR, effects), written);
                         // No look field means "the category's look", so an own look equal to it is written out.
                         if (Collections.disjoint(rm.keySet(), LOOK_KEYS)) rm.put("mode", look.mode().key());
                     }
@@ -261,10 +272,22 @@ public final class ConfigCodec {
         if (a.detail() != base.detail()) m.put("detail", a.detail());
         if (a.keepColors() != base.keepColors()) m.put("keepColors", a.keepColors());
         if (a.keepLight() != base.keepLight()) m.put("keepLight", a.keepLight());
+        if (a.bevel() != base.bevel()) m.put("bevel", a.bevel());
+        if (a.outline() != base.outline()) m.put("outline", a.outline());
+        if (a.chroma() != base.chroma()) m.put("chroma", a.chroma());
     }
 
-    private static Appearance withRecolorOf(Appearance a, Appearance from) {
-        return a.withRecolor(from.detail(), from.keepColors(), from.keepLight());
+    /** Whether the category look or the look of a group matches. */
+    private static boolean uses(CategorySettings cs, Predicate<Appearance> test) {
+        if (test.test(cs.appearance())) return true;
+        for (Rule r : cs.rules()) if (test.test(cs.lookOf(r))) return true;
+        return false;
+    }
+
+    /** {@code a} with the recolor or effect fields of {@code from} where they are not used, so that they are not written. */
+    private static Appearance unused(Appearance a, Appearance from, boolean recolor, boolean effects) {
+        Appearance out = recolor ? a : a.withRecolor(from.detail(), from.keepColors(), from.keepLight());
+        return effects ? out : out.withEffects(from.bevel(), from.outline(), from.chroma());
     }
 
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */

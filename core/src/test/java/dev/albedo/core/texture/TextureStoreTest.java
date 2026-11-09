@@ -49,8 +49,7 @@ class TextureStoreTest {
     }
 
     private static void recordNamed(TextureStore store, String name, TextureStore.Upload upload, Policy policy) {
-        TextureKey key = TextureClassifier.classify(name);
-        Layout layout = Layout.of(key);
+        Layout layout = Layout.of(name);
         store.record(name, layout, image(), upload, layout.looks(policy));
     }
 
@@ -156,7 +155,7 @@ class TextureStoreTest {
     }
 
     private static void recordSheet(TextureStore store, PixelBuffer.Heap img, TextureStore.Upload upload, Policy policy) {
-        Layout layout = Layout.of(TextureClassifier.classify(LayoutTest.PARTICLES));
+        Layout layout = Layout.of(LayoutTest.PARTICLES);
         store.record(LayoutTest.PARTICLES, layout, img, upload, layout.looks(policy));
     }
 
@@ -212,8 +211,8 @@ class TextureStoreTest {
     void colormapsAreChangedInTheGamesOwnArray() {
         TextureStore store = new TextureStore();
         int[] game = {GREEN, GREEN};
-        TextureKey key = TextureClassifier.classify("minecraft:textures/colormap/grass.png");
-        store.record("minecraft:textures/colormap/grass.png", Layout.of(key), new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
+        String grass = "minecraft:textures/colormap/grass.png";
+        store.record(grass, Layout.of(grass), new PixelBuffer.Heap(2, 1, game), TextureStore.intoArray(game),
                 Collections.singletonList(Appearance.ORIGINAL));
         Config c = Config.defaults();
         assertEquals(1, store.repaint(Policy.of(c), null, false).repainted);

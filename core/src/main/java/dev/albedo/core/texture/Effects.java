@@ -1,0 +1,145 @@
+package dev.albedo.core.texture;
+
+import dev.albedo.core.Colors;
+import dev.albedo.core.PixelBuffer;
+import dev.albedo.core.config.Appearance;
+
+/** The effects of a look (Chroma, then Bevel, then Outline), which change colors after the style and never alpha. */
+final class Effects {
+    /** The chroma of a Chroma color at full strength, in OKLab units. */
+    private static final double CHROMA = 0.13;
+    /** Lightness that Chroma pulls white down to and black up to, so that both can show a hue. */
+    private static final double CHROMA_TOP = 0.78, CHROMA_BOTTOM = 0.3;
+    /** Lightness change of Bevel at the edge, and of the Outline color from the tile, at full strength. */
+    private static final double BEVEL_DEPTH = 0.22, OUTLINE_CONTRAST = 0.35;
+
+    private Effects() {}
+
+    /**
+     * @param id the texture id, which gives Chroma its hue
+     * @param tile whether the image is square block tiles (one per frame of an animation strip) that get Bevel and Outline
+     * @return true if the image was changed
+     */
+    static boolean apply(Appearance a, PixelBuffer img, String id, boolean tile) {
+        if (!a.hasEffects() || img.width() == 0 || img.height() == 0) return false;
+        int w = img.width(), frameH = tile ? frameHeight(img) : img.height();
+        int frames = img.height() / frameH;
+        double hue = hue(id);
+        for (int f = 0; f < frames; f++) {
+            int y0 = f * frameH;
+            if (a.chroma() > 0) chroma(img, y0, frameH, hue + 2 * Math.PI * f / frames, a.chroma() / 100.0);
+            if (!tile || w < 4 || frameH < 4) continue;
+            double tileL = meanLightness(img, y0, frameH);
+            if (a.bevel() > 0) bevel(img, y0, frameH, tileL, a.bevel() / 100.0);
+            if (a.outline() > 0) outline(img, y0, frameH, tileL, a.outline() / 100.0);
+        }
+        return true;
+    }
+
+    /** The height of one frame: a block animation is a strip of square frames, so its height is a multiple of its width. */
+    static int frameHeight(PixelBuffer img) {
+        int w = img.width(), h = img.height();
+        return h > w && h % w == 0 ? w : h;
+    }
+
+    /** A stable hue in radians for an id, where the frames of a numbered set ({@code generic_0} to {@code generic_7}) share one. */
+    static double hue(String id) {
+        String s = id == null ? "" : id;
+        int end = s.length();
+        while (end > 0 && Character.isDigit(s.charAt(end - 1))) end--;
+        if (end == s.length() || end == 0 || s.charAt(end - 1) != '_') end = s.length();
+        else end--;
+        int h = 0x811C9DC5;
+        for (int i = 0; i < end; i++) {
+            h ^= s.charAt(i);
+            h *= 0x01000193;
+        }
+        return 2 * Math.PI * ((h >>> 8) & 0xFFFF) / 0x10000;
+    }
+
+    private static void chroma(PixelBuffer img, int y0, int frameH, double hue, double s) {
+        double ta = CHROMA * Math.cos(hue), tb = CHROMA * Math.sin(hue);
+        // Pixel art repeats few colors, so each color is converted once per frame.
+        Recolor.ColorCache cache = new Recolor.ColorCache(img.width() * frameH);
+        for (int y = y0; y < y0 + frameH; y++) {
+            for (int x = 0; x < img.width(); x++) {
+                int p = img.getArgb(x, y);
+                if (Colors.alpha(p) == 0) continue;
+                int rgb = p | 0xFF000000, slot = cache.slot(rgb);
+                if (!cache.has(slot)) cache.store(slot, rgb, chroma(rgb, ta, tb, s));
+                img.setArgb(x, y, Colors.withAlpha(cache.value(slot, rgb), Colors.alpha(p)));
+            }
+        }
+    }
+
+    private static int chroma(int rgb, double ta, double tb, double s) {
+        double[] lab = Recolor.lab(rgb);
+        double l = lab[0];
+        if (l > CHROMA_TOP) l -= (l - CHROMA_TOP) * s;
+        else if (l < CHROMA_BOTTOM) l += (CHROMA_BOTTOM - l) * s * 0.5;
+        return Recolor.srgb(l, lab[1] + (ta - lab[1]) * s, lab[2] + (tb - lab[2]) * s);
+    }
+
+    /** Shades a band inside the frame edges toward the side that contrasts with the tile, the same on every side. */
+    private static void bevel(PixelBuffer img, int y0, int frameH, double tileL, double s) {
+        int depth = Math.max(1, Math.round(img.width() * 3 / 16f));
+        double sign = tileL > 0.5 ? -1 : 1;
+        for (int y = y0; y < y0 + frameH; y++) {
+            for (int x = 0; x < img.width(); x++) {
+                int e = edgeDistance(x, y - y0, img.width(), frameH);
+                if (e >= depth) continue;
+                double t = (double) (depth - e) / depth;
+                shadeLightness(img, x, y, sign * BEVEL_DEPTH * s * t);
+            }
+        }
+    }
+
+    /** Moves the pixels on the frame border toward a color that is darker than the tile, or lighter for a dark tile. */
+    private static void outline(PixelBuffer img, int y0, int frameH, double tileL, double s) {
+        int width = Math.max(1, Math.round(img.width() / 16f));
+        double target = tileL < 0.45 ? Math.min(1, tileL + OUTLINE_CONTRAST) : Math.max(0, tileL - OUTLINE_CONTRAST);
+        for (int y = y0; y < y0 + frameH; y++) {
+            for (int x = 0; x < img.width(); x++) {
+                if (edgeDistance(x, y - y0, img.width(), frameH) >= width) continue;
+                shiftLightness(img, x, y, target, s);
+            }
+        }
+    }
+
+    /** Moves a pixel's lightness toward {@code target} by {@code s} and halves its chroma at full strength. */
+    private static void shiftLightness(PixelBuffer img, int x, int y, double target, double s) {
+        int p = img.getArgb(x, y);
+        if (Colors.alpha(p) == 0) return;
+        double[] lab = Recolor.lab(p);
+        double l = lab[0] + (target - lab[0]) * s, c = 1 - 0.5 * s;
+        img.setArgb(x, y, Colors.withAlpha(Recolor.srgb(l, lab[1] * c, lab[2] * c), Colors.alpha(p)));
+    }
+
+    private static int edgeDistance(int x, int y, int w, int h) {
+        return Math.min(Math.min(x, w - 1 - x), Math.min(y, h - 1 - y));
+    }
+
+    /** Adds {@code dl} to a pixel's lightness. */
+    private static void shadeLightness(PixelBuffer img, int x, int y, double dl) {
+        int p = img.getArgb(x, y);
+        if (Colors.alpha(p) == 0) return;
+        double[] lab = Recolor.lab(p);
+        img.setArgb(x, y, Colors.withAlpha(Recolor.srgb(Recolor.clamp(lab[0] + dl, 0, 1), lab[1], lab[2]), Colors.alpha(p)));
+    }
+
+    /** The alpha-weighted mean OKLab lightness of a frame from a grid of samples, or 0.5 when it is fully transparent. */
+    private static double meanLightness(PixelBuffer img, int y0, int frameH) {
+        double sum = 0, weight = 0;
+        int step = Math.max(1, img.width() / 16);
+        for (int y = y0; y < y0 + frameH; y += step) {
+            for (int x = 0; x < img.width(); x += step) {
+                int p = img.getArgb(x, y);
+                int alpha = Colors.alpha(p);
+                if (alpha == 0) continue;
+                sum += Recolor.lab(p)[0] * alpha;
+                weight += alpha;
+            }
+        }
+        return weight == 0 ? 0.5 : sum / weight;
+    }
+}

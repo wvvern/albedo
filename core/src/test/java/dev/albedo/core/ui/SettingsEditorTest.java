@@ -460,6 +460,23 @@ class SettingsEditorTest {
     }
 
     @Test
+    void theFrameOfAStyleChangeAlreadyShowsTheNewLayout() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        int[] at = canvas.find("Recolor");
+        editor.mousePressed(0);
+        canvas.texts.clear();
+        editor.render(canvas, at[0], at[1]);
+        editor.mouseReleased(0);
+        assertNotNull(canvas.find("Detail"), "the sliders show in the frame of the click");
+        int tintY = canvas.find("Remove biome tint")[1];
+        render(editor, canvas);
+        assertEquals(tintY, canvas.find("Remove biome tint")[1], "the tint switch does not move after the click");
+    }
+
+    @Test
     void choosingAStyleAndDoneSavesIt() {
         sc.apply(Config.defaults());
         SettingsEditor editor = new SettingsEditor(sc);

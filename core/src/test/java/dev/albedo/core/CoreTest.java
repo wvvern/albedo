@@ -141,7 +141,7 @@ class CoreTest {
     void editingOperations() {
         Config c = Config.defaults();
         assertEquals("quake-black", c.profileNameAt(1));
-        assertEquals("minimal", c.profileNameAt(-1));
+        assertEquals("pastel", c.profileNameAt(-1));
         assertEquals(c, ConfigCodec.decode(ConfigCodec.encode(c)));
 
         Rule ground = new Rule("Ground", Arrays.asList("dirt", "grass_block*", "gravel"), Appearance.solid(0xFF7A5C3A), false);

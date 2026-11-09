@@ -117,7 +117,7 @@ final class Recolor {
      * Colors seen in this image and their results, because textures have few distinct colors, with room for twice the
      * colors it keeps so that a lookup always reaches an empty slot soon.
      */
-    private static final class ColorCache {
+    static final class ColorCache {
         private static final int MAX_SIZE = 1 << 13;
         private final int[] keys, values;
         private final boolean[] used;
@@ -224,7 +224,7 @@ final class Recolor {
         return t * t * (3 - 2 * t);
     }
 
-    private static double clamp(double v, double lo, double hi) {
+    static double clamp(double v, double lo, double hi) {
         return Math.max(lo, Math.min(hi, v));
     }
 }

@@ -26,6 +26,11 @@ public final class TextureClassifier {
         return colon < 0 ? classify("minecraft", location) : classify(location.substring(0, colon), location.substring(colon + 1));
     }
 
+    /** Whether a texture is one piece of a connected texture (OptiFine, MCPatcher or Continuity), which Bevel and Outline leave alone. */
+    public static boolean isConnected(String location) {
+        return normalise(location.substring(location.indexOf(':') + 1)).contains("/ctm/");
+    }
+
     static String normalise(String path) {
         String p = path.toLowerCase(Locale.ROOT).replace('\\', '/');
         if (p.startsWith("textures/")) p = p.substring("textures/".length());

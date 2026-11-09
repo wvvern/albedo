@@ -8,8 +8,6 @@ import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.PixelTransformer;
-import dev.albedo.core.texture.TextureClassifier;
-import dev.albedo.core.texture.TextureKey;
 import dev.albedo.core.texture.TextureStore;
 
 import java.io.File;
@@ -121,10 +119,9 @@ public final class Albedo {
     public static boolean processTexture(String location, PixelBuffer image, TextureStore.Upload upload) {
         Albedo sc = instance;
         if (sc == null || sc.store.repainting()) return false;
-        TextureKey key = TextureClassifier.classify(location);
         try {
             Policy policy = sc.policy;
-            Layout layout = Layout.of(key);
+            Layout layout = Layout.of(location);
             List<Appearance> looks = layout.looks(policy);
             sc.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
@@ -136,7 +133,7 @@ public final class Albedo {
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
-            sc.platform.warn("Cannot change texture " + key, e);
+            sc.platform.warn("Cannot change texture " + location, e);
             return false;
         }
     }

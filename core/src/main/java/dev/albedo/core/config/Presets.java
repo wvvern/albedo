@@ -18,7 +18,7 @@ public final class Presets {
 
     static {
         Map<String, Profile> m = new LinkedHashMap<String, Profile>();
-        for (Profile p : new Profile[]{quake(true), quake(false), minimal()}) m.put(p.name(), p);
+        for (Profile p : new Profile[]{quake(true), quake(false), minimal(), pastel()}) m.put(p.name(), p);
         ALL = Collections.unmodifiableMap(m);
     }
 
@@ -57,7 +57,7 @@ public final class Presets {
     /** Each block becomes its own average color: detail gone, still readable. */
     static Profile minimal() {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        CategorySettings avg = new CategorySettings(Appearance.of(Appearance.Mode.AVERAGE), false, Collections.<Rule>emptyList());
+        CategorySettings avg = plain(Appearance.of(Appearance.Mode.AVERAGE), false);
         c.put(Category.BLOCKS, avg);
         c.put(Category.BLOCK_ENTITIES, avg);
         c.put(Category.DECORATIONS, avg);
@@ -66,11 +66,32 @@ public final class Presets {
         return new Profile("minimal", c, Profile.defaultToggles());
     }
 
+    /** A soft world where each kind of block has its own pastel color and mobs and players keep their textures. */
+    static Profile pastel() {
+        Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
+        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, null, Appearance.Alpha.KEEP, 60, 0, 35, 30, 0, 55);
+        Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
+                blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
+        c.put(Category.BLOCKS, new CategorySettings(blocks, true, Collections.singletonList(solidLeaves)));
+        c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, 55), false));
+        c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, null, Appearance.Alpha.KEEP, 85, 40, 30), false));
+        c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, null, Appearance.Alpha.KEEP, 70, 0, 0), true));
+        c.put(Category.SKY, flat(0xFFF9D4E6, false));
+        Set<Toggle> on = Profile.defaultToggles();
+        on.add(Toggle.FULLBRIGHT);
+        return new Profile("pastel", c, on);
+    }
+
+    /** A category with one look and no groups. */
+    private static CategorySettings plain(Appearance look, boolean removeTint) {
+        return new CategorySettings(look, removeTint, Collections.<Rule>emptyList());
+    }
+
     private static CategorySettings flat(int color, boolean removeTint) {
-        return new CategorySettings(Appearance.solid(color), removeTint, Collections.<Rule>emptyList());
+        return plain(Appearance.solid(color), removeTint);
     }
 
     private static CategorySettings hidden() {
-        return new CategorySettings(Appearance.of(Appearance.Mode.HIDDEN), false, Collections.<Rule>emptyList());
+        return plain(Appearance.of(Appearance.Mode.HIDDEN), false);
     }
 }
