@@ -46,6 +46,12 @@ public final class Harness {
 
         void closeScreen();
 
+        /**
+         * Moves the pointer to a GUI position and presses or releases the left button through the game's own mouse handler,
+         * as a real mouse does, and returns false when this version cannot do that.
+         */
+        boolean mouseButton(int guiX, int guiY, boolean down);
+
         void quit();
 
         /**
@@ -81,6 +87,8 @@ public final class Harness {
     private String lastStatus = "";
     /** The last texture that {@code skin} loaded. */
     private String lastSkin;
+    /** The GUI position of a {@code ui realclick} whose button is down until the next tick, or null. */
+    private int[] pressedAt;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -103,6 +111,7 @@ public final class Harness {
         host.quiet();
         writeStatus(host.inWorld() ? "world" : "menu");
         takeCommandFile();
+        realClick();
         if (waitingForWorld) {
             if (!host.inWorld()) return;
             waitingForWorld = false;
@@ -120,6 +129,23 @@ public final class Harness {
             } catch (RuntimeException e) {
                 log("! " + e);
             }
+        }
+    }
+
+    /** Presses the button for a waiting {@code ui realclick} and releases it on the next tick, as a real click lasts some frames. */
+    private void realClick() {
+        if (pressedAt != null) {
+            host.mouseButton(pressedAt[0], pressedAt[1], false);
+            pressedAt = null;
+            return;
+        }
+        int[] at = SettingsEditor.takeRealClick();
+        if (at == null) return;
+        if (host.mouseButton(at[0], at[1], true)) {
+            pressedAt = at;
+            log("realclick at " + at[0] + "," + at[1]);
+        } else {
+            log("! realclick is not available on this version");
         }
     }
 

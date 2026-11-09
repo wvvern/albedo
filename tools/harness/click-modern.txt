@@ -1,0 +1,18 @@
+# Clicks in the settings screen through the game's own mouse handler, as a real mouse does. Run it after scene-modern.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots click-modern.txt -OutDir build\click
+# Each click must change the screen; if a screenshot is the same as the one before it, a real mouse cannot click there.
+wait 60
+profile minimal
+settings open
+wait 20
+screenshot click-01-blocks
+ui realclick Sky
+wait 20
+screenshot click-02-sky
+ui realclick Particles
+wait 20
+screenshot click-03-particles
+ui realclick Done
+wait 20
+screenshot click-04-closed
+quit

@@ -71,6 +71,12 @@ final class LegacyHarnessHost implements Harness.Host {
         Minecraft.getMinecraft().displayGuiScreen(null);
     }
 
+    /** LWJGL 2 reads the mouse from the system with no queue that the harness can add to, so it cannot click as a real mouse. */
+    @Override
+    public boolean mouseButton(int guiX, int guiY, boolean down) {
+        return false;
+    }
+
     @Override
     public void quit() {
         Minecraft.getMinecraft().shutdown();

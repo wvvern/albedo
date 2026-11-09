@@ -84,13 +84,13 @@ public final class SettingsScreen extends Screen {
     //? if >=1.21.9 {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-        editor.mousePressed(event.button());
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) editor.mousePressed();
         return true;
     }
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
-        editor.mouseReleased(event.button());
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) editor.mouseReleased();
         return true;
     }
 
@@ -107,13 +107,13 @@ public final class SettingsScreen extends Screen {
     //?} else {
     /*@Override
     public boolean mouseClicked(double x, double y, int button) {
-        editor.mousePressed(button);
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) editor.mousePressed();
         return true;
     }
 
     @Override
     public boolean mouseReleased(double x, double y, int button) {
-        editor.mouseReleased(button);
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) editor.mouseReleased();
         return true;
     }
 

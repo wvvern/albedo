@@ -177,13 +177,11 @@ public final class SettingsEditor {
     // ---------------------------------------------------------------- input from adapters (the pointer position
     // is taken from each render call)
 
-    public void mousePressed(int button) {
-        if (button == 0) ui.mousePressed();
-    }
+    /** The left button went down, which each adapter finds by its game's own button number because the numbers change between versions. */
+    public void mousePressed() { ui.mousePressed(); }
 
-    public void mouseReleased(int button) {
-        if (button == 0) ui.mouseReleased();
-    }
+    /** The left button went up. */
+    public void mouseReleased() { ui.mouseReleased(); }
 
     public void mouseScrolled(double amount) { ui.scrolled(amount); }
 
@@ -197,6 +195,14 @@ public final class SettingsEditor {
     /** Queues an input for the open screen, from the dev harness (see {@link ScriptedInput}). */
     public static void script(String command) {
         ScriptedInput.add(command);
+    }
+
+    /**
+     * Takes the GUI position {x, y} where a {@code realclick} command found its label, for the harness to click through the
+     * game's own mouse handler, or null when no such click waits.
+     */
+    public static int[] takeRealClick() {
+        return ScriptedInput.takeRealClick();
     }
 
     // ---------------------------------------------------------------- frame

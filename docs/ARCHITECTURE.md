@@ -186,6 +186,7 @@ In `modern/`, Stonecutter comments mark the version differences. They are only i
 - `tools/harness/repaint-modern.txt` and `repaint-legacy.txt` change the settings in a running game and take a screenshot after each change. `repaint-reload.txt` does the same after a resource reload. Compare the screenshots with a run where each change reloads resources. Only animated textures, particles and clouds can differ.
 - `tools/harness/sky-modern.txt` and `sky-legacy.txt` set each sky preset with the harness command `sky <dusk|nebula|galaxy|off>`, take screenshots toward the horizon and up, and of the sky editor with a masked filter. Run `./tools/screenshots.ps1 -Shots sky-modern.txt -OutDir build\sky`; the script takes the legacy copy for 1.8.9.
 - `tools/harness/particles-legacy.txt` adds particle and painting groups on 1.8.9 with the harness command `group <category> <name> <color or mode> <pattern>...`, and changes a group color to show a repaint.
+- The harness command `ui click <label>` gives the press directly to the settings editor. `ui realclick <label>` moves the pointer and clicks through the mouse handler of the game, so it also tests the input path of the adapter. Each game version can number the mouse buttons differently (26.x uses 1 for the left button), so only the adapter knows which number is the left button. `tools/harness/click-modern.txt` clicks pages with `realclick` on 1.21+. 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 
 ## Known gaps
 
