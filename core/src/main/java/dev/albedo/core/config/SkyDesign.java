@@ -26,16 +26,25 @@ public final class SkyDesign {
         public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
-    public static final SkyDesign NONE = new SkyDesign(Collections.<SkyLayer>emptyList(), Celestial.SHOW, Light.FIXED);
+    /** Whether the layers stop at the horizon, with the horizon color below it, or go around the full sphere. */
+    public enum Extent {
+        HORIZON, SPHERE;
+
+        public String key() { return name().toLowerCase(Locale.ROOT); }
+    }
+
+    public static final SkyDesign NONE = new SkyDesign(Collections.<SkyLayer>emptyList(), Celestial.SHOW, Light.FIXED, Extent.HORIZON);
 
     private final List<SkyLayer> layers;
     private final Celestial celestial;
     private final Light light;
+    private final Extent extent;
 
-    public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light) {
+    public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent) {
         this.layers = Collections.unmodifiableList(new ArrayList<SkyLayer>(layers));
         this.celestial = celestial;
         this.light = light;
+        this.extent = extent;
     }
 
     /** From the bottom layer up. */
@@ -45,15 +54,19 @@ public final class SkyDesign {
 
     public Light light() { return light; }
 
+    public Extent extent() { return extent; }
+
     public boolean isEmpty() { return layers.isEmpty(); }
 
     public boolean isFull() { return layers.size() >= MAX_LAYERS; }
 
-    public SkyDesign withLayers(List<SkyLayer> next) { return new SkyDesign(next, celestial, light); }
+    public SkyDesign withLayers(List<SkyLayer> next) { return new SkyDesign(next, celestial, light, extent); }
 
-    public SkyDesign withCelestial(Celestial c) { return new SkyDesign(layers, c, light); }
+    public SkyDesign withCelestial(Celestial c) { return new SkyDesign(layers, c, light, extent); }
 
-    public SkyDesign withLight(Light l) { return new SkyDesign(layers, celestial, l); }
+    public SkyDesign withLight(Light l) { return new SkyDesign(layers, celestial, l, extent); }
+
+    public SkyDesign withExtent(Extent e) { return new SkyDesign(layers, celestial, light, e); }
 
     /** The design with only what changes textures (the sun and moon), for a texture comparison. */
     public SkyDesign texturesOnly() { return NONE.withCelestial(celestial); }
@@ -123,9 +136,9 @@ public final class SkyDesign {
     public boolean equals(Object o) {
         if (!(o instanceof SkyDesign)) return false;
         SkyDesign d = (SkyDesign) o;
-        return d.celestial == celestial && d.light == light && d.layers.equals(layers);
+        return d.celestial == celestial && d.light == light && d.extent == extent && d.layers.equals(layers);
     }
 
     @Override
-    public int hashCode() { return (layers.hashCode() * 31 + celestial.ordinal()) * 31 + light.ordinal(); }
+    public int hashCode() { return ((layers.hashCode() * 31 + celestial.ordinal()) * 31 + light.ordinal()) * 31 + extent.ordinal(); }
 }

@@ -73,7 +73,9 @@ class SkyDesignTest {
         Policy b = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withLayer(0,
                 SkyPresets.DUSK.layers().get(0).withOpacity(40)))));
         Policy c = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withCelestial(SkyDesign.Celestial.HIDE))));
+        Policy d = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withExtent(SkyDesign.Extent.SPHERE))));
         assertTrue(a.sameTextures(b));
+        assertTrue(a.sameTextures(d), "the extent changes no texture");
         assertFalse(a.sameTextures(c));
         TextureKey sun = new TextureKey(Category.SKY, "minecraft:textures/environment/sun.png");
         TextureKey end = new TextureKey(Category.SKY, "minecraft:textures/environment/end_sky.png");

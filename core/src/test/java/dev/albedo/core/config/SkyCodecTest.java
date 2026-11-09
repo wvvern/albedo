@@ -49,6 +49,17 @@ class SkyCodecTest {
     }
 
     @Test
+    void theExtentIsWrittenOnlyForAFullSphere() {
+        SkyDesign horizon = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        assertFalse(ConfigCodec.encode(withSky(layers(horizon))).contains("extent"));
+        SkyDesign sphere = horizon.withExtent(SkyDesign.Extent.SPHERE);
+        Config c = withSky(layers(sphere));
+        assertTrue(ConfigCodec.encode(c).contains("\"extent\": \"sphere\""));
+        assertEquals(sphere, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertEquals("night.sky.extent: use one of [horizon, sphere]", error("{\"mode\": \"layers\", \"extent\": \"cube\", \"layers\": []}"));
+    }
+
+    @Test
     void transformsAreWrittenOnlyForTheAxesOfTheKind() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         d = d.withLayer(0, d.layers().get(0).withTransform(new Transform(90, 20, 0, 150)));
