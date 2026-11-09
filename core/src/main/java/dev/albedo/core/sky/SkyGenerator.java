@@ -812,7 +812,8 @@ public final class SkyGenerator {
         }
     }
 
-    private static float smooth(float a, float b, float t) {
+    /** The smoothstep of {@code t} from {@code a} to {@code b}, the same as {@code albedoSmooth} in the sky shader. */
+    static float smooth(float a, float b, float t) {
         float x = clamp01((t - a) / (b - a));
         return x * x * (3 - 2 * x);
     }

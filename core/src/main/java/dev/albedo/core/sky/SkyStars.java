@@ -170,7 +170,7 @@ final class SkyStars {
         }
         color(s[4], work, 3);
         // The light goes to 0 before the edge of the reach, so that no star is cut.
-        float fade = 1 - smooth(0.8f * reach, reach, d);
+        float fade = 1 - SkyGenerator.smooth(0.8f * reach, reach, d);
         for (int c = 0; c < 3; c++) light[c] += work[3 + c] * fade * (glow + work[c]);
     }
 
@@ -227,10 +227,5 @@ final class SkyStars {
                 out[c] += gain * SPIKE_GAIN[line] * taper * taper * taper * width / wide * (float) Math.exp(-0.5f * x * x);
             }
         }
-    }
-
-    private static float smooth(float a, float b, float t) {
-        float x = Math.max(0f, Math.min(1f, (t - a) / (b - a)));
-        return x * x * (3 - 2 * x);
     }
 }
