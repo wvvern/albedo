@@ -75,7 +75,8 @@ public final class Presets {
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(blocks, true, Collections.singletonList(solidLeaves)));
-        c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, pastel), false));
+        // Only the 1.21 versions keep the chests in an atlas that the GPU pass can move, so the block entities keep still colors on all versions.
+        c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, pastel.withOptions(0, pastel.saturation(), pastel.brightness())), false));
         c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, Appearance.Alpha.KEEP, 85, 40, 30), false));
         c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, Appearance.Alpha.KEEP, 70, 0, 0), true));
         c.put(Category.SKY, flat(0xFFF9D4E6, false));

@@ -765,6 +765,8 @@ public final class SettingsEditor {
         }
         if (chroma.moves() && sc.chromaStill()) {
             items.add(note("The colors stay still, because the GPU cannot move them here."));
+        } else if (chroma.moves() && sc.chromaStill(page.category)) {
+            items.add(note("The GPU can move the colors of only some textures here. The other textures keep still colors."));
         }
         return items;
     }

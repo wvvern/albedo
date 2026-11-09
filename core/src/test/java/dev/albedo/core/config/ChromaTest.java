@@ -39,13 +39,16 @@ class ChromaTest {
     }
 
     @Test
-    void thePastelProfileHasSoftChromaColorsThatMoveSlowly() {
+    void thePastelProfileHasSoftChromaColorsAndTheBlocksMoveSlowly() {
         Profile pastel = Presets.pastel();
+        Chroma blocks = pastel.get(Category.BLOCKS).appearance().chroma();
+        assertTrue(blocks.moves(), "the block colors move");
+        assertTrue(Chroma.periodMs(blocks.speed()) >= 90_000, "the block colors take at least 90 s for one turn");
+        // Only the 1.21 versions keep chests in an atlas, so the block entities keep still colors on all versions.
+        assertTrue(!pastel.get(Category.BLOCK_ENTITIES).appearance().chroma().moves(), "the block entity colors stay still");
         for (Category category : new Category[]{Category.BLOCKS, Category.BLOCK_ENTITIES}) {
             Chroma c = pastel.get(category).appearance().chroma();
-            assertTrue(c.moves(), category + " colors move");
-            assertTrue(Chroma.periodMs(c.speed()) >= 90_000, category + " colors take at least 90 s for one turn");
-            assertTrue(c.strength() <= 60 && c.saturation() <= Chroma.DEFAULT_SATURATION, category + " colors stay soft");
+            assertTrue(c.isOn() && c.strength() <= 60 && c.saturation() <= Chroma.DEFAULT_SATURATION, category + " colors stay soft");
         }
     }
 
