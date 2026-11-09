@@ -728,10 +728,9 @@ const float ALBEDO_AURORA_EARTH = 6371.0;
 const float ALBEDO_AURORA_BASE = 100.0;
 const float ALBEDO_AURORA_DRIFT = 0.6;
 const float ALBEDO_AURORA_LOOP = 0.9;
-// The km over which the light under the lower edge falls by e, of the thin tail and of the scattered glow, and where the glow stops.
-const float ALBEDO_AURORA_TAIL = 3.0;
-const float ALBEDO_AURORA_SCATTER = 30.0;
-const float ALBEDO_AURORA_SCATTER_REACH = 4.0;
+// The radians of view under the lower edge over which its faint glow falls by e, and the number of them where it stops.
+const float ALBEDO_AURORA_GLOW = 0.015;
+const float ALBEDO_AURORA_GLOW_REACH = 4.0;
 #define ALBEDO_AURORA_STEPS 14
 #define ALBEDO_AURORA_CROSSINGS 4
 
@@ -785,8 +784,10 @@ vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footpr
     // The lower edge goes up and down along the ribbon, so that it is not one smooth line.
     float h = alt - ALBEDO_AURORA_BASE - 7.0 * albedoNoise(vec3(sd / 70.0, t * 0.02, 0.5), seed + 11 + c)
             - 3.0 * albedoNoise(vec3(sd / 18.0, t * 0.05, 2.5), seed + 13 + c);
-    float soft = max(1.2 * f * f, 0.6 * pixelUp);
-    if (h < -ALBEDO_AURORA_SCATTER_REACH * ALBEDO_AURORA_SCATTER) return vec2(0.0);
+    float soft = max(1.2 * f, 0.6 * pixelUp);
+    // The angle of the view under the lower edge, which is negative under it.
+    float under = min(h, 0.0) * cosT * cosT / r;
+    if (under < -ALBEDO_AURORA_GLOW_REACH * ALBEDO_AURORA_GLOW) return vec2(0.0);
     float r0 = albedoRayOctave(vec2(sd / 45.0, t * 0.03), seed + 21 + c, pixelAlong / 45.0);
     float r1 = albedoRayOctave(vec2(sd / 14.0, t * 0.1), seed + 22 + c, pixelAlong / 14.0);
     float r2 = albedoRayOctave(vec2(sd / 5.0, t * 0.25), seed + 23 + c, pixelAlong / 5.0);
@@ -796,15 +797,14 @@ vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footpr
     float hard = clamp(pixelAlong / 1.8 * 0.5, 0.07, 0.3);
     float fine = albedoSmooth(0.5 - 0.6 * hard, 0.5 + hard, 0.5 * r1 + 0.3 * r2 + 0.2 * r3);
     float rays = bundle * fine * (0.3 + 0.7 * tall);
-    float top = height * (0.2 + 1.4 * tall * tall);
+    // The rays of the far ribbon are shorter, so that it is a low arc with open sky between it and the near ribbon.
+    float top = height * (0.2 + 1.4 * tall * tall) / (f * f);
     float below = albedoSmooth(-soft, soft, h), up = max(h, 0.0);
     // A thin bright band along the lower edge, which is dim between the bundles, and above it rays of many heights.
     float edge = 0.05 + 1.35 * (0.2 + 0.8 * bundle) * (0.4 + 0.6 * fine);
     float green = below * (exp(-up / 9.0) * edge + 1.1 * rays * exp(-up / (0.4 * top)));
-    // Under the lower edge a thin tail of the edge and a wide glow of the light that the air scatters.
-    float under = min(h, 0.0);
-    green += (1.0 - below) * (0.25 * edge * exp(under / ALBEDO_AURORA_TAIL)
-            + 0.1 * (0.4 + 0.6 * bundle) * max(0.0, exp(under / ALBEDO_AURORA_SCATTER) - exp(-ALBEDO_AURORA_SCATTER_REACH)));
+    // Under the lower edge a faint glow without rays, which a sheet seen edge-on does not brighten, fades smoothly within a few degrees.
+    green += (1.0 - below) * 0.1 * sqrt(obl * obl + 0.0144) * max(0.0, exp(under / ALBEDO_AURORA_GLOW) - exp(-ALBEDO_AURORA_GLOW_REACH));
     float red = below * 0.2 * bundle * (0.3 + 0.7 * fine) * albedoSmooth(0.3 * top, 0.9 * top, up)
             * exp(-max(0.0, up - 0.9 * top) / (0.5 * top));
     float lit = albedoValue(vec2(s / 320.0, t * 0.004), seed + 31 + c) + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);

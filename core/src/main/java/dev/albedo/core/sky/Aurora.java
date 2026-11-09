@@ -16,10 +16,8 @@ final class Aurora {
     private static final float[] DISTANCE = {280f, 620f};
     /** The light of the near and of the far ribbon. */
     private static final float[] GAIN = {1f, 0.2f};
-    /** The km over which the light under the lower edge falls by e: of the thin tail of the edge and of the wide glow of scattered light. */
-    private static final float TAIL = 3f, SCATTER = 30f;
-    /** The number of {@link #SCATTER} lengths under the lower edge where the scattered light stops. */
-    private static final float SCATTER_REACH = 4f;
+    /** The radians of view under the lower edge over which its faint glow falls by e, and the number of them where it stops. */
+    private static final float GLOW = 0.015f, GLOW_REACH = 4f;
     /** The frequency for each radian of azimuth, the size in radians and the speed in radians for each second of the folds. */
     private static final float[] FOLD_K = {9f, 31f, 70f}, FOLD_AMP = {0.09f, 0.03f, 0.012f}, FOLD_RATE = {0.02f, -0.05f, 0.11f};
     /** The frequency for each radian, the size in km and the speed of the waves that move the ribbon toward the viewer. */
@@ -173,8 +171,10 @@ final class Aurora {
             float h = alt - BASE - 7 * Noise.noise(sd / 70, t * 0.02f, 0.5f, seed + 11 + c)
                     - 3 * Noise.noise(sd / 18, t * 0.05f, 2.5f, seed + 13 + c);
             // The lower edge of the far ribbon is soft, as the haze of the far air hides its detail.
-            float soft = Math.max(1.2f * far(c) * far(c), 0.6f * pixelUp);
-            if (h < -SCATTER_REACH * SCATTER) return;
+            float soft = Math.max(1.2f * far(c), 0.6f * pixelUp);
+            // The angle of the view under the lower edge, which is negative under it.
+            float under = Math.min(h, 0) * cosT * cosT / r;
+            if (under < -GLOW_REACH * GLOW) return;
             float r0 = octave(sd / 45, t * 0.03f, seed + 21 + c, pixelAlong / 45);
             float r1 = octave(sd / 14, t * 0.1f, seed + 22 + c, pixelAlong / 14);
             float r2 = octave(sd / 5, t * 0.25f, seed + 23 + c, pixelAlong / 5);
@@ -186,15 +186,15 @@ final class Aurora {
             float fine = smooth(0.5f - 0.6f * hard, 0.5f + hard, 0.5f * r1 + 0.3f * r2 + 0.2f * r3);
             // The tall rays are also the bright rays.
             float rays = bundle * fine * (0.3f + 0.7f * tall);
-            float top = height * (0.2f + 1.4f * tall * tall);
+            // The rays of the far ribbon are shorter, so that it is a low arc with open sky between it and the near ribbon.
+            float top = height * (0.2f + 1.4f * tall * tall) / (far(c) * far(c));
             float below = smooth(-soft, soft, h), up = Math.max(h, 0);
             // A thin bright band along the lower edge, dim between the bundles, and above it rays of many heights with dark sky between them.
             float edge = 0.05f + 1.35f * (0.2f + 0.8f * bundle) * (0.4f + 0.6f * fine);
             float green = below * ((float) Math.exp(-up / 9) * edge + 1.1f * rays * (float) Math.exp(-up / (0.4f * top)));
-            // Under the lower edge a thin tail of the edge and a wide glow of the light that the air scatters, so that no dark wall is under it.
-            float under = Math.min(h, 0);
-            green += (1 - below) * (0.25f * edge * (float) Math.exp(under / TAIL)
-                    + 0.1f * (0.4f + 0.6f * bundle) * Math.max(0f, (float) Math.exp(under / SCATTER) - (float) Math.exp(-SCATTER_REACH)));
+            // Under the lower edge a faint glow without rays, which a sheet seen edge-on does not brighten, fades smoothly within a few degrees.
+            green += (1 - below) * 0.1f * (float) Math.sqrt(obl * obl + 0.0144f)
+                    * Math.max(0f, (float) Math.exp(under / GLOW) - (float) Math.exp(-GLOW_REACH));
             float red = below * 0.2f * bundle * (0.3f + 0.7f * fine) * smooth(0.3f * top, 0.9f * top, up)
                     * (float) Math.exp(-Math.max(0, up - 0.9f * top) / (0.5f * top));
             // Parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
