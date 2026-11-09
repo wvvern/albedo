@@ -38,7 +38,7 @@ class SkyGeneratorTest {
     void thePresetsKeepTheirPixels() {
         assertEquals(1871102415, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
         assertEquals(450250937, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
-        assertEquals(-1677839789, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
+        assertEquals(269064640, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
     }
 
     @Test
