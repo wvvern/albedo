@@ -19,6 +19,8 @@ import java.util.Map;
 
 /** Hosts the version-agnostic {@link SettingsEditor} on 1.8.9. */
 public final class GuiSettings extends GuiScreen implements Canvas {
+    /** The LWJGL 2 number of the left mouse button. */
+    private static final int LEFT_BUTTON = 0;
     private final GuiScreen parent;
     private final SettingsEditor editor;
     /** One texture for each image id and size, kept until the screen closes. */
@@ -64,12 +66,12 @@ public final class GuiSettings extends GuiScreen implements Canvas {
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
-        editor.mousePressed(button);
+        if (button == LEFT_BUTTON) editor.mousePressed();
     }
 
     @Override
     protected void mouseReleased(int x, int y, int button) {
-        editor.mouseReleased(button);
+        if (button == LEFT_BUTTON) editor.mouseReleased();
     }
 
     @Override

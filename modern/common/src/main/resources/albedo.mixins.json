@@ -15,6 +15,7 @@
     "FullbrightMixin",
     "GrassColorMixin",
     "MinecraftMixin",
+    "MouseHandlerInvoker",
     "ShadowMixin",
     "SkinTextureMixin",
     "SkyLayersMixin",

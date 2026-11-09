@@ -324,9 +324,9 @@ class SettingsEditorTest {
             int[] value = canvas.find("80%");
             assertNotNull(value, "the Detail value shows: " + canvas.texts.keySet());
             int x = value[0] - 20, y = value[1];
-            editor.mousePressed(0);
+            editor.mousePressed();
             for (int dx = 0; dx <= x; dx += 2) editor.render(canvas, x - dx, y); // through 60 on the way to 0
-            editor.mouseReleased(0);
+            editor.mouseReleased();
             render(editor, canvas);
             click(editor, canvas, "Done");
             CategorySettings saved = sc.config().activeProfile().get(Category.BLOCKS);
@@ -470,10 +470,10 @@ class SettingsEditorTest {
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         int[] at = canvas.find("Recolor");
-        editor.mousePressed(0);
+        editor.mousePressed();
         canvas.texts.clear();
         editor.render(canvas, at[0], at[1]);
-        editor.mouseReleased(0);
+        editor.mouseReleased();
         assertNotNull(canvas.find("Detail"), "the sliders show in the frame of the click");
         int tintY = canvas.find("Remove biome tint")[1];
         render(editor, canvas);
@@ -683,9 +683,9 @@ class SettingsEditorTest {
                         editor = new SettingsEditor(sc);
                         editor.ui.tipDelay = 0;
                     }
-                    editor.mousePressed(0);
+                    editor.mousePressed();
                     editor.render(canvas, x, y);
-                    editor.mouseReleased(0);
+                    editor.mouseReleased();
                     editor.charTyped('a');
                     editor.keyPressed(UiKey.BACKSPACE, false);
                     editor.mouseScrolled(-1);
@@ -764,15 +764,38 @@ class SettingsEditorTest {
                 for (int y = 0; y < size[1]; y += 7) {
                     for (int x = 0; x < size[0]; x += 11) {
                         if (editor.isClosed()) break;
-                        editor.mousePressed(0);
+                        editor.mousePressed();
                         editor.render(canvas, x, y);
-                        editor.mouseReleased(0);
+                        editor.mouseReleased();
                         editor.mouseScrolled(-1);
                         editor.render(canvas, x + 1, y);
                     }
                 }
             }
         }
+    }
+
+    @Test
+    void aRealClickGivesTheLabelPositionAndLeavesThePressToTheGame() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        int[] average = canvas.find("Average");
+        SettingsEditor.script("realclick Average");
+        editor.render(canvas, 0, 0); // records the labels
+        editor.render(canvas, 0, 0); // runs the command
+        int[] at = SettingsEditor.takeRealClick();
+        assertArrayEquals(average, at);
+        assertNull(SettingsEditor.takeRealClick(), "the harness takes a real click once");
+
+        // The game sends the press with its own pointer position, which the editor uses from now on.
+        editor.mousePressed();
+        editor.render(canvas, at[0], at[1]);
+        editor.mouseReleased();
+        render(editor, canvas);
+        click(editor, canvas, "Done");
+        assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
     @Test
@@ -787,9 +810,9 @@ class SettingsEditorTest {
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {
         int[] at = canvas.find(label);
         assertNotNull(at, "label not drawn: " + label + " (drawn: " + canvas.texts.keySet() + ")");
-        editor.mousePressed(0);
+        editor.mousePressed();
         editor.render(canvas, at[0], at[1]);
-        editor.mouseReleased(0);
+        editor.mouseReleased();
         canvas.texts.clear();
         editor.render(canvas, at[0], at[1]);
     }

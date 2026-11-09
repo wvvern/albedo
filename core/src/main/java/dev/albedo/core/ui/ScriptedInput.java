@@ -4,13 +4,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Dev harness input for the settings screen, one command per frame: click a label, turn the wheel over a label, type
- * text, press a key, or move the pointer off.
+ * Dev harness input for the settings screen, one command per frame: click a label, click it through the game's mouse
+ * handler, turn the wheel over a label, type text, press a key, or move the pointer off.
  */
 final class ScriptedInput {
     private static final Queue<String> QUEUE = new ConcurrentLinkedQueue<String>();
+    /** The label position of the last {@code realclick}, which the harness takes and clicks through the game's mouse handler. */
+    private static final AtomicReference<int[]> REAL_CLICK = new AtomicReference<int[]>();
 
     /** The center of each label that the last frame drew, where a click command finds its label, or null before the first frame. */
     private Map<String, int[]> lastTexts;
@@ -21,6 +24,10 @@ final class ScriptedInput {
 
     static void add(String command) {
         QUEUE.add(command);
+    }
+
+    static int[] takeRealClick() {
+        return REAL_CLICK.getAndSet(null);
     }
 
     boolean active() {
@@ -42,7 +49,8 @@ final class ScriptedInput {
     void endFrame(Ui ui) {
         if (recorder == null) return;
         if (release) ui.mouseReleased();
-        lastTexts = recorder.texts;
+        // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
+        lastTexts = active() ? recorder.texts : null;
         recorder = null;
     }
 
@@ -59,6 +67,14 @@ final class ScriptedInput {
                 pointer = at;
                 ui.mousePressed();
                 return true;
+            }
+            case "realclick": {
+                // The game moves the real pointer and sends the press, so that the adapter's input path runs too.
+                int[] at = find(arg);
+                if (at == null) return false;
+                pointer = null;
+                REAL_CLICK.set(at);
+                return false;
             }
             case "scroll": {
                 // "scroll -3 label": the wheel turns three steps down over the label.
