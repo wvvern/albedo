@@ -26,10 +26,10 @@ import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
-import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
+import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.renderer.BindGroupLayouts;
@@ -37,14 +37,10 @@ import net.minecraft.client.renderer.ShaderManager;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -190,20 +186,12 @@ final class SharpSky {
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
-    private static Method irisInUse;
-    private static Object iris;
-    private static boolean irisLooked;
 
     private SharpSky() {}
 
-    /** True when the image must draw sharp in this frame, before the compile and the upload. */
-    private static boolean wanted(SkyImage img) {
-        return img.design().render() == SkyDesign.Render.SHARP && img.program().drawsSharp() && !shaderPackInUse();
-    }
-
     /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
     static void prepare(SkyImage img) {
-        if (!wanted(img) || SHARP.get() == null || blockSerial == img.serial()) return;
+        if (!ModernSky.wantsSharp(img) || SHARP.get() == null || blockSerial == img.serial()) return;
         if (block != null) block.close();
         if (terms != null) terms.close();
         block = upload(img.program(), "Albedo sky block");
@@ -213,7 +201,7 @@ final class SharpSky {
 
     /** Draws the image sharp in the sky pass and returns true, or returns false when the baked texture must draw it. */
     static boolean draw(RenderPass pass, SkyImage img, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
-        if (!wanted(img) || SHARP.compiled == null || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
+        if (!ModernSky.wantsSharp(img) || SHARP.compiled == null || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
         pass.pushDebugGroup(() -> "Albedo sharp sky");
         pass.setPipeline(SHARP.compiled);
         RenderSystem.bindDefaultUniforms(pass);
@@ -224,26 +212,6 @@ final class SharpSky {
         pass.draw(vertexCount, 1, 0, 0);
         pass.popDebugGroup();
         return true;
-    }
-
-    /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture. */
-    private static boolean shaderPackInUse() {
-        if (!irisLooked) {
-            irisLooked = true;
-            try {
-                Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
-                iris = api.getMethod("getInstance").invoke(null);
-                irisInUse = api.getMethod("isShaderPackInUse");
-            } catch (ReflectiveOperationException | LinkageError e) {
-                iris = null;
-            }
-        }
-        if (iris == null) return false;
-        try {
-            return (Boolean) irisInUse.invoke(iris);
-        } catch (ReflectiveOperationException e) {
-            return false;
-        }
     }
 
     /** A uniform buffer with the block of a program. */
@@ -336,7 +304,7 @@ final class SharpSky {
         Source() throws IOException {
             includes = new HashMap<Identifier, CachedIncludeSource>(ShaderManager.listAllIncludes(Minecraft.getInstance().getResourceManager()));
             Identifier own = Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "sky_layers.glsl");
-            CachedIncludeSource old = includes.put(own, CachedIncludeSource.create(own, read("include/sky_layers.glsl")));
+            CachedIncludeSource old = includes.put(own, CachedIncludeSource.create(own, SkyShaderSource.read("include/sky_layers.glsl")));
             if (old != null) old.close();
         }
 
@@ -344,7 +312,7 @@ final class SharpSky {
         public String getShader(Identifier id, ShaderType type) {
             if (!id.getNamespace().equals(Albedo.MOD_ID)) return null;
             try {
-                return read(id.getPath() + (type == ShaderType.VERTEX ? ".vsh" : ".fsh"));
+                return SkyShaderSource.read(id.getPath() +(type == ShaderType.VERTEX ? ".vsh" : ".fsh"));
             } catch (IOException e) {
                 Albedo.get().platform().warn("Cannot read the sky shader " + id, e);
                 return null;
@@ -359,17 +327,6 @@ final class SharpSky {
         @Override
         public void close() {
             for (CachedIncludeSource include : includes.values()) include.close();
-        }
-
-        /** A text file from the shader folder of the mod in its jar, because a Fabric game without Fabric API does not load mod assets. */
-        private static String read(String path) throws IOException {
-            try (InputStream in = SharpSky.class.getResourceAsStream("/assets/" + Albedo.MOD_ID + "/shaders/" + path)) {
-                if (in == null) throw new IOException("no file " + path);
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
-                return new String(out.toByteArray(), StandardCharsets.UTF_8);
-            }
         }
     }
 }

@@ -1,0 +1,40 @@
+// The sky sphere for the GL programs of 1.21.11, 1.21.1 and 1.8.9, where SkyShaderSource puts the version line and the defines on top.
+
+#ifdef ALBEDO_FIXED_FUNCTION
+#if __VERSION__ >= 130
+out vec3 skyPosition;
+#else
+varying vec3 skyPosition;
+#endif
+
+void main() {
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    skyPosition = gl_Vertex.xyz;
+}
+#else
+#ifdef ALBEDO_TRANSFORM_BLOCKS
+// The blocks of dynamictransforms.glsl and projection.glsl of the game, which this program gets with no include step.
+layout(std140) uniform DynamicTransforms {
+    mat4 ModelViewMat;
+    vec4 ColorModulator;
+    vec3 ModelOffset;
+    mat4 TextureMat;
+};
+layout(std140) uniform Projection {
+    mat4 ProjMat;
+};
+#else
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+#endif
+
+in vec3 Position;
+
+// The point on the sky sphere around the camera, whose direction is the direction of the sky.
+out vec3 skyPosition;
+
+void main() {
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+    skyPosition = Position;
+}
+#endif

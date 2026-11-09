@@ -32,6 +32,12 @@
 #define ALBEDO_USE_MASK 1
 #define ALBEDO_USE_SHOW 2
 
+#ifdef ALBEDO_PLAIN_UNIFORMS
+// The values of the uniform block below, for the GL programs that set them as three arrays.
+uniform vec4 SkyHeader;
+uniform vec4 SkyLayers[ALBEDO_MAX_LAYERS * ALBEDO_LAYER_VEC4S];
+uniform vec4 SkyRing[ALBEDO_RING];
+#else
 layout(std140) uniform AlbedoSky {
     // The layer count, the extent (1 for the full sphere) and the term count.
     vec4 SkyHeader;
@@ -39,9 +45,19 @@ layout(std140) uniform AlbedoSky {
     // The linear horizon color of each azimuth sector, from north toward east.
     vec4 SkyRing[ALBEDO_RING];
 };
+#endif
 
 // The equirectangular term images of the CPU bake in linear light, one under the other in the order of their slots.
 uniform sampler2D AlbedoTerms;
+
+// GLSL 1.20 with EXT_gpu_shader4 has other names for the texture size and read, and the term texture has no mip levels.
+#if __VERSION__ >= 130
+#define ALBEDO_TERM_ROWS float(textureSize(AlbedoTerms, 0).y)
+#define ALBEDO_TERM_READ(uv) textureLod(AlbedoTerms, uv, 0.0)
+#else
+#define ALBEDO_TERM_ROWS float(textureSize2D(AlbedoTerms, 0).y)
+#define ALBEDO_TERM_READ(uv) texture2D(AlbedoTerms, uv)
+#endif
 
 const float ALBEDO_PI = 3.14159265358979;
 // The star grid density per radian at which the star sizes are set.
@@ -316,11 +332,11 @@ vec3 albedoRing(float azimuth) {
 
 // The linear color of a term image in a sky direction, where the rows stop half a texel inside the image of the slot.
 vec3 albedoTerm(int slot, vec3 dir) {
-    float rows = float(textureSize(AlbedoTerms, 0).y);
+    float rows = ALBEDO_TERM_ROWS;
     float slotRows = rows / max(1.0, SkyHeader.z);
     float u = atan(dir.x, -dir.z) / (2.0 * ALBEDO_PI);
     float y = clamp((0.5 - asin(clamp(dir.y, -1.0, 1.0)) / ALBEDO_PI) * slotRows, 0.5, slotRows - 0.5);
-    return textureLod(AlbedoTerms, vec2(u, (float(slot) * slotRows + y) / rows), 0.0).rgb;
+    return ALBEDO_TERM_READ(vec2(u, (float(slot) * slotRows + y) / rows)).rgb;
 }
 
 // One linear channel in sRGB from 0 to 255, as Oklab.toSrgb.

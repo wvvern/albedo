@@ -12,14 +12,18 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 
 /**
- * Draws the custom sky on a sphere in place of the vanilla sky disc, with {@link SharpSky} on 26.x when it can, else from
- * one texture of a fixed size that is uploaded on the render thread only when the core has a new image.
+ * Draws the custom sky on a sphere in place of the vanilla sky disc, with the sky shader of each version when it can
+ * ({@code SharpSky}, {@code PrecompiledSharpSky} or {@code GlSharpSky}), else from one texture of a fixed size that is
+ * uploaded on the render thread only when the core has a new image.
  */
 public final class ModernSky {
     private static final float RADIUS = 100f;
     private static DynamicTexture texture;
     private static long uploaded = -1;
     private static int vertexCount;
+    private static java.lang.reflect.Method irisInUse;
+    private static Object iris;
+    private static boolean irisLooked;
     //? if >=26.1 {
     private static com.mojang.renderpearl.api.buffers.GpuBuffer sphere;
     // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
@@ -69,6 +73,31 @@ public final class ModernSky {
     public static boolean hidesStars() {
         SkyImage img = Albedo.skyImage();
         return img != null && img.design().celestial() == SkyDesign.Celestial.HIDE;
+    }
+
+    /** True when the image draws with the sky shader in this frame: the design and the setting permit it, and no shader pack draws the sky. */
+    static boolean wantsSharp(SkyImage img) {
+        return img.design().render() == SkyDesign.Render.SHARP && img.program().drawsSharp() && !shaderPackInUse();
+    }
+
+    /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture. */
+    private static boolean shaderPackInUse() {
+        if (!irisLooked) {
+            irisLooked = true;
+            try {
+                Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+                iris = api.getMethod("getInstance").invoke(null);
+                irisInUse = api.getMethod("isShaderPackInUse");
+            } catch (ReflectiveOperationException | LinkageError e) {
+                iris = null;
+            }
+        }
+        if (iris == null) return false;
+        try {
+            return (Boolean) irisInUse.invoke(iris);
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
     }
 
     /** The factor of the sky and fog colors for the time of day and the weather, 1 for a sky that stays bright. */
@@ -188,6 +217,7 @@ public final class ModernSky {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
+        PrecompiledSharpSky.prepare(img);
         float k = brightness(img);
         com.mojang.blaze3d.buffers.GpuBufferSlice transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms()
                 .writeTransform(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix(), new org.joml.Vector4f(k, k, k, 1f),
@@ -196,6 +226,7 @@ public final class ModernSky {
         try (com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
                 .createRenderPass(() -> "Albedo sky", target.getColorTextureView(), java.util.OptionalInt.empty(),
                         target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
+            if (PrecompiledSharpSky.draw(pass, img, transforms, sphere, vertexCount)) return true;
             pass.setPipeline(PIPELINE);
             com.mojang.blaze3d.systems.RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("DynamicTransforms", transforms);
@@ -227,7 +258,9 @@ public final class ModernSky {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
+        GlSharpSky.prepare(img);
         float k = brightness(img);
+        if (GlSharpSky.draw(img, sphere, modelView, projection, k)) return true;
         com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
         com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, texture.getId());
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(k, k, k, 1f);

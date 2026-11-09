@@ -192,10 +192,14 @@ final class ModernHarnessHost implements Harness.Host {
         Minecraft.getInstance().options.fov().set(degrees);
     }
 
-    //? if >=26.1 {
     @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        //? if >=26.1 {
         return SharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        //?} elif >=1.21.11 {
+        /*return PrecompiledSharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        *///?} else {
+        /*return GlSharpSky.drawEquirect(sky, width, height, repeat, png, done);
+        *///?}
     }
-    //?}
 }

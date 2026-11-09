@@ -26,10 +26,10 @@ public final class SkyProgram {
     public static final int MAX_TERMS = 4;
     /** The vec4 values of each layer. */
     public static final int LAYER_VEC4S = 10;
-    /** The float index of the first layer. */
-    static final int LAYERS = 4;
+    /** The float index of the first layer, after the header vec4. */
+    public static final int LAYERS = 4;
     /** The float index of the first horizon color. */
-    static final int RING = LAYERS + SkyDesign.MAX_LAYERS * LAYER_VEC4S * 4;
+    public static final int RING = LAYERS + SkyDesign.MAX_LAYERS * LAYER_VEC4S * 4;
     /** The number of floats in the block. */
     public static final int FLOATS = RING + SkyImage.RING * 4;
 

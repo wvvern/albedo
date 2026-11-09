@@ -1,0 +1,263 @@
+package dev.albedo.modern;
+
+//? if <1.21.11 {
+/*import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import dev.albedo.core.Albedo;
+import dev.albedo.core.dev.Harness;
+import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyProgram;
+import dev.albedo.core.sky.SkyShaderSource;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.ShaderInstance;
+import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL33;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+
+// Draws the custom sky with the sky shader for each screen pixel on 1.21.1, so that it is sharp at each resolution and
+// field of view, with its own GL program, because a shader instance of the game must load its files as resources.
+final class GlSharpSky {
+    private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
+
+    // The state of the compile of one program.
+    private enum Compile { NOT_STARTED, READY, FAILED }
+
+    // The block of a sky program as the three uniform arrays of the shader.
+    private static final class Block {
+        final float[] header;
+        final float[] layers;
+        final float[] ring;
+
+        Block(SkyProgram program) {
+            float[] b = program.block();
+            header = Arrays.copyOfRange(b, 0, SkyProgram.LAYERS);
+            layers = Arrays.copyOfRange(b, SkyProgram.LAYERS, SkyProgram.RING);
+            ring = Arrays.copyOfRange(b, SkyProgram.RING, SkyProgram.FLOATS);
+        }
+    }
+
+    // A GL program from the classic sky shaders, and the places of its uniforms.
+    private static final class Program {
+        final String name;
+        Compile state = Compile.NOT_STARTED;
+        int id;
+        int header;
+        int layers;
+        int ring;
+        int terms;
+        int modelView;
+        int projection;
+        int color;
+
+        Program(String name) {
+            this.name = name;
+        }
+
+        // Compiles the program on its first use, and returns true when it compiled.
+        boolean ready() {
+            if (state == Compile.NOT_STARTED) compile();
+            return state == Compile.READY;
+        }
+
+        private void compile() {
+            int program = GL20.glCreateProgram();
+            int vertex = 0;
+            int fragment = 0;
+            try {
+                vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, DIALECT));
+                fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, DIALECT));
+                GL20.glAttachShader(program, vertex);
+                GL20.glAttachShader(program, fragment);
+                // The vertex buffers of the game put the position in attribute 0 and the texture coordinates in attribute 1.
+                GL20.glBindAttribLocation(program, 0, "Position");
+                GL20.glBindAttribLocation(program, 1, "UV0");
+                GL20.glLinkProgram(program);
+                if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+                    throw new IllegalStateException(GL20.glGetProgramInfoLog(program));
+                }
+            } catch (IOException | IllegalStateException e) {
+                GL20.glDeleteProgram(program);
+                state = Compile.FAILED;
+                Albedo.get().platform().warn("Cannot compile the sharp sky shader " + name + ". The sky draws from the baked image.", e);
+                return;
+            } finally {
+                if (vertex != 0) GL20.glDeleteShader(vertex);
+                if (fragment != 0) GL20.glDeleteShader(fragment);
+            }
+            id = program;
+            header = GL20.glGetUniformLocation(program, "SkyHeader");
+            layers = GL20.glGetUniformLocation(program, "SkyLayers");
+            ring = GL20.glGetUniformLocation(program, "SkyRing");
+            terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
+            modelView = GL20.glGetUniformLocation(program, "ModelViewMat");
+            projection = GL20.glGetUniformLocation(program, "ProjMat");
+            color = GL20.glGetUniformLocation(program, "ColorModulator");
+            state = Compile.READY;
+            Albedo.get().platform().info("Compiled the sharp sky shader " + name);
+        }
+
+        // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
+        void use(Block block, int termTexture, float brightness) {
+            GlStateManager._glUseProgram(id);
+            GL20.glUniform4fv(header, block.header);
+            GL20.glUniform4fv(layers, block.layers);
+            GL20.glUniform4fv(ring, block.ring);
+            GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
+            GL20.glUniform1i(terms, 0);
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(termTexture);
+        }
+    }
+
+    private static final Program SHARP = new Program(SkyShaderSource.SHARP);
+    private static final Program EQUIRECT = new Program(SkyShaderSource.EQUIRECT);
+
+    private static Block block;
+    private static int termTexture;
+    private static long blockSerial = -1;
+
+    private GlSharpSky() {}
+
+    // Compiles the program and sends the term images of a new image to the GPU.
+    static void prepare(SkyImage img) {
+        if (!ModernSky.wantsSharp(img) || !SHARP.ready() || blockSerial == img.serial()) return;
+        if (termTexture != 0) GlStateManager._deleteTexture(termTexture);
+        block = new Block(img.program());
+        termTexture = uploadTerms(img);
+        blockSerial = img.serial();
+    }
+
+    // Draws the image sharp on the sphere and returns true, or returns false when the baked texture must draw it.
+    static boolean draw(SkyImage img, VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
+        if (!ModernSky.wantsSharp(img) || SHARP.state != Compile.READY || blockSerial != img.serial()) return false;
+        SHARP.use(block, termTexture, brightness);
+        GL20.glUniformMatrix4fv(SHARP.modelView, false, modelView.get(new float[16]));
+        GL20.glUniformMatrix4fv(SHARP.projection, false, projection.get(new float[16]));
+        RenderSystem.disableCull();
+        sphere.bind();
+        sphere.draw();
+        VertexBuffer.unbind();
+        RenderSystem.enableCull();
+        release();
+        return true;
+    }
+
+    // Takes the program out of use through a shader instance, because an instance skips glUseProgram when it thinks that its program is still in use.
+    private static void release() {
+        ShaderInstance any = GameRenderer.getPositionTexShader();
+        if (any != null) any.clear();
+        else GlStateManager._glUseProgram(0);
+    }
+
+    // A compiled shader of a type, or an exception with the log of the GL.
+    private static int shader(int type, String source) {
+        int shader = GL20.glCreateShader(type);
+        GL20.glShaderSource(shader, source);
+        GL20.glCompileShader(shader);
+        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
+            String log = GL20.glGetShaderInfoLog(shader);
+            GL20.glDeleteShader(shader);
+            throw new IllegalStateException(log);
+        }
+        return shader;
+    }
+
+    // A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms.
+    private static int uploadTerms(SkyImage img) {
+        int count = img.program().terms();
+        int width = count == 0 ? 1 : img.termWidth(), height = count == 0 ? 1 : img.termHeight() * count;
+        ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 8).order(ByteOrder.nativeOrder());
+        if (count > 0) bytes.asShortBuffer().put(img.terms());
+        int texture = GlStateManager._genTexture();
+        GlStateManager._bindTexture(texture);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+        return texture;
+    }
+
+    // Draws the program and the term images of a sky repeat times into an equirectangular image of this size, then gives
+    // the pixels and the GPU time of one draw, and returns false when the shader cannot compile; png may be null.
+    static boolean drawEquirect(SkyImage sky, int width, int height, int repeat, File png, Harness.SkyDone done) {
+        if (!EQUIRECT.ready()) return false;
+        int texture = uploadTerms(sky);
+        VertexBuffer quad = quad();
+        TextureTarget target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
+        target.bindWrite(true);
+        RenderSystem.disableBlend();
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
+        EQUIRECT.use(new Block(sky.program()), texture, 1f);
+        boolean timed = GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_timer_query;
+        int query = timed ? GL15.glGenQueries() : 0;
+        if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
+        quad.bind();
+        for (int i = 0; i < repeat; i++) quad.draw();
+        VertexBuffer.unbind();
+        long nanos = -1;
+        if (timed) {
+            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
+            nanos = GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT) / repeat;
+            GL15.glDeleteQueries(query);
+        }
+        release();
+        RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
+        int[] argb = new int[width * height];
+        try (NativeImage image = Screenshot.takeScreenshot(target)) {
+            NativeImagePixels pixels = new NativeImagePixels(image);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) argb[y * width + x] = pixels.getArgb(x, y);
+            }
+            if (png != null) image.writeToFile(png);
+        } catch (IOException e) {
+            Harness.log("! cannot save " + png + ": " + e);
+        }
+        target.destroyBuffers();
+        Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
+        GlStateManager._deleteTexture(texture);
+        quad.close();
+        done.accept(argb, nanos);
+        return true;
+    }
+
+    // Two triangles over the whole image, with texture coordinates from the top left corner.
+    private static VertexBuffer quad() {
+        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
+        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
+        for (float[] c : corners) b.addVertex(0, 0, 0).setUv(c[0], c[1]);
+        VertexBuffer buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        buffer.bind();
+        buffer.upload(b.buildOrThrow());
+        VertexBuffer.unbind();
+        return buffer;
+    }
+}
+*///?}
