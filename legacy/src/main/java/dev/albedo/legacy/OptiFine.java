@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
 final class OptiFine {
     private static final Method IS_SHADERS = method(type("Config"), "isShaders");
     private static final Method IS_SKY_ENABLED = method(type("Config"), "isSkyEnabled");
+    private static final Method IS_MULTI_TEXTURE = method(type("Config"), "isMultiTexture");
     /** A copy of the sprite in its own GL texture, with "Multitexture" on (anisotropic filtering, antialiasing). */
     private static final Field SPRITE_SINGLE = field(TextureAtlasSprite.class, "spriteSingle");
     private static final Field SPRITE_TEXTURE = field(TextureAtlasSprite.class, "glSpriteTextureId");
@@ -37,6 +38,16 @@ final class OptiFine {
             return (Boolean) IS_SKY_ENABLED.invoke(null);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return false; // unknown: the vanilla sky draws
+        }
+    }
+
+    /** True with Multitexture on (anisotropic filtering or antialiasing), with which the blocks draw from the single copy of each sprite. */
+    static boolean multiTexture() {
+        if (IS_MULTI_TEXTURE == null) return false;
+        try {
+            return (Boolean) IS_MULTI_TEXTURE.invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return true; // unknown: the Chroma colors stay still, which shows in the single copies too
         }
     }
 

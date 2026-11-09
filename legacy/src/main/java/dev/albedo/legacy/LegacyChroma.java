@@ -47,6 +47,8 @@ public final class LegacyChroma {
     private static int framebuffer;
     private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(Chroma.TURN_FLOATS);
     private static final float[] TURN_VALUES = new float[Chroma.TURN_FLOATS];
+    /** The OptiFine Multitexture setting of the last frame, with which the blocks draw from a texture of each sprite. */
+    private static boolean multiTexture;
 
     /** The GL texture of the atlas and its size, and the pristine copy and the texels, or 0 without moving texels. */
     private static int live;
@@ -81,10 +83,16 @@ public final class LegacyChroma {
     public static void frameStart() {
         Albedo sc = Albedo.get();
         if (sc == null || broken) return;
-        if (sc.chromaStill()) {
-            close();
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
+        // The pass cannot reach the texture of each sprite that OptiFine Multitexture draws, so the colors then stay still.
+        boolean single = OptiFine.multiTexture();
+        if (single != multiTexture) {
+            multiTexture = single;
+            sc.chromaGpu(!single);
+        }
+        if (sc.chromaStill()) {
+            close();
             return;
         }
         long start = System.nanoTime();
@@ -412,28 +420,28 @@ public final class LegacyChroma {
     /** Measures the next frames for the harness command chromatime, and returns false when the pass does not run. */
     static boolean time(int frames) {
         if (live == 0 || broken) return false;
+        // A measurement that did not end yet gives way to the new one, and its queries go.
+        for (int[] q : PENDING) deleteQueries(q);
+        if (frameQueries != null) deleteQueries(frameQueries);
+        frameQueries = null;
         TIMES.clear();
         PENDING.clear();
         timedLeft = frames;
         return true;
     }
 
+    private static void deleteQueries(int[] queries) {
+        for (int q : queries) GL15.glDeleteQueries(q);
+    }
+
     /** Takes the GPU times that the GPU gave, and logs all times when the last measured frame has its times. */
     private static void collectTimes() {
-        // A measurement that did not end yet gives way to the new one, and its queries go.
-        for (int[] q : PENDING) deleteQueries(q);
-        if (frameQueries != null) deleteQueries(frameQueries);
-        frameQueries = null;
         int done = TIMES.size() - PENDING.size();
         for (Iterator<int[]> it = PENDING.iterator(); it.hasNext(); done++) {
             int[] q = it.next();
             long start = 0, end = 0;
             if (timed()) {
                 if (GL15.glGetQueryObjecti(q[1], GL15.GL_QUERY_RESULT_AVAILABLE) == GL11.GL_FALSE) return;
-    private static void deleteQueries(int[] queries) {
-        for (int q : queries) GL15.glDeleteQueries(q);
-    }
-
                 start = GL33.glGetQueryObjecti64(q[0], GL15.GL_QUERY_RESULT);
                 end = GL33.glGetQueryObjecti64(q[1], GL15.GL_QUERY_RESULT);
             }
