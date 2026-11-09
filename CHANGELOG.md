@@ -6,11 +6,13 @@
 - feat: Give bright stars a sharp core, a soft glow and thin lines of light
 - feat: Add a Spikes slider to the Stars layer to set the lines of light on bright stars
 - feat: Keep the size of the stars when you change Count in a Stars layer
-- feat: Change the Galaxy preset to a tilted galaxy with dark dust lanes and two blue jets
+- feat: Change the Galaxy preset to a tilted galaxy in a large halo, with a dark dust lane across its center and two blue jets into red lobes
 - feat: Add Tilt, Dust, Jets and a jet color to the Galaxy layer
 - feat: Add a Meteors sky layer with shooting stars, and a Meteors preset with a meteor shower
 - feat: Add an Aurora sky layer with moving curtains of northern light, and an Aurora preset
 - feat: Show the aurora as folded curtains with a bright lower edge, rays and open night sky below them
+- fix: Remove the dark shape of a mountain under the aurora curtains
+- fix: Let a click on the Follow time label set the switch in the Motion section
 - feat: Make the bright stars twinkle, more near the horizon, with a Twinkle slider on the Stars layer
 - feat: Make the Nebula clouds glow brighter and darker slowly, with a Pulse slider on the Noise and Fractal layers
 - feat: Turn the custom sky around a pole as the real night sky does, with the Motion section of the sky editor
