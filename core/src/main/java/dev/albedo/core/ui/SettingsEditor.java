@@ -228,6 +228,7 @@ public final class SettingsEditor {
         int x0 = (w - pw) / 2, y0 = (h - ph) / 2, y1 = y0 + ph;
         ui.fill(0, 0, w, h, Ui.SCRIM);
         ui.round(x0, y0, pw, ph, Ui.BG);
+        ui.tipBounds(new Rect(x0, y0, pw, ph));
 
         int bodyTop = y0 + 26;
         bodyBottom = y1 - 24;
@@ -241,7 +242,7 @@ public final class SettingsEditor {
         content(cx, bodyTop + 2, cw, bodyBottom - bodyTop - 4);
         ui.fill(x0 + 8, bodyBottom + 1, pw - 16, 1, Ui.BORDER);
         footer(x0 + 8, bodyBottom + 5, pw - 16);
-        toast(cx, bodyBottom - 3, cw);
+        toast(cx, bodyTop + 2, bodyBottom - 3, cw);
         if (mode == Mode.PICK_PROFILE) profileList();
         escape();
         ui.end();
@@ -514,19 +515,21 @@ public final class SettingsEditor {
         }
         String name = Labels.name(category);
         int cy = y + pageTitle(x, y, w, name, Labels.description(category));
-        if (category.hasGroups()) {
-            String[] labels = {"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()};
-            int chosen = ui.tabs("tab", x, cy, w, labels, page.tab.ordinal(), new String[]{
-                    "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group",
-                    "Sets of textures that have their own look",
-                    "All loaded textures. Click one to put it in a group."});
-            if (chosen != page.tab.ordinal()) {
-                go(page.withTab(Tab.values()[chosen]));
-                return;
-            }
-            cy += Ui.H + GAP;
-        }
         Tab tab = category.hasGroups() ? page.tab : Tab.LOOK;
+        // A category without groups shows only the Look tab, so that the Style row has the same place on every page.
+        String lookTip = category.hasGroups() ? "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group"
+                : "The look of the " + name.toLowerCase(Locale.ROOT);
+        String[] labels = category.hasGroups()
+                ? new String[]{"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()} : new String[]{"Look"};
+        String[] tips = category.hasGroups()
+                ? new String[]{lookTip, "Sets of textures that have their own look", "All loaded textures. Click one to put it in a group."}
+                : new String[]{lookTip};
+        int chosen = ui.tabs("tab", x, cy, w, labels, tab.ordinal(), tips);
+        if (chosen != tab.ordinal()) {
+            go(page.withTab(Tab.values()[chosen]));
+            return;
+        }
+        cy += Ui.H + GAP;
         switch (tab) {
             case GROUPS: groupsTab(x, cy, w, y + h - cy, cs); break;
             case TEXTURES: texturesTab(x, cy, w, y + h - cy, cs); break;
@@ -1214,15 +1217,19 @@ public final class SettingsEditor {
     }
 
     /** The last message: a box above the footer for a few seconds, wrapped so all of it shows. */
-    private void toast(int x, int bottom, int w) {
+    private void toast(int x, int top, int bottom, int w) {
         if (toast == null) return;
         if (System.currentTimeMillis() - toast.at > TOAST_MS) {
             toast = null;
             return;
         }
         int tw = Math.min(w, 240), th = ui.paragraphHeight(toast.text, tw - 12) + 8;
-        ui.panel(new Rect(x, bottom - th, tw, th), toast.error ? Ui.DANGER : Ui.BORDER, Ui.TOOLTIP);
-        ui.paragraph(toast.text, x + 6, bottom - th + 4, tw - 12, toast.error ? Ui.DANGER : Ui.TEXT);
+        // The toast goes to the top of the page when it would cover an open dropdown, which the user is working in.
+        Rect drop = ui.overlayDrawn();
+        boolean covers = drop != null && drop.x < x + tw && x < drop.x + drop.w && drop.y < bottom && bottom - th < drop.bottom();
+        int ty = covers ? top : bottom - th;
+        ui.panel(new Rect(x, ty, tw, th), toast.error ? Ui.DANGER : Ui.BORDER, Ui.TOOLTIP);
+        ui.paragraph(toast.text, x + 6, ty + 4, tw - 12, toast.error ? Ui.DANGER : Ui.TEXT);
     }
 
     private void say(String text) { toast = new Toast(text, false); }
