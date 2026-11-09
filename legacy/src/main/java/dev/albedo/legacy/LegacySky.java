@@ -147,7 +147,11 @@ public final class LegacySky {
 
     /** Draws the sky disc of renderSky, or the custom sky in its place. */
     public static void drawSky(VertexBuffer buffer, int mode) {
-        if (!draw()) buffer.drawArrays(mode);
+        // The custom sky draws from client memory, which GL refuses while the vanilla sky buffer is bound.
+        buffer.unbindBuffer();
+        boolean drawn = draw();
+        buffer.bindBuffer();
+        if (!drawn) buffer.drawArrays(mode);
     }
 
     public static void drawSky(int list) {

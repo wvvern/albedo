@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on
+
 ## 0.4.1
 
 - feat: Show sky stars with the colors of real stars, many faint stars and few bright stars
