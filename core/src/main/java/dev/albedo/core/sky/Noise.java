@@ -64,16 +64,7 @@ final class Noise {
 
     /** Fractal sum of {@code octaves} noise layers, each at twice the frequency and half the weight, from about -1 to 1. */
     static float fbm(float x, float y, float z, int seed, int octaves) {
-        float sum = 0, amp = 1, norm = 0;
-        for (int o = 0; o < octaves; o++) {
-            sum += noise(x, y, z, seed + o * 1013) * amp;
-            norm += amp;
-            amp *= 0.5f;
-            x *= 2.03f;
-            y *= 2.03f;
-            z *= 2.03f;
-        }
-        return sum / norm * 1.6f;
+        return fbmSoft(x, y, z, seed, octaves, 0);
     }
 
     /**

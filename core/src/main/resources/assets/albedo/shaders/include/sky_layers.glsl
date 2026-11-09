@@ -109,16 +109,25 @@ float albedoNoise(vec3 p, int seed) {
     return albedoLerp(albedoLerp(x00, x10, u.y), albedoLerp(x01, x11, u.y), u.z);
 }
 
-// Noise.fbm: a sum of octaves at twice the frequency and half the weight each, from about -1 to 1.
-float albedoFbm(vec3 p, int seed, int octaves) {
-    float sum = 0.0, amp = 1.0, norm = 0.0;
+// Noise.fbmSoft: fbm where each octave fades out as its cell comes near the size of a pixel, the footprint in noise units.
+float albedoFbmSoft(vec3 p, int seed, int octaves, float footprint) {
+    // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
+    float sum = 0.0, amp = 1.0, norm = 2.0 - 2.0 * pow(0.5, float(octaves)), f = footprint;
     for (int o = 0; o < octaves; o++) {
-        sum += albedoNoise(p, seed + o * 1013) * amp;
-        norm += amp;
+        float t = clamp((f - 0.25) / 0.25, 0.0, 1.0);
+        // Each finer octave has a larger footprint, so all octaves from here are gone.
+        if (t >= 1.0) break;
+        sum += albedoNoise(p, seed + o * 1013) * amp * (1.0 - t * t * (3.0 - 2.0 * t));
         amp *= 0.5;
         p *= 2.03;
+        f *= 2.03;
     }
     return sum / norm * 1.6;
+}
+
+// Noise.fbm: a sum of octaves at twice the frequency and half the weight each, from about -1 to 1.
+float albedoFbm(vec3 p, int seed, int octaves) {
+    return albedoFbmSoft(p, seed, octaves, 0.0);
 }
 
 // Noise.ridged: sharp bright lines where the noise crosses zero, from 0 to 1.
@@ -395,22 +404,6 @@ vec4 albedoFractal(int layer, vec3 p) {
     vec4 c = albedoMix(layer, v);
     c.a *= clamp(v * 1.6, 0.0, 1.0);
     return c;
-}
-
-// Noise.fbmSoft: fbm where each octave fades out as its cell comes near the size of a pixel, the footprint in noise units.
-float albedoFbmSoft(vec3 p, int seed, int octaves, float footprint) {
-    // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
-    float sum = 0.0, amp = 1.0, norm = 2.0 - 2.0 * pow(0.5, float(octaves)), f = footprint;
-    for (int o = 0; o < octaves; o++) {
-        float t = clamp((f - 0.25) / 0.25, 0.0, 1.0);
-        // Each finer octave has a larger footprint, so all octaves from here are gone.
-        if (t >= 1.0) break;
-        sum += albedoNoise(p, seed + o * 1013) * amp * (1.0 - t * t * (3.0 - 2.0 * t));
-        amp *= 0.5;
-        p *= 2.03;
-        f *= 2.03;
-    }
-    return sum / norm * 1.6;
 }
 
 // An active spiral galaxy at the layer center, modeled on Centaurus A, with a COLOR_2 bulge, COLOR_1 arms at TILT, dust and COLOR_3 jets.
