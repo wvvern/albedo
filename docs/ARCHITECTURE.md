@@ -80,6 +80,7 @@ Traps per version:
 - 26.x: `SharpSky` has its own shader source, because Fabric without Fabric API does not load mod assets.
 - 1.21.11: `PrecompiledSharpSky` precompiles before each sky pass, because a resource reload empties the pipeline cache. The game has no half float format, so the term texture is written again through the GL after a one-texel `writeToTexture` that binds it. Do not cast a `GpuTexture` to the GL class: the NeoForge validation layer gives a wrapper.
 - 1.21.1 (`GlSharpSky`) and 1.8.9 (`LegacySharpSky`) compile their own GL program. 1.8.9 uses GLSL 1.30, else GLSL 1.20 with EXT_gpu_shader4, else the baked image. A failed compile logs one warning and draws the baked image.
+- On 1.8.9 with Use VBOs on, vanilla binds its sky buffer before the sky hook, and LWJGL refuses a draw from client memory while a buffer is bound. `LegacySky.drawSky` unbinds it while the custom sky draws. The dev run has VBOs off, so test this case with `useVbo:true` in `legacy/run/options.txt`.
 
 ## OptiFine on 1.8.9
 
