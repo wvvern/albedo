@@ -65,8 +65,8 @@ public final class SkyPresets {
     /** Folded green curtains of the northern light over the north, with red tops, over an open night sky with twinkling stars. */
     public static final SkyDesign AURORA = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A1424, Param.COLOR_2, 0xFF020409, Param.HEIGHT, 22, Param.AMOUNT, 55)
-            .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 14)
-            .blend(SkyLayer.Blend.ADD).opacity(12).place(new Transform(0, 0, 0, 100))
+            .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 6)
+            .blend(SkyLayer.Blend.ADD).opacity(6).place(new Transform(0, 0, 0, 100))
             .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 6).blend(SkyLayer.Blend.ADD).opacity(85)
             .add(Kind.AURORA, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);

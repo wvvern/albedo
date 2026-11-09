@@ -728,6 +728,10 @@ const float ALBEDO_AURORA_EARTH = 6371.0;
 const float ALBEDO_AURORA_BASE = 100.0;
 const float ALBEDO_AURORA_DRIFT = 0.6;
 const float ALBEDO_AURORA_LOOP = 0.9;
+// The km over which the light under the lower edge falls by e, of the thin tail and of the scattered glow, and where the glow stops.
+const float ALBEDO_AURORA_TAIL = 3.0;
+const float ALBEDO_AURORA_SCATTER = 30.0;
+const float ALBEDO_AURORA_SCATTER_REACH = 4.0;
 #define ALBEDO_AURORA_STEPS 14
 #define ALBEDO_AURORA_CROSSINGS 4
 
@@ -778,9 +782,11 @@ vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footpr
     float cosT = cos(tilt);
     float pixelUp = footprint * r / (cosT * cosT), pixelAlong = wide * r / max(obl, 0.08) / scale;
     float s = dist * ta / scale, sd = s + ALBEDO_AURORA_DRIFT * t;
-    float h = alt - ALBEDO_AURORA_BASE - 4.0 * albedoNoise(vec3(sd / 70.0, t * 0.02, 0.5), seed + 11 + c);
+    // The lower edge goes up and down along the ribbon, so that it is not one smooth line.
+    float h = alt - ALBEDO_AURORA_BASE - 7.0 * albedoNoise(vec3(sd / 70.0, t * 0.02, 0.5), seed + 11 + c)
+            - 3.0 * albedoNoise(vec3(sd / 18.0, t * 0.05, 2.5), seed + 13 + c);
     float soft = max(1.2 * f * f, 0.6 * pixelUp);
-    if (h < -soft) return vec2(0.0);
+    if (h < -ALBEDO_AURORA_SCATTER_REACH * ALBEDO_AURORA_SCATTER) return vec2(0.0);
     float r0 = albedoRayOctave(vec2(sd / 45.0, t * 0.03), seed + 21 + c, pixelAlong / 45.0);
     float r1 = albedoRayOctave(vec2(sd / 14.0, t * 0.1), seed + 22 + c, pixelAlong / 14.0);
     float r2 = albedoRayOctave(vec2(sd / 5.0, t * 0.25), seed + 23 + c, pixelAlong / 5.0);
@@ -792,13 +798,19 @@ vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footpr
     float rays = bundle * fine * (0.3 + 0.7 * tall);
     float top = height * (0.2 + 1.4 * tall * tall);
     float below = albedoSmooth(-soft, soft, h), up = max(h, 0.0);
-    float green = below * (exp(-up / 9.0) * (0.2 + 1.2 * (0.4 * bundle + 0.6 * fine)) + 1.1 * rays * exp(-up / (0.4 * top)));
+    // A thin bright band along the lower edge, which is dim between the bundles, and above it rays of many heights.
+    float edge = 0.05 + 1.35 * (0.2 + 0.8 * bundle) * (0.4 + 0.6 * fine);
+    float green = below * (exp(-up / 9.0) * edge + 1.1 * rays * exp(-up / (0.4 * top)));
+    // Under the lower edge a thin tail of the edge and a wide glow of the light that the air scatters.
+    float under = min(h, 0.0);
+    green += (1.0 - below) * (0.25 * edge * exp(under / ALBEDO_AURORA_TAIL)
+            + 0.1 * (0.4 + 0.6 * bundle) * max(0.0, exp(under / ALBEDO_AURORA_SCATTER) - exp(-ALBEDO_AURORA_SCATTER_REACH)));
     float red = below * 0.2 * bundle * (0.3 + 0.7 * fine) * albedoSmooth(0.3 * top, 0.9 * top, up)
             * exp(-max(0.0, up - 0.9 * top) / (0.5 * top));
     float lit = albedoValue(vec2(s / 320.0, t * 0.004), seed + 31 + c) + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);
     float strength = albedoSmooth(0.3 + 0.15 * float(c), 0.6 + 0.15 * float(c), lit)
             * (0.4 + 0.9 * albedoValue(vec2(s / 70.0, t * 0.01), seed + 33 + c));
-    float gain = k * (c == 0 ? 1.0 : 0.15) * strength * 0.8 / sqrt(obl * obl + 0.0144);
+    float gain = k * (c == 0 ? 1.0 : 0.2) * strength * 0.8 / sqrt(obl * obl + 0.0144);
     return gain * vec2(green, red);
 }
 
