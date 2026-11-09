@@ -13,6 +13,8 @@ public final class SkyImage {
     public static final float TOP = 90f;
     /** The elevation of the last row, in degrees. */
     public static final float BOTTOM = -90f;
+    /** The lowest elevation in degrees that the layers fill when the sky stops at the horizon, because filters near it read rows below it. */
+    private static final float HORIZON_BOTTOM = -15f;
     /** The number of azimuth sectors of the horizon colors. */
     public static final int RING = 64;
     private static final AtomicLong SERIALS = new AtomicLong();
@@ -44,6 +46,11 @@ public final class SkyImage {
 
     /** A number that is different for each image, so that an adapter uploads an image only once. */
     public long serial() { return serial; }
+
+    /** The lowest elevation in degrees that the layers of a design with this extent fill. */
+    public static float layersBottom(SkyDesign.Extent extent) {
+        return extent == SkyDesign.Extent.SPHERE ? BOTTOM : HORIZON_BOTTOM;
+    }
 
     /** The texture coordinate v of an elevation in degrees, from 0 at the top row to 1 at the last row. */
     public static float v(double elevation) {

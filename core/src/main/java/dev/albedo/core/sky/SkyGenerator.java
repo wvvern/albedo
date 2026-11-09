@@ -24,13 +24,8 @@ public final class SkyGenerator {
     private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
     /** The star grid density per radian at which the star sizes are set, between the Nebula and Galaxy counts. */
     private static final float STAR_CELLS = 36f;
-    /**
-     * The elevation in degrees below which the sky goes smoothly into the horizon color, so that the fog meets it with no
-     * line, where a full sphere also has the band below the horizon in the color of the 0 to 6 degree ring to match the fog.
-     */
+    /** The distance in degrees from the horizon over which the sky goes smoothly into the horizon color, so that the fog meets it with no line. */
     private static final float HAZE = 3f;
-    /** The lowest elevation in degrees that the layers fill when the sky stops at the horizon, as filters near it read rows below it. */
-    private static final float HORIZON_BOTTOM = -15f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
     private static final int RING_SOFTEN = 5;
 
@@ -38,7 +33,7 @@ public final class SkyGenerator {
     private final int w, h;
     private final Rows rows;
     private final float[] sinLon, cosLon, sinEl, cosEl, elevation;
-    /** The number of rows from the top that the layers fill, where each row below repeats the last of them for a filter. */
+    /** The number of rows from the top that the layers and filters fill, where a filter reads the last of them for each row below. */
     private final int used;
     /** The width of one texel at the horizon, in radians. */
     private final float texel;
@@ -67,7 +62,7 @@ public final class SkyGenerator {
             cosEl[y] = (float) Math.cos(el);
         }
         int filled = h;
-        if (design.extent() == SkyDesign.Extent.HORIZON) while (filled > 1 && elevation[filled - 1] < HORIZON_BOTTOM) filled--;
+        while (filled > 1 && elevation[filled - 1] < SkyImage.layersBottom(design.extent())) filled--;
         used = filled;
         texel = (float) (2 * Math.PI / w);
         img = new float[w * h * 4];

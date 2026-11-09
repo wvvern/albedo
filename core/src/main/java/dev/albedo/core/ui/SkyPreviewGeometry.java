@@ -12,14 +12,11 @@ final class SkyPreviewGeometry {
     static final String[] COMPASS = {"N", "E", "S", "W"};
     /** The azimuths of the sunrise and the sunset, where the vanilla sun path crosses the horizon on its way through the zenith. */
     static final int SUNRISE = 90, SUNSET = 270;
-    /** The lowest elevation in degrees that the strip shows when the sky stops at the horizon. */
-    static final float HORIZON_BOTTOM = -15f;
-
     private SkyPreviewGeometry() {}
 
-    /** The lowest elevation in degrees that the strip shows for a design. */
+    /** The lowest elevation in degrees that the strip shows for a design: the lowest that its layers fill. */
     static float bottom(SkyDesign design) {
-        return design.extent() == SkyDesign.Extent.SPHERE ? SkyImage.BOTTOM : HORIZON_BOTTOM;
+        return SkyImage.layersBottom(design.extent());
     }
 
     /** The number of rows from the top of a sky image of {@code height} rows that the strip shows for a design. */
