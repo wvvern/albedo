@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.21.11 && <26.2 {
+//? if >=1.21.6 && <26.2 {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -9,8 +9,6 @@ import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -21,9 +19,6 @@ import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.OptionalDouble;
@@ -40,7 +35,7 @@ public final class PrecompiledSky {
     private static final RenderPipeline PIPELINE = RenderPipeline.builder()
             .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_layers"))
+            .withLocation(DeviceApi.id("pipeline/sky_layers"))
             .withVertexShader("core/position_tex")
             .withFragmentShader("core/position_tex")
             .withSampler("Sampler0")
@@ -85,8 +80,7 @@ public final class PrecompiledSky {
         if (sphere == null) sphere = buildSphere();
         boolean sharp = PrecompiledSharpSky.prepare(img);
         float k = ModernSky.brightness(img);
-        GpuBufferSlice transforms = RenderSystem.getDynamicUniforms().writeTransform(ModernSky.turned(RenderSystem.getModelViewMatrix(), img),
-                new Vector4f(k, k, k, 1f), new Vector3f(), new Matrix4f());
+        GpuBufferSlice transforms = DeviceApi.transforms(ModernSky.turned(RenderSystem.getModelViewMatrix(), img), new Vector4f(k, k, k, 1f));
         try (RenderPass pass = pass()) {
             if (sharp) {
                 // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
@@ -98,8 +92,7 @@ public final class PrecompiledSky {
             pass.setPipeline(PIPELINE);
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("DynamicTransforms", transforms);
-            pass.bindTexture("Sampler0", texture.getTextureView(), RenderSystem.getSamplerCache().getSampler(
-                    AddressMode.REPEAT, AddressMode.CLAMP_TO_EDGE, FilterMode.LINEAR, FilterMode.LINEAR, false));
+            DeviceApi.bindSky(pass, "Sampler0", texture.getTextureView());
             pass.setVertexBuffer(0, sphere);
             pass.draw(0, vertexCount);
         }

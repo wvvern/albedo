@@ -156,7 +156,7 @@ final class ModernHarnessHost implements Harness.Host {
                                 Harness.SkyDone done) {
         //? if >=26.3 {
         return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
-        //?} elif >=1.21.11 {
+        //?} elif >=1.21.6 {
         /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?} else {
         /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);

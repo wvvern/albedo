@@ -31,10 +31,12 @@ final class HarnessSkins {
         Files.createDirectories(file.getParentFile().toPath());
         Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
         String url = "http://127.0.0.1:9/" + hash; // never read, because the cache file exists
-        //? if >=1.21.4 {
+        //? if >=1.21.9 {
         new net.minecraft.client.renderer.texture.SkinTextureDownloader(java.net.Proxy.NO_PROXY, mc.getTextureManager(), mc)
                 .downloadAndRegisterSkin(id, file.toPath(), url, !cape);
-        //?} else {
+        //?} elif >=1.21.4 {
+        /*net.minecraft.client.renderer.texture.SkinTextureDownloader.downloadAndRegisterSkin(id, file.toPath(), url, !cape);
+        *///?} else {
         /*mc.getTextureManager().register(id, new net.minecraft.client.renderer.texture.HttpTexture(file, url,
                 net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture(), !cape, null));
         *///?}

@@ -37,7 +37,7 @@ final class TextureScreen extends Screen {
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // the world stays visible behind the texture
     }
-    //?} elif >=1.21.11 {
+    //?} elif >=1.21.6 {
     /*@Override
     public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int x = 8, y = 8, size = SIZE * SCALE;

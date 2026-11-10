@@ -18,10 +18,11 @@ import org.spongepowered.asm.mixin.injection.At;
 /*@Mixin(net.minecraft.client.renderer.entity.EntityRenderDispatcher.class)
 *///?}
 public abstract class ShadowMixin {
+    // From 1.21.2 to 1.21.8 the read is in one of several methods with the name render, so the selector takes all of them.
     //? if >=1.21.9 {
     @WrapOperation(method = "extractShadow", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
     //?} else {
-    /*@WrapOperation(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
+    /*@WrapOperation(method = "render*", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
     *///?}
     private Object albedo$shadows(OptionInstance<?> option, Operation<Object> original) {
         return ModernHooks.entityShadows(option, original.call(option));

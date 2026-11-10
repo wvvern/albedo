@@ -48,7 +48,11 @@ dev/albedo/modern/Harness*.class New classes have the worlds, window, mouse, key
 dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins.
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
-dev/albedo/modern/mixin/ShadowMixin.class Only the line numbers change, because the file has a condition around it.
+dev/albedo/modern/mixin/ShadowMixin.class The file has a condition around it, and before 1.21.9 the selector takes each method with the name render, because 1.21.2 to 1.21.8 have several.
+dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device that changed from 1.21.6 to 1.21.11, so that 1.21.8 and 1.21.10 share the sky of 1.21.11.
+dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed at 1.21.10 and 1.21.11 go through DeviceApi.
+dev/albedo/modern/mixin/FogMixin.class From 1.21.6 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 only the line numbers change.
+dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
 dev/albedo/modern/mixin/SodiumTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.

@@ -31,7 +31,7 @@ final class GraphicsCanvas implements Canvas {
     @Override
     public void image(String id, CanvasImage img, int x, int y, int w, int h) {
         var location = CanvasImages.id(images.prepare(id, img));
-        //? if >=1.21.11 {
+        //? if >=1.21.6 {
         g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, location, x, y, 0f, 0f, w, h,
                 img.width(), img.height(), img.width(), img.height());
         //?} else {

@@ -1,22 +1,18 @@
 package dev.albedo.modern;
 
-//? if >=1.21.11 && <26.2 {
+//? if >=1.21.6 && <26.2 {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.TextureTarget;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.GpuQuery;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
@@ -33,7 +29,6 @@ import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Screenshot;
-import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
@@ -46,7 +41,7 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-// Draws the custom sky with the sky shader for each screen pixel on 1.21.11, so that it is sharp at each resolution and
+// Draws the custom sky with the sky shader for each screen pixel from 1.21.6 to 26.1, so that it is sharp at each resolution and
 // field of view, from pipelines that the game compiles from the complete shader text of the mod.
 final class PrecompiledSharpSky {
     private enum Compile { NOT_STARTED, READY, FAILED }
@@ -98,7 +93,7 @@ final class PrecompiledSharpSky {
             GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label,
                     GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST, TextureFormat.RGBA8, width, height, 1, 1);
             // The game has no half float format, so the GL gets the level again in half floats on the texture that this write binds.
-            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, ONE_TEXEL, NativeImage.Format.RGBA, 0, 0, 0, 0, 1, 1);
+            DeviceApi.write(RenderSystem.getDevice().createCommandEncoder(), texture, ONE_TEXEL, 0, 1, 1);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
@@ -115,8 +110,7 @@ final class PrecompiledSharpSky {
 
         // Binds the texture to the sampler of the sky shader, with linear filters, and with wrap only around the sky.
         void bind(RenderPass pass) {
-            pass.bindTexture("AlbedoTerms", view, RenderSystem.getSamplerCache().getSampler(AddressMode.REPEAT, AddressMode.CLAMP_TO_EDGE,
-                    FilterMode.LINEAR, FilterMode.LINEAR, false));
+            DeviceApi.bindSky(pass, "AlbedoTerms", view);
         }
 
         @Override
@@ -151,9 +145,9 @@ final class PrecompiledSharpSky {
         else if (name.equals(SkyShaderSource.SHARP)) b.withBlend(BlendFunction.ADDITIVE).withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST);
         else b.withoutBlend().withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST);
         if (!fragment.equals(SkyShaderSource.BLACK)) b.withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER);
-        return b.withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/" + fragment.replace('/', '_') + "_" + n))
-                .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, name))
-                .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, fragment + "/" + n))
+        return b.withLocation(DeviceApi.id("pipeline/" + fragment.replace('/', '_') + "_" + n))
+                .withVertexShader(DeviceApi.id(name))
+                .withFragmentShader(DeviceApi.id(fragment + "/" + n))
                 .withDepthWrite(false)
                 .withCull(false)
                 .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES);
@@ -202,7 +196,7 @@ final class PrecompiledSharpSky {
     // Writes the block of a frame, with the time of the layers that move and the turn of the sky, outside a render pass.
     private static void writeFrame(GpuBuffer target, float[] values) {
         FRAME_BYTES.asFloatBuffer().put(values);
-        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(0L, SkyProgram.FLOATS * 4L), FRAME_BYTES);
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(0, SkyProgram.FLOATS * 4), FRAME_BYTES);
     }
 
     // Draws the image of the last prepare sharp in a pass that has the depth of the frame.
@@ -248,10 +242,10 @@ final class PrecompiledSharpSky {
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad(view);
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-        GpuQuery timer = null;
+        DeviceApi.Timer timer = null;
         try {
             try {
-                timer = encoder.timerQueryBegin();
+                timer = DeviceApi.Timer.begin();
             } catch (IllegalStateException e) {
                 Harness.log("! the GPU timer is in use: " + e.getMessage());
             }
@@ -264,7 +258,7 @@ final class PrecompiledSharpSky {
                     pass.draw(0, 6);
                 }
             }
-            if (timer != null) encoder.timerQueryEnd(timer);
+            if (timer != null) timer.end();
         } catch (RuntimeException e) {
             if (timer != null) timer.close();
             target.destroyBuffers();
@@ -273,7 +267,7 @@ final class PrecompiledSharpSky {
             quad.close();
             throw e;
         }
-        GpuQuery query = timer;
+        DeviceApi.Timer query = timer;
         Screenshot.takeScreenshot(target, image -> {
             int[] argb = new int[width * height];
             NativeImagePixels pixels = new NativeImagePixels(image);
@@ -288,11 +282,11 @@ final class PrecompiledSharpSky {
                 }
             }
             image.close();
-            OptionalLong t = query == null ? OptionalLong.empty() : query.getValue();
+            OptionalLong t = query == null ? OptionalLong.empty() : query.value();
             // The screenshot can come back before the GPU has the time, as on NeoForge, so the GL then waits for the draws to end.
             if (query != null && !t.isPresent()) {
                 GL11.glFinish();
-                t = query.getValue();
+                t = query.value();
             }
             long nanos = t.isPresent() ? t.getAsLong() / repeat : -1;
             if (query != null) query.close();

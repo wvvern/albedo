@@ -24,16 +24,24 @@ final class HarnessWorlds {
         //? if >=26.1 {
         LevelSettings settings = new LevelSettings(name, GameType.CREATIVE,
                 new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true, WorldDataConfiguration.DEFAULT);
-        //?} elif >=1.21.11 {
-        /*LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
-                new net.minecraft.world.level.gamerules.GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures()),
+        //?} else {
+        /*LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, defaultRules(),
                 WorldDataConfiguration.DEFAULT);
-        *///?} else {
-        /*LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
-                new net.minecraft.world.level.GameRules(), WorldDataConfiguration.DEFAULT);
         *///?}
         mc.createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(42L, false, false),
                 registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
                 ModernPlatform.currentScreen());
+    }
+
+    /** The default game rules of a new world, whose class the call site gives, because the class moved at 1.21.11. */
+    @SuppressWarnings("unchecked")
+    private static <T> T defaultRules() {
+        //? if >=1.21.11 {
+        return (T) new net.minecraft.world.level.gamerules.GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures());
+        //?} elif >=1.21.2 {
+        /*return (T) new net.minecraft.world.level.GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures());
+        *///?} else {
+        /*return (T) new net.minecraft.world.level.GameRules();
+        *///?}
     }
 }

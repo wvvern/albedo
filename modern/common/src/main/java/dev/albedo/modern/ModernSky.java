@@ -8,7 +8,7 @@ import dev.albedo.core.sky.SkyLight;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-//? if >=1.21.11 {
+//? if >=1.21.6 {
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.joml.Matrix4f;
@@ -31,7 +31,7 @@ public final class ModernSky {
     static void frameStart() {
         //? if >=26.3 {
         PearlSky.frameStart();
-        //?} elif >=1.21.11 {
+        //?} elif >=1.21.6 {
         /*PrecompiledSky.frameStart();
         *///?} else {
         /*GlSky.frameStart();
@@ -112,7 +112,7 @@ public final class ModernSky {
 
     /** The part of a tick from the last tick to this frame. */
     private static float partialTick() {
-        //? if >=1.21.11 {
+        //? if >=1.21.2 {
         return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         //?} else {
         /*return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
@@ -130,7 +130,7 @@ public final class ModernSky {
         *///?}
     }
 
-    //? if >=1.21.11 {
+    //? if >=1.21.6 {
     private static DynamicTexture texture;
     private static long uploaded = -1;
 
