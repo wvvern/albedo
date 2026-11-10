@@ -257,18 +257,22 @@ public final class LegacyChroma {
         GL13.glActiveTexture(GL13.GL_TEXTURE1);
         int texture1 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         GL13.glActiveTexture(unitBefore);
+        // The attribute stack keeps the draw and read buffers of the bound framebuffer, and GL_BACK of the window (OptiFine
+        // Fast Render draws with no framebuffer) is not valid for the framebuffer of the pass, so the push and the pop use it.
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
             work.run();
         } finally {
+            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
             GL11.glPopAttrib();
+            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebufferBefore);
             GL13.glActiveTexture(GL13.GL_TEXTURE1);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture1);
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture0);
             GL13.glActiveTexture(unitBefore);
             GL20.glUseProgram(programBefore);
-            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebufferBefore);
         }
     }
 
