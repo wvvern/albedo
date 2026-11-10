@@ -10,8 +10,8 @@ Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures" (and, with no -Compat, no
-"textures cannot be repainted"), the harness log has no line
-that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image at the window size
+reason for a resource reload), the harness log has no line
+that starts with ! and no DIFFERENT, each skycompare logged "same", each framechanged logged its result, each screenshot command made its image at the window size
 (1600 x 900, or the size of the last window command), the hooks line shows
 that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
 
@@ -97,7 +97,10 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     if ($gameText -notmatch "Albedo ready") { "the game log does not have 'Albedo ready'" }
     if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
     # With no other mod, each texture repaints in place; a failed upload reloads all resources, which hides the failure in the images.
-    if (-not $Compat -and $gameText -match "textures cannot be repainted") { "the game log has 'textures cannot be repainted'" }
+    if (-not $Compat) {
+        [regex]::Matches($gameText, "textures cannot be repainted|more textures than the mod keeps|cannot be sent to the GPU") |
+            ForEach-Object { "the game log has a reload reason: $($_.Value)" } | Select-Object -Unique
+    }
     $harnessText -match "^!" | ForEach-Object { "harness error: $_" }
     $harnessText -cmatch "DIFFERENT" | ForEach-Object { "harness compare: $_" }
     # The command "hooks" logs how many times each optional hook ran, and an optional hook with a wrong target name never runs.
@@ -108,11 +111,13 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     }
     # The harness renames commands.txt to commands.taken when it reads it.
     $compares = 0
+    $frameChecks = 0
     # The game starts at the size of the run task, and the command "window" changes it.
     $size = "1600 x 900"
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
         if ($words[0] -eq "skycompare") { $compares++ }
+        if ($words[0] -eq "framechanged") { $frameChecks++ }
         if ($words[0] -eq "window") { $size = "$($words[1]) x $($words[2])" }
         $images = @()
         if ($words[0] -eq "screenshot") {
@@ -128,6 +133,9 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     # A skycompare logs its result in a later frame, so a run can get to quit with no result.
     $same = @($harnessText -match "^skycompare .*: same$").Count
     if ($same -lt $compares) { "$compares skycompare commands gave only $same results with 'same'" }
+    # A framechanged logs its result when the next frame is read back, which can come after quit.
+    $changed = @($harnessText -match "^framechanged ").Count
+    if ($changed -lt $frameChecks) { "$frameChecks framechanged commands gave only $changed results" }
 }
 
 function Set-Iris([string]$runDir) {
@@ -150,6 +158,7 @@ function Set-Iris([string]$runDir) {
 
 $failed = @()
 foreach ($target in $Targets) {
+    $irisFailed = $false
     $loader, $version = $target -split "-", 2
     # The legacy build has the Forge targets with MCP names; all other Forge targets are in the modern build.
     $legacy = $target -in @("forge-1.8.9", "forge-1.12.2")
@@ -236,12 +245,14 @@ foreach ($target in $Targets) {
     $gradleText = Get-Content -Raw $log
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
+        $irisFailed = $true
     }
     # A renderer mod replaces the terrain draw, so its own tint hook must run in place of the game's tint and afterSolid hooks.
     $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") }
              elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint") }
              else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
+    if ($irisFailed) { $failures += "Iris did not load the shader pack" }
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
         Set-Content -Encoding ascii (Join-Path $out "result.txt")
