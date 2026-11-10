@@ -39,7 +39,7 @@ final class CanvasImages {
         DynamicTexture texture = textures.get(key);
         if (texture == null) {
             NativeImage pixels = new NativeImage(img.width(), img.height(), false);
-            //? if >=1.21.11 {
+            //? if >=1.21.5 {
             texture = new DynamicTexture(() -> "Albedo " + key, pixels);
             //?} else {
             /*texture = new DynamicTexture(pixels);
