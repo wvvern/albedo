@@ -13,6 +13,8 @@ import net.minecraft.client.OptionInstance;
 import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
 
+import java.io.File;
+
 /**
  * What the mixins call, as thin translations from Minecraft types to the core so that the mixins stay one-liners and
  * the per-version surface stays small.
@@ -21,7 +23,12 @@ public final class ModernHooks {
     private ModernHooks() {}
 
     public static void bootstrap() {
-        if (Albedo.get() == null) Albedo.init(new ModernPlatform());
+        bootstrap(null);
+    }
+
+    /** Starts the mod with the config folder of the loader, or with the folder of the game when it is null. */
+    public static void bootstrap(File loaderConfigDir) {
+        if (Albedo.get() == null) Albedo.init(new ModernPlatform(loaderConfigDir));
     }
 
     public static void clientTick() {
