@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.2
+## 0.5.0
 
 - feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
 - feat: Set the Speed, Vivid and Bright of Chroma in the Effects section
