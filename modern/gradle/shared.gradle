@@ -91,7 +91,9 @@ if (loader != 'common' && project.hasProperty('compat')) {
         if ('embeddium' in mods) logger.warn('-Pcompat: Iris needs Sodium, so Embeddium is not added')
         mods = ['sodium'] + (mods - ['sodium', 'embeddium'])
     }
-    def runtime = unobfuscated ? 'runtimeOnly' : 'modLocalRuntime'
+    // NeoForge runs with Mojang names from 1.20.5, and a remap would drop the jar-in-jar list from which Sodium loads its mod.
+    def mojangRuntime = unobfuscated || (loader == 'neoforge' && stonecutter.eval(stonecutter.current.version, '>=1.20.5'))
+    def runtime = mojangRuntime ? 'runtimeOnly' : 'modLocalRuntime'
     repositories {
         exclusiveContent {
             forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
@@ -103,7 +105,8 @@ if (loader != 'common' && project.hasProperty('compat')) {
             def modVersion = project.findProperty("${mod}_${loader}")
             // A node with no build of this mod for its loader only logs it.
             if (modVersion == null) logger.info("No ${mod} build for ${loader} ${project.minecraft_version}")
-            else add(runtime, "maven.modrinth:${mod}:${modVersion}")
+            // A value "<project>:<version>" names another Modrinth project, for example a second Sodium version.
+            else add(runtime, "maven.modrinth:${modVersion.contains(':') ? modVersion : "${mod}:${modVersion}"}")
         }
         // Most players use Sodium with Fabric API, so the test does too. Albedo itself does not need it.
         if (loader == 'fabric' && 'sodium' in mods) add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}")

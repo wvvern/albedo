@@ -213,8 +213,9 @@ foreach ($target in $Targets) {
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
-    # A renderer mod replaces the terrain draw, so only the hooks that it does not touch must run.
-    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow", "skyPass") }
+    # A renderer mod replaces the terrain draw, so its own tint hook must run in place of the game's tint and afterSolid hooks.
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") }
+             elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint") }
              else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
