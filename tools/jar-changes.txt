@@ -22,11 +22,11 @@ dev/albedo/legacy/mixin/ForgeVertexLighterMixin.class The handler counts its run
 dev/albedo/legacy/mixin/ReloadListenersMixin.class The handler counts its runs.
 dev/albedo/legacy/mixin/RenderGlobalMixin.class The handlers count their runs.
 dev/albedo/legacy/mixin/SimpleTextureMixin.class The handler counts its runs.
-dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL draw reads and puts back.
+dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL draw reads and puts back, with the pixel buffers unbound for the work of ofAll, because 1.21.5 leaves a pack buffer bound.
 dev/albedo/modern/GlProgram*.class A new class compiles and links the GL programs of the mod.
 dev/albedo/modern/GlMesh.class A new class holds a vertex array and a buffer of the mod.
-dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack).
-dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does.
+dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack); it also has the SkyRenderer entry and the main target binding of 1.21.5, which 1.21.1 does not call.
+dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does; skycompare reads its pixels through the GL with no row length or skips.
 dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram and GlState.
 dev/albedo/modern/PearlSky.class A new class has the 26.3 part of ModernSky.
 dev/albedo/modern/PrecompiledSky.class A new class has the 1.21.11 part of ModernSky.
@@ -45,7 +45,7 @@ dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAcc
 dev/albedo/modern/mixin/SpriteLoaderMixin.class The handler gives a SpriteAccess to the hook.
 dev/albedo/modern/ModernHarnessHost.class The host is split by topic and gives the hook counters.
 dev/albedo/modern/Harness*.class New classes have the worlds, window, mouse, keyboard, screenshots, frame pixels and skins of the harness host.
-dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins.
+dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins, and from 1.21.2 to 1.21.11 the blit takes GraphicsCanvas.TEXTURED, which 1.21.5 has as a render type function.
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/ShadowMixin.class The file has a condition around it, and before 1.21.9 the selector takes each method with the name render, because 1.21.2 to 1.21.8 have several.
@@ -53,6 +53,6 @@ dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device t
 dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed at 1.21.10 and 1.21.11 go through DeviceApi.
 dev/albedo/modern/mixin/FogMixin.class From 1.21.6 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 only the line numbers change.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
-dev/albedo/modern/mixin/SodiumTintMixin.class Only the line numbers change, because the file has a condition around it.
+dev/albedo/modern/mixin/SodiumTintMixin.class A new optional handler reads the tint index of Sodium 0.6.13 and 0.7 (1.21.5 to 1.21.10), whose quad class is in the package frapi.mesh.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.

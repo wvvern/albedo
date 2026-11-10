@@ -28,12 +28,19 @@ final class GraphicsCanvas implements Canvas {
     @Override public void text(String text, int x, int y, int argb) { g.drawString(font, text, x, y, argb, false); }
     @Override public int textWidth(String text) { return font.width(text); }
 
+    // How a GUI texture draws, for a blit.
+    //? if >=1.21.6 {
+    static final com.mojang.blaze3d.pipeline.RenderPipeline TEXTURED = net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+    //?} elif >=1.21.2 {
+    /^static final java.util.function.Function<net.minecraft.resources.ResourceLocation, net.minecraft.client.renderer.RenderType> TEXTURED =
+            net.minecraft.client.renderer.RenderType::guiTextured;
+    ^///?}
+
     @Override
     public void image(String id, CanvasImage img, int x, int y, int w, int h) {
         var location = CanvasImages.id(images.prepare(id, img));
-        //? if >=1.21.6 {
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, location, x, y, 0f, 0f, w, h,
-                img.width(), img.height(), img.width(), img.height());
+        //? if >=1.21.2 {
+        g.blit(TEXTURED, location, x, y, 0f, 0f, w, h, img.width(), img.height(), img.width(), img.height());
         //?} else {
         /^g.blit(location, x, y, w, h, 0f, 0f, img.width(), img.height(), img.width(), img.height());
         ^///?}

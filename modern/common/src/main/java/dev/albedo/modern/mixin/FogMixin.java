@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 
-/** Sets the flat fog color, which doubles as the clear color behind the world. */
+/** Sets the flat fog color, which doubles as the clear color behind the world; {@code StaticFogMixin} has 1.21.2 to 1.21.5. */
 //? if >=26.1 {
 @Mixin(net.minecraft.client.renderer.fog.FogRenderer.class)
 public abstract class FogMixin {
@@ -26,7 +26,7 @@ public abstract class FogMixin {
         ModernHooks.overrideFog(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera(), cir.getReturnValue());
     }
 }
-*///?} else {
+*///?} elif <1.21.2 {
 /*@Mixin(net.minecraft.client.renderer.FogRenderer.class)
 public abstract class FogMixin {
     @org.spongepowered.asm.mixin.Shadow private static float fogRed;

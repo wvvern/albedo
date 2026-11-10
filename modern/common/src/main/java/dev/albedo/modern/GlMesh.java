@@ -1,10 +1,15 @@
 package dev.albedo.modern;
 
-//? if gl_core || frame_graph {
-/*import com.mojang.blaze3d.platform.GlStateManager;
-import org.lwjgl.opengl.GL11;
+//? if >=1.17 && <1.21.6 {
+/*import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
+//? if >=1.21.5 {
+import com.mojang.blaze3d.opengl.GlStateManager;
+//?} else {
+/^import com.mojang.blaze3d.platform.GlStateManager;
+^///?}
 
 // Triangles with a position and a texture coordinate for each vertex, in a vertex array and a buffer that the mod owns.
 final class GlMesh {
@@ -34,8 +39,9 @@ final class GlMesh {
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
     }
 
+    // Frees the vertex array and the buffer; the GlStateManager of 1.21.5 has no call to delete a vertex array.
     void close() {
-        GlStateManager._glDeleteVertexArrays(vertexArray);
+        GL30.glDeleteVertexArrays(vertexArray);
         GlStateManager._glDeleteBuffers(buffer);
     }
 }

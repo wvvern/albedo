@@ -56,7 +56,7 @@ public final class ModernSky {
 
     /** True when the vanilla sky draws in place of the custom sky, because the GL families do not draw it with a shader pack. */
     static boolean vanillaWithPack() {
-        //? if gl_core || frame_graph {
+        //? if >=1.17 && <1.21.6 {
         /*return shaderPackInUse();
         *///?} else {
         return false;

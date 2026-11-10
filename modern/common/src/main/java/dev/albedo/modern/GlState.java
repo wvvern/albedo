@@ -6,6 +6,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL21;
 import org.lwjgl.opengl.GL30;
 //? if >=1.21.5 {
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -36,12 +37,19 @@ final class GlState {
     private final int[] viewport = new int[4];
     private int texture1;
     private boolean scissor;
+    private int packBuffer;
+    private int unpackBuffer;
 
     private GlState(boolean targets) {
         this.targets = targets;
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         texture0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         if (targets) {
+            // The pixel buffers stay unbound until restore, so that the pixel transfers of the work use client memory.
+            packBuffer = GL11.glGetInteger(GL21.GL_PIXEL_PACK_BUFFER_BINDING);
+            unpackBuffer = GL11.glGetInteger(GL21.GL_PIXEL_UNPACK_BUFFER_BINDING);
+            GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, 0);
+            GL15.glBindBuffer(GL21.GL_PIXEL_UNPACK_BUFFER, 0);
             arrayBuffer = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING);
             drawFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
             readFramebuffer = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
@@ -58,7 +66,7 @@ final class GlState {
         return new GlState(false);
     }
 
-    // Reads the state of a draw and also the array buffer, the framebuffers, the viewport, the texture of unit 1 and the scissor test.
+    // Reads the state of a draw and also the array buffer, the framebuffers, the viewport, the texture of unit 1, the scissor test and the pixel buffers.
     static GlState ofAll() {
         return new GlState(true);
     }
@@ -74,6 +82,8 @@ final class GlState {
             GlStateManager._glBindBuffer(GL15.GL_ARRAY_BUFFER, arrayBuffer);
             if (scissor) GlStateManager._enableScissorTest();
             else GlStateManager._disableScissorTest();
+            GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, packBuffer);
+            GL15.glBindBuffer(GL21.GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
         }
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(texture0);

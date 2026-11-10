@@ -1,8 +1,7 @@
 package dev.albedo.modern;
 
-//? if gl_core || frame_graph {
-/*import com.mojang.blaze3d.platform.GlStateManager;
-import dev.albedo.core.Albedo;
+//? if >=1.17 && <1.21.6 {
+/*import dev.albedo.core.Albedo;
 import dev.albedo.core.Colors;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
@@ -13,6 +12,11 @@ import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.system.MemoryUtil;
+//? if >=1.21.5 {
+import com.mojang.blaze3d.opengl.GlStateManager;
+//?} else {
+/^import com.mojang.blaze3d.platform.GlStateManager;
+^///?}
 
 import java.nio.ByteBuffer;
 
@@ -60,7 +64,7 @@ public final class GlSky {
     // Sends a new image to the texture and makes the sphere once; the render thread calls this.
     private static void prepare(SkyImage img) {
         if (uploaded != img.serial()) {
-            GlState saved = GlState.ofDraw();
+            GlState saved = GlState.ofAll();
             if (texture == 0) texture = GlStateManager._genTexture();
             upload(img);
             uploaded = img.serial();
@@ -96,6 +100,33 @@ public final class GlSky {
     public static boolean draw(float[] skyModelView, float[] projection) {
         replacedDisc = drawSphere(skyModelView, projection);
         return replacedDisc;
+    }
+
+    // Draws the sky in place of the sky disc of SkyRenderer with the matrices of RenderSystem, and returns false when the game must draw its disc.
+    public static boolean drawDisc() {
+        try (Bound ignored = mainTarget()) {
+            return draw(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix().get(new float[16]),
+                    com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().get(new float[16]));
+        }
+    }
+
+    // A main render target that the raw GL draws into until close.
+    private interface Bound extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    // Binds the main render target: from 1.21.5 the game leaves no target bound between its render passes, so an empty
+    // render pass of the device binds it, and before 1.21.5 the target of the sky stays bound.
+    private static Bound mainTarget() {
+        //? if >=1.21.5 {
+        com.mojang.blaze3d.pipeline.RenderTarget target = net.minecraft.client.Minecraft.getInstance().getMainRenderTarget();
+        com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+                target.getColorTexture(), java.util.OptionalInt.empty(), target.getDepthTexture(), java.util.OptionalDouble.empty());
+        return pass::close;
+        //?} else {
+        /^return () -> { };
+        ^///?}
     }
 
     // True when the custom sky drew in place of the sky disc of this sky pass, so the dark lower disc and the sunrise fan must not draw.
@@ -146,7 +177,9 @@ public final class GlSky {
     public static void afterSolid() {
         float[] waiting = DEFER.take();
         if (waiting == null) return;
-        GlSharpSky.draw(sphere, waiting, waitingProjection, waitingBrightness);
+        try (Bound ignored = mainTarget()) {
+            GlSharpSky.draw(sphere, waiting, waitingProjection, waitingBrightness);
+        }
     }
 
     // A model view matrix in column order times the rotation of a sky that turns.
