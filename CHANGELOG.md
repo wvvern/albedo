@@ -15,6 +15,7 @@
 - fix: Name the Aurora colors Low and High, as in the Gradient layer
 - fix: Say that the game draws its own sky on 26.3 when the sky texture shader fails
 - fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on
+- perf: Draw the custom sky about 5 times faster at 4K, and only where blocks do not cover it
 - perf: Draw the star trails faster on a Stars layer with a small Size
 - compat: Show still Chroma colors on 1.8.9 when OptiFine uses anisotropic filtering or antialiasing
 
