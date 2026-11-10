@@ -29,9 +29,9 @@ project(':core').projectDir = file('../core')
 
 // Each node needs versions/<node>/gradle.properties, and a Forge or NeoForge node also <loader>/versions/<node>/gradle.properties with loom.platform.
 // tools/build-all.ps1 reads these three lists, so keep each list on one line; common and fabric build all nodes.
-def nodes = ['1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.3']
+def nodes = ['1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.1', '26.3']
 def forgeNodes = []
-def neoforgeNodes = ['1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.3']
+def neoforgeNodes = ['1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.1', '26.3']
 
 stonecutter {
     kotlinController = false
