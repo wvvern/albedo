@@ -36,11 +36,17 @@ public final class SpriteUpload implements TextureStore.Upload {
     private final BufferedImage[] images;
     private final AnimationMetadataSection meta;
 
-    SpriteUpload(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
+    private SpriteUpload(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
         this.sprite = sprite;
         this.images = images.clone();
         this.images[0] = null;
         this.meta = meta;
+    }
+
+    /** Changes the animation strip {@code images[0]} of a sprite before loadSprite makes frames and mip levels from it. */
+    public static void process(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
+        if (images == null || images.length == 0) return;
+        images[0] = LegacyHooks.processSprite(sprite.getIconName(), images[0], new SpriteUpload(sprite, images, meta));
     }
 
     @Override

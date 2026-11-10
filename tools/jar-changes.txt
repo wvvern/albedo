@@ -14,9 +14,20 @@ dev/albedo/core/sky/SkyShaderSource.class The constant BAKED names the program o
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
 dev/albedo/core/dev/Harness.class The harness has the command hooks.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
-dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs.
-dev/albedo/legacy/LegacyHarnessHost.class The host gives the hook counters.
-dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs.
+dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game.
+dev/albedo/legacy/LegacyHarnessHost*.class The host gives the hook counters and reads the world, the player, the sound and the world creation through Game.
+dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs, and a quad goes through Game.addQuad.
+dev/albedo/legacy/Game.class A new class has the game members whose names are different on 1.8.9 and 1.12.2.
+dev/albedo/legacy/GuiSettings.class The font comes from Game.
+dev/albedo/legacy/LegacyPlatform*.class The world, the folder, the floor and the message come from Game, and the version name from ForgeVersion.
+dev/albedo/legacy/LegacySharpSky*.class The quad draws through Game, and the line numbers moved.
+dev/albedo/legacy/LegacySky.class The world, the atlas location and the sphere and mesh draws go through Game.
+dev/albedo/legacy/ReloadScreen.class The font and the background draw come from Game.
+dev/albedo/legacy/OptiFineRenderPatch.class The OptiFine quad hook calls Game.addQuad.
+dev/albedo/legacy/SpriteUpload.class SpriteUpload.process is the sprite hook of 1.8.9.
+dev/albedo/legacy/mixin/TextureAtlasSpriteMixin.class The handler calls SpriteUpload.process.
+dev/albedo/legacy/mixin/EntityRendererMixin.class The fog of the camera comes from Game.specialFog.
+mixins.albedo.json The legacy build writes the client list from the mixin classes of the version, in ASCII sequence.
 dev/albedo/legacy/mixin/ForgeBlockInfoMixin.class The handler counts its runs.
 dev/albedo/legacy/mixin/ForgeVertexLighterMixin.class The handler counts its runs.
 dev/albedo/legacy/mixin/ReloadListenersMixin.class The handler counts its runs.

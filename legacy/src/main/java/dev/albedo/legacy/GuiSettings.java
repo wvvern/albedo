@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Hosts the version-agnostic {@link SettingsEditor} on 1.8.9. */
+/** Hosts the version-agnostic {@link SettingsEditor} on the legacy versions. */
 public final class GuiSettings extends GuiScreen implements Canvas {
     /** The LWJGL 2 number of the left mouse button. */
     private static final int LEFT_BUTTON = 0;
@@ -110,8 +110,8 @@ public final class GuiSettings extends GuiScreen implements Canvas {
     @Override public int width() { return width; }
     @Override public int height() { return height; }
     @Override public void fill(int x0, int y0, int x1, int y1, int argb) { Gui.drawRect(x0, y0, x1, y1, argb); }
-    @Override public void text(String text, int x, int y, int argb) { fontRendererObj.drawString(text, x, y, argb); }
-    @Override public int textWidth(String text) { return fontRendererObj.getStringWidth(text); }
+    @Override public void text(String text, int x, int y, int argb) { Game.font().drawString(text, x, y, argb); }
+    @Override public int textWidth(String text) { return Game.font().getStringWidth(text); }
 
     @Override
     public void image(String id, CanvasImage img, int x, int y, int w, int h) {

@@ -6,27 +6,6 @@
   "plugin": "${basePackage}.legacy.MixinPlugin",
   "compatibilityLevel": "JAVA_8",
   "client": [
-    "AmbientOcclusionMixin",
-    "BiomeColorHelperMixin",
-    "OptiFineRenderMixin",
-    "BlockModelRendererVanillaMixin",
-    "ColorizerFoliageMixin",
-    "ColorizerGrassMixin",
-    "EntityRendererMixin",
-    "ForgeBlockInfoMixin",
-    "ForgeVertexLighterMixin",
-    "FullbrightMixin",
-    "GuiConnectingMixin",
-    "MinecraftAccessor",
-    "MinecraftMixin",
-    "ReloadListenersMixin",
-    "RenderGlobalMixin",
-    "ShadowMixin",
-    "SimpleTextureMixin",
-    "SkinManagerMixin",
-    "TextureAtlasSpriteMixin",
-    "TextureMapAccessor",
-    "TextureManagerMixin",
-    "ThreadDownloadImageDataMixin"
+    ${mixins}
   ]
 }

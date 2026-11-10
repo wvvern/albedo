@@ -4,14 +4,11 @@ import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.audio.SoundCategory;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.WorldSettings;
-import net.minecraft.world.WorldType;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
@@ -28,22 +25,19 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** Development-only: what the test harness needs from 1.8.9 (see {@link Harness}). */
+/** Development-only: what the test harness needs from the game (see {@link Harness}). */
 final class LegacyHarnessHost implements Harness.Host {
     /** The Windows virtual key of a typed character that has no key of its own. */
     private static final int VK_PACKET = 0xE7;
 
     @Override
     public boolean inWorld() {
-        Minecraft mc = Minecraft.getMinecraft();
-        return mc.theWorld != null && mc.thePlayer != null;
+        return Game.world() != null && Game.player() != null;
     }
 
     @Override
     public void openWorld(String name) {
-        // Loads the save if it exists; the settings are only used to create it.
-        WorldSettings settings = new WorldSettings(42L, WorldSettings.GameType.CREATIVE, false, false, WorldType.FLAT).enableCommands();
-        Minecraft.getMinecraft().launchIntegratedServer(name, name, settings);
+        Game.openFlatWorld(name);
     }
 
     @Override
@@ -56,7 +50,7 @@ final class LegacyHarnessHost implements Harness.Host {
         server.addScheduledTask(new Runnable() {
             @Override
             public void run() {
-                List<EntityPlayerMP> players = server.getConfigurationManager().playerEntityList;
+                List<EntityPlayerMP> players = Game.players(server);
                 if (players.isEmpty()) Harness.log("! no player for: " + command);
                 else server.getCommandManager().executeCommand(players.get(0), command);
             }
@@ -214,7 +208,7 @@ final class LegacyHarnessHost implements Harness.Host {
     @Override
     public void quiet() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);
+        Game.mute();
         mc.gameSettings.pauseOnLostFocus = false;
         // The view bobbing of 1.8.9 tilts the camera of a falling player by up to 10 degrees, so that the camera does not look where the harness aims.
         mc.gameSettings.viewBobbing = false;
@@ -227,7 +221,7 @@ final class LegacyHarnessHost implements Harness.Host {
 
     @Override
     public void look(float yaw, float pitch) {
-        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
+        net.minecraft.client.entity.EntityPlayerSP player = Game.player();
         if (player == null) return;
         player.rotationYaw = player.prevRotationYaw = yaw;
         player.rotationPitch = player.prevRotationPitch = pitch;

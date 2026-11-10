@@ -1,6 +1,5 @@
 package dev.albedo.legacy.mixin;
 
-import dev.albedo.legacy.LegacyHooks;
 import dev.albedo.legacy.SpriteUpload;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.data.AnimationMetadataSection;
@@ -27,7 +26,7 @@ public abstract class TextureAtlasSpriteMixin implements SpriteUpload.Animation 
 
     @Inject(method = "loadSprite", at = @At("HEAD"))
     private void albedo$flatten(BufferedImage[] images, AnimationMetadataSection meta, CallbackInfo ci) {
-        LegacyHooks.processSprite((TextureAtlasSprite) (Object) this, images, meta);
+        SpriteUpload.process((TextureAtlasSprite) (Object) this, images, meta);
     }
 
     @Override
