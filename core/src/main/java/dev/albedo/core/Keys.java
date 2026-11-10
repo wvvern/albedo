@@ -38,7 +38,16 @@ public final class Keys {
         for (int i = 0; i < 10; i++) put("KP_" + i, "keypad." + i, lwjglKp[i]);
         put("RIGHT_ALT", "right.alt", 0xB8);
         put("LEFT_ALT", "left.alt", 0x38);
+        put("LEFT_CONTROL", "left.control", 0x1D);
         put("RIGHT_CONTROL", "right.control", 0x9D);
+        put("BACKSPACE", "backspace", 0x0E);
+        put("ENTER", "enter", 0x1C);
+        put("ESCAPE", "escape", 0x01);
+        put("TAB", "tab", 0x0F);
+        put("LEFT", "left", 0xCB);
+        put("RIGHT", "right", 0xCD);
+        put("UP", "up", 0xC8);
+        put("DOWN", "down", 0xD0);
         put("GRAVE", "grave.accent", 0x29);
         put("INSERT", "insert", 0xD2);
         put("DELETE", "delete", 0xD3);

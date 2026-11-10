@@ -4,6 +4,9 @@
 
 - feat: Make the highest Chroma speed 5 times faster
 - feat: Make the Chroma colors of the pastel profile move faster
+- fix: Make typing work in the text fields of the settings screen on 26.3
+- fix: Let you type characters that need AltGr in the settings screen on 1.8.9
+- fix: Replace all of the text when you type after Ctrl+A in the settings screen
 - fix: Keep the vanilla fog color under water, in lava and in powder snow with a custom or flat sky
 - fix: Hide or show the clouds at once on 1.21.11 and 26.3 when you change the profile
 

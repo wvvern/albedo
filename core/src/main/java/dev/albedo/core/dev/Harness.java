@@ -3,6 +3,7 @@ package dev.albedo.core.dev;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Colors;
+import dev.albedo.core.Keys;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
@@ -35,8 +36,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Development harness, created only with {@code -Dalbedo.harness=<directory>}, that runs the lines of
@@ -63,6 +66,26 @@ public final class Harness {
          * as a real mouse does, and returns false when this version cannot do that.
          */
         boolean mouseButton(int guiX, int guiY, boolean down);
+
+        /**
+         * Sends a press or a release of a key into the entry point of the game that the window events call, as a real
+         * keyboard does, and returns false when this version cannot do that.
+         *
+         * @param ctrl whether a Control key is held, for the versions that read it from the event
+         */
+        boolean key(Keys.Key key, boolean down, boolean ctrl);
+
+        /**
+         * Sends one typed character into the entry point of the game that the window events call, and returns false when
+         * the window would drop it, for example because the game did not start text input.
+         *
+         * @param afterKey whether the key of the character went down just before, else the window sends the character as
+         *        typed text with no key, as for a character that needs Shift or AltGr
+         */
+        boolean character(char c, boolean afterKey);
+
+        /** Whether the settings screen of Albedo is open. */
+        boolean settingsOpen();
 
         void quit();
 
@@ -176,6 +199,8 @@ public final class Harness {
     private int burstLeft;
     private String burstName;
     private int burstIndex;
+    /** The keys that {@code keydown} holds until {@code keyup}. */
+    private final Set<Keys.Key> held = new HashSet<Keys.Key>();
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -280,6 +305,13 @@ public final class Harness {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
         } else if (verb.equals("ui")) SettingsEditor.script(arg);
+        else if (verb.equals("type")) type(arg);
+        else if (verb.equals("key")) {
+            key(arg, true);
+            key(arg, false);
+        } else if (verb.equals("keydown")) key(arg, true);
+        else if (verb.equals("keyup")) key(arg, false);
+        else if (verb.equals("expect")) expectScreen(arg);
         else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
         else if (verb.equals("reload")) platform.reloadResources();
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
@@ -298,6 +330,39 @@ public final class Harness {
         if (!expected.equals("shown") && !expected.equals("hidden")) throw new IllegalArgumentException("clouds shown|hidden");
         String now = drawn ? "shown" : "hidden";
         return now.equals(expected) ? "clouds " + now : "! clouds " + now + ", expected " + expected;
+    }
+
+    /** Types as a real keyboard does: the key of a letter or digit goes down, its character follows, and the key goes up. */
+    private void type(String text) {
+        int dropped = 0;
+        for (char c : text.toCharArray()) {
+            Keys.Key key = c < 128 && Character.isLetterOrDigit(c) ? Keys.byName(String.valueOf(c)) : null;
+            if (key != null) host.key(key, true, ctrlHeld());
+            if (!host.character(c, key != null)) dropped++;
+            if (key != null) host.key(key, false, ctrlHeld());
+        }
+        if (dropped > 0) log("! the window dropped " + dropped + " of " + text.length() + " typed characters");
+    }
+
+    /** Presses or releases a key by its config name, where a key that goes down stays held until it goes up. */
+    private void key(String name, boolean down) {
+        Keys.Key key = Keys.byName(name);
+        if (key == null) throw new IllegalArgumentException("unknown key: " + name);
+        if (down) held.add(key);
+        else held.remove(key);
+        if (!host.key(key, down, ctrlHeld())) log("! key input is not available on this version");
+    }
+
+    private boolean ctrlHeld() {
+        return held.contains(Keys.byName("LEFT_CONTROL")) || held.contains(Keys.byName("RIGHT_CONTROL"));
+    }
+
+    /** Logs PASS when the settings screen is {@code open} or {@code closed} as the argument says, else a line that starts with "!". */
+    private void expectScreen(String state) {
+        if (!state.equals("open") && !state.equals("closed")) throw new IllegalArgumentException("expect open|closed");
+        boolean open = host.settingsOpen();
+        if (open == state.equals("open")) log("PASS the settings screen is " + state);
+        else log("! the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
     }
 
     /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */
