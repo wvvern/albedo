@@ -409,7 +409,11 @@ class SkyGeneratorTest {
                 double el = Math.toRadians(90 - (ty + 0.5) * 180 / th), lon = (tx + 0.5) / tw * 2 * Math.PI;
                 float x = (float) (Math.cos(el) * Math.sin(lon)), y = (float) Math.sin(el), z = (float) (-Math.cos(el) * Math.cos(lon));
                 int noise = (ty * tw + tx) * 4, bend = ((th + ty) * tw + tx) * 4;
-                assertEquals(Noise.fbm(x * 2.5f, y * 2.5f, z * 2.5f, 1, 6) * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f);
+                float coarse = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, 0, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES);
+                assertEquals(coarse * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f, "the coarse octaves of the clouds");
+                float fine = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES,
+                        SkyGenerator.CLOUD_OCTAVES);
+                assertEquals(Noise.fbm(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_OCTAVES), coarse + fine, 1e-5f, "the parts add up");
                 assertEquals(Noise.noise(x * 2.2f, y * 2.2f, z * 2.2f, 1 + 71), fromHalf(img.terms()[noise + 1]), 1e-3f, "the pulse noise");
                 float bendX = Noise.fbm(x * 1.6f + 5.2f, y * 1.6f + 1.3f, z * 1.6f + 2.8f, 1 + 11, 4);
                 assertEquals(bendX, fromHalf(img.terms()[bend]), 2e-3f, "the bend of the fractal");

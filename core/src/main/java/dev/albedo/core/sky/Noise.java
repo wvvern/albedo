@@ -89,6 +89,22 @@ final class Noise {
         return sum / norm * 1.6f;
     }
 
+    /**
+     * The octaves from {@code first} to {@code last - 1} of {@link #fbm} with {@code octaves} octaves, so that the coarse and
+     * the fine octaves can come from different places and add up to the fbm.
+     */
+    static float fbmPart(float x, float y, float z, int seed, int first, int last, int octaves) {
+        float sum = 0, amp = 1, norm = 2 - 2 * (float) Math.pow(0.5, octaves);
+        for (int o = 0; o < last; o++) {
+            if (o >= first) sum += noise(x, y, z, seed + o * 1013) * amp;
+            amp *= 0.5f;
+            x *= 2.03f;
+            y *= 2.03f;
+            z *= 2.03f;
+        }
+        return sum / norm * 1.6f;
+    }
+
     /** Ridged fractal noise: sharp bright lines where the noise crosses zero, from 0 to 1. */
     static float ridged(float x, float y, float z, int seed, int octaves) {
         float sum = 0, amp = 0.5f, norm = 0, prev = 1;

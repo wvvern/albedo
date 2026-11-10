@@ -43,12 +43,13 @@ class SkyShaderSourceTest {
         assertTrue(steps.contains(gradient), steps);
         String fractal = " s = albedoFractal(1, albedoFrame(1, dir), albedoField(2, dir), 8); img = albedoShow(img, s, 1, 1, -1, false);";
         assertTrue(steps.contains(fractal), "the fractal reads its field image, pulses and adds: " + steps);
-        assertTrue(steps.contains(" s = albedoClouds(2, albedoField(3, dir), 0); albedoMaskSource(2, s);"), steps);
+        assertTrue(steps.contains(" s = albedoClouds(2, albedoFrame(2, dir), albedoField(3, dir), 0); albedoMaskSource(2, s);"), steps);
         SkyLayer[] clouds = new SkyLayer[SkyDesign.MAX_LAYERS];
         for (int i = 0; i < clouds.length; i++) clouds[i] = SkyLayer.of(i + 1, SkyLayer.Kind.NOISE);
         SkyDesign many = new SkyDesign(Arrays.asList(clouds), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
         String last = SkyShaderSource.layerSteps(SkyGenerator.bake(many, 64, 32).program());
-        assertTrue(last.contains(" s = albedoClouds(7, albedoCloudsField(7, albedoFrame(7, dir), 0), 0);"), "a layer with no field image: " + last);
+        assertTrue(last.contains(" s = albedoClouds(7, albedoFrame(7, dir), albedoCloudsField(7, albedoFrame(7, dir), 0), 0);"),
+                "a layer with no field image: " + last);
         assertTrue(steps.contains(" s = albedoTermFilter(3, dir); img = albedoShow(img, s, 3, 0, 2, false);"), "the blur in the light: " + steps);
         assertTrue(steps.contains(" s = vec4(albedoHueShift(4, img), 1.0); img = albedoShow(img, s, 4, 0, 2, true);"), "the hue shift in the dark");
         assertTrue(steps.contains(" s = albedoStars(5, albedoFrame(5, dir), footprint, 5);"), "the stars twinkle with spikes: " + steps);

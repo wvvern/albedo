@@ -44,6 +44,8 @@ public final class SkyGenerator {
     private static final float[] PULSE_PERIODS = {4.5f, 5.625f, 7.2f};
     /** The largest change of the natural log of the brightness of a pulse at a pulse of 100 percent. */
     private static final float PULSE_LIGHT = 2.4f;
+    /** The octaves of the cloud noise, of which the field image holds the coarse ones that stay smooth at its half size. */
+    static final int CLOUD_OCTAVES = 6, CLOUD_FIELD_OCTAVES = 3;
 
     private final SkyDesign design;
     private final int w, h;
@@ -409,7 +411,8 @@ public final class SkyGenerator {
         out[3] = 0;
         if (l.layer.kind() == SkyLayer.Kind.NOISE) {
             float f = 2.5f / l.scale;
-            out[0] = Noise.fbm(p[0] * f, p[1] * f, p[2] * f, l.seed, 6) * 0.5f + 0.5f;
+            // The fine octaves are too small for the texels, so the shader adds them for each pixel.
+            out[0] = Noise.fbmPart(p[0] * f, p[1] * f, p[2] * f, l.seed, 0, CLOUD_FIELD_OCTAVES, CLOUD_OCTAVES) * 0.5f + 0.5f;
             out[1] = pulse;
             out[2] = 0;
             return;
@@ -431,7 +434,7 @@ public final class SkyGenerator {
     /** Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover. */
     private static void noise(Layer l, float[] p, float[] out) {
         float f = 2.5f / l.scale;
-        float v = Noise.fbm(p[0] * f, p[1] * f, p[2] * f, l.seed, 6) * 0.5f + 0.5f;
+        float v = Noise.fbm(p[0] * f, p[1] * f, p[2] * f, l.seed, CLOUD_OCTAVES) * 0.5f + 0.5f;
         l.mix(v, out);
         float edge = 1 - l.amount * 1.2f;
         out[3] *= smooth(edge - 0.12f, edge + 0.12f, v);

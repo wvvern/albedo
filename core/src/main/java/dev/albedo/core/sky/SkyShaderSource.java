@@ -152,7 +152,7 @@ public final class SkyShaderSource {
             case SkyProgram.KIND_STARS: return "albedoStars(" + layer + ", " + frame + ", footprint, " + flags + ")";
             case SkyProgram.KIND_NOISE:
                 if (field == null) field = "albedoCloudsField(" + layer + ", " + frame + ", " + flags + ")";
-                return "albedoClouds(" + layer + ", " + field + ", " + flags + ")";
+                return "albedoClouds(" + layer + ", " + frame + ", " + field + ", " + flags + ")";
             case SkyProgram.KIND_FRACTAL:
                 if (field == null) field = "albedoFractalField(" + layer + ", " + frame + ", " + flags + ")";
                 return "albedoFractal(" + layer + ", " + frame + ", " + field + ", " + flags + ")";

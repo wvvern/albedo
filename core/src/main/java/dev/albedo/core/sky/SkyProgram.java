@@ -151,8 +151,9 @@ public final class SkyProgram {
                 for (int c = 0; c < 3; c++) block[base + LOCAL + row * 4 + c] = (float) r[c * 3 + row];
             }
         }
-        // The cloud and fractal layers that show or mask get the free slots up to MAX_SLOTS for their field images, in their order.
-        for (int i = 0; i < layers.size(); i++) {
+        // The cloud and fractal layers that show or mask get the free slots up to MAX_SLOTS for their field images, in their order,
+        // only when the shader can draw the sky.
+        for (int i = 0; i < layers.size() && drawsSharp(); i++) {
             SkyLayer.Kind kind = layers.get(i).kind();
             int base = LAYERS + i * LAYER_VEC4S * 4;
             if ((kind == SkyLayer.Kind.NOISE || kind == SkyLayer.Kind.FRACTAL) && block[base + USE] != USE_NONE && slots < MAX_SLOTS) {

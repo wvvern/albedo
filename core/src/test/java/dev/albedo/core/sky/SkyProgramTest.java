@@ -41,7 +41,8 @@ class SkyProgramTest {
             "METEOR_CHANNELS " + SkyMeteors.CHANNELS, "METEOR_SLOTS_BACK " + SkyMeteors.SLOTS_BACK,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
-            "USE_SHOW " + SkyProgram.USE_SHOW};
+            "USE_SHOW " + SkyProgram.USE_SHOW, "CLOUD_OCTAVES " + SkyGenerator.CLOUD_OCTAVES,
+            "CLOUD_FIELD_OCTAVES " + SkyGenerator.CLOUD_FIELD_OCTAVES};
         for (String d : defines) assertTrue(glsl.contains("#define ALBEDO_" + d + "\n"), d);
         // The shader reads the values of a layer from these vec4 slots.
         assertEquals(4, SkyProgram.MASK_DARK);
@@ -305,6 +306,18 @@ class SkyProgramTest {
         assertEquals(SkyProgram.Path.BAKED, p.path(SkyProgram.MAX_TERMS + 1));
         assertEquals(-1, p.termSlot(SkyProgram.MAX_TERMS + 1));
         assertFalse(p.drawsSharp());
+    }
+
+    @Test
+    void aSkyThatCannotDrawSharpHasNoFieldImages() {
+        List<SkyLayer> layers = new ArrayList<SkyLayer>();
+        layers.add(SkyLayer.of(1, SkyLayer.Kind.NOISE));
+        for (int i = 0; i <= SkyProgram.MAX_TERMS; i++) layers.add(SkyLayer.of(i + 2, SkyLayer.Kind.BLOOM));
+        SkyImage img = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(layers), 64, 32);
+        assertFalse(img.program().drawsSharp());
+        assertEquals(-1, img.program().termSlot(0), "the clouds");
+        assertEquals(SkyProgram.MAX_TERMS, img.program().terms(), "only the term images of the blooms");
+        assertEquals(32 * 16 * 4 * SkyProgram.MAX_TERMS, img.terms().length);
     }
 
     @Test

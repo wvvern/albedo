@@ -44,6 +44,10 @@
 #define ALBEDO_FLAG_DUST 16
 #define ALBEDO_FLAG_JETS 32
 
+// SkyGenerator.CLOUD_OCTAVES and CLOUD_FIELD_OCTAVES: the octaves of the cloud noise and the coarse octaves that a field image holds.
+#define ALBEDO_CLOUD_OCTAVES 6
+#define ALBEDO_CLOUD_FIELD_OCTAVES 3
+
 #ifdef ALBEDO_PLAIN_UNIFORMS
 // The values of the uniform block below, for the GL programs that set them as three arrays.
 uniform vec4 SkyHeader;
@@ -148,6 +152,17 @@ float albedoFbmSoft(vec3 p, int seed, int octaves, float footprint) {
 // Noise.fbm: a sum of octaves at twice the frequency and half the weight each, from about -1 to 1.
 float albedoFbm(vec3 p, int seed, int octaves) {
     return albedoFbmSoft(p, seed, octaves, 0.0);
+}
+
+// Noise.fbmPart: the octaves from first to last - 1 of albedoFbm with this many octaves.
+float albedoFbmPart(vec3 p, int seed, int first, int last, int octaves) {
+    float sum = 0.0, amp = 1.0;
+    for (int o = 0; o < last; o++) {
+        if (o >= first) sum += albedoNoise(p, seed + o * 1013) * amp;
+        amp *= 0.5;
+        p *= 2.03;
+    }
+    return sum / (2.0 - 2.0 * pow(0.5, float(octaves))) * 1.6;
 }
 
 // Noise.ridged: sharp bright lines where the noise crosses zero, from 0 to 1.
@@ -527,18 +542,21 @@ vec3 albedoBrighten(vec3 c, float k) {
     return c * k;
 }
 
-// The smooth values of a cloud layer that do not change in time, which its field image holds when it has one: the cloud value and
-// the pulse noise.
+// The smooth values of a cloud layer that do not change in time, which its field image holds when it has one: the cloud value of
+// the coarse octaves and the pulse noise.
 vec4 albedoCloudsField(int layer, vec3 p, int flags) {
     vec4 shape = albedoLayer(layer, 2);
-    float v = albedoFbm(p * (2.5 / shape.x), int(shape.y), 6) * 0.5 + 0.5;
+    float v = albedoFbmPart(p * (2.5 / shape.x), int(shape.y), 0, ALBEDO_CLOUD_FIELD_OCTAVES, ALBEDO_CLOUD_OCTAVES) * 0.5 + 0.5;
     return vec4(v, (flags & ALBEDO_FLAG_PULSE) != 0 ? albedoPulseNoise(layer, p) : 0.0, 0.0, 0.0);
 }
 
-// Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover, from albedoCloudsField.
-vec4 albedoClouds(int layer, vec4 field, int flags) {
+// Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover, with the fine octaves for each
+// pixel added to albedoCloudsField.
+vec4 albedoClouds(int layer, vec3 p, vec4 field, int flags) {
     vec4 values = albedoLayer(layer, 1);
-    float v = field.x;
+    vec4 shape = albedoLayer(layer, 2);
+    float v = field.x + albedoFbmPart(p * (2.5 / shape.x), int(shape.y), ALBEDO_CLOUD_FIELD_OCTAVES, ALBEDO_CLOUD_OCTAVES,
+            ALBEDO_CLOUD_OCTAVES) * 0.5;
     vec4 c = albedoMix(layer, v);
     float edge = 1.0 - values.z * 1.2;
     c.a *= albedoSmooth(edge - 0.12, edge + 0.12, v);
