@@ -207,6 +207,12 @@ net.minecraft.client.Camera#yRot
 net.minecraft.world.level.Level|net.minecraft.client.multiplayer.ClientLevel#getDayTime
 net.minecraft.world.level.Level#getOverworldClockTime
 net.minecraft.client.gui.screens.worldselection.WorldOpenFlows#createFreshLevel
+net.minecraft.client.gui.screens.worldselection.WorldOpenFlows#openWorld
+net.minecraft.client.gui.screens.worldselection.WorldOpenFlows#checkForBackupAndLoad
+net.minecraft.client.gui.screens.worldselection.WorldOpenFlows#loadLevel
+net.minecraft.resources.ResourceLocation#<init>
+net.minecraft.resources.ResourceLocation#parse
+net.minecraft.client.Minecraft#getFrameTime
 net.minecraft.client.Options#gamma
 net.minecraft.client.Options#entityShadows
 net.minecraft.client.Minecraft#getTimer

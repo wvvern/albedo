@@ -123,7 +123,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void showTexture(String id) {
-        String texture = id.equals("steve") ? net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture().toString() : id;
+        String texture = id.equals("steve") ? HarnessSkins.defaultSkin() : id;
         ModernPlatform.setScreen(new TextureScreen(texture));
     }
 

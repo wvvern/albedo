@@ -155,7 +155,10 @@ foreach ($target in $Targets) {
     $shotList = if ($legacy) { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
     # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
+    # The block short_grass has the name grass before 1.20.3.
+    $oldGrass = -not $legacy -and [version]$version -lt [version]"1.20.3"
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
+        ForEach-Object { if ($oldGrass) { $_ -replace "\bshort_grass\b", "grass" } else { $_ } } |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"

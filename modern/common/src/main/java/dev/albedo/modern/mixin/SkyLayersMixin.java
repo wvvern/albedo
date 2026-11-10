@@ -91,13 +91,5 @@ public abstract class SkyLayersMixin {
                                  net.minecraft.client.renderer.ShaderInstance shader) {
         if (!dev.albedo.modern.GlSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
     }
-
-    // The first mesh that renderSky uploads is the sunrise fan.
-    @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
-            target = "Lcom/mojang/blaze3d/vertex/BufferUploader;drawWithShader(Lcom/mojang/blaze3d/vertex/MeshData;)V"))
-    private void albedo$sunrise(com.mojang.blaze3d.vertex.MeshData mesh) {
-        if (dev.albedo.modern.GlSky.replacedDisc()) mesh.close();
-        else com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
-    }
 }
 *///?}

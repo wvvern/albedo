@@ -56,6 +56,7 @@ jobs:
         # loaders: the lists in modern/settings.gradle that have the node, as a YAML list, because contains() on a string finds forge in neoforge.
         # game_versions: the released versions in minecraft_range_fabric of the node, with one value per line for mc-publish.
         target: &modern
+          - { node: '1.20.6', mc: '1.20.6', java: 21, loaders: [fabric, neoforge], game_versions: '1.20.6' }
           - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1" }
           - { node: '1.21.3', mc: '1.21.3', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.3' }
           - { node: '1.21.4', mc: '1.21.4', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.4' }

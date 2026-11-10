@@ -125,8 +125,10 @@ public final class ModernSky {
     private static float partialTick() {
         //? if >=1.21.2 {
         return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        //?} else {
+        //?} elif >=1.21 {
         /*return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        *///?} else {
+        /*return Minecraft.getInstance().getFrameTime();
         *///?}
     }
 
