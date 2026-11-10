@@ -4,6 +4,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.dev.SkyCpuTime;
 import dev.albedo.core.sky.SkyDayTime;
+import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.legacy.mixin.MinecraftAccessor;
 import dev.albedo.core.sky.SkyLight;
@@ -37,13 +38,16 @@ public final class LegacySky {
     private static int sphere = -1;
     /** The matrix of a turning sky for the GL, which each frame fills again. */
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
-    /** The rotation and the brightness of the sharp sky of this frame until the solid world is drawn, else null. */
-    private static SkyTurn waiting;
+    /** The rotation of the sharp sky of the sky pass, which waits for the clouds or the solid world with its brightness. */
+    private static final SkyDefer<SkyTurn> DEFER = new SkyDefer<SkyTurn>();
     private static float waitingBrightness;
-    /** True after the first call from the solid layers of the world; before it, the sharp sky draws in the sky pass. */
-    private static boolean afterSolidRuns;
 
     private LegacySky() {}
+
+    /** Starts a frame, which forgets the sharp sky of the last frame that still waits. */
+    public static void frameStart() {
+        DEFER.frameStart();
+    }
 
     /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack). */
     public static SkyImage image() {
@@ -110,20 +114,14 @@ public final class LegacySky {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);
-        waiting = null;
         float k = brightness(img);
         SkyTurn turn = turn(img);
         if (LegacySharpSky.prepare(img, turn)) {
-            // The sharp sky adds its color to the frame, so the frame must be black below it.
-            GlStateManager.clearColor(0f, 0f, 0f, 0f);
-            GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT);
+            // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
+            drawBlack();
             // The sharp sky waits for the solid world, which then hides a part of it from the shader.
-            if (afterSolidRuns) {
-                waiting = turn;
-                waitingBrightness = k;
-            } else {
-                drawSharp(turn, k);
-            }
+            if (DEFER.defer(turn)) waitingBrightness = k;
+            else drawSharp(turn, k);
             return true;
         }
         GlStateManager.pushMatrix();
@@ -150,6 +148,28 @@ public final class LegacySky {
         GL11.glMultMatrix(TURN);
     }
 
+    /**
+     * Draws black on the sphere at the far depth with no blend, texture or fog, so that only the pixels that still have the
+     * far depth of the clear become black, and leaves the depth test on as the sharp sky does.
+     */
+    private static void drawBlack() {
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableFog();
+        GlStateManager.disableBlend();
+        GlStateManager.disableCull();
+        GlStateManager.enableDepth();
+        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager.depthMask(false);
+        GlStateManager.color(0f, 0f, 0f, 1f);
+        // The game never changes the depth range, so the sphere gets the far depth here and the range goes back to the full range after it.
+        GL11.glDepthRange(1.0, 1.0);
+        GlStateManager.callList(sphere);
+        GL11.glDepthRange(0.0, 1.0);
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.enableCull();
+        GlStateManager.enableFog();
+    }
+
     private static void drawSharp(SkyTurn turn, float brightness) {
         GlStateManager.pushMatrix();
         turnMatrix(turn);
@@ -159,10 +179,10 @@ public final class LegacySky {
 
     /** Draws the sharp sky that waits, before the clouds or after the solid world, whose camera matrix is that of the sky. */
     public static void drawWaiting() {
+        SkyTurn waiting = DEFER.take();
         if (waiting == null) return;
         long start = SkyCpuTime.start();
         drawSharp(waiting, waitingBrightness);
-        waiting = null;
         GlStateManager.depthMask(true);
         // The sky shader left its term texture on the unit of the block textures.
         Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
@@ -171,7 +191,6 @@ public final class LegacySky {
 
     /** Draws the sharp sky that waits after the solid world, only on the pixels that the world left empty. */
     public static void afterSolid() {
-        afterSolidRuns = true;
         drawWaiting();
     }
 

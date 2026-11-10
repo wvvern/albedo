@@ -193,6 +193,27 @@ final class GlSharpSky {
         release();
     }
 
+    // Draws black on the sphere at the far depth with no blend, from an opaque texture times a black color, so that only the
+    // pixels that still have the far depth of the clear become black.
+    static void drawBlack(VertexBuffer sphere, int opaqueTexture, Matrix4f modelView, Matrix4f projection) {
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShaderTexture(0, opaqueTexture);
+        RenderSystem.setShaderColor(0f, 0f, 0f, 1f);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+        RenderSystem.disableBlend();
+        RenderSystem.disableCull();
+        // The game never changes the depth range, so the sphere gets the far depth here and the range goes back to the full range after it.
+        GL11.glDepthRange(1.0, 1.0);
+        sphere.bind();
+        sphere.drawWithShader(modelView, projection, RenderSystem.getShader());
+        VertexBuffer.unbind();
+        GL11.glDepthRange(0.0, 1.0);
+        RenderSystem.enableCull();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    }
+
     // Takes the program out of use through a shader instance, because an instance skips glUseProgram when it thinks that its program is still in use.
     private static void release() {
         ShaderInstance any = GameRenderer.getPositionTexShader();

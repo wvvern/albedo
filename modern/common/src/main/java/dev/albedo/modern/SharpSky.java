@@ -90,9 +90,10 @@ final class SharpSky {
             this.fallback = fallback;
         }
 
-        /** Frees the compiled pipeline. */
+        /** Frees the compiled pipeline, also one that is still compiling, whose result goes free on the render thread when it comes. */
         void close() {
             if (compiled != null) compiled.close();
+            if (state == Compile.RUNNING) pending.thenAcceptAsync(SharpSky::closeLate, Minecraft.getInstance());
             compiled = null;
             state = Compile.FAILED;
         }
@@ -205,6 +206,22 @@ final class SharpSky {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build(), Util.backgroundExecutor(), steps), Pipeline::close);
 
+    // Black on the sphere with no blend where the depth is still the far depth of the clear, which resets only the sky of this
+    // level view, compiled on the render thread at its first use.
+    private static final Pipeline BLACK = new Pipeline(RenderPipeline.builder()
+            .withBindGroupLayout(BindGroupLayouts.GLOBALS)
+            .withBindGroupLayout(BindGroupLayouts.PROJECTION)
+            .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_black"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_sharp"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_black"))
+            .withColorTargetState(ColorTargetState.DEFAULT)
+            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+            .withCull(false)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .build(), Runnable::run, "black sky shader", "The sky draws in a simpler way.");
+
     // The sky into the equirectangular image of the CPU bake, for the harness, with no depth texture.
     private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(SKY_BLOCK)
@@ -233,6 +250,7 @@ final class SharpSky {
      */
     static boolean prepare(SkyImage img) {
         ready = ModernSky.wantsSharp(img) ? SHARP.get(img.program().shaderSteps()).get() : null;
+        if (ready != null && BLACK.get() == null) ready = null;
         if (ready == null) return false;
         if (blockSerial != img.serial()) {
             if (block != null) block.close();
@@ -268,6 +286,27 @@ final class SharpSky {
         pass.setVertexBuffer(0, sphere.slice());
         pass.draw(vertexCount, 1, 0, 0);
         pass.popDebugGroup();
+    }
+
+    /** Draws black where the frame has the far depth, so that the sharp sky can add its color there. */
+    static void drawBlack(RenderPass pass, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
+        pass.pushDebugGroup(() -> "Albedo black sky");
+        pass.setPipeline(BLACK.get());
+        RenderSystem.bindDefaultUniforms(pass);
+        pass.setUniform("DynamicTransforms", transforms);
+        pass.setVertexBuffer(0, sphere.slice());
+        pass.draw(vertexCount, 1, 0, 0);
+        pass.popDebugGroup();
+    }
+
+    /** Frees the result of a compile that ended after its pipeline was closed. */
+    private static void closeLate(CompiledRenderPipeline.Pending pending) {
+        try {
+            CompiledRenderPipeline late = pending.finishCompile();
+            if (late != null) late.close();
+        } catch (RuntimeException ignored) {
+            // The failed compile has nothing to free.
+        }
     }
 
     /** A uniform buffer with a block of a program, which {@link #writeFrame} can change. */

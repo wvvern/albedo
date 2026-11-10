@@ -33,6 +33,7 @@ public final class ModernHooks {
     /** The start of a frame, before it draws anything. */
     public static void frameStart() {
         ChromaAtlases.frameStart();
+        ModernSky.frameStart();
     }
 
     /** The end of a frame, after it drew the world and the screens. */

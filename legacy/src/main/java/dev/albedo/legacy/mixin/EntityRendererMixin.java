@@ -24,6 +24,7 @@ public abstract class EntityRendererMixin {
     @Inject(method = "updateCameraAndRender", at = @At("HEAD"))
     private void albedo$frameStart(float partialTicks, long nanoTime, CallbackInfo ci) {
         LegacyChroma.frameStart();
+        LegacySky.frameStart();
     }
 
     @Inject(method = "updateCameraAndRender", at = @At("RETURN"))
