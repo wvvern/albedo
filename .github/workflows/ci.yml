@@ -104,7 +104,7 @@ jobs:
           if-no-files-found: error
 
   legacy:
-    name: Build 1.8.9
+    name: Build 1.8.9 and 1.12.2
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -122,6 +122,11 @@ jobs:
         with:
           name: jars-1.8.9
           path: legacy/versions/1.8.9/build/libs/albedo-*.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jars-1.12.2
+          path: legacy/versions/1.12.2/build/libs/albedo-*.jar
           if-no-files-found: error
 
   release:
@@ -170,6 +175,7 @@ jobs:
         target: *modern
         include:
           - { target: { mc: '1.8.9', loaders: [forge], game_versions: '1.8.9' } }
+          - { target: { mc: '1.12.2', loaders: [forge], game_versions: '1.12.2' } }
     steps:
       - uses: actions/download-artifact@v8
         with:

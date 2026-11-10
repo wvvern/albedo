@@ -85,7 +85,15 @@ tasks.withType(org.gradle.jvm.tasks.Jar::class) {
     }
 }
 
+// The client mixins are the classes of the mixin package in the shared source and in the source of this version, in ASCII order.
+val mixins = listOf(rootProject.file("src/main/java/dev/albedo/legacy/mixin"), file("src/main/java/dev/albedo/legacy/mixin"))
+    .flatMap { dir -> dir.listFiles { f -> f.name.endsWith(".java") }?.toList() ?: emptyList() }
+    .map { it.name.removeSuffix(".java") }
+    .sorted()
+    .joinToString(",\n    ") { "\"$it\"" }
+
 tasks.processResources {
+    inputs.property("mixins", mixins)
     inputs.property("version", project.version)
     inputs.property("mcversion", mcVersion)
     inputs.property("modid", modid)

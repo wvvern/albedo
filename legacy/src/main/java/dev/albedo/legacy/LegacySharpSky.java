@@ -10,9 +10,6 @@ import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.WorldRenderer;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
@@ -33,7 +30,7 @@ import java.nio.IntBuffer;
 import javax.imageio.ImageIO;
 
 /**
- * Draws the custom sky with the sky shader for each screen pixel on 1.8.9, so that it is sharp at each resolution and
+ * Draws the custom sky with the sky shader for each screen pixel on 1.8.9 and 1.12.2, so that it is sharp at each resolution and
  * field of view, with an LWJGL 2 GL program: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4, else the
  * baked texture draws the sky.
  */
@@ -316,10 +313,6 @@ final class LegacySharpSky {
 
     /** Draws the {@link SkyImage#quad} of a view, or of the whole image for null. */
     private static void quad(float[] view) {
-        float[] v = SkyImage.quad(view);
-        WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
-        r.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX);
-        for (int i = 0; i < v.length; i += 5) r.pos(v[i], v[i + 1], v[i + 2]).tex(v[i + 3], v[i + 4]).endVertex();
-        Tessellator.getInstance().draw();
+        Game.drawTriangles(SkyImage.quad(view));
     }
 }

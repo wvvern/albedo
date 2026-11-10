@@ -1,5 +1,6 @@
 package dev.albedo.legacy.mixin;
 
+import dev.albedo.legacy.Game;
 import dev.albedo.legacy.LegacyHooks;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.BlockModelRenderer;
@@ -28,6 +29,6 @@ public abstract class BlockModelRendererVanillaMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/WorldRenderer;addVertexData([I)V"))
     private void albedo$quad(WorldRenderer renderer, int[] vertexData) {
         LegacyHooks.SHADE.run();
-        LegacyHooks.addQuad(renderer, vertexData);
+        Game.addQuad(renderer, vertexData);
     }
 }

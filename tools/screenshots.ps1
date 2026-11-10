@@ -9,7 +9,8 @@ The game runs with the test harness (core/src/main/java/dev/albedo/core/dev/Harn
 Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
-A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
+A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures" (and, with no -Compat, no
+"textures cannot be repainted"), the harness log has no line
 that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image at the window size
 (1600 x 900, or the size of the last window command), the hooks line shows
 that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
@@ -21,6 +22,8 @@ that each hook of the game ran, and the run folder has config/albedo/config.json
 pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3,neoforge-26.3"
 # The gallery images:
 ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
+# With VBOs off (the default of 1.12.2 is on):
+pwsh -Command "& ./tools/screenshots.ps1 -Targets forge-1.12.2 -OptionLines useVbo:false -OutDir build\vbo-off"
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
 ./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
 # With Iris (it adds Sodium) and a shader pack zip that you downloaded; without -ShaderPack, Iris has shaders off:
@@ -42,7 +45,9 @@ param(
     # The GUI scale, where 0 is auto; 2 gives the settings screen room for the sky preview in the harness window.
     [int]$GuiScale = 0,
     # Optional config.json that the game starts with in place of the default config, for example a copy of the config of a player.
-    [string]$Config = ""
+    [string]$Config = "",
+    # More options.txt lines, for example useVbo:false. Not $Options: PowerShell names are not case-sensitive.
+    [string[]]$OptionLines = @()
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -59,6 +64,7 @@ function Set-Options([string]$runDir) {
     New-Item -ItemType Directory -Force $runDir | Out-Null
     $options = [ordered]@{ onboardAccessibility = "false"; narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false";
                            tutorialStep = "none"; skipMultiplayerWarning = "true"; joinedFirstServer = "true"; fullscreen = "false"; guiScale = "$GuiScale" }
+    foreach ($line in $OptionLines) { $key, $value = $line -split ":", 2; $options[$key] = $value }
     ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii (Join-Path $runDir "options.txt")
 }
 
@@ -90,6 +96,8 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     if (-not ($harnessText -match "^> quit")) { "the game did not get to quit" }
     if ($gameText -notmatch "Albedo ready") { "the game log does not have 'Albedo ready'" }
     if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
+    # With no other mod, each texture repaints in place; a failed upload reloads all resources, which hides the failure in the images.
+    if (-not $Compat -and $gameText -match "textures cannot be repainted") { "the game log has 'textures cannot be repainted'" }
     $harnessText -match "^!" | ForEach-Object { "harness error: $_" }
     $harnessText -cmatch "DIFFERENT" | ForEach-Object { "harness compare: $_" }
     # The command "hooks" logs how many times each optional hook ran, and an optional hook with a wrong target name never runs.
@@ -178,9 +186,16 @@ foreach ($target in $Targets) {
     # First the scene of this version, then the command file, where a legacy target runs the *-legacy.txt copy of a *-modern.txt file.
     $shotList = if ($legacy) { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
+    $lines = Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ })
+    # The legacy files use the commands of 1.8.9; 1.12.2 names an entity type by its id and has no achievement command.
+    if ($target -eq "forge-1.12.2") {
+        $lines = $lines | Where-Object { $_ -notmatch "^run achievement " } | ForEach-Object {
+            [regex]::Replace(($_ -creplace "type=!Player\b", "type=!player"), "^(run summon )([A-Z]\w*)",
+                { param($m) $m.Groups[1].Value + "minecraft:" + $m.Groups[2].Value.ToLowerInvariant() })
+        }
+    }
     # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
-    Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
-        Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
+    $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } | Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"
