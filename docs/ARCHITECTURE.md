@@ -36,7 +36,7 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
 | Custom sky | 1.21.11 and 26.x `SkyRenderer`; 1.21.1 `LevelRenderer.renderSky` | `RenderGlobal.renderSky` (`LegacySkyPatch`) |
-| Clouds | `CloudRenderer.prepare` | - |
+| Hidden clouds | `Options.getCloudsType`, 26.x `getCloudStatus` | the clouds texture |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
 - The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
@@ -59,6 +59,7 @@ Traps:
 - Downloaded skins do not count toward the memory budget, and a failed upload does not reload resources, because a reload cannot load them again.
 - A repaint of the block atlas takes about 20 ms, which is too slow for each frame. Moving Chroma colors use a GPU pass (see Animated Chroma).
 - A sky edit does not repaint textures (`Policy.sameTextures`).
+- Do not read the policy in a resource reload listener, for example `CloudRenderer.prepare`. A settings change does not reload resources, so the game shows the change only after the next reload.
 - On 1.8.9, `rebuildChunks` uses `markBlockRangeForRenderUpdate`, not `loadRenderers`: with Patcher, Essential or OptiFine L5, chunks can stay empty after `loadRenderers`.
 
 ## Animated Chroma
