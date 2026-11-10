@@ -5,16 +5,6 @@ architectury {
     fabric()
 }
 
-configurations {
-    common { canBeResolved = true; canBeConsumed = false }
-    compileClasspath.extendsFrom common
-    runtimeClasspath.extendsFrom common
-    developmentFabric.extendsFrom common
-    shadowBundle { canBeResolved = true; canBeConsumed = false }
-}
-
-def commonNode = ":common:${stonecutter.current.project}"
-
 repositories {
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }
 }
@@ -23,26 +13,17 @@ dependencies {
     add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
     // Optional: only the "Configure" button in Mod Menu uses it; the mod runs without Mod Menu.
     add(project.unobfuscated ? 'compileOnly' : 'modCompileOnly', "com.terraformersmc:modmenu:$project.modmenu_version") { transitive = false }
-    common(commonNamed(commonNode)) { transitive false }
-    shadowBundle project(path: commonNode, configuration: 'transformProductionFabric')
 }
 
 processResources {
     def props = [
-            mod_id               : rootProject.mod_id,
-            mod_name             : rootProject.mod_name,
-            version              : project.version,
-            minecraft_range      : project.minecraft_range_fabric,
-            java_version         : project.java_version,
-            fabric_loader_version: rootProject.fabric_loader_version,
+            mod_id           : rootProject.mod_id,
+            mod_name         : rootProject.mod_name,
+            version          : project.version,
+            minecraft_range  : project.minecraft_range_fabric,
+            java_version     : project.java_version,
+            fabric_loader_min: rootProject.fabric_loader_min,
     ]
     inputs.properties props
     filesMatching('fabric.mod.json') { expand props }
-}
-
-jar { archiveClassifier = 'raw' }
-
-shadowJar {
-    configurations = [project.configurations.shadowBundle]
-    mergeServiceFiles()
 }

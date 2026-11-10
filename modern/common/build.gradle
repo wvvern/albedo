@@ -1,7 +1,8 @@
 apply from: rootProject.file('gradle/shared.gradle')
 
 architectury {
-    common rootProject.enabled_platforms.split(',')
+    // The loaders that have a jar for this Minecraft version.
+    common(['fabric', 'forge', 'neoforge'].findAll { rootProject.findProject(":${it}:${stonecutter.current.project}") != null })
 }
 
 dependencies {
