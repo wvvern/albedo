@@ -3,7 +3,7 @@
 Builds the release jar of each target and copies the jars to build/libs in the repository root.
 
 .DESCRIPTION
-The modern nodes come from the three lists in modern/settings.gradle.
+The modern nodes come from the three lists in modern/settings.gradle, and the legacy versions from the list in legacy/settings.gradle.kts.
 Each node has its own Gradle run with --configure-on-demand, because Loom mixes the mappings of the nodes when one run configures all of them.
 The script stops at the first build that fails.
 
@@ -50,8 +50,12 @@ foreach ($node in $loaderNodes.fabric) {
     }
 }
 
-Write-Host "[1.8.9] forge"
-Invoke-Gradle $legacy @("build")
-Copy-Item (Join-Path $legacy "versions\1.8.9\build\libs\albedo-forge-$modVersion+1.8.9.jar") $libs
+$legacyVersions = @([regex]::Match((Get-Content -Raw (Join-Path $legacy "settings.gradle.kts")), 'listOf\(([^)]*)\)').Groups[1].Value -split "," |
+    ForEach-Object { $_.Trim().Trim('"') })
+foreach ($mc in $legacyVersions) {
+    Write-Host "[$mc] forge"
+    Invoke-Gradle $legacy @("--configure-on-demand", ":${mc}:build")
+    Copy-Item (Join-Path $legacy "versions\$mc\build\libs\albedo-forge-$modVersion+$mc.jar") $libs
+}
 
 Get-ChildItem $libs -Filter albedo-*.jar | ForEach-Object { Write-Host $_.Name }

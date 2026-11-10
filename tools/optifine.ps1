@@ -32,6 +32,7 @@ Variants (OptiFine settings, see Set-Variant):
 .EXAMPLE
 ./tools/optifine.ps1                                   # all variants
 ./tools/optifine.ps1 -Variants none,quake -OutDir build\compat-optifine
+./tools/optifine.ps1 -Variants default -OptionLines useVbo:true  # with VBOs on
 ./tools/optifine.ps1 -Variants quake -DumpClasses   # the transformed classes go to legacy\build\optifine\game\CLASSLOADER_TEMP
 ./tools/optifine.ps1 -Variants none -Mods C:\temp\player-mods -Shots repaint-legacy.txt -OutDir build\repaint-mods
 #>
@@ -44,7 +45,9 @@ param(
     # Optional. A Forge 1.8.9 universal jar to use in place of the installed one (some mods need 11.15.1.2318).
     [string]$Forge = "",
     [switch]$DumpClasses,
-    [int]$TimeoutSeconds = 600
+    [int]$TimeoutSeconds = 600,
+    # More options.txt lines for each variant, for example useVbo:true. Not $Options: PowerShell names are not case-sensitive.
+    [string[]]$OptionLines = @()
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -110,7 +113,7 @@ function Set-Lines([string]$file, [hashtable]$wanted) {
 function Set-Variant([string]$variant) {
     New-Item -ItemType Directory -Force (Join-Path $game "mods") | Out-Null
     Get-ChildItem (Join-Path $game "mods") -Filter *.jar | Remove-Item -Force
-    $jar = Get-ChildItem (Join-Path $legacy "versions\1.8.9\build\libs") -Filter "albedo-forge-*.jar" | Select-Object -First 1
+    $jar = Get-ChildItem (Join-Path $legacy "versions\1.8.9\build\libs") -Filter "albedo-forge-*.jar" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if (-not $jar) { throw "Run ./gradlew build in legacy/ first." }
     Copy-Item $jar.FullName (Join-Path $game "mods")
     if ($variant -ne "none") {
@@ -130,6 +133,7 @@ function Set-Variant([string]$variant) {
         if ($variant -eq "quake-ao") { $options.ao = "2" }
         if ($variant -eq "quake-fancy") { $options.fancyGraphics = "true" }
     }
+    foreach ($line in $OptionLines) { $key, $value = $line -split ":", 2; $options[$key] = $value }
     Set-Lines (Join-Path $game "options.txt") $options
     if ($ofOptions.Count -gt 0) { Set-Lines (Join-Path $game "optionsof.txt") $ofOptions }
     Remove-Item -Force (Join-Path $game "config\albedo\config.json") -ErrorAction SilentlyContinue
@@ -150,6 +154,8 @@ foreach ($variant in $Variants) {
     }
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
+    # Images that the commands load, for example the test skin of skins.txt.
+    Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Variant $variant
     Get-Content (Join-Path $PSScriptRoot "harness\scene-legacy.txt"), (Join-Path $PSScriptRoot "harness\$Shots") |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
