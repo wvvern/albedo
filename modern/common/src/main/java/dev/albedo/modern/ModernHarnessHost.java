@@ -100,6 +100,11 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public boolean timeChroma(int frames) {
+        return ChromaAtlases.time(frames);
+    }
+
+    @Override
     public void closeScreen() {
         ModernPlatform.setScreen(null);
     }
@@ -215,13 +220,13 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, File png, Harness.SkyDone done) {
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, File png, Harness.SkyDone done) {
         //? if >=26.1 {
-        return SharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        return SharpSky.drawEquirect(sky, block, width, height, repeat, png, done);
         //?} elif >=1.21.11 {
-        /*return PrecompiledSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, png, done);
         *///?} else {
-        /*return GlSharpSky.drawEquirect(sky, time, width, height, repeat, png, done);
+        /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, png, done);
         *///?}
     }
 }

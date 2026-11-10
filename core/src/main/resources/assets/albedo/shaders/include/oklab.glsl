@@ -1,0 +1,43 @@
+#ifndef ALBEDO_OKLAB_GLSL
+#define ALBEDO_OKLAB_GLSL
+
+// The sRGB and OKLab color math of sky.Oklab and texture.Recolor in the core, which the sky and the Chroma pass share.
+
+float albedoCbrt(float x) {
+    return sign(x) * pow(abs(x), 1.0 / 3.0);
+}
+
+// One sRGB channel from 0 to 1 in linear light.
+float albedoSrgbToLinear(float c) {
+    return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+// One linear channel from 0 to 1 in sRGB from 0 to 1.
+float albedoLinearToSrgb(float c) {
+    return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+}
+
+// OKLab of a linear sRGB color.
+vec3 albedoLinearToLab(vec3 c) {
+    float l = albedoCbrt(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b);
+    float m = albedoCbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
+    float s = albedoCbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
+    return vec3(0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s);
+}
+
+// The linear sRGB color of an OKLab color, which can be out of gamut.
+vec3 albedoLabToLinear(vec3 lab) {
+    float l = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    float m = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    float s = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    l = l * l * l;
+    m = m * m * m;
+    s = s * s * s;
+    return vec3(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s);
+}
+
+#endif

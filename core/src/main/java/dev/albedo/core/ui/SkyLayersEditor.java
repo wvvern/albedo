@@ -152,13 +152,12 @@ final class SkyLayersEditor {
     // ---------------------------------------------------------------- preview
 
     /**
-     * The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask; a layer page keeps
-     * the sky still, so that the place of the layer shows against the compass.
+     * The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask, where the design keeps
+     * its turning, so that a layer page shares the bake of the list and shows the trails.
      */
     private SkyDesign previewDesign(SkyDesign full, int index) {
-        if (page.screen != Screen.LAYER) return full;
-        SkyDesign design = full.withTurning(SkyTurning.STILL);
-        if (page.source == PreviewSource.RESULT || index < 0) return design;
+        SkyDesign design = full;
+        if (page.screen != Screen.LAYER || page.source == PreviewSource.RESULT || index < 0) return design;
         SkyLayer layer = design.layers().get(index).withOutput(SkyLayer.Output.SHOW).withMask(SkyMask.NONE).withOpacity(100)
                 .withBlend(SkyLayer.Blend.NORMAL);
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
@@ -212,7 +211,8 @@ final class SkyLayersEditor {
 
     /** Makes {@link #shown} from a new image, and again a short time later while the sky turns, so that the preview turns too. */
     private void showImage(SkyImage img, SkyDesign drawn) {
-        boolean turned = drawn.turning().turns();
+        // A layer page shows the sky still, so that the place of the layer shows against the compass.
+        boolean turned = page.screen != Screen.LAYER && drawn.turning().turns();
         double now = SkyClock.longSeconds();
         if (shownFrom == img.serial() && shownTurned == turned && (!turned || Math.abs(now - shownAt) < TURN_STEP_S)) return;
         int rows = SkyPreviewGeometry.rows(drawn, img.height());

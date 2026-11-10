@@ -30,6 +30,21 @@ public final class ModernHooks {
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
+    /** The start of a frame, before it draws anything. */
+    public static void frameStart() {
+        ChromaAtlases.frameStart();
+    }
+
+    /** The end of a frame, after it drew the world and the screens. */
+    public static void frameEnd() {
+        ChromaAtlases.frameEnd();
+    }
+
+    /** Whether an item icon of a screen must draw again in each frame, as an animated item does, because Chroma colors move. */
+    public static boolean itemIconMoves() {
+        return ChromaAtlases.moving();
+    }
+
     /**
      * Atlas sprites, before mipmaps are generated.
      *

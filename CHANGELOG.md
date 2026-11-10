@@ -2,9 +2,13 @@
 
 ## 0.4.2
 
+- feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
+- feat: Set Chroma with the Speed, Vivid and Bright sliders in the Effects section, with Bevel and Outline on top
+- feat: Give the pastel profile soft Chroma colors that move slowly
 - feat: Turn the custom sky slowly by default, at 1x in real time
 - fix: Make the pulse of the Nebula clouds easy to see, and let a high Pulse value be strong
 - fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on
+- config: Read the keys chroma, chromaSpeed, chromaSaturation and chromaBrightness of the config file again
 
 ## 0.4.1
 

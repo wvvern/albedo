@@ -12,6 +12,8 @@ public final class SkyMeteors {
     static final int CHANNELS = 3;
     /** The slots before the current one that can still have a meteor in the sky, because the longest one lasts less than 2 s. */
     static final int SLOTS_BACK = 2;
+    /** The slots in one period of {@link SkyClock}, after which the hashes repeat, so that the meteors go on across the wrap of the time. */
+    static final int PERIOD_SLOTS = (int) (SkyClock.PERIOD_MS / 1000 / SLOT);
     /** The part of its life after which the trail of a meteor is gone; the head goes out at 1. */
     static final float TRAIL_END = 1.15f;
     /** The part of the meteors that are fireballs: brighter, longer and slower to go out. */
@@ -20,7 +22,7 @@ public final class SkyMeteors {
     /** The sine of the lowest and the highest elevation at which a meteor starts. */
     private static final float LOW = (float) Math.sin(Math.toRadians(20)), HIGH = (float) Math.sin(Math.toRadians(75));
 
-    /** One meteor in sky directions. */
+    /** One meteor in world directions, which are the sky directions of a sky that does not turn. */
     static final class Meteor {
         float birth;
         /** The seconds that the head moves. */
@@ -99,14 +101,14 @@ public final class SkyMeteors {
     }
 
     private static float unit(int slot, int channel, int value, int seed) {
-        return Noise.unit(Noise.hash(slot, channel, value, seed));
+        return Noise.unit(Noise.hash(Math.floorMod(slot, PERIOD_SLOTS), channel, value, seed));
     }
 
     /**
      * The first time after {@code from} at which a meteor of the first shown meteors layer is at its brightest above
      * {@code minElevation} degrees, with the direction of its head.
      *
-     * @return {time, x, y, z} in sky directions, or null when the program has no meteors in the next ten minutes
+     * @return {time, x, y, z} in world directions, or null when the program has no meteors in the next ten minutes
      */
     public static float[] nextPeak(SkyProgram program, float from, float minElevation) {
         int layer = -1;

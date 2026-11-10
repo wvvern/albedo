@@ -57,9 +57,27 @@ Traps:
 - A resource reload replaces sprites and textures. Each upload first finds the current object. If it is not the object that the hook saw, the upload returns false and the store forgets the texture.
 - `TextureStore` keeps textures by name, because some textures share a key (OptiFine connected textures).
 - Downloaded skins do not count toward the memory budget, and a failed upload does not reload resources, because a reload cannot load them again.
-- A look gives still textures only. A repaint of the block atlas takes about 20 ms, which is too slow for each frame.
+- A repaint of the block atlas takes about 20 ms, which is too slow for each frame. Moving Chroma colors use a GPU pass (see Animated Chroma).
 - A sky edit does not repaint textures (`Policy.sameTextures`).
 - On 1.8.9, `rebuildChunks` uses `markBlockRangeForRenderUpdate`, not `loadRenderers`: with Patcher, Essential or OptiFine L5, chunks can stay empty after `loadRenderers`.
+
+## Animated Chroma
+
+Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the fixed pipeline of 1.8.9), but all renderers sample the atlas. Thus a GPU pass changes the colors of the atlas texture itself in each frame.
+
+- The CPU paints a sprite with moving Chroma colors without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites that the store keeps get this. All other textures get still Chroma colors at the time 0, and the Effects section tells when only some textures of a category move (`TextureStore.stillChroma`).
+- `texture/ChromaTexels` gives each texel one RGBA8 texel: speed in alpha, hue in red and green, OKLab chroma in blue. `ChromaTexels.Atlas` places them in the atlas and makes the mip levels.
+- The adapter (`ChromaAtlases` with `ChromaPass` on 26.x, `PrecompiledChromaPass` on 1.21.11, `GlChromaPass` on 1.21.1, `LegacyChroma` on 1.8.9) hooks the start and the end of each frame. At the start it copies each mip level into a pristine copy and draws the hue of the frame over it (`chroma.fsh`, `chroma_classic.fsh`, `include/chroma.glsl`). At the end it copies the pristine copy back. A texel with speed 0 is discarded.
+- The turn of each speed comes from `Chroma.turns` with `SkyClock.longSeconds()` in double precision, so each frame has its own colors.
+
+Traps:
+
+- Between frames the atlas has the painted colors, so the game and Albedo always write into them. A repaint or a reload in the middle of a frame first copies the pristine copy back (`restore`). If the end of the last frame did not run, the start first gives back the painted colors, so the hue never goes into the pristine copy.
+- The texels are made again only when a texture with moving colors changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture). A change of only the speed changes only the texels.
+- 1.21.11 and later draw each item icon once into an item atlas. While colors move, each item icon counts as animated (`ItemIconMixin`).
+- 1.8.9 with OptiFine Multitexture on draws blocks from a texture of each sprite, so the pass stops and the sprites get still colors.
+- On 26.x the pipeline compiles on the render thread from the inlined text. On 1.21.11 never cast a GPU texture. On 1.21.1 and 1.8.9 the pass puts back each GL state that it changes. The memory is two times the atlas with its mip levels (42.6 MiB for the 2048 x 2048 block atlas).
+- If the shader does not compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`. The core paints still Chroma colors again.
 
 ## Custom sky
 
@@ -69,7 +87,10 @@ Invariants:
 
 - The CPU bake and the GPU shader must give the same sky. They use the same integer hashes and noise. Java copies of the shader parts (`SkyStars`, `SkyMeteors`, `Aurora`) must change together with the GLSL. The harness command `skycompare` draws the shader sky into an image and logs `DIFFERENT` when its mean OKLab distance from the bake is at or above `Harness.COMPARE_LIMIT`. Run it after each sky change.
 - `SkyGeneratorTest.thePresetsKeepTheirPixels` keeps a hash of the bake of each preset. If a change of the pixels is intentional, update the hashes in the same commit. Else, find the change.
-- One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` use the time 0 (`SkyProgram.STILL`). Meteors draw only in the shader.
+- One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` use the time 0 (`SkyProgram.STILL`). Meteors draw only in the shader. The meteor hashes use the slot modulo 3600, so a meteor in flight goes on across the wrap.
+- The aurora has its own clock (`Aurora.clock`): `longSeconds()` times 2 times its speed, in double precision on the CPU, with a wrap at `Aurora.PERIOD` (7200 s). Each aurora wave and the ray noise repeat a whole number of times in this period.
+- For each frame of a sky that moves or turns, the adapter writes the block from `SkyProgram.at` (time, aurora clocks and the turn in `SkyWorld`). A still sky that does not turn keeps `SkyProgram.block`, so `skycompare` and the bake agree.
+- The meteors and the aurora are in the air, so the shader turns them into the world (`albedoInWorld`) and they do not turn with the sky. The bake does not know the turn, so the baked texture turns its aurora with the sky.
 - A design has a maximum of `SkyProgram.MAX_TERMS` term filters (blur, bloom, pixelate, crystallize, swirl). A design with more draws from the baked image.
 - A change of only the render mode or the turning does not bake again (`SkyDesign.baked`), except the star trails, which the bake draws.
 
@@ -117,6 +138,7 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 - Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A `*-modern.txt` file has a `*-legacy.txt` copy for 1.8.9, which the script takes.
 - Key harness commands: `sky <preset> [layers]`, `skycompare`, `skytime` (GPU time of the sharp sky), `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
+- Chroma harness commands (`tools/harness/chroma-modern.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
 - `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 - After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
 

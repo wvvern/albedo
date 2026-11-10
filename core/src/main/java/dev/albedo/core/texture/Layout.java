@@ -110,9 +110,10 @@ public final class Layout {
     /**
      * Gives the image the looks from {@link #looks}, where each tile changes from its original pixels.
      *
+     * @param gpuHue whether a GPU pass adds the hue of moving Chroma colors in each frame, which only a texture without tiles can have
      * @return true if the image was changed
      */
-    public boolean paint(List<Appearance> looks, PixelBuffer img) {
+    public boolean paint(List<Appearance> looks, PixelBuffer img, boolean gpuHue) {
         boolean sheetChanges = !looks.get(0).isOriginal();
         // A tile keeps its original pixels when neither the texture look nor its own look changes them.
         PixelBuffer.Heap[] parts = new PixelBuffer.Heap[tiles.size()];
@@ -120,20 +121,35 @@ public final class Layout {
             if (sheetChanges || !looks.get(i + 1).isOriginal()) parts[i] = copy(img, tiles.get(i));
         }
         // A sheet with tiles gets its edge effects on each tile, not around the whole sheet.
-        boolean changed = look(looks.get(0), img, key, tiles.isEmpty() && !connected);
+        boolean changed = look(looks.get(0), img, key, edges(), gpuHue && tiles.isEmpty());
         for (int i = 0; i < parts.length; i++) {
             if (parts[i] == null) continue;
-            boolean tileChanged = look(looks.get(i + 1), parts[i], tiles.get(i).key, true);
+            boolean tileChanged = look(looks.get(i + 1), parts[i], tiles.get(i).key, true, false);
             if (changed || tileChanged) paste(parts[i], img, tiles.get(i));
             changed |= tileChanged;
         }
         return changed;
     }
 
+    /**
+     * Puts the {@link ChromaTexels} of one frame of {@code w} by {@code h} pixels into {@code out}, for a texture that
+     * {@link #paint} painted with {@code gpuHue}.
+     *
+     * @return false when the colors of the texture do not move, which leaves {@code out} as it is
+     */
+    boolean chromaTexels(List<Appearance> looks, int w, int h, int[] out) {
+        return tiles.isEmpty() && Effects.texels(looks.get(0), key.id(), edges() && key.category().hasEdgeEffects(), w, h, out);
+    }
+
+    /** Whether the texture itself is block tiles that can get edge effects, which a sheet with tiles and a connected texture are not. */
+    private boolean edges() {
+        return tiles.isEmpty() && !connected;
+    }
+
     /** The style of a look and then its effects, where only block and fluid tiles get edge effects. */
-    private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges) {
+    private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges, boolean gpuHue) {
         boolean changed = PixelTransformer.apply(a, img);
-        return Effects.apply(a, img, edges && key.category().hasEdgeEffects()) || changed;
+        return Effects.apply(a, img, key.id(), edges && key.category().hasEdgeEffects(), gpuHue) || changed;
     }
 
     /** The original average color for each of the {@link #catalogKeys}. */

@@ -1,6 +1,8 @@
 #ifndef ALBEDO_SKY_LAYERS_GLSL
 #define ALBEDO_SKY_LAYERS_GLSL
 
+#include <albedo:oklab.glsl>
+
 // The custom sky for each pixel, a port of dev.albedo.core.sky.SkyGenerator that reads the block of SkyProgram.
 
 #define ALBEDO_MAX_LAYERS 8
@@ -37,12 +39,15 @@
 #ifdef ALBEDO_PLAIN_UNIFORMS
 // The values of the uniform block below, for the GL programs that set them as three arrays.
 uniform vec4 SkyHeader;
+uniform vec4 SkyWorld[3];
 uniform vec4 SkyLayers[ALBEDO_MAX_LAYERS * ALBEDO_LAYER_VEC4S];
 uniform vec4 SkyRing[ALBEDO_RING];
 #else
 layout(std140) uniform AlbedoSky {
     // The layer count, the extent (1 for the full sphere), the term count and the time in seconds (negative for a still sky).
     vec4 SkyHeader;
+    // The rows of the turn from sky directions to world directions, so that the second row is the world zenith in sky directions.
+    vec4 SkyWorld[3];
     vec4 SkyLayers[ALBEDO_MAX_LAYERS * ALBEDO_LAYER_VEC4S];
     // The linear horizon color of each azimuth sector, from north toward east.
     vec4 SkyRing[ALBEDO_RING];
@@ -74,6 +79,11 @@ uint albedoHash(ivec3 p, int seed) {
     h *= 0xC2B2AE35u;
     h ^= h >> 16u;
     return h;
+}
+
+// Math.floorMod: the cell i of a row that repeats after n cells, with remainders of numbers that are not negative only.
+int albedoRepeat(int i, int n) {
+    return i < 0 ? n - 1 - (-1 - i) % n : i % n;
 }
 
 // Noise.unit: a hash as a float from 0 to 1.
@@ -152,36 +162,9 @@ float albedoSmooth(float a, float b, float t) {
     return x * x * (3.0 - 2.0 * x);
 }
 
-float albedoCbrt(float x) {
-    return sign(x) * pow(abs(x), 1.0 / 3.0);
-}
-
+// The OKLab lightness of a linear color.
 float albedoLightness(vec3 c) {
-    float l = albedoCbrt(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b);
-    float m = albedoCbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
-    float s = albedoCbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
-    return 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
-}
-
-vec3 albedoLinearToLab(vec3 c) {
-    float l = albedoCbrt(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b);
-    float m = albedoCbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
-    float s = albedoCbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
-    return vec3(0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s);
-}
-
-vec3 albedoLabToLinear(vec3 lab) {
-    float l = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
-    float m = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
-    float s = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
-    l = l * l * l;
-    m = m * m * m;
-    s = s * s * s;
-    return vec3(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s);
+    return albedoLinearToLab(c).x;
 }
 
 vec4 albedoLayer(int layer, int slot) {
@@ -483,7 +466,9 @@ vec4 albedoStars(int layer, vec3 p, float footprint) {
     float density = m * m, spikes = values.w * 2.0;
     // The stars twinkle at the time of the header, and at time 0 in a still sky, as in the bake.
     float twinkle = albedoLayer(layer, 4).w, time = max(SkyHeader.w, 0.0);
-    vec3 up = vec3(albedoLayer(layer, 7).y, albedoLayer(layer, 8).y, albedoLayer(layer, 9).y);
+    // The world zenith in the layer frame, because the stars twinkle most in the thick air near the world horizon.
+    vec3 zenith = SkyWorld[1].xyz;
+    vec3 up = vec3(dot(albedoLayer(layer, 7).xyz, zenith), dot(albedoLayer(layer, 8).xyz, zenith), dot(albedoLayer(layer, 9).xyz, zenith));
     // The trail axis in the free last floats of the matrix rows, and the trail arc in radians, 0 for no trails.
     vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w);
     // Only the bright stars twinkle, because the twinkle of a faint star is too small to see.
@@ -708,11 +693,13 @@ vec4 albedoGalaxy(int layer, vec3 p, float footprint) {
 const float ALBEDO_METEOR_SLOT = 1.0;
 #define ALBEDO_METEOR_CHANNELS 3
 #define ALBEDO_METEOR_SLOTS_BACK 2
+// The slots in one period of SkyClock, after which the hashes repeat, so that the meteors in the sky go on across the wrap of the time.
+#define ALBEDO_METEOR_PERIOD_SLOTS 3600
 // The part of its life after which the trail of a meteor is gone; the head goes out at 1.
 const float ALBEDO_METEOR_TRAIL_END = 1.15;
 
 float albedoMeteorUnit(int slot, int channel, int value, int seed) {
-    return albedoUnit(albedoHash(ivec3(slot, channel, value), seed));
+    return albedoUnit(albedoHash(ivec3(albedoRepeat(slot, ALBEDO_METEOR_PERIOD_SLOTS), channel, value), seed));
 }
 
 // A line across a width in radians, made wider by half a pixel and darker by the same ratio, so that a thin line stays crisp.
@@ -721,7 +708,7 @@ float albedoMeteorLine(float d, float width, float footprint) {
     return exp(-(d / w) * (d / w)) * width / w;
 }
 
-// The linear light of the meteor of a slot and a channel in the sky direction q, with a hot head and a trail that fades and cools.
+// The linear light of the meteor of a slot and a channel in the world direction q, with a hot head and a trail that fades and cools.
 vec3 albedoMeteor(int layer, int slot, int channel, vec3 q, float footprint) {
     int seed = int(albedoLayer(layer, 2).y) * 7 + 13;
     float amount = albedoLayer(layer, 1).z;
@@ -784,12 +771,9 @@ vec3 albedoMeteor(int layer, int slot, int channel, vec3 q, float footprint) {
     return light * albedoSmooth(0.0, 0.09, q.y);
 }
 
-// Shooting stars at the time of the header, with no meteors in a still sky; the light above 1 goes into the color.
-vec4 albedoMeteors(int layer, vec3 p, float footprint) {
-    if (SkyHeader.w < 0.0) return vec4(0.0);
-    // The meteors start and fall in the sky, so they work on the sky direction and use the layer frame only for the radiant.
-    vec3 q = p.x * albedoLayer(layer, 7).xyz + p.y * albedoLayer(layer, 8).xyz + p.z * albedoLayer(layer, 9).xyz;
-    if (q.y <= 0.0) return vec4(0.0);
+// Shooting stars in the world direction q at the time of the header, with no meteors in a still sky; the light above 1 goes into the color.
+vec4 albedoMeteors(int layer, vec3 q, float footprint) {
+    if (SkyHeader.w < 0.0 || q.y <= 0.0) return vec4(0.0);
     int now = int(floor(SkyHeader.w / ALBEDO_METEOR_SLOT));
     vec3 light = vec3(0.0);
     for (int slot = now - ALBEDO_METEOR_SLOTS_BACK; slot <= now; slot++) {
@@ -799,32 +783,42 @@ vec4 albedoMeteors(int layer, vec3 p, float footprint) {
     return a > 0.0 ? vec4(light / a, a) : vec4(0.0);
 }
 
-// Aurora.value: smooth value noise in two dimensions, from 0 to 1.
-float albedoValue(vec2 q, int seed) {
+// Aurora.value: smooth value noise in two dimensions from 0 to 1, which repeats after the cells of period, or never on an axis of 0.
+float albedoValue(vec2 q, ivec2 period, int seed) {
     vec2 i = floor(q);
-    ivec3 c = ivec3(int(i.x), int(i.y), 0);
+    int x0 = int(i.x), y0 = int(i.y);
+    int x1 = period.x > 0 ? albedoRepeat(x0 + 1, period.x) : x0 + 1, y1 = period.y > 0 ? albedoRepeat(y0 + 1, period.y) : y0 + 1;
+    if (period.x > 0) x0 = albedoRepeat(x0, period.x);
+    if (period.y > 0) y0 = albedoRepeat(y0, period.y);
     vec2 f = q - i;
     vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-    float a = albedoUnit(albedoHash(c, seed)), b = albedoUnit(albedoHash(c + ivec3(1, 0, 0), seed));
-    float d = albedoUnit(albedoHash(c + ivec3(0, 1, 0), seed)), e = albedoUnit(albedoHash(c + ivec3(1, 1, 0), seed));
+    float a = albedoUnit(albedoHash(ivec3(x0, y0, 0), seed)), b = albedoUnit(albedoHash(ivec3(x1, y0, 0), seed));
+    float d = albedoUnit(albedoHash(ivec3(x0, y1, 0), seed)), e = albedoUnit(albedoHash(ivec3(x1, y1, 0), seed));
     float top = albedoLerp(a, b, u.x);
     return albedoLerp(top, albedoLerp(d, e, u.x), u.y);
 }
 
 // Aurora.octave: one octave of rays, which goes to its mean 0.5 as a ray gets narrower than about three pixels.
-float albedoRayOctave(vec2 q, int seed, float width) {
+float albedoRayOctave(vec2 q, ivec2 period, int seed, float width) {
     float k = 1.0 - albedoSmooth(0.18, 0.45, width);
-    return k <= 0.0 ? 0.5 : 0.5 + (albedoValue(q, seed) - 0.5) * k;
+    return k <= 0.0 ? 0.5 : 0.5 + (albedoValue(q, period, seed) - 0.5) * k;
 }
 
-// The numbers of Aurora: the earth radius, the altitude of the lower edge, the drift of the rays and the reach of a sheet to each side, in km.
+// The numbers of Aurora: the earth radius, the altitude of the lower edge, the drift of the rays, the loop of a fold, the reach of a
+// sheet to each side, the fade at the end of a curtain and the glow under the lower edge.
 const float ALBEDO_AURORA_EARTH = 6371.0;
 const float ALBEDO_AURORA_BASE = 100.0;
 const float ALBEDO_AURORA_DRIFT = 0.6;
 const float ALBEDO_AURORA_LOOP = 0.5;
 const float ALBEDO_AURORA_THICK = 14.0;
-#define ALBEDO_AURORA_STEPS 14
-#define ALBEDO_AURORA_CROSSINGS 4
+const float ALBEDO_AURORA_TAPER = 0.06;
+const float ALBEDO_AURORA_SKIRT = 4.0;
+#define ALBEDO_AURORA_STEPS 10
+// Aurora.PERIOD: the aurora clock goes back to 0 after these seconds, in which each wave turns and each ray and noise row moves on
+// a whole number of times, so that the wrap has no jump; the drift of the rays in it is ALBEDO_AURORA_DRIFT * PERIOD = 4320 km.
+const float ALBEDO_AURORA_PERIOD = 7200.0;
+// The angle in radians for each second of a wave that turns once in a period.
+const float ALBEDO_AURORA_TURN = 6.2831853 / ALBEDO_AURORA_PERIOD;
 
 // The distance in km of the nearest place of the near (0) and of the far (1) ribbon.
 float albedoRibbonDistance(int c) {
@@ -836,22 +830,32 @@ float albedoRibbonAngle(int c, float theta) {
     return clamp(theta - (c == 0 ? 0.45 : -0.35), -1.5, 1.5);
 }
 
-// One fold wave of Aurora.Ribbon.offset: adds its azimuth to x, and to d the slope of the azimuth and the loop toward the viewer and its slope.
-float albedoFoldWave(int i, int c, float k, float amp, float rate, float theta, float t, int seed, inout vec3 d) {
-    float arg = k * theta + 6.2831853 * albedoUnit(albedoHash(ivec3(i, c, 0), seed + 601)) + rate * t;
+// One fold wave of Aurora.Ribbon.offset with its phase: adds its azimuth to x, and to d the slope of the azimuth and the loop toward
+// the viewer and its slope.
+float albedoFoldWave(int c, float k, float amp, float rate, float phase, float theta, float t, inout vec3 d) {
+    float arg = k * theta + phase + rate * t;
     float s = sin(arg), co = cos(arg);
     float loop = ALBEDO_AURORA_LOOP * albedoRibbonDistance(c) * amp;
     d += vec3(amp * k * co, -loop * co, loop * k * s);
     return amp * s;
 }
 
+// Aurora.Ribbon.phases: the phases of the three fold waves of ribbon c in xyz, and of its two waves toward the viewer and of the two waves
+// of its lower edge in the second vector, which the search finds once for each ribbon.
+vec3 albedoRibbonPhases(int c, int seed, out vec4 waves) {
+    waves = 6.2831853 * vec4(albedoUnit(albedoHash(ivec3(0, c, 1), seed + 602)), albedoUnit(albedoHash(ivec3(1, c, 1), seed + 602)),
+            albedoUnit(albedoHash(ivec3(0, c, 2), seed + 603)), albedoUnit(albedoHash(ivec3(1, c, 2), seed + 603)));
+    return 6.2831853 * vec3(albedoUnit(albedoHash(ivec3(0, c, 0), seed + 601)), albedoUnit(albedoHash(ivec3(1, c, 0), seed + 601)),
+            albedoUnit(albedoHash(ivec3(2, c, 0), seed + 601)));
+}
+
 // Aurora.Ribbon.offset: the azimuth of ribbon c at theta minus the azimuth a of the view, with the slopes and the loop in d.
-float albedoRibbonOffset(int c, float theta, float a, float t, float scale, int seed, out vec3 d) {
+float albedoRibbonOffset(int c, float theta, float a, float t, float scale, vec3 phase, out vec3 d) {
     float f = albedoRibbonDistance(c) / albedoRibbonDistance(0);
     d = vec3(1.0, 0.0, 0.0);
-    float phi = theta + albedoFoldWave(0, c, 8.0 * f / scale, 0.08 * scale / f, 0.02, theta, t, seed, d);
-    phi += albedoFoldWave(1, c, 21.0 * f / scale, 0.04 * scale / f, -0.05, theta, t, seed, d);
-    phi += albedoFoldWave(2, c, 43.0 * f / scale, 0.019 * scale / f, 0.11, theta, t, seed, d);
+    float phi = theta + albedoFoldWave(c, 8.0 * f / scale, 0.08 * scale / f, 23.0 * ALBEDO_AURORA_TURN, phase.x, theta, t, d);
+    phi += albedoFoldWave(c, 21.0 * f / scale, 0.04 * scale / f, -57.0 * ALBEDO_AURORA_TURN, phase.y, theta, t, d);
+    phi += albedoFoldWave(c, 43.0 * f / scale, 0.019 * scale / f, 126.0 * ALBEDO_AURORA_TURN, phase.z, theta, t, d);
     return phi - a;
 }
 
@@ -869,162 +873,193 @@ float albedoTriangleBelow(float x) {
     return y < 0.0 ? 0.5 * (1.0 + y) * (1.0 + y) : 1.0 - 0.5 * (1.0 - y) * (1.0 - y);
 }
 
-// Puts a group of pieces at index i of the kept groups of a ribbon, with its place theta and its light k.
-void albedoCrossing(int i, float theta, float k, inout vec4 thetas, inout vec4 ks) {
-    if (i == 0) {
-        thetas.x = theta;
-        ks.x = k;
-    } else if (i == 1) {
-        thetas.y = theta;
-        ks.y = k;
-    } else if (i == 2) {
-        thetas.z = theta;
-        ks.z = k;
-    } else if (i == 3) {
-        thetas.w = theta;
-        ks.w = k;
-    }
-}
-
 // Aurora.moment: the first moment of the part of a triangle of width 2 around 0 that lies left of x.
 float albedoTriangleMoment(float x) {
     float y = clamp(x, -1.0, 1.0);
     return y < 0.0 ? y * y * (0.5 + y / 3.0) - 1.0 / 6.0 : y * y * (0.5 - y / 3.0) - 1.0 / 6.0;
 }
 
-// Aurora.Ribbon.flush: keeps the group of pieces in place of the faintest kept group when all places are taken by brighter ones.
-void albedoAuroraFlush(inout vec4 group, inout int found, inout vec4 thetas, inout vec4 ks) {
-    if (group.x > 0.0) {
-        int slot = found;
-        if (found == ALBEDO_AURORA_CROSSINGS) {
-            slot = 0;
-            for (int i = 1; i < ALBEDO_AURORA_CROSSINGS; i++) {
-                if (ks[i] < ks[slot]) slot = i;
-            }
-            if (ks[slot] >= group.x) slot = -1;
-        } else {
-            found++;
-        }
-        if (slot >= 0) albedoCrossing(slot, group.w > 0.0 ? group.z : group.y / group.x, group.x, thetas, ks);
-    }
-    group = vec4(0.0);
-}
-
-// Aurora.Ribbon.piece: adds the light of one straight piece of a ribbon from ta to tb, with the azimuths ga and gb from the view and the
-// speeds sa and sb, to the group of pieces (its light, its light times the place of its light, where the view crosses it and 1 when it does).
-void albedoAuroraPiece(float ta, float ga, float sa, float tb, float gb, float sb, float w, inout vec4 group, inout bool rising,
-        inout int found, inout vec4 thetas, inout vec4 ks) {
-    bool through = (ga <= 0.0) != (gb <= 0.0);
-    float xa = ga / w, xb = gb / w, dx = xb - xa, k = 0.0, mid = 0.5;
-    if (min(abs(xa), abs(xb)) < 1.0 || through) {
-        // The light along the view is the length of the piece near it, so a piece seen edge-on is brighter.
-        float part = albedoTriangleBelow(xb) - albedoTriangleBelow(xa);
-        k = abs(dx) < 1e-3 ? max(0.0, 1.0 - abs(xa)) : part / dx;
-        k *= abs(tb - ta) / w * 0.5 * (sa + sb);
-        // The middle of the light of the piece, which moves smoothly with the view.
-        if (abs(dx) >= 1e-3 && part != 0.0) {
-            mid = clamp((albedoTriangleMoment(xb) - albedoTriangleMoment(xa) - xa * part) / (dx * part), 0.0, 1.0);
-        }
-    }
-    // A group ends where the piece gets farther from the view and the next one nearer, or where a piece has no light.
-    if (k <= 0.0 || rising && (through || abs(gb) < abs(ga))) albedoAuroraFlush(group, found, thetas, ks);
-    rising = through || abs(gb) > abs(ga);
-    if (k <= 0.0) return;
-    group.x += k;
-    group.y += k * (ta + (tb - ta) * mid);
-    if (through) group.zw = vec2(ta + (tb - ta) * ga / (ga - gb), 1.0);
-}
-
-// Aurora.Ribbon.add: the groups of pieces of ribbon c near the view, found in steps over the azimuths of the folds, and their count.
-int albedoCrossings(int c, float wide, float a, float t, float scale, int seed, out vec4 thetas, out vec4 ks) {
-    thetas = vec4(0.0);
-    ks = vec4(0.0);
-    float w = max(3.0 * wide, ALBEDO_AURORA_THICK / albedoRibbonDistance(c));
-    float reach = 0.139 * scale / (albedoRibbonDistance(c) / albedoRibbonDistance(0)) * 1.02 + w;
-    float step = 2.0 * reach / float(ALBEDO_AURORA_STEPS);
+// Aurora.Ribbon.rise: the km of the view at elevation el above the lower edge of ribbon c at theta, with the azimuth th of
+// albedoRibbonAngle and the place along of the rays there, where the second vector of pixels gets the km of one pixel up the sheet and
+// the km of the rays in one pixel.
+float albedoAuroraRise(int c, float theta, float th, float along, float el, float wide, float footprint, float a, float t, float scale,
+        vec3 phase, vec4 waves, out vec2 pixels) {
     vec3 d;
-    float ta = a - reach, ga = albedoRibbonOffset(c, ta, a, t, scale, seed, d), da = d.x, sa = albedoRibbonSpeed(c, ta, d);
-    int found = 0;
-    vec4 group = vec4(0.0);
-    bool rising = false;
+    albedoRibbonOffset(c, theta, a, t, scale, phase, d);
+    float dist = albedoRibbonDistance(c), f = dist / albedoRibbonDistance(0), co = cos(th);
+    // The distance of a straight east-west line, moved toward and away from the viewer by the folds and by slow waves.
+    float r = dist / co + d.y + 30.0 * sin(5.0 * f / scale * theta + waves.x - 17.0 * ALBEDO_AURORA_TURN * t)
+            + 10.0 * sin(17.0 * f / scale * theta + waves.y + 46.0 * ALBEDO_AURORA_TURN * t);
+    // The altitude of the view above the ground at the distance of the sheet, with the curve of the earth.
+    float tilt = min(el + r / (2.0 * ALBEDO_AURORA_EARTH), 1.45), cosT = cos(tilt);
+    // The km of the rays in one pixel, which is more where the view runs along the sheet, as near the tip of a fold.
+    pixels = vec2(footprint * r / (cosT * cosT), wide * dist / (co * co * max(abs(d.x), 0.02)) / scale);
+    float sd = along + ALBEDO_AURORA_DRIFT * t;
+    // The lower edge is nearly level, with gentle waves of about 23 and 9 km, as its kinks come from the folds.
+    float edge = 1.3 * sin(sd * (30.0 * ALBEDO_AURORA_TURN / ALBEDO_AURORA_DRIFT) + waves.z + 23.0 * ALBEDO_AURORA_TURN * t)
+            + 0.8 * sin(sd * (76.0 * ALBEDO_AURORA_TURN / ALBEDO_AURORA_DRIFT) + waves.w - 57.0 * ALBEDO_AURORA_TURN * t);
+    return r * tan(tilt) - ALBEDO_AURORA_BASE - edge;
+}
+
+// Aurora.Ribbon.strength: how bright ribbon c is at the azimuth th of albedoRibbonAngle with the place along of the rays: parts of the
+// ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
+float albedoAuroraStrength(int c, float th, float along, float t, int seed) {
+    float part = albedoValue(vec2(along / 320.0, t * (29.0 / ALBEDO_AURORA_PERIOD)), ivec2(0, 29), seed + 31 + c)
+            + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);
+    return albedoSmooth(0.3 + 0.15 * float(c), 0.6 + 0.15 * float(c), part)
+            * (0.4 + 0.9 * albedoValue(vec2(along / 70.0, t * (72.0 / ALBEDO_AURORA_PERIOD)), ivec2(0, 72), seed + 33 + c));
+}
+
+// Aurora.Ribbon.aim: the light of the straight piece from p to q (each a place, an azimuth from the view and a speed) for a sheet whose
+// light reaches w radians to each side, and the place where the piece is seen.
+vec2 albedoAuroraAim(vec3 p, vec3 q, float w) {
+    float xa = p.y / w, xb = q.y / w, dx = xb - xa;
+    if (min(abs(xa), abs(xb)) >= 1.0 && (xa < 0.0) == (xb < 0.0)) return vec2(0.0);
+    // The light along the view is the length of the piece near it, so a piece seen edge-on is brighter.
+    float part = albedoTriangleBelow(xb) - albedoTriangleBelow(xa), mid = 0.5;
+    float k = (abs(dx) < 1e-3 ? max(0.0, 1.0 - abs(xa)) : part / dx) * abs(q.x - p.x) / w * 0.5 * (p.z + q.z);
+    if (k <= 0.0) return vec2(0.0);
+    // The middle of the light of the piece, which moves smoothly with the view.
+    if (abs(dx) >= 1e-3 && part != 0.0) {
+        mid = clamp((albedoTriangleMoment(xb) - albedoTriangleMoment(xa) - xa * part) / (dx * part), 0.0, 1.0);
+    }
+    // The piece is seen where its line meets the view, so that the pieces around one crossing show one sharp sheet,
+    // and a piece that runs along the view is seen where its light is.
+    float xm = xa + dx * mid;
+    // A piece that does not cross the view gives light only from the width of its sheet, which fades out faster as it gets
+    // farther, so that the side of a part that runs along the view does not look like a straight cut.
+    return vec2(k * (1.0 - albedoSmooth(0.0, 1.0, max(0.0, max(min(xa, xb), -max(xa, xb))))),
+            p.x + (q.x - p.x) * (mid - xm * dx / (dx * dx + 0.25)));
+}
+
+// Aurora.Ribbon.sheet: the light of a piece of ribbon c seen at theta with the light k: of its band at the lower edge, of its rays and of
+// their red tops.
+vec3 albedoAuroraSheet(int c, float theta, float k, float el, float wide, float footprint, float a, float t, float scale, float height,
+        int seed, vec3 phase, vec4 waves) {
+    float th = albedoRibbonAngle(c, theta), along = albedoRibbonDistance(c) * tan(th) / scale;
+    float lit = k * albedoAuroraStrength(c, th, along, t, seed);
+    if (lit <= 0.0) return vec3(0.0);
+    vec2 pixels;
+    float h = albedoAuroraRise(c, theta, th, along, el, wide, footprint, a, t, scale, phase, waves, pixels);
+    if (h < -6.0 * ALBEDO_AURORA_SKIRT) return vec3(0.0);
+    // A faint glow around the lower edge that also reaches under it, so that the sky under a curtain does not look like a dark hill.
+    float glow = lit * 0.1 * exp(-abs(h) / ALBEDO_AURORA_SKIRT);
+    float f = albedoRibbonDistance(c) / albedoRibbonDistance(0);
+    float soft = max(0.3 * f, 0.7 * pixels.x), below = albedoSmooth(-2.0 * soft, soft, h);
+    if (below <= 0.0) return vec3(glow, 0.0, 0.0);
+    below *= lit;
+    float up = max(h, 0.0), sd = along + ALBEDO_AURORA_DRIFT * t, pixelAlong = pixels.y;
+    // Each octave repeats after the drift of one period along the ribbon and after its rows of one period.
+    float r0 = albedoRayOctave(vec2(sd / 40.0, t * (216.0 / ALBEDO_AURORA_PERIOD)), ivec2(108, 216), seed + 21 + c, pixelAlong / 40.0);
+    float r1 = albedoRayOctave(vec2(sd / 3.0, t * (720.0 / ALBEDO_AURORA_PERIOD)), ivec2(1440, 720), seed + 22 + c, pixelAlong / 3.0);
+    float r2 = albedoRayOctave(vec2(sd / 1.08, t * (1800.0 / ALBEDO_AURORA_PERIOD)), ivec2(4000, 1800), seed + 23 + c, pixelAlong / 1.08);
+    float r3 = albedoRayOctave(vec2(sd / 0.5, t * (4320.0 / ALBEDO_AURORA_PERIOD)), ivec2(8640, 4320), seed + 24 + c, pixelAlong / 0.5);
+    float tall = albedoRayOctave(vec2(sd / 2.0 + 31.7, t * (864.0 / ALBEDO_AURORA_PERIOD)), ivec2(2160, 864), seed + 25 + c, pixelAlong / 2.0);
+    // Wide bundles of thin rays with dark sky between them, whose edges are never harder than about one pixel.
+    float bundle = 0.35 + 0.65 * albedoSmooth(0.2, 0.8, r0);
+    float hard = clamp(pixelAlong / 0.5 * 0.5, 0.05, 0.3);
+    float rays = bundle * albedoSmooth(0.55 - hard, 0.55 + hard, 0.3 * r1 + 0.38 * r2 + 0.32 * r3);
+    // Each ray fades up over its own height, and the far ribbon is shorter, so that it is a low arc.
+    float rise = up / (height * (0.07 + 0.45 * tall * tall) / (f * f));
+    // The brightest light is a thin band at the lower edge, and above it the rays dissolve into the open sky.
+    return vec3(glow + below * (0.15 + 0.4 * bundle + 0.8 * rays) * exp(-up / 3.5), below * 1.1 * rays * exp(-rise * (0.5 + 0.5 * rise)),
+            below * 0.25 * rays * tall * exp(-(rise - 1.3) * (rise - 1.3) * 2.0));
+}
+
+// Aurora.Ribbon.add: the light of COLOR_1 and COLOR_2 of ribbon c, from straight pieces between the steps of a search over the azimuths
+// of the folds, where the light of each part of the ribbon between two tips fades toward the end of its curtain.
+vec2 albedoRibbonLight(int c, float el, float wide, float footprint, float a, float t, float scale, float height, int seed) {
+    float f = albedoRibbonDistance(c) / albedoRibbonDistance(0);
+    float w = max(3.0 * wide, ALBEDO_AURORA_THICK / albedoRibbonDistance(c)), taper = ALBEDO_AURORA_TAPER / f;
+    // The search also reaches past the fade of each tip, so that a tip comes into the search with no light to change.
+    float reach = 0.139 * scale / f * 1.02 + max(w, taper);
+    float step = 2.0 * reach / float(ALBEDO_AURORA_STEPS);
+    // The start of the search, the tips in their order along the ribbon and the end of the search, with their places and azimuths from
+    // the view, and the light of each part of the ribbon between two of them: of its band at the lower edge, of its rays and of their red tops.
+    vec2 tips[ALBEDO_AURORA_STEPS + 2];
+    float folds[ALBEDO_AURORA_STEPS + 2];
+    vec3 parts[ALBEDO_AURORA_STEPS + 1];
+    vec3 d;
+    vec4 waves;
+    vec3 phase = albedoRibbonPhases(c, seed, waves);
+    float ta = a - reach, ga = albedoRibbonOffset(c, ta, a, t, scale, phase, d), da = d.x, sa = albedoRibbonSpeed(c, ta, d);
+    tips[0] = vec2(ta, ga);
+    parts[0] = vec3(0.0);
+    int last = 0;
     for (int i = 1; i <= ALBEDO_AURORA_STEPS; i++) {
-        float tb = a - reach + float(i) * step, gb = albedoRibbonOffset(c, tb, a, t, scale, seed, d), db = d.x;
+        float tb = a - reach + float(i) * step, gb = albedoRibbonOffset(c, tb, a, t, scale, phase, d), db = d.x;
         float sb = albedoRibbonSpeed(c, tb, d);
-        if ((da < 0.0) != (db < 0.0)) {
+        bool tip = (da < 0.0) != (db < 0.0);
+        vec3 m = vec3(tb, gb, sb);
+        if (tip) {
             // The tip of a fold is in this step, which gets a corner there, found in two steps toward the zero of the slope.
             float tm = ta + step * da / (da - db);
-            albedoRibbonOffset(c, tm, a, t, scale, seed, d);
+            albedoRibbonOffset(c, tm, a, t, scale, phase, d);
             float dm = d.x;
             tm = (da < 0.0) != (dm < 0.0) ? ta + (tm - ta) * da / (da - dm) : tm + (tb - tm) * dm / (dm - db);
-            float gm = albedoRibbonOffset(c, tm, a, t, scale, seed, d), sm = albedoRibbonSpeed(c, tm, d);
-            albedoAuroraPiece(ta, ga, sa, tm, gm, sm, w, group, rising, found, thetas, ks);
-            albedoAuroraPiece(tm, gm, sm, tb, gb, sb, w, group, rising, found, thetas, ks);
-        } else {
-            albedoAuroraPiece(ta, ga, sa, tb, gb, sb, w, group, rising, found, thetas, ks);
+            m.xy = vec2(tm, albedoRibbonOffset(c, tm, a, t, scale, phase, d));
+            m.z = albedoRibbonSpeed(c, tm, d);
+        }
+        // One call for the piece up to the tip or the step, and one for the piece after the tip, so that the shader has one copy of it.
+        for (int k = 0; k < 2; k++) {
+            if (k == 1 && !tip) break;
+            vec2 aim = k == 0 ? albedoAuroraAim(vec3(ta, ga, sa), m, w) : albedoAuroraAim(m, vec3(tb, gb, sb), w);
+            if (aim.x > 0.0) parts[last] += albedoAuroraSheet(c, aim.y, aim.x, el, wide, footprint, a, t, scale, height, seed, phase, waves);
+            if (k == 0 && tip) {
+                last++;
+                tips[last] = m.xy;
+                parts[last] = vec3(0.0);
+            }
         }
         ta = tb;
         ga = gb;
         da = db;
         sa = sb;
     }
-    albedoAuroraFlush(group, found, thetas, ks);
-    return found;
-}
-
-// Aurora.Ribbon.sheet: the light of COLOR_1 and COLOR_2 of the sheet of ribbon c where the view crosses it at theta, times k.
-vec2 albedoSheet(int c, float theta, float k, float el, float wide, float footprint, float a, float t, float scale, float height,
-        int seed) {
-    vec3 d;
-    albedoRibbonOffset(c, theta, a, t, scale, seed, d);
-    float dist = albedoRibbonDistance(c), f = dist / albedoRibbonDistance(0);
-    float th = albedoRibbonAngle(c, theta);
-    float co = cos(th), ta = tan(th);
-    float r = dist / co + d.y, dr = dist * ta / co + d.z;
-    for (int i = 0; i < 2; i++) {
-        float kk = (i == 0 ? 5.0 : 17.0) * f / scale;
-        float arg = kk * theta + 6.2831853 * albedoUnit(albedoHash(ivec3(i, c, 1), seed + 602)) + (i == 0 ? -0.015 : 0.04) * t;
-        float amp = i == 0 ? 30.0 : 10.0;
-        r += amp * sin(arg);
-        dr += amp * kk * cos(arg);
+    last++;
+    tips[last] = vec2(ta, ga);
+    // Aurora.Ribbon.folds: how much the curtain ends at each tip, from how far the ribbon turns back there before it comes past the tip
+    // again, so that a small kink of the ribbon stays bright and a small kink near a large fold does not change it.
+    for (int i = 1; i < ALBEDO_AURORA_STEPS + 1; i++) {
+        if (i >= last) break;
+        // The ribbon comes to a tip from a smaller azimuth when the tip is a largest azimuth.
+        float turn = tips[i].y > tips[i - 1].y ? 1.0 : -1.0, peak = turn * tips[i].y, pass = -1e30;
+        for (int dir = -1; dir <= 1; dir += 2) {
+            float low = peak;
+            for (int s = 1; s <= ALBEDO_AURORA_STEPS + 1; s++) {
+                int k = i + dir * s;
+                float v = turn * tips[k].y;
+                low = min(low, v);
+                if (v > peak || k == 0 || k == last) break;
+            }
+            pass = max(pass, low);
+        }
+        folds[i] = albedoSmooth(0.0, taper, peak - pass);
     }
-    // The sine of the angle between the view and the sheet, which makes the rays narrower in the sky.
-    float across = abs(r * d.x);
-    float obl = across / sqrt(dr * dr + across * across);
-    float tilt = min(el + r / (2.0 * ALBEDO_AURORA_EARTH), 1.45);
-    float alt = r * tan(tilt);
-    float cosT = cos(tilt);
-    float pixelUp = footprint * r / (cosT * cosT), pixelAlong = wide * r / max(obl, 0.02) / scale;
-    float s = dist * ta / scale, sd = s + ALBEDO_AURORA_DRIFT * t;
-    // The lower edge is nearly level, with gentle waves, as its kinks come from the folds.
-    float h = alt - ALBEDO_AURORA_BASE - 2.0 * albedoNoise(vec3(sd / 40.0, t * 0.02, 0.5), seed + 11 + c)
-            - 0.7 * (1.0 - albedoSmooth(0.15, 0.4, pixelAlong / 12.0)) * albedoNoise(vec3(sd / 12.0, t * 0.05, 2.5), seed + 13 + c);
-    if (h < -4.0) return vec2(0.0);
-    float r0 = albedoRayOctave(vec2(sd / 40.0, t * 0.03), seed + 21 + c, pixelAlong / 40.0);
-    float r1 = albedoRayOctave(vec2(sd / 3.0, t * 0.1), seed + 22 + c, pixelAlong / 3.0);
-    float r2 = albedoRayOctave(vec2(sd / 1.1, t * 0.25), seed + 23 + c, pixelAlong / 1.1);
-    float r3 = albedoRayOctave(vec2(sd / 0.5, t * 0.6), seed + 24 + c, pixelAlong / 0.5);
-    float tall = albedoRayOctave(vec2(sd / 2.0 + 31.7, t * 0.12), seed + 25 + c, pixelAlong / 2.0);
-    // Wide bundles of thin rays with dark sky between them, whose edges are never harder than about one pixel.
-    float bundle = 0.35 + 0.65 * albedoSmooth(0.2, 0.8, r0);
-    float hard = clamp(pixelAlong / 0.5 * 0.5, 0.05, 0.3);
-    float rays = bundle * albedoSmooth(0.55 - hard, 0.55 + hard, 0.3 * r1 + 0.38 * r2 + 0.32 * r3);
-    // Each ray fades up over its own height, and the far ribbon is shorter, so that it is a low arc.
-    float top = height * (0.07 + 0.45 * tall * tall) / (f * f);
-    float soft = max(0.3 * f, 0.7 * pixelUp);
-    float below = albedoSmooth(-2.0 * soft, soft, h), up = max(h, 0.0);
-    // The brightest light is a thin band at the lower edge, and above it the rays dissolve into the open sky.
-    float base = (0.15 + 0.4 * bundle + 0.8 * rays) * exp(-up / 3.5);
-    float rise = up / top;
-    float green = below * (base + 1.1 * rays * exp(-rise * (0.5 + 0.5 * rise)));
-    float red = below * 0.25 * rays * tall * exp(-(rise - 1.3) * (rise - 1.3) * 2.0);
-    // Parts of the ribbon are bright, faint or gaps of open sky, with wider gaps in the far ribbon and none at the center.
-    float lit = albedoValue(vec2(s / 320.0, t * 0.004), seed + 31 + c) + (c == 0 ? 0.35 * exp(-th * th / 0.25) : 0.0);
-    float strength = albedoSmooth(0.3 + 0.15 * float(c), 0.6 + 0.15 * float(c), lit)
-            * (0.4 + 0.9 * albedoValue(vec2(s / 70.0, t * 0.01), seed + 33 + c));
-    return k * (c == 0 ? 1.0 : 0.2) * strength * vec2(green, red);
+    // Aurora.Ribbon.end: each part keeps less light near the ends of its curtain, which ends at the first large fold to each side, and
+    // toward the end the rays fade more than the band, so that they look shorter.
+    vec2 light = vec2(0.0);
+    for (int b = 0; b < ALBEDO_AURORA_STEPS + 1; b++) {
+        if (b >= last) break;
+        if (parts[b].x + parts[b].y <= 0.0) continue;
+        float keep = 1.0;
+        for (int dir = -1; dir <= 1; dir += 2) {
+            float pass = 1.0;
+            for (int s = 0; s <= ALBEDO_AURORA_STEPS; s++) {
+                int i = (dir > 0 ? b + 1 : b) + dir * s;
+                if (i <= 0 || i >= last) break;
+                // The azimuth from the view to the tip, which is less than 0 when the view is past the tip.
+                float g = tips[i].y, inside = g * sign(g - tips[i - dir].y);
+                keep *= 1.0 - pass * folds[i] * (1.0 - albedoSmooth(0.0, taper, inside));
+                pass *= 1.0 - folds[i];
+            }
+        }
+        light += (c == 0 ? 1.0 : 0.2) * keep * vec2(parts[b].x + keep * parts[b].y, keep * parts[b].z);
+    }
+    return light;
 }
 
-// Aurora.sample: a near and a far folded ribbon toward the layer center, which move with the header time and stay at time 0 when still.
+// Aurora.sample: a near and a far folded ribbon toward the layer center in the world, which move with the aurora clock of the layer.
 vec4 albedoAurora(int layer, vec3 p, float footprint) {
     float el = asin(clamp(p.y, -1.0, 1.0));
     float cosEl = sqrt(max(0.0, 1.0 - p.y * p.y));
@@ -1035,20 +1070,16 @@ vec4 albedoAurora(int layer, vec3 p, float footprint) {
     vec4 values = albedoLayer(layer, 1);
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
-    float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;
+    // The aurora clock in the free float of the meteor length, which the CPU sets for each frame and which is 0 in a still sky.
+    float t = albedoLayer(layer, 5).w;
     float height = 40.0 + 220.0 * values.w;
     float wide = footprint / max(cosEl, 0.05);
-    // The search finds the groups first and then lights them in one loop, so that the shader has one copy of the sheet.
+    // One loop over the two ribbons, so that the shader has one copy of the search.
     vec2 light = vec2(0.0);
     for (int c = 0; c < 2; c++) {
         // The far ribbon with its short rays is never more than about 15 degrees high.
         if (c == 1 && el >= 0.3) break;
-        vec4 thetas, ks;
-        int found = albedoCrossings(c, wide, a, t, shape.x, seed, thetas, ks);
-        for (int i = 0; i < ALBEDO_AURORA_CROSSINGS; i++) {
-            if (i >= found) break;
-            light += albedoSheet(c, thetas[i], ks[i], el, wide, footprint, a, t, shape.x, height, seed);
-        }
+        light += albedoRibbonLight(c, el, wide, footprint, a, t, shape.x, height, seed);
     }
     // The thick air near the horizon dims the light, so that no bright edge lies along the horizon, and the light fades out before the search stops.
     vec3 e = (albedoLayer(layer, 3).rgb * shape.z * light.x + albedoLayer(layer, 4).rgb * shape.w * light.y)
@@ -1061,14 +1092,21 @@ vec4 albedoAurora(int layer, vec3 p, float footprint) {
     return vec4((e + hot) / alpha, alpha);
 }
 
-vec4 albedoGenerate(int layer, int kind, vec3 p, float footprint) {
+// The meteors and the aurora are in the air, so they stay in the world when the sky turns and work on world directions.
+bool albedoInWorld(int kind) {
+    return kind == ALBEDO_KIND_METEORS || kind == ALBEDO_KIND_AURORA;
+}
+
+// The color of a generator at p in the layer frame, where v is the direction that the layer frame turns: the world direction of a
+// layer in the air, else the sky direction.
+vec4 albedoGenerate(int layer, int kind, vec3 p, vec3 v, float footprint) {
     if (kind == ALBEDO_KIND_GRADIENT) return albedoGradient(layer, p);
     if (kind == ALBEDO_KIND_GLOW) return albedoGlow(layer, p);
     if (kind == ALBEDO_KIND_STARS) return albedoStars(layer, p, footprint);
     if (kind == ALBEDO_KIND_NOISE) return albedoClouds(layer, p);
     if (kind == ALBEDO_KIND_FRACTAL) return albedoFractal(layer, p);
     if (kind == ALBEDO_KIND_GALAXY) return albedoGalaxy(layer, p, footprint);
-    if (kind == ALBEDO_KIND_METEORS) return albedoMeteors(layer, p, footprint);
+    if (kind == ALBEDO_KIND_METEORS) return albedoMeteors(layer, v, footprint);
     if (kind == ALBEDO_KIND_AURORA) return albedoAurora(layer, p, footprint);
     return vec4(0.0);
 }
@@ -1104,14 +1142,12 @@ vec3 albedoTerm(int slot, vec3 dir) {
 
 // One linear channel in sRGB from 0 to 255, as Oklab.toSrgb.
 float albedoToSrgb(float linear) {
-    float c = clamp(linear, 0.0, 1.0);
-    return (c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055) * 255.0;
+    return albedoLinearToSrgb(clamp(linear, 0.0, 1.0)) * 255.0;
 }
 
 // One sRGB channel from 0 to 255 in linear light, as Oklab.toLinear of a byte.
 float albedoByteToLinear(float channel) {
-    float c = channel / 255.0;
-    return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+    return albedoSrgbToLinear(channel / 255.0);
 }
 
 // Fewer color steps: from 2 to 16 for each channel, as AMOUNT sets.
@@ -1167,6 +1203,7 @@ vec3 albedoSky(vec3 dir, float footprint) {
         float maskDark[ALBEDO_MAX_LAYERS];
         // A bit for each layer that a higher layer uses as its mask, so that only those layers calculate their lightness.
         int sources = 0;
+        vec3 world = vec3(dot(SkyWorld[0].xyz, dir), dot(SkyWorld[1].xyz, dir), dot(SkyWorld[2].xyz, dir));
         for (int i = 0; i < ALBEDO_MAX_LAYERS; i++) {
             if (i >= count) break;
             int source = int(albedoLayer(i, 0).w);
@@ -1180,9 +1217,10 @@ vec3 albedoSky(vec3 dir, float footprint) {
             int use = int(head.z);
             if (use == ALBEDO_USE_NONE) continue;
             int kind = int(head.x);
-            vec3 p = vec3(dot(albedoLayer(i, 7).xyz, dir), dot(albedoLayer(i, 8).xyz, dir), dot(albedoLayer(i, 9).xyz, dir));
+            vec3 v = albedoInWorld(kind) ? world : dir;
+            vec3 p = vec3(dot(albedoLayer(i, 7).xyz, v), dot(albedoLayer(i, 8).xyz, v), dot(albedoLayer(i, 9).xyz, v));
             bool isFilter = kind >= ALBEDO_KIND_BLOOM && kind <= ALBEDO_KIND_VIGNETTE;
-            vec4 s = isFilter ?albedoFilter(i, kind, img, dir, p) : albedoGenerate(i, kind, p, footprint);
+            vec4 s = isFilter ? albedoFilter(i, kind, img, dir, p) : albedoGenerate(i, kind, p, v, footprint);
             float a = clamp(s.a, 0.0, 1.0);
             if (((sources >> i) & 1) != 0) {
                 float lightness = clamp(albedoLightness(clamp(s.rgb, 0.0, 1.0)), 0.0, 1.0);

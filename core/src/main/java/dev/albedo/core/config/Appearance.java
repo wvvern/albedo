@@ -44,7 +44,7 @@ public final class Appearance {
     }
 
     /** The fields of a look, which a group sets for itself or takes from its category. */
-    public enum Field { MODE, COLOR, ALPHA, DETAIL, KEEP_COLORS, KEEP_LIGHT, BEVEL, OUTLINE }
+    public enum Field { MODE, COLOR, ALPHA, DETAIL, KEEP_COLORS, KEEP_LIGHT, BEVEL, OUTLINE, CHROMA }
 
     public static final int DEFAULT_DETAIL = 100, DEFAULT_KEEP_COLORS = 0, DEFAULT_KEEP_LIGHT = 0;
     public static final Appearance ORIGINAL = new Appearance(Mode.ORIGINAL, 0xFFFFFFFF, Alpha.KEEP);
@@ -55,6 +55,7 @@ public final class Appearance {
     private final int detail, keepColors, keepLight;
     /** Edge effect strengths in percent, where 0 is off. */
     private final int bevel, outline;
+    private final Chroma chroma;
 
     /** A look with the default recolor fields and no effects. */
     public Appearance(Mode mode, int color, Alpha alpha) {
@@ -67,14 +68,16 @@ public final class Appearance {
      * @param keepLight percent of the texture's own lightness that a recolor keeps instead of the color's lightness
      */
     public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight) {
-        this(mode, color, alpha, detail, keepColors, keepLight, 0, 0);
+        this(mode, color, alpha, detail, keepColors, keepLight, 0, 0, Chroma.OFF);
     }
 
     /**
      * @param bevel percent of the soft shade inside the edges of each block
      * @param outline percent of the line around each block
+     * @param chroma the rainbow color that each kind of texture gets
      */
-    public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight, int bevel, int outline) {
+    public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight,
+                      int bevel, int outline, Chroma chroma) {
         this.mode = mode;
         this.color = color;
         this.alpha = alpha;
@@ -83,6 +86,7 @@ public final class Appearance {
         this.keepLight = keepLight;
         this.bevel = bevel;
         this.outline = outline;
+        this.chroma = chroma;
     }
 
     public static Appearance solid(int argb) {
@@ -101,6 +105,7 @@ public final class Appearance {
     public int keepLight() { return keepLight; }
     public int bevel() { return bevel; }
     public int outline() { return outline; }
+    public Chroma chroma() { return chroma; }
 
     public boolean isOriginal() { return mode == Mode.ORIGINAL; }
 
@@ -108,7 +113,10 @@ public final class Appearance {
     public boolean changesPixels() { return mode != Mode.ORIGINAL && mode != Mode.HIDDEN && mode != Mode.LAYERS; }
 
     /** Whether an effect changes the texture: an effect is on and the style changes pixels. */
-    public boolean hasEffects() { return changesPixels() && (bevel > 0 || outline > 0); }
+    public boolean hasEffects() { return changesPixels() && (bevel > 0 || outline > 0 || chroma.isOn()); }
+
+    /** Whether the colors of this look go around over time. */
+    public boolean chromaMoves() { return changesPixels() && chroma.moves(); }
 
     /** This look with the given fields taken from {@code from}. */
     public Appearance with(Set<Field> fields, Appearance from) {
@@ -120,7 +128,8 @@ public final class Appearance {
                 fields.contains(Field.KEEP_COLORS) ? from.keepColors : keepColors,
                 fields.contains(Field.KEEP_LIGHT) ? from.keepLight : keepLight,
                 fields.contains(Field.BEVEL) ? from.bevel : bevel,
-                fields.contains(Field.OUTLINE) ? from.outline : outline);
+                fields.contains(Field.OUTLINE) ? from.outline : outline,
+                fields.contains(Field.CHROMA) ? from.chroma : chroma);
     }
 
     /** The fields in which this look differs from {@code other}. */
@@ -134,19 +143,20 @@ public final class Appearance {
         if (keepLight != other.keepLight) out.add(Field.KEEP_LIGHT);
         if (bevel != other.bevel) out.add(Field.BEVEL);
         if (outline != other.outline) out.add(Field.OUTLINE);
+        if (!chroma.equals(other.chroma)) out.add(Field.CHROMA);
         return out;
     }
 
-    public Appearance withMode(Mode m) { return new Appearance(m, color, alpha, detail, keepColors, keepLight, bevel, outline); }
-    public Appearance withColor(int c) { return new Appearance(mode, c, alpha, detail, keepColors, keepLight, bevel, outline); }
-    public Appearance withAlpha(Alpha a) { return new Appearance(mode, color, a, detail, keepColors, keepLight, bevel, outline); }
+    public Appearance withMode(Mode m) { return new Appearance(m, color, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
+    public Appearance withColor(int c) { return new Appearance(mode, c, alpha, detail, keepColors, keepLight, bevel, outline, chroma); }
+    public Appearance withAlpha(Alpha a) { return new Appearance(mode, color, a, detail, keepColors, keepLight, bevel, outline, chroma); }
 
     public Appearance withRecolor(int newDetail, int newKeepColors, int newKeepLight) {
-        return new Appearance(mode, color, alpha, newDetail, newKeepColors, newKeepLight, bevel, outline);
+        return new Appearance(mode, color, alpha, newDetail, newKeepColors, newKeepLight, bevel, outline, chroma);
     }
 
-    public Appearance withEffects(int newBevel, int newOutline) {
-        return new Appearance(mode, color, alpha, detail, keepColors, keepLight, newBevel, newOutline);
+    public Appearance withEffects(int newBevel, int newOutline, Chroma newChroma) {
+        return new Appearance(mode, color, alpha, detail, keepColors, keepLight, newBevel, newOutline, newChroma);
     }
 
     @Override
@@ -155,11 +165,11 @@ public final class Appearance {
         Appearance a = (Appearance) o;
         return mode == a.mode && color == a.color && alpha == a.alpha
                 && detail == a.detail && keepColors == a.keepColors && keepLight == a.keepLight
-                && bevel == a.bevel && outline == a.outline;
+                && bevel == a.bevel && outline == a.outline && chroma.equals(a.chroma);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mode, color, alpha, detail, keepColors, keepLight, bevel, outline);
+        return Objects.hash(mode, color, alpha, detail, keepColors, keepLight, bevel, outline, chroma);
     }
 }
