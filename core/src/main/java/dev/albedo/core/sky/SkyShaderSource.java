@@ -52,6 +52,8 @@ public final class SkyShaderSource {
     public static final String EQUIRECT = "core/sky_equirect_classic";
     /** The vertex and fragment shaders of the GPU pass of Chroma, which turns the colors of an atlas, for the classic GL programs. */
     public static final String CHROMA = "core/chroma_classic";
+    /** The fragment shader that copies one mip level of an atlas for the Chroma pass, with the vertex shader of {@link #CHROMA}. */
+    public static final String CHROMA_COPY = "core/chroma_copy_classic";
 
     /** The include with the sky layers, which gets the layer steps of the sky on top. */
     public static final String LAYERS_INCLUDE = Albedo.MOD_ID + ":sky_layers.glsl";

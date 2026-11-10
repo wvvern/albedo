@@ -91,6 +91,22 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
+    public void framePixels(Harness.FramePixels done) {
+        Minecraft mc = Minecraft.getMinecraft();
+        int w = mc.displayWidth, h = mc.displayHeight;
+        if (OpenGlHelper.isFramebufferEnabled()) mc.getFramebuffer().bindFramebuffer(true);
+        IntBuffer pixels = BufferUtils.createIntBuffer(w * h);
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+        GL11.glReadPixels(0, 0, w, h, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        int[] argb = new int[w * h];
+        // The GL rows go from the bottom up.
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) argb[y * w + x] = pixels.get((h - 1 - y) * w + x) | 0xFF000000;
+        }
+        done.accept(w, h, argb);
+    }
+
+    @Override
     public void setHudVisible(boolean visible) {
         Minecraft.getMinecraft().gameSettings.hideGUI = !visible;
     }

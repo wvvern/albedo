@@ -52,10 +52,27 @@ final class ChromaPass implements ChromaBackend {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build(), Runnable::run, "Chroma shader", "The Chroma colors stay still.");
 
+    /** The mip level that the copy pipeline reads. */
+    private static final BindGroupLayout COPY_LAYOUT = BindGroupLayout.builder()
+            .withUniform("AlbedoSource", UniformType.COMBINED_IMAGE_SAMPLER)
+            .build();
+
+    // A draw that copies one mip level, because the texture copy of NeoForge 26.3 copies only the level 0.
+    private static final SharpSky.Pipeline COPY = new SharpSky.Pipeline(RenderPipeline.builder()
+            .withBindGroupLayout(COPY_LAYOUT)
+            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma_copy"))
+            .withColorTargetState(ColorTargetState.DEFAULT)
+            .withCull(false)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .build(), Runnable::run, "Chroma copy shader", "The Chroma colors stay still.");
+
     @Override
     public Shader compile() {
-        if (PIPELINE.get() != null) return Shader.READY;
-        return PIPELINE.failed() ? Shader.FAILED : Shader.COMPILING;
+        CompiledRenderPipeline chroma = PIPELINE.get(), copy = COPY.get();
+        if (chroma != null && copy != null) return Shader.READY;
+        return PIPELINE.failed() || COPY.failed() ? Shader.FAILED : Shader.COMPILING;
     }
 
     @Override
@@ -101,7 +118,7 @@ final class ChromaPass implements ChromaBackend {
             int w = live.getWidth(0), h = live.getHeight(0);
             var device = RenderSystem.getDevice();
             pristine = device.createTexture(() -> "Albedo Chroma pristine", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_COPY_SRC
-                    | GpuTexture.USAGE_TEXTURE_BINDING, GpuFormat.RGBA8_UNORM, w, h, 1, levels);
+                    | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT, GpuFormat.RGBA8_UNORM, w, h, 1, levels);
             texels = device.createTexture(() -> "Albedo Chroma texels", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
                     GpuFormat.RGBA8_UNORM, w, h, 1, levels);
             liveViews = new GpuTextureView[levels];
@@ -145,8 +162,7 @@ final class ChromaPass implements ChromaBackend {
             encoder.writeToBuffer(turns.slice(), turnBytes);
             GpuSampler nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
             for (int level = 0; level < levels; level++) {
-                int w = live.getWidth(level), h = live.getHeight(level);
-                encoder.copyTextureToTexture(live, pristine, level, 0, 0, 0, 0, w, h);
+                copy(encoder, live, liveViews, pristine, pristineViews, level);
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma", liveViews[level], Optional.empty())) {
                     pass.setPipeline(pipeline);
                     pass.setUniform("AlbedoChroma", turns);
@@ -160,8 +176,25 @@ final class ChromaPass implements ChromaBackend {
         @Override
         public void restore() {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-            for (int level = 0; level < levels; level++) {
-                encoder.copyTextureToTexture(pristine, live, level, 0, 0, 0, 0, live.getWidth(level), live.getHeight(level));
+            for (int level = 0; level < levels; level++) copy(encoder, pristine, pristineViews, live, liveViews, level);
+        }
+
+        /**
+         * Copies one mip level into the same level of the other texture, with a draw for each level above 0, because the
+         * texture copy of NeoForge 26.3 copies only the level 0.
+         */
+        private static void copy(CommandEncoder encoder, GpuTexture from, GpuTextureView[] fromViews, GpuTexture to,
+                                 GpuTextureView[] toViews, int level) {
+            if (level == 0) {
+                encoder.copyTextureToTexture(from, to, 0, 0, 0, 0, 0, from.getWidth(0), from.getHeight(0));
+                return;
+            }
+            CompiledRenderPipeline pipeline = COPY.get();
+            if (pipeline == null) throw new IllegalStateException("the Chroma copy shader is not compiled");
+            try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma copy", toViews[level], Optional.empty())) {
+                pass.setPipeline(pipeline);
+                pass.setUniform("AlbedoSource", fromViews[level], RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+                pass.draw(3, 1, 0, 0);
             }
         }
 
