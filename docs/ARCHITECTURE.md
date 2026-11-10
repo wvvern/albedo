@@ -143,7 +143,9 @@ cd legacy && ./gradlew build                                                # 1.
 ```
 
 - A node is one folder in `modern/versions/`. `modern/settings.gradle` has three node lists: `nodes` (common and Fabric), `forgeNodes` and `neoforgeNodes`.
-- No node uses `modern/forge/build.gradle` or the `mods.toml` branch of `modern/neoforge/build.gradle` (NeoForge 1.20.4), so they have no build run. Examine them with the first node that uses them.
+- Forge nodes (1.20.1, 1.20.4) use `modern/forge/build.gradle`, and NeoForge 1.20.4 uses the `mods.toml` branch of `modern/neoforge/build.gradle`. The dev run of Forge 1.20.4 takes the common jar from the transformed copy only, because its bootstrap makes a module of each jar on the class path.
+- `modern/common/build.gradle` compiles the common code against the annotations of Mixin 0.8.5. Mixin 0.8.7 writes the `at` of a redirect as an array, and MixinExtras before 0.5 (NeoForge 1.20.6, Fabric Loader 0.15, Forge packs) cannot read that.
+- `ModernMixinPlugin` leaves out the sky mixins (`SkyLayers*`, `SkySunrise*`) when OptiFine is on the class path, because OptiFine changes the sky code and a required sky mixin that does not match would stop the game. The repaint mixins stay.
 - Build only one node in each Gradle run of `modern/`. `modern/gradle.properties` sets configure on demand, and the scripts also give `--configure-on-demand`. When one run configures all nodes, Loom can give a Forge node the mappings of a different node and write a bad jar to the shared cache. Loom does not repair it.
   - Symptoms: `cannot access Screen` in the compile, or `NoClassDefFoundError: gjp$a` in the dev game.
   - Repair: stop all Gradle processes. Delete `~/.gradle/caches/fabric-loom/<mc>/loom.mappings.*forge-<mc>-<forge>*`, `~/.gradle/caches/fabric-loom/<mc>/forge/<mc>-<forge>` and `~/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/forge-<mc>-<forge>-minecraft-merged*`. Then build that node alone.
@@ -167,10 +169,10 @@ A Stonecutter condition uses only the versions of this table. `tools/boundaries.
 | `1.19` | `OptionInstance`, `Component.literal`, `performPrefixedCommand`, `WorldOpenFlows` | `ModernHooks`, `FullbrightRedirectMixin`, `ShadowRedirectMixin` | javap, minor open |
 | `1.19.3` | `SpriteContents`, `SpriteLoader`, JOML in all signatures | `SpriteAccess` | javap, minor open |
 | `1.20` | `GuiGraphics` | none | javap, minor open |
-| `1.20.2` | `mouseScrolled` with 4 numbers, `Screen.render` draws the background | none | javap, minor open |
-| `1.20.3` | `renderSectionLayer` with a `PoseStack` | none | javap, minor open |
-| `1.20.5` | `renderSectionLayer` with two matrices, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and their `*RedirectMixin` classes | javap, minor open |
-| `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `GameRenderer.render(DeltaTracker, boolean)` | none | javap, minor open |
+| `1.20.2` | `mouseScrolled` with 4 numbers, `Screen.render` draws the background, `DefaultPlayerSkin.getDefaultTexture` | `SettingsScreen`, `TextureScreen`, `HarnessSkins` | javap, minor open |
+| `1.20.3` | `renderSectionLayer` with a `PoseStack`, `WorldOpenFlows.checkForBackupAndLoad`, `createFreshLevel` with a parent screen | `SkyAfterChunkLayerMixin`, `HarnessWorlds` | javap, minor open |
+| `1.20.5` | `renderSectionLayer` with two matrices, `WorldOpenFlows.openWorld`, `@Mod(dist)` and a `ModContainer` on NeoForge, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and their `*RedirectMixin` classes, `SkyAfterSolidMixin`, `HarnessWorlds`, `AlbedoNeoForge` | javap, minor open |
+| `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `GameRenderer.render(DeltaTracker, boolean)`, `Minecraft.getTimer` | `SkySunriseMixin`, `CanvasImages`, `HarnessSkins`, `ModernSky` | javap, minor open |
 | `1.21.2` | `SkyRenderer`, `LevelRenderer.addSkyPass`, `CloudRenderer`, `LevelRenderer.getCloudRenderer`, `NativeImage.getPixel` and `setPixel`, `Options.inactivityFpsLimit`, `Minecraft.getDeltaTracker`, static `FogRenderer.computeFogColor` (to 1.21.5), `GameRules(FeatureFlagSet)`, `blit` with a `RenderType` function, a second private `EntityRenderDispatcher.render` with an `EntityRenderer` that reads the shadow option | `SkyMixin`, `SkyLayersMixin`, `FogMixin`, `FogColorMixin`, `ShadowMixin`, `NativeImagePixels`, `ModernSky`, `GraphicsCanvas`, `ModernHarnessHost`, `HarnessWorlds` | javap, minor open |
 | `1.21.4` | `TextureContents.load`, `ReloadableTexture.doLoad(NativeImage, boolean, boolean)`, static `SkinTextureDownloader.downloadAndRegisterSkin`, no `SimpleTexture.doLoad`, no `HttpTexture` | `TextureLoadMixin`, `SkinTextureMixin`, `TextureManagerMixin`, `TextureUploadInvoker`, `ModernHooks`, `TextureUploads`, `HarnessSkins` | javap |
 | `1.21.5` | `GpuDevice`, `RenderPass`, `RenderPipeline`, no `VertexBuffer`, `uploadFirstFrame(GpuTexture)`, `Screenshot.takeScreenshot(RenderTarget, Consumer)`, `DryFoliageColor`, `DynamicTexture(Supplier<String>, NativeImage)` | `HarnessShots`, `CanvasImages` | javap |

@@ -53,3 +53,7 @@ dev/albedo/modern/mixin/ShadowMixin.class Only the line numbers change, because 
 dev/albedo/modern/mixin/SodiumTintMixin.class The file has a condition around it, and a new handler with require = 0 removes the tint in Sodium 0.6.13 on 1.21.4.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.
+dev/albedo/modern/mixin/AmbientOcclusionMixin.class The common code is compiled against the annotations of Mixin 0.8.5, which write the one "at" of a redirect as a value and not as an array, with the same meaning.
+dev/albedo/modern/mixin/SkySunriseMixin.class The sunrise fan redirect of SkyLayersMixin is a mixin of its own, so that a version without the redirect can leave it out.
+dev/albedo/modern/ModernMixinPlugin.class A new class leaves out the sky mixins when OptiFine is present.
+META-INF/neoforge.mods.toml The key displayTest is for NeoForge 1.20.4, and later NeoForge ignores it.
