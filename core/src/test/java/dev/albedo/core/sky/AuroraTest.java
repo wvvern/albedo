@@ -89,6 +89,39 @@ class AuroraTest {
     }
 
     @Test
+    void theLowerEdgeIsOneSmoothLineAcrossTheSky() {
+        SkyProgram b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA).withTransform(Transform.IDENTITY));
+        for (double time : new double[] {0, 40, 77}) {
+            int columns = 0;
+            double last = Double.NaN, worst = 0;
+            float[] l = new float[400];
+            for (double az = -60; az <= 60; az += 0.1) {
+                float best = 0;
+                for (int i = 0; i < l.length; i++) {
+                    l[i] = light(b, az, 1 + i * 0.1, 0.0015f, time);
+                    best = Math.max(best, l[i]);
+                }
+                // A faint column is the end of a curtain or a gap, where the next bright column can be of the other curtain.
+                if (best < 0.15f) {
+                    last = Double.NaN;
+                    continue;
+                }
+                int i = 0;
+                while (l[i] <= 0.5f * best) i++;
+                // The elevation in degrees where the light comes to half of the brightest light of the column.
+                double edge = 1 + i * 0.1 - 0.1 * (l[i] - 0.5f * best) / Math.max(1e-6f, l[i] - (i > 0 ? l[i - 1] : 0));
+                if (!Double.isNaN(last)) {
+                    columns++;
+                    worst = Math.max(worst, Math.abs(edge - last));
+                }
+                last = edge;
+            }
+            assertTrue(columns > 300 && worst < 0.2, "the largest step of the lower edge in 0.1 degrees of azimuth after " + time
+                    + " s is " + worst + " degrees in " + columns + " columns");
+        }
+    }
+
+    @Test
     void theShaderSearchesTheSameSteps() throws IOException {
         String glsl = SkyProgramTest.skyLayersSource();
         assertTrue(glsl.contains("#define ALBEDO_AURORA_STEPS " + Aurora.STEPS + "\n"));
