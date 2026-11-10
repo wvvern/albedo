@@ -93,4 +93,6 @@ wait 160
 skycompare
 wait 20
 screenshot frame-trails
+# The screenshot writes its file on a thread of its own, which must end before the game stops.
+wait 20
 quit
