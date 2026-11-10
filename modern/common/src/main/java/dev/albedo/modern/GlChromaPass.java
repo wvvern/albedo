@@ -104,7 +104,7 @@ final class GlChromaPass implements ChromaBackend {
                 widths[level] = Math.max(1, size[0] >> level);
                 heights[level] = Math.max(1, size[1] >> level);
             }
-            GlState saved = new GlState();
+            GlState saved = GlState.ofAll();
             pristine = texture();
             texels = texture();
             saved.restore();
@@ -133,7 +133,7 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void texels(int[][] levels) {
-            GlState saved = new GlState();
+            GlState saved = GlState.ofAll();
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             GlStateManager._bindTexture(texels);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
@@ -154,7 +154,7 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void recolor(float[] turns) {
-            GlState saved = new GlState();
+            GlState saved = GlState.ofAll();
             GlStateManager._disableBlend();
             GlStateManager._disableDepthTest();
             GlStateManager._disableScissorTest();
@@ -189,7 +189,7 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void restore() {
-            GlState saved = new GlState();
+            GlState saved = GlState.ofAll();
             GlStateManager._disableScissorTest();
             for (int level = 0; level < widths.length; level++) copy(pristine, live, level);
             saved.restore();

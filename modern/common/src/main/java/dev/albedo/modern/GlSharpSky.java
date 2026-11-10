@@ -112,7 +112,7 @@ final class GlSharpSky {
         ready = sharp != null && sharp.ready() && BLACK.ready() ? sharp : null;
         if (ready == null) return false;
         if (blockSerial != img.serial()) {
-            GlState saved = new GlState();
+            GlState saved = GlState.ofDraw();
             if (termTexture != 0) GlStateManager._deleteTexture(termTexture);
             termTexture = uploadTerms(img);
             blockSerial = img.serial();
@@ -124,7 +124,7 @@ final class GlSharpSky {
 
     // Adds the image of the last prepare on the sphere to a black frame, only where the depth is still the far depth of the clear; the matrices are in column order.
     static void draw(GlMesh sphere, float[] modelView, float[] projection, float brightness) {
-        GlState saved = new GlState();
+        GlState saved = GlState.ofDraw();
         ready.use(BLOCK, termTexture, brightness);
         ready.use(modelView, projection);
         GlStateManager._enableDepthTest();
@@ -139,7 +139,7 @@ final class GlSharpSky {
 
     // Draws black on the sphere at the far depth with no blend, so that only the pixels that still have the far depth of the clear become black.
     static void drawBlack(GlMesh sphere, float[] modelView, float[] projection) {
-        GlState saved = new GlState();
+        GlState saved = GlState.ofDraw();
         BLACK.use(modelView, projection);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
@@ -180,7 +180,7 @@ final class GlSharpSky {
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         Program equirect = EQUIRECT.get(sky.program().shaderSteps());
         if (!equirect.ready()) return false;
-        GlState saved = new GlState();
+        GlState saved = GlState.ofAll();
         int texture = uploadTerms(sky);
         GlMesh quad = new GlMesh(SkyImage.quad(view));
         int color = colorTexture(width, height);

@@ -58,7 +58,7 @@ public final class GlSky {
     // Sends a new image to the texture and makes the sphere once; the render thread calls this.
     private static void prepare(SkyImage img) {
         if (uploaded != img.serial()) {
-            GlState saved = new GlState();
+            GlState saved = GlState.ofDraw();
             if (texture == 0) texture = GlStateManager._genTexture();
             upload(img);
             uploaded = img.serial();
@@ -110,7 +110,7 @@ public final class GlSky {
             return true;
         }
         if (!BAKED.ready()) return false;
-        GlState saved = new GlState();
+        GlState saved = GlState.ofDraw();
         GlStateManager._glUseProgram(BAKED.id());
         GL20.glUniformMatrix4fv(BAKED.modelView, false, modelView);
         GL20.glUniformMatrix4fv(BAKED.projection, false, projection);

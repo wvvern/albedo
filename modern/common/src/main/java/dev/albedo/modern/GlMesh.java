@@ -17,7 +17,7 @@ final class GlMesh {
     // Sends vertices of five floats each (x, y, z, u, v) to the GPU.
     GlMesh(float[] vertices) {
         count = vertices.length / FLOATS;
-        GlState saved = new GlState();
+        GlState saved = GlState.ofAll();
         GlStateManager._glBindVertexArray(vertexArray);
         GlStateManager._glBindBuffer(GL15.GL_ARRAY_BUFFER, buffer);
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, vertices, GL15.GL_STATIC_DRAW);
