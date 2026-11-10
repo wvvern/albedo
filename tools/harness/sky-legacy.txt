@@ -5,7 +5,6 @@ profile minimal
 run time set 6000
 wait 40
 sky dusk
-skyturn 0
 wait 120
 # Yaw 90 looks west (the Dusk glow), yaw -45 looks south-east (the galaxy), pitch -75 looks up.
 run tp @p ~ ~ ~ 90 -8
@@ -15,7 +14,6 @@ run tp @p ~ ~ ~ 90 -75
 wait 40
 screenshot sky-02-dusk-up
 sky nebula
-skyturn 0
 wait 160
 run tp @p ~ ~ ~ 180 -8
 wait 40
@@ -24,7 +22,6 @@ run tp @p ~ ~ ~ 180 -75
 wait 40
 screenshot sky-04-nebula-up
 sky galaxy
-skyturn 0
 wait 160
 run tp @p ~ ~ ~ -45 -8
 wait 40
@@ -34,7 +31,6 @@ wait 40
 screenshot sky-06-galaxy-up
 run tp @p ~ ~ ~ 180 12
 sky nebula
-skyturn 0
 wait 160
 settings open
 wait 20

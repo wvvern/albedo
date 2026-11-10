@@ -1,11 +1,10 @@
-# The same shots as sky-aurora-modern.txt for 1.8.9, where the sky shader is an LWJGL 2 GL program. Run it after scene-legacy.txt:
-# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-aurora-modern.txt -OutDir build\sky-aurora (the script takes this file for forge)
+# The Aurora preset toward the north at a field of view of 70 and 30, with shots seconds apart that show the move, the GPU sky compared with the CPU bake at time 0, the GPU time of the sharp sky, and the baked sky. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets neoforge-1.21.1,neoforge-1.21.11,forge-1.8.9 -Shots sky-aurora.txt -OutDir build\sky-aurora
 wait 60
 profile minimal
 run time set 18000
 wait 40
 sky aurora
-skyturn 0
 wait 160
 # Yaw 180 looks north, pitch -12 looks a little up.
 fov 70

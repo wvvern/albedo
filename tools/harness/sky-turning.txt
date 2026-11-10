@@ -1,6 +1,6 @@
 # The turning sky: Nebula and Galaxy compared with the CPU bake, Galaxy turned with the world time and with the real time,
-# sharp and fast, and the Motion section of the sky editor. Run it after scene-modern.txt:
-# ./tools/screenshots.ps1 -Targets neoforge-1.21.11,fabric-1.21.1 -Shots sky-turning-modern.txt -OutDir build\sky-turning
+# sharp and fast, and the Motion section of the sky editor. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets neoforge-1.21.11,fabric-1.21.1,forge-1.8.9 -Shots sky-turning.txt -OutDir build\sky-turning
 wait 60
 profile minimal
 run time set 18000
@@ -8,12 +8,10 @@ wait 40
 fov 70
 run tp @p 0 3000 0 -45 -46
 sky nebula
-skyturn 0
 wait 160
 skycompare
 wait 40
 sky galaxy
-skyturn 0
 wait 160
 screenshot turning-01-still
 skycompare

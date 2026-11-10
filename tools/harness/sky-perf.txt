@@ -1,11 +1,11 @@
-# The same commands as sky-perf-modern.txt for 1.8.9. Run it after scene-legacy.txt, with no other game or GPU load:
-# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-perf-modern.txt -OutDir build\sky-perf (the script takes this file for forge)
+# The cost of the custom sky at 1920x1080, 2560x1440 and 3840x2160: the frame rate with the sky off and with each preset in a fixed scene, the GPU time of the sharp sky in a view full of sky for each preset (three times, where the lowest is the result), the GPU sky compared with the CPU bake, and at 3840x2160 the GPU time of the first layers of each preset. Run it after the scene, with no other game or GPU load:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,fabric-1.21.11,forge-1.8.9 -Shots sky-perf.txt -OutDir build\sky-perf
 wait 60
 profile minimal
 run time set 6000
 skyclock 30
 # The camera stands on the ground and looks a little up to the north, so that the sky fills about the top half of the frame.
-run tp @p 0.5 4 4.5 180 -10
+run tp @p 0.5 ~ 4.5 180 -10
 wait 40
 window 1920 1080
 wait 40

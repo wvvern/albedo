@@ -1,11 +1,10 @@
-# The same shots as sky-stars-modern.txt for 1.8.9. Run it after scene-legacy.txt:
-# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots sky-stars-modern.txt -OutDir build\sky-stars (the script takes this file for forge)
+# Close views of the stars of Dusk, Nebula and Galaxy at a field of view of 30 and 70, each turned to a bright star, with the GPU sky compared with the CPU bake and the GPU time of the sharp sky. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots sky-stars.txt -OutDir build\sky-stars
 wait 60
 profile minimal
 run time set 6000
 wait 40
 sky dusk
-skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 122.5 -68.7
@@ -23,7 +22,6 @@ wait 160
 screenshot stars-03-dusk-fast-fov70
 skyrender sharp
 sky nebula
-skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 135.4 -42.9
@@ -37,7 +35,6 @@ wait 40
 skytime
 wait 40
 sky galaxy
-skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 162.3 -46.6
@@ -55,7 +52,6 @@ skytime
 wait 40
 # The three lowest layers of Galaxy (sky, dust and stars) at the zenith, where many edges of the star cells meet.
 sky galaxy 3
-skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 0 -90

@@ -11,7 +11,7 @@ Before you start:
 1. Install Minecraft 1.8.9 and Forge 1.8.9 one time with the official launcher (the script reads
    %APPDATA%\.minecraft\versions\1.8.9 and %APPDATA%\.minecraft\libraries\net\minecraftforge\forge).
    The script also finds libraries in the Gradle cache of legacy/.
-2. Put an OptiFine 1.8.9 jar (for example HD U M5) in legacy\build\optifine\. Get it from optifine.net.
+2. Put an OptiFine 1.8.9 jar (for example HD U M6 pre2) in legacy\build\optifine\. Get it from optifine.net.
 3. Run "./gradlew build" in legacy/.
 
 The game runs offline (no login). The game folder is legacy\build\optifine\game, or legacy\build\optifine\game-mods
@@ -75,12 +75,12 @@ function Find-Library([string]$coordinate) {
 }
 
 function Get-ClassPath {
-    $forge = if ($Forge) { Get-Item $Forge } else {
+    $forgeJar = if ($Forge) { Get-Item $Forge } else {
         Get-ChildItem (Join-Path $mc "libraries\net\minecraftforge\forge") -Recurse -Filter "forge-1.8.9-*.jar" |
             Sort-Object Name -Descending | Select-Object -First 1 }
-    if (-not $forge) { throw "Forge 1.8.9 is not installed in $mc" }
+    if (-not $forgeJar) { throw "Forge 1.8.9 is not installed in $mc" }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = [IO.Compression.ZipFile]::OpenRead($forge.FullName)
+    $zip = [IO.Compression.ZipFile]::OpenRead($forgeJar.FullName)
     try { $reader = New-Object IO.StreamReader($zip.GetEntry("version.json").Open()); $forgeJson = $reader.ReadToEnd() | ConvertFrom-Json }
     finally { $zip.Dispose() }
     $vanillaJson = Get-Content (Join-Path $mc "versions\1.8.9\1.8.9.json") -Raw | ConvertFrom-Json
@@ -93,7 +93,7 @@ function Get-ClassPath {
         $seen[$key] = $true
         $cp += Find-Library $name
     }
-    $cp += $forge.FullName
+    $cp += $forgeJar.FullName
     $cp += Join-Path $mc "versions\1.8.9\1.8.9.jar"
     return ($cp -join ";")
 }
@@ -121,17 +121,17 @@ function Set-Variant([string]$variant) {
     if ($Mods) { Get-ChildItem $Mods -Filter *.jar | Copy-Item -Destination (Join-Path $game "mods") }
     $options = @{ narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false"; fullscreen = "false"; guiScale = "0";
                   fancyGraphics = "true"; ao = "2" }
-    $of = @{}
+    $ofOptions = @{}
     Remove-Item -Force (Join-Path $game "optionsof.txt") -ErrorAction SilentlyContinue
     if ($variant -like "quake*") {
         $options.fancyGraphics = "false"; $options.ao = "0"
-        $of = @{ ofFastRender = "true"; ofCustomColors = "true"; ofConnectedTextures = "2"; ofNaturalTextures = "true";
+        $ofOptions = @{ ofFastRender = "true"; ofCustomColors = "true"; ofConnectedTextures = "2"; ofNaturalTextures = "true";
                  ofClearWater = "true"; ofBetterGrass = "2"; ofDynamicLights = "3" }
         if ($variant -eq "quake-ao") { $options.ao = "2" }
         if ($variant -eq "quake-fancy") { $options.fancyGraphics = "true" }
     }
     Set-Lines (Join-Path $game "options.txt") $options
-    if ($of.Count -gt 0) { Set-Lines (Join-Path $game "optionsof.txt") $of }
+    if ($ofOptions.Count -gt 0) { Set-Lines (Join-Path $game "optionsof.txt") $ofOptions }
     Remove-Item -Force (Join-Path $game "config\albedo\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $game "saves\AlbedoTest") -ErrorAction SilentlyContinue
 }

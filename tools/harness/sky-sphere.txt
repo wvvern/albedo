@@ -1,11 +1,10 @@
-# Nebula and Galaxy high above the world, at and below the horizon, with "Full sphere" on (the preset) and off. Run it after scene-modern.txt:
-# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots sky-sphere-modern.txt -OutDir build\sky-sphere
+# Nebula and Galaxy high above the world, at and below the horizon, with "Full sphere" on (the preset) and off. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots sky-sphere.txt -OutDir build\sky-sphere
 wait 60
 profile minimal
 run time set 6000
 wait 40
 sky nebula
-skyturn 0
 wait 160
 run tp @p 0 3000 0 180 -5
 wait 40
@@ -34,7 +33,6 @@ run tp @p 0 3000 0 180 40
 wait 40
 screenshot sphere-06-nebula-off-below
 sky galaxy
-skyturn 0
 wait 160
 run tp @p 0 3000 0 -45 -5
 wait 40
