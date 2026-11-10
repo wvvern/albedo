@@ -3,9 +3,7 @@
 ## 0.4.2
 
 - feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
-- feat: Set Chroma with the Speed, Vivid and Bright sliders in the Effects section
-- feat: Show a note in the Effects section when only some textures of a category move their Chroma colors
-- feat: Read the keys chroma, chromaSpeed, chromaSaturation and chromaBrightness of the config file again
+- feat: Set the Speed, Vivid and Bright of Chroma in the Effects section
 - feat: Give the pastel profile soft Chroma colors that move slowly
 - feat: Turn the custom sky slowly by default at 1x in real time, also in the Trails preset
 - fix: Make the pulse of the Nebula clouds stronger and faster, so that you can see it
