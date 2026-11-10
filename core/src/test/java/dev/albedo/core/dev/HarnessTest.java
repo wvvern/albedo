@@ -120,6 +120,15 @@ class HarnessTest {
     }
 
     @Test
+    void theSkyParamCommandSetsOneSettingOfALayer() {
+        Profile p = Harness.withSkyParam(Harness.withSky(Config.defaults().activeProfile(), "nebula"), "2 pulse 100".split(" "));
+        List<SkyLayer> layers = p.get(Category.SKY).sky().layers();
+        assertEquals(100, layers.get(1).param(SkyLayer.Param.PULSE));
+        assertEquals(SkyPresets.NEBULA.layers().get(1).withParam(SkyLayer.Param.PULSE, 100), layers.get(1));
+        assertEquals(SkyPresets.NEBULA.layers().get(2), layers.get(2));
+    }
+
+    @Test
     void aSkinHashIsHexAndDiffersForACape() {
         byte[] png = {1, 2, 3};
         String skin = Harness.skinHash(png, false);
