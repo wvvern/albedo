@@ -274,4 +274,32 @@ final class ModernHarnessHost implements Harness.Host {
         var window = Minecraft.getInstance().getWindow();
         return new int[]{window.getWidth(), window.getHeight()};
     }
+
+    @Override
+    public boolean cloudsDrawn() {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=26.1 {
+        if (mc.options.getCloudStatus() == net.minecraft.client.CloudStatus.OFF) return false;
+        return hasCloudCells(mc.levelRenderer.cloudRenderer());
+        //?} elif >=1.21.2 {
+        /*if (mc.options.getCloudsType() == net.minecraft.client.CloudStatus.OFF) return false;
+        return hasCloudCells(mc.levelRenderer.getCloudRenderer());
+        *///?} else {
+        /*return mc.options.getCloudsType() != net.minecraft.client.CloudStatus.OFF;
+        *///?}
+    }
+
+    /** Whether the cloud renderer holds the cells of clouds.png, which it draws nothing without; the dev run has Mojang names. */
+    private static boolean hasCloudCells(Object renderer) {
+        for (java.lang.reflect.Field f : renderer.getClass().getDeclaredFields()) {
+            if (!f.getType().getSimpleName().equals("TextureData")) continue;
+            try {
+                f.setAccessible(true);
+                return f.get(renderer) != null;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        throw new IllegalStateException("the cloud renderer has no TextureData field");
+    }
 }

@@ -176,7 +176,8 @@ public final class ModernHooks {
         return !Albedo.currentPolicy().shadows() && option == Minecraft.getInstance().options.entityShadows() ? Boolean.FALSE : value;
     }
 
-    public static boolean cloudsHidden() {
-        return Albedo.currentPolicy().cloudsHidden();
+    /** The cloud option that the renderer reads in this frame, which is off while the profile hides the clouds. */
+    public static net.minecraft.client.CloudStatus cloudStatus(net.minecraft.client.CloudStatus option) {
+        return Albedo.currentPolicy().cloudsHidden() ? net.minecraft.client.CloudStatus.OFF : option;
     }
 }

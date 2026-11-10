@@ -4,9 +4,11 @@ wait 60
 mod off
 wait 160
 screenshot 01-vanilla
+clouds shown
 profile quake-white
 wait 200
 screenshot 02-quake-white
+clouds hidden
 shading off
 shadows off
 wait 200

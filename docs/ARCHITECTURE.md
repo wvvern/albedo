@@ -36,7 +36,7 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Entity shadows | `EntityRenderer`, before 1.21.2 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
 | Custom sky | 1.21.11 and 26.x `SkyRenderer`; 1.21.1 `LevelRenderer.renderSky` | `RenderGlobal.renderSky` (`LegacySkyPatch`) |
-| Clouds | `CloudRenderer.prepare` | - |
+| Hidden clouds | `Options.getCloudsType`, 26.x `getCloudStatus` | the clouds texture |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
 - The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
@@ -59,6 +59,7 @@ Traps:
 - Downloaded skins do not count toward the memory budget, and a failed upload does not reload resources, because a reload cannot load them again.
 - A repaint of the block atlas takes about 20 ms, which is too slow for each frame. Moving Chroma colors use a GPU pass (see Animated Chroma).
 - A sky edit does not repaint textures (`Policy.sameTextures`).
+- Do not read the policy in a resource reload listener, for example `CloudRenderer.prepare`. A settings change does not reload resources, so the game shows the change only after the next reload.
 - On 1.8.9, `rebuildChunks` uses `markBlockRangeForRenderUpdate`, not `loadRenderers`: with Patcher, Essential or OptiFine L5, chunks can stay empty after `loadRenderers`.
 
 ## Animated Chroma
@@ -151,9 +152,9 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 ## Check and test
 
 - Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
-- `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A command file runs on all targets, except that 1.8.9 runs the `*-legacy.txt` copy of a `*-modern.txt` file.
+- `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`, `-Config <file>` (a config.json for the start in place of the default config). A command file runs on all targets, except that 1.8.9 runs the `*-legacy.txt` copy of a `*-modern.txt` file.
 - With no `-Shots`, the script writes `docs/screenshots/<target>/` from `shots.txt`: one image for each feature, to find a version where a feature does not work. Make them again when a change affects what a player sees.
-- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
+- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `clouds shown|hidden` (logs `! clouds` when the next frame does not draw the clouds as expected; `clouds-modern.txt` tests each state of the config), `ui click <label>`, `ui slide <percent> <id>`, `quit`.
 - Chroma harness commands (`tools/harness/chroma.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
 - `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 - After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
