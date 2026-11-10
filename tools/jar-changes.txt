@@ -1,5 +1,5 @@
 # The jar entries that can be different from the reference jars, for tools/compare-jars.ps1.
-# The reference is the 7 jars of commit 8c24411, the start of the branch compat-060 (docs/ARCHITECTURE.md, "Check and test").
+# The reference is the 7 jars of the tag v0.5.1, the last release (docs/ARCHITECTURE.md, "Check and test").
 # Format: <entry wildcard> <reason>. Add a line in the commit that changes the entry.
 architectury_inject_* The Architectury transformer puts a random id in this folder name in each build.
 mixins.albedo.refmap.json The Mixin annotation processor of the 1.8.9 build writes the mixins in a different sequence in each build.
@@ -7,7 +7,7 @@ albedo.mixins.json The build writes the client list from the mixin classes of th
 fabric.mod.json The Fabric jar asks for Fabric Loader 0.15.0, the first version with MixinExtras, not for the version of the build.
 dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of Fabric Loader to the mod.
 dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
-dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks count their runs, and processSprite takes a SpriteAccess.
+dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks and the cloud option count their runs, processSprite takes a SpriteAccess, and the fog keeps its vanilla color when the sky stays vanilla with a shader pack.
 dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none.
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
 dev/albedo/core/sky/SkyShaderSource.class The constant BAKED names the program of the baked sky.
@@ -25,15 +25,15 @@ dev/albedo/legacy/mixin/SimpleTextureMixin.class The handler counts its runs.
 dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL draw reads and puts back.
 dev/albedo/modern/GlProgram*.class A new class compiles and links the GL programs of the mod.
 dev/albedo/modern/GlMesh.class A new class holds a vertex array and a buffer of the mod.
-dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla.
+dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack).
 dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does.
 dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram and GlState.
 dev/albedo/modern/PearlSky.class A new class has the 26.3 part of ModernSky.
 dev/albedo/modern/PrecompiledSky.class A new class has the 1.21.11 part of ModernSky.
-dev/albedo/modern/ModernSky.class The class keeps only the parts that all versions share.
+dev/albedo/modern/ModernSky.class The class keeps only the parts that all versions share, and vanillaWithPack is the shader pack rule of the sky and the fog.
 dev/albedo/modern/mixin/SkyLayersMixin.class The handlers call the sky class of the family, and on 1.21.1 the other sky parts follow the result of the sky draw.
 dev/albedo/modern/mixin/SkyAfterSolidMixin.class The handler calls the sky class of the family and counts its runs.
-dev/albedo/modern/SettingsScreen*.class The canvas and its images are classes of their own.
+dev/albedo/modern/SettingsScreen*.class The canvas and its images are classes of their own, the key table is a Java 8 switch, and the start of text input is a method that runs only on 26.3.
 dev/albedo/modern/ExtractorCanvas.class A new class has the canvas of 26.x.
 dev/albedo/modern/GraphicsCanvas.class A new class has the canvas of the versions before 26.1.
 dev/albedo/modern/CanvasImages.class A new class has the images of the canvas.
@@ -44,7 +44,7 @@ dev/albedo/modern/SpriteAccess.class A new class gives the pixels and the name o
 dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAccess.
 dev/albedo/modern/mixin/SpriteLoaderMixin.class The handler gives a SpriteAccess to the hook.
 dev/albedo/modern/ModernHarnessHost.class The host is split by topic and gives the hook counters.
-dev/albedo/modern/Harness*.class New classes have the worlds, window, mouse, screenshots and skins of the harness host.
+dev/albedo/modern/Harness*.class New classes have the worlds, window, mouse, keyboard, screenshots, frame pixels and skins of the harness host.
 dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins.
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
