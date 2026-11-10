@@ -9,6 +9,7 @@
 - fix: Let you type characters that need AltGr in the settings screen on 1.8.9
 - fix: Replace all of the text when you type after Ctrl+A in the settings screen
 - fix: Keep the vanilla fog color under water, in lava and in powder snow with a custom or flat sky
+- fix: Hide the custom sky on 1.8.9 with blindness, under water and in lava, as the game hides its sky
 - fix: Hide or show the clouds at once on 1.21.11 and 26.3 when you change the profile
 
 ## 0.5.0
