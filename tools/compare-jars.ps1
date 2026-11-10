@@ -3,7 +3,7 @@
 Compares the built jars with the jars of a release, entry by entry, with no game.
 
 .DESCRIPTION
-For each jar in -New, the script finds the jar with the same name in -Old and compares the entry list and the SHA-256 of each entry.
+For each jar in -New and in -Old, the script finds the jar with the same name in the other folder and compares the entry list and the SHA-256 of each entry.
 tools/jar-changes.txt lists the entries that can be different, each with its reason.
 The exit code is 1 when an entry that is not in that list is different, added or removed, or when a jar has no partner.
 
@@ -55,6 +55,9 @@ foreach ($jar in $jars) {
     $bad = @($lines | Where-Object { $_ -match "NOT EXPLAINED" }).Count
     Write-Host "$($jar.Name): $($newHashes.Count) entries, $($lines.Count) different, $bad not explained"
     $lines | ForEach-Object { Write-Host $_ }
+}
+foreach ($jar in Get-ChildItem $Old -Filter *.jar | Sort-Object Name) {
+    if ($jars.Name -notcontains $jar.Name) { Write-Host "$($jar.Name): FAIL, no jar with this name in $New"; $failed = $true }
 }
 if ($failed) { Write-Host "FAIL"; exit 1 }
 Write-Host "PASS"
