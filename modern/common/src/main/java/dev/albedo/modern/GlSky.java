@@ -111,7 +111,7 @@ public final class GlSky {
     // Draws the sky sphere, but not with a shader pack, whose framebuffer needs the programs of the pack.
     private static boolean drawSphere(float[] skyModelView, float[] projection) {
         SkyImage img = Albedo.skyImage();
-        if (img == null || ModernSky.shaderPackInUse()) return false;
+        if (img == null || ModernSky.vanillaWithPack()) return false;
         prepare(img);
         float k = ModernSky.brightness(img);
         float[] modelView = turned(skyModelView, ModernSky.turn(img));

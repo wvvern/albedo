@@ -54,6 +54,15 @@ public final class ModernSky {
         return img.drawsSharp() && !shaderPackInUse();
     }
 
+    /** True when the vanilla sky draws in place of the custom sky, because the GL families do not draw it with a shader pack. */
+    static boolean vanillaWithPack() {
+        //? if gl_core || frame_graph {
+        /*return shaderPackInUse();
+        *///?} else {
+        return false;
+        //?}
+    }
+
     /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture, or stays vanilla in the GL families. */
     static boolean shaderPackInUse() {
         if (!irisLooked) {

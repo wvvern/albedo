@@ -168,6 +168,7 @@ public final class ModernHooks {
     public static void overrideFog(net.minecraft.client.Camera camera, Vector4f color) {
         if (specialFog(camera)) return;
         SkyImage img = Albedo.skyImage();
+        if (img != null && ModernSky.vanillaWithPack()) return;
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
         if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
         float[] rgb = img != null ? img.fogRgb(ModernSky.turn(img), ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
