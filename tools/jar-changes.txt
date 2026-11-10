@@ -10,7 +10,8 @@ dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder 
 dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks and the cloud option count their runs, processSprite takes a SpriteAccess, and the fog keeps its vanilla color when the sky stays vanilla with a shader pack.
 dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none.
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
-dev/albedo/core/sky/SkyShaderSource.class The constant BAKED names the program of the baked sky.
+dev/albedo/core/sky/SkyShaderSource*.class The constant BAKED names the program of the baked sky, and two dialects of 26.2 have a reversed depth buffer.
+assets/albedo/shaders/core/sky_sharp_classic.vsh The far depth of a reversed depth buffer is a define that only 26.2 sets.
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
 dev/albedo/core/dev/Harness.class The harness has the command hooks.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
@@ -49,8 +50,9 @@ dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins, an
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/ShadowMixin.class The file has a condition around it, and before 1.21.9 the selector takes each method with the name render, because 1.21.2 to 1.21.8 have several.
-dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device that changed from 1.21.6 to 1.21.11, so that 1.21.8 and 1.21.10 share the sky of 1.21.11.
-dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed at 1.21.10 and 1.21.11 go through DeviceApi.
+dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device that changed from 1.21.6 to 26.2, so that 1.21.8 to 26.2 share the sky and Chroma of 1.21.11.
+dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed from 1.21.10 to 26.2 go through DeviceApi.
+dev/albedo/modern/PrecompiledChromaPass*.class The pipelines, passes, textures and the timer go through DeviceApi.
 dev/albedo/modern/mixin/FogMixin.class From 1.21.6 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 only the line numbers change.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
 dev/albedo/modern/mixin/SodiumTintMixin.class A new optional handler reads the tint index of Sodium 0.6.13 and 0.7 (1.21.5 to 1.21.10), whose quad class is in the package frapi.mesh.
