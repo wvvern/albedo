@@ -34,6 +34,7 @@ public abstract class EntityRendererMixin {
 
     @Inject(method = "updateFogColor", at = @At("TAIL"))
     private void albedo$flatFog(float partialTicks, CallbackInfo ci) {
+        if (LegacyHooks.specialFog(partialTicks)) return;
         float[] rgb = LegacySky.fogRgb();
         if (rgb == null) rgb = LegacyHooks.skyRgb();
         if (rgb == null) return;

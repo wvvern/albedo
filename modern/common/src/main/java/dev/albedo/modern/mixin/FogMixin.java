@@ -14,15 +14,17 @@ public abstract class FogMixin {
                                      net.minecraft.client.multiplayer.ClientLevel level, int renderDistance,
                                      float darkenWorld, org.joml.Vector4f color,
                                      org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        ModernHooks.overrideFog(color);
+        ModernHooks.overrideFog(camera, color);
     }
 }
 //?} elif >=1.21.6 {
 /*@Mixin(net.minecraft.client.renderer.fog.FogRenderer.class)
 public abstract class FogMixin {
     @Inject(method = "computeFogColor", at = @At("RETURN"))
-    private void albedo$flatFog(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<org.joml.Vector4f> cir) {
-        ModernHooks.overrideFog(cir.getReturnValue());
+    private void albedo$flatFog(net.minecraft.client.Camera camera, float partialTick,
+                                     net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float darkenWorld,
+                                     org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<org.joml.Vector4f> cir) {
+        ModernHooks.overrideFog(camera, cir.getReturnValue());
     }
 }
 *///?} else {
@@ -33,9 +35,11 @@ public abstract class FogMixin {
     @org.spongepowered.asm.mixin.Shadow private static float fogBlue;
 
     @Inject(method = "setupColor", at = @At("TAIL"))
-    private static void albedo$flatFog(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+    private static void albedo$flatFog(net.minecraft.client.Camera camera, float partialTick,
+                                       net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float bossColorModifier,
+                                       org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
         org.joml.Vector4f c = new org.joml.Vector4f(fogRed, fogGreen, fogBlue, 0f);
-        ModernHooks.overrideFog(c);
+        ModernHooks.overrideFog(camera, c);
         fogRed = c.x;
         fogGreen = c.y;
         fogBlue = c.z;
