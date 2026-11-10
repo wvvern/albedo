@@ -40,7 +40,7 @@ ui pointer off
 wait 10
 screenshot sky-07-settings-list
 # The blur is masked by the light parts of the noise (layer 3), which is only a mask.
-ui click Blur 5
+ui click Blur 4
 wait 60
 ui pointer off
 wait 10
