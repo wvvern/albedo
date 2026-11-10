@@ -92,6 +92,12 @@ if (loader != 'common' && project.hasProperty('compat')) {
         mods = ['sodium'] + (mods - ['sodium', 'embeddium'])
     }
     def runtime = unobfuscated ? 'runtimeOnly' : 'modLocalRuntime'
+    // Sodium 0.5 starts only with the LWJGL version of the game, and the dev run can pick a newer one.
+    if (project.hasProperty('lwjgl_version')) {
+        configurations.configureEach {
+            resolutionStrategy.eachDependency { if (it.requested.group == 'org.lwjgl') it.useVersion(project.lwjgl_version) }
+        }
+    }
     repositories {
         exclusiveContent {
             forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
