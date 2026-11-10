@@ -214,8 +214,8 @@ foreach ($target in $Targets) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
     # A renderer mod replaces the terrain draw, so only the hooks that it does not touch must run.
-    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow") }
-             else { @("afterSolid", "tint", "fullbright", "shadow") }
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow", "skyPass") }
+             else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
