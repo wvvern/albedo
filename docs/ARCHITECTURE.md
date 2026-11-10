@@ -114,8 +114,10 @@ Traps per version:
 - Known limit: other mods can draw in this gap, for example at the NeoForge stages `AFTER_SKY`, `AFTER_SOLID_BLOCKS` and `AFTER_CUTOUT_MIPPED_BLOCKS`. A translucent thing that such a mod draws there over the sky blends with black.
 - 26.x: the sky pass prepares the custom sky only for the overworld skybox, the only one that it replaces. A pipeline that closes while it compiles frees its result on the render thread when the compile ends.
 - 1.21.11: the device frees a compiled pipeline only when a resource reload empties its whole cache. Thus each sky keeps its pipeline and its id by its layer steps, and a sky that comes back compiles nothing.
-- 1.21.1 and 1.8.9 draw the black sphere with the shader of the game at the depth range 1 to 1. The game never changes the depth range.
-- On 1.8.9 with Use VBOs on, vanilla binds its sky buffer before the sky hook, and LWJGL refuses a draw from client memory while a buffer is bound. `LegacySky.drawSky` unbinds it while the custom sky draws. The dev run has VBOs off, so test this case with `useVbo:true` in `legacy/run/options.txt`.
+- 1.8.9 draws the black sphere with the fixed pipeline of the game at the depth range 1 to 1. The game never changes the depth range.
+- 1.21.1 uses no vertex or shader class of the game. `GlSky` draws the baked image and `GlSharpSky` draws the sharp sky and the black sphere, each with a vertex array (`GlMesh`) and programs (`GlProgram`) of the mod. The vertex shader of the black sphere writes the far depth, so the depth range does not change.
+- Each raw GL draw of `GlSky`, `GlSharpSky` and `GlChromaPass` reads the state that it changes with `glGet` and puts it back (`GlState`). `GlState.ofDraw` holds the program, the vertex array, the active texture unit, the texture of unit 0, the depth test, function and mask, the blend state and the cull state. `GlState.ofAll` adds the array buffer, the two framebuffers, the viewport, the texture of unit 1 and the scissor test. The restore goes through `GlStateManager`, so that the copy of the state in the game stays correct.
+- On 1.8.9 with Use VBOs on, vanilla binds its sky buffer before the sky hook, and LWJGL refuses a draw from client memory while a buffer is bound. `LegacySky.drawSky` unbinds it while the custom sky draws. The dev run has VBOs off, so test this case with `useVbo:true` in `legacy/versions/1.8.9/run/options.txt`.
 
 ## OptiFine on 1.8.9
 
@@ -133,7 +135,7 @@ You need JDK 21 and JDK 25. If JDK 8 is missing, Gradle gets it for 1.8.9.
 ```bash
 pwsh tools/build-all.ps1                                                    # all jars -> build/libs/
 cd modern && ./gradlew :fabric:26.3:releaseJar :neoforge:26.3:releaseJar    # the jars of one node
-cd legacy && ./gradlew build                                                # 1.8.9 Forge jar -> legacy/build/libs/
+cd legacy && ./gradlew build                                                # 1.8.9 Forge jar -> legacy/versions/1.8.9/build/libs/
 ```
 
 - A node is one folder in `modern/versions/`. `modern/settings.gradle` has three node lists: `nodes` (common and Fabric), `forgeNodes` and `neoforgeNodes`.
@@ -145,7 +147,37 @@ cd legacy && ./gradlew build                                                # 1.
 - Dev client: `./gradlew :fabric:26.3:runClient` in `modern/` (any loader or version), `./gradlew runClientDev` in `legacy/`.
 - Add `-Pcompat=sodium`, `embeddium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`. Iris works only on Fabric 26.3 and Fabric 1.21.11; on the other targets you get only Sodium.
 - In `modern/`, Stonecutter comments (`//? if >=26.1 {` ... `//?} else {` ... `//?}`) mark the version differences. They are only in mixin and adapter files, never in the core.
+- A class that only one rendering family can compile has a condition around the whole file. `modern/stonecutter.gradle` names the families: `gl_fixed` (before 1.17), `gl_core` (1.17 to 1.21.1), `frame_graph` (1.21.2 to 1.21.4), `gpu_device` (1.21.5 to 26.2) and `renderpearl` (26.3). The shared class calls the family class: `ModernSky` calls `PearlSky`, `PrecompiledSky` or `GlSky`, `TextureUploads` calls `DeviceAtlasUpload` or `GlAtlasUpload`, and `SettingsScreen` draws on an `ExtractorCanvas` or a `GraphicsCanvas`.
+- `legacy/` has one subproject for each Minecraft version in `legacy/versions/<mc>`, and `legacy/version.gradle.kts` builds each of them. The mod version comes from `mod_version` in `modern/gradle.properties`, or from `-PmodVersion`.
 - Releases: see [RELEASING.md](RELEASING.md).
+
+## Version boundaries (modern)
+
+A Stonecutter condition uses only the versions of this table. `tools/boundaries.sh` reads each member with `javap` from the Mojang-named jar of each node, and `tools/boundaries.txt` lists the members. Where the mark says "minor open", the two nodes on each side are read, but no jar of the minor version itself. `tools/lint.sh` fails when a condition has a version that is not in this table.
+
+| Boundary | API change | Files with the condition | Mark |
+|----------|------------|--------------------------|------|
+| `1.17` | `ShaderInstance`, `VertexBuffer.drawWithShader`, `Screenshot.takeScreenshot(RenderTarget)`, vertex array calls in `GlStateManager`, `renderChunkLayer` with a `Matrix4f` | none | javap |
+| `1.18` | `renderSky` with a `Camera` | none | javap, minor open |
+| `1.19` | `OptionInstance`, `Component.literal`, `performPrefixedCommand`, `WorldOpenFlows` | `ModernHooks`, `FullbrightRedirectMixin`, `ShadowRedirectMixin` | javap, minor open |
+| `1.19.3` | `SpriteContents`, `SpriteLoader`, JOML in all signatures | `SpriteAccess` | javap, minor open |
+| `1.20` | `GuiGraphics` | none | javap, minor open |
+| `1.20.2` | `mouseScrolled` with 4 numbers, `Screen.render` draws the background | none | javap, minor open |
+| `1.20.3` | `renderSectionLayer` with a `PoseStack` | none | javap, minor open |
+| `1.20.5` | `renderSectionLayer` with two matrices, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and their `*RedirectMixin` classes | javap, minor open |
+| `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `GameRenderer.render(DeltaTracker, boolean)` | none | javap, minor open |
+| `1.21.2` | `SkyRenderer`, `LevelRenderer.addSkyPass`, `CloudRenderer.prepare`, `NativeImage.getPixel` and `setPixel`, `Options.inactivityFpsLimit` | `SkyMixin`, `NativeImagePixels`, `ShadowMixin`, `ModernHarnessHost` | javap, minor open |
+| `1.21.4` | `TextureContents.load`, `ReloadableTexture.doLoad`, no `SimpleTexture.doLoad`, no `HttpTexture` | `TextureLoadMixin`, `SkinTextureMixin`, `TextureManagerMixin`, `TextureUploadInvoker`, `ModernHooks`, `TextureUploads`, `HarnessSkins` | javap |
+| `1.21.5` | `GpuDevice`, `RenderPass`, `RenderPipeline`, no `VertexBuffer`, `uploadFirstFrame(GpuTexture)`, `Screenshot.takeScreenshot(RenderTarget, Consumer)`, `DryFoliageColor` | `HarnessShots` | javap |
+| `1.21.6` | `GpuTextureView`, `fog.FogRenderer`, `Lighting.setupFor(Entry)`, no `renderSectionLayer`, `ItemStackRenderState.isAnimated`, `blit` with a `RenderPipeline` | `FogMixin` | javap, minor open |
+| `1.21.9` | `EntityRenderer.extractShadow`, `MouseButtonEvent`, `KeyEvent`, `CharacterEvent`, `MouseHandler.onButton`, `InputConstants.isKeyDown(Window, int)` | `MouseHandlerInvoker`, `SettingsScreen`, `HarnessMouse`, `ModernPlatform` | javap, minor open |
+| `1.21.10` | `writeToTexture` with a `ByteBuffer` | none | javap |
+| `1.21.11` | `Identifier`, `GpuSampler`, `precompilePipeline(RenderPipeline, ShaderSource)`, `timerQueryBegin`, `ReloadableTexture.doLoad(NativeImage)`, `uploadFirstFrame(GpuTexture, int)`, `Window.handle()` | most adapter files | javap |
+| `26.1` | `LightmapRenderStateExtractor`, `ModelBlockRenderer(boolean, boolean, BlockColors)`, `computeTintColor`, `CardinalLighting.byFace`, `computeFogColor` with a `Vector4f` parameter, `Screen.extractRenderState`, `Level.getOverworldClockTime`, `LocalPlayer.sendOverlayMessage` | `AmbientOcclusionMixin`, `BlockTintMixin`, `FaceShadeMixin`, `FogMixin`, `FullbrightMixin`, `ModernSky`, `ModernPlatform`, `HarnessWorlds`, `SettingsScreen`, `ExtractorCanvas`, `GraphicsCanvas`, `TextureScreen` | javap |
+| `26.2` | `Gui.screen()` and `Gui.setScreen`, `GameRenderer.mainRenderTarget()` and `mainCamera()`, `Minecraft.levelExtractor`, `Hud`, `writeToTexture` with 4 numbers, `withBindGroupLayout`, `GpuQueryPool` | `ModernPlatform`, `ModernHarnessHost`, `HarnessShots`, `ModernSky`, `DeviceAtlasUpload`, `Precompiled*` | javap |
+| `26.3` | `com.mojang.renderpearl.api`, `SkyRenderer.render` with a `RenderPass`, `LevelRenderer.executeSolid`, `MouseHandler.onMove` with 5 parameters, `InputConstants.isKeyDown(int)`, the SDL window | `SharpSky`, `ChromaPass`, `ChromaAtlases`, `ModernSky`, `SkyLayersMixin`, `SkyAfterSolidMixin`, `MouseHandlerInvoker`, `HarnessMouse`, `HarnessWindow`, `ModernPlatform`, `ModernHarnessHost` | javap |
+
+The conditions `>=1.21.11` in the code of today are not all true boundaries, because 1.21.1 and 1.21.11 are the only nodes on each side. Examine each one with `tools/boundaries.sh` when you add a node between them.
 
 ## Add a Minecraft version (modern)
 
@@ -163,7 +195,8 @@ cd legacy && ./gradlew build                                                # 1.
 - `tools/compare-jars.ps1 -Old <folder> -New build\libs` compares each entry of the built jars with reference jars, with no game. The reference is the 7 jars of commit `8c24411`: build them from a worktree of that commit (`./gradlew --configure-on-demand :fabric:<v>:releaseJar :neoforge:<v>:releaseJar` for each version, and `./gradlew build` in `legacy/`). `tools/jar-changes.txt` gives the reason for each entry that can be different. The script fails for all other differences.
 - `bash tools/check-jar.sh <jar> <loader> <node>` examines the mixin list, the Java level and the version ranges of a modern jar. CI runs it for each jar.
 - With no `-Shots`, the script writes `docs/screenshots/<target>/` from `shots.txt`: one image for each feature, to find a version where a feature does not work. Make them again when a change affects what a player sees.
-- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
+- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `hooks`, `quit`.
+- `hooks` logs how many times each optional hook (`require = 0`) ran, for example `hooks: afterSolid=1807 tint=100562`. An optional hook with a wrong target name does not stop the game, so its counter stays 0. `tools/screenshots.ps1` fails a target when a hook of the game did not run: `afterSolid`, `tint`, `fullbright` and `shadow` on a modern target, only `fullbright` and `shadow` with `-Compat`, and `afterSolid`, `beforeClouds`, `reloadStep` and `textureUpload` on 1.8.9. The other counters depend on the version: `clouds` runs from 1.21.2, `dryFoliage` from 1.21.5 and `itemIcon` from 1.21.6 with an item in the hotbar and the HUD on.
 - Chroma harness commands (`tools/harness/chroma.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
 - `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 - After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
