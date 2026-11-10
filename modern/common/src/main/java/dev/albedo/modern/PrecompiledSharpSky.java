@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.21.11 && <26.1 {
+//? if >=1.21.11 && <26.2 {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;

@@ -3,6 +3,7 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
+import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.TextureClassifier;
@@ -14,12 +15,27 @@ import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * What the mixins call, as thin translations from Minecraft types to the core so that the mixins stay one-liners and
  * the per-version surface stays small.
  */
 public final class ModernHooks {
+    public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
+    public static final HookCounter SODIUM_SHADE = new HookCounter("sodiumShade");
+    public static final HookCounter DRY_FOLIAGE = new HookCounter("dryFoliage");
+    private static final HookCounter TINT = new HookCounter("tint");
+    private static final HookCounter SODIUM_TINT = new HookCounter("sodiumTint");
+    private static final HookCounter ITEM_ICON = new HookCounter("itemIcon");
+    private static final HookCounter CLOUDS = new HookCounter("clouds");
+    private static final HookCounter FULLBRIGHT = new HookCounter("fullbright");
+    private static final HookCounter SHADOW = new HookCounter("shadow");
+    /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_SHADE, ITEM_ICON, CLOUDS, DRY_FOLIAGE,
+            FULLBRIGHT, SHADOW);
+
     private ModernHooks() {}
 
     public static void bootstrap() {
@@ -50,6 +66,7 @@ public final class ModernHooks {
 
     /** Whether an item icon of a screen must draw again in each frame, as an animated item does, because Chroma colors move. */
     public static boolean itemIconMoves() {
+        ITEM_ICON.run();
         return ChromaAtlases.moving();
     }
 
@@ -115,16 +132,19 @@ public final class ModernHooks {
     }
 
     public static int blockTint(int original) {
+        TINT.run();
         return Albedo.currentPolicy().removeTint(Category.BLOCKS) ? -1 : original;
     }
 
     /** Sodium: a tint index of -1 means "no tint", so the renderer skips the block color provider. */
     public static int blockTintIndex(int tintIndex) {
+        SODIUM_TINT.run();
         return Albedo.currentPolicy().removeTint(Category.BLOCKS) ? -1 : tintIndex;
     }
 
     /** Embeddium: false means "no tint", so the renderer skips the block color provider. */
     public static boolean blockTinted(boolean tinted) {
+        SODIUM_TINT.run();
         return tinted && !Albedo.currentPolicy().removeTint(Category.BLOCKS);
     }
 
@@ -160,14 +180,17 @@ public final class ModernHooks {
 
     /** Only the brightness option is changed; the mixin wraps every option read in the lightmap code. */
     public static Object gamma(OptionInstance<?> option, Object value) {
+        FULLBRIGHT.run();
         return option == Minecraft.getInstance().options.gamma() ? (Object) Albedo.currentPolicy().gamma((Double) value) : value;
     }
 
     public static Object entityShadows(OptionInstance<?> option, Object value) {
+        SHADOW.run();
         return !Albedo.currentPolicy().shadows() && option == Minecraft.getInstance().options.entityShadows() ? Boolean.FALSE : value;
     }
 
     public static boolean cloudsHidden() {
+        CLOUDS.run();
         return Albedo.currentPolicy().cloudsHidden();
     }
 }

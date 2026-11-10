@@ -123,6 +123,9 @@ public final class Harness {
 
         /** The width and the height of the frame that the game draws. */
         int[] frameSize();
+
+        /** The counters of the hooks of this version that can miss their target with no error. */
+        List<HookCounter> hookCounters();
     }
 
     /** Receives the image of {@link Host#drawSharpSky}. */
@@ -271,6 +274,7 @@ public final class Harness {
         else if (verb.equals("chromagpu")) sc.chromaGpu(arg.equals("on"));
         else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
+        else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
@@ -284,6 +288,13 @@ public final class Harness {
         else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
+    }
+
+    /** The log line of the command "hooks", with the runs of each counter after its name. */
+    static String hooksLine(List<HookCounter> counters) {
+        StringBuilder line = new StringBuilder("hooks:");
+        for (HookCounter counter : counters) line.append(' ').append(counter.name()).append('=').append(counter.runs());
+        return line.toString();
     }
 
     /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */

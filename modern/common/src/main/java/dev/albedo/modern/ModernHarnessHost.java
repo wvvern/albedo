@@ -66,7 +66,7 @@ final class ModernHarnessHost implements Harness.Host {
     @Override
     public void screenshot(File png) {
         Minecraft mc = Minecraft.getInstance();
-        //? if >=26.1 {
+        //? if >=26.2 {
         RenderTarget target = mc.gameRenderer.mainRenderTarget();
         //?} else {
         /*RenderTarget target = mc.getMainRenderTarget();
@@ -91,7 +91,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void setHudVisible(boolean visible) {
-        //? if >=26.1 {
+        //? if >=26.2 {
         net.minecraft.client.gui.Hud hud = Minecraft.getInstance().gui.hud;
         if (hud.isHidden() == visible) hud.toggle();
         //?} else {
@@ -124,7 +124,7 @@ final class ModernHarnessHost implements Harness.Host {
         //?} else {
         /*long handle = window.getWindow();
         *///?}
-        //? if >=26.1 {
+        //? if >=26.3 {
         mouse.albedo$onMove(handle, x, y, 0, 0);
         //?} else {
         /*mouse.albedo$onMove(handle, x, y);
@@ -222,7 +222,7 @@ final class ModernHarnessHost implements Harness.Host {
     @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
-        //? if >=26.1 {
+        //? if >=26.3 {
         return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         //?} elif >=1.21.11 {
         /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
@@ -251,7 +251,7 @@ final class ModernHarnessHost implements Harness.Host {
     public void resizeWindow(int width, int height) {
         var window = Minecraft.getInstance().getWindow();
         // With no border the frame can be as large as the screen.
-        //? if >=26.1 {
+        //? if >=26.3 {
         long handle = window.handle();
         org.lwjgl.sdl.SDLVideo.SDL_SetWindowBordered(handle, false);
         org.lwjgl.sdl.SDLVideo.SDL_SetWindowPosition(handle, 0, 0);
@@ -267,6 +267,11 @@ final class ModernHarnessHost implements Harness.Host {
         org.lwjgl.glfw.GLFW.glfwSetWindowPos(handle, 0, 0);
         org.lwjgl.glfw.GLFW.glfwSetWindowSize(handle, width, height);
         *///?}
+    }
+
+    @Override
+    public java.util.List<dev.albedo.core.dev.HookCounter> hookCounters() {
+        return ModernHooks.COUNTERS;
     }
 
     @Override

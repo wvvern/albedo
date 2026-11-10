@@ -3,6 +3,7 @@ package dev.albedo.legacy;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Policy;
+import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ThreadDownloadImageData;
@@ -15,10 +16,20 @@ import net.minecraft.util.ResourceLocation;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 /** What the 1.8.9 mixins call: thin translations from 1.8.9 types to the core. */
 public final class LegacyHooks {
+    public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
+    public static final HookCounter BEFORE_CLOUDS = new HookCounter("beforeClouds");
+    public static final HookCounter TINT = new HookCounter("tint");
+    public static final HookCounter QUAD = new HookCounter("quad");
+    public static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
+    public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
+    /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, QUAD, RELOAD_STEP, TEXTURE_UPLOAD);
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 

@@ -38,6 +38,7 @@ public abstract class SimpleTextureMixin extends AbstractTexture implements Simp
     @Redirect(method = "loadTexture", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/texture/TextureUtil;uploadTextureImageAllocate(ILjava/awt/image/BufferedImage;ZZ)I"))
     private int albedo$upload(int textureId, BufferedImage image, boolean blur, boolean clamp) {
+        LegacyHooks.TEXTURE_UPLOAD.run();
         albedo$blur = blur;
         albedo$clamp = clamp;
         return TextureUtil.uploadTextureImageAllocate(textureId, image, blur, clamp);

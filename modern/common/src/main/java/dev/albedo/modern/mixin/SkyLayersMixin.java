@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Draws the custom sky in place of the vanilla sky disc, and leaves out the dark lower disc, the sunrise fan (the glow
  * layers take its place) and the stars when the sky hides them.
  */
-//? if >=26.1 {
+//? if >=26.3 {
 @Mixin(net.minecraft.client.renderer.SkyRenderer.class)
 public abstract class SkyLayersMixin {
     @Inject(method = "render", at = @At("HEAD"))

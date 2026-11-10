@@ -103,7 +103,7 @@ final class TextureUploads {
                 for (int level = 0; level < p.padded.length; level++) {
                     NativeImage image = p.padded[level];
                     int x = p.sprite.getX() >> level, y = p.sprite.getY() >> level;
-                    //? if >=26.1 {
+                    //? if >=26.2 {
                     encoder.writeToTexture(p.atlas.getTexture(), image, level, 0, x, y);
                     //?} else {
                     /*encoder.writeToTexture(p.atlas.getTexture(), image, level, 0, x, y, image.getWidth(), image.getHeight(), 0, 0);

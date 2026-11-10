@@ -20,12 +20,14 @@ public abstract class BlockModelRendererVanillaMixin {
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/block/Block;colorMultiplier(Lnet/minecraft/world/IBlockAccess;Lnet/minecraft/util/BlockPos;I)I"))
     private int albedo$tint(Block block, IBlockAccess world, BlockPos pos, int tintIndex) {
+        LegacyHooks.TINT.run();
         return LegacyHooks.blockTint(block.colorMultiplier(world, pos, tintIndex));
     }
 
     @Redirect(method = {"renderModelAmbientOcclusionQuads", "renderModelStandardQuads"}, require = 0,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/WorldRenderer;addVertexData([I)V"))
     private void albedo$quad(WorldRenderer renderer, int[] vertexData) {
+        LegacyHooks.QUAD.run();
         LegacyHooks.addQuad(renderer, vertexData);
     }
 }

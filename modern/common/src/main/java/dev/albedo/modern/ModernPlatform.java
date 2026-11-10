@@ -75,7 +75,7 @@ final class ModernPlatform implements Platform {
     @Override
     public void rebuildChunks() {
         // The same step as after a resource reload, which Sodium replaces with its own rebuild.
-        //? if >=26.1 {
+        //? if >=26.2 {
         Minecraft.getInstance().levelExtractor.allChanged();
         //?} else {
         /*Minecraft.getInstance().levelRenderer.allChanged();
@@ -97,7 +97,7 @@ final class ModernPlatform implements Platform {
         Integer code = keyCodes.get(key.minecraftName);
         if (code == null) {
             try {
-                // Resolved by name: GLFW codes on 1.21.x, SDL scancodes on 26.x.
+                // Resolved by name: GLFW codes before 26.3, SDL scancodes from 26.3.
                 code = InputConstants.getKey(key.minecraftName).getValue();
             } catch (RuntimeException e) {
                 code = -1;
@@ -105,7 +105,7 @@ final class ModernPlatform implements Platform {
             keyCodes.put(key.minecraftName, code);
         }
         if (code < 0) return false;
-        //? if >=26.1 {
+        //? if >=26.3 {
         return InputConstants.isKeyDown(code);
         //?} elif >=1.21.9 {
         /*return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), code);
@@ -142,7 +142,7 @@ final class ModernPlatform implements Platform {
     }
 
     static Screen currentScreen() {
-        //? if >=26.1 {
+        //? if >=26.2 {
         return Minecraft.getInstance().gui.screen();
         //?} else {
         /*return Minecraft.getInstance().screen;
@@ -150,7 +150,7 @@ final class ModernPlatform implements Platform {
     }
 
     static void setScreen(Screen screen) {
-        //? if >=26.1 {
+        //? if >=26.2 {
         Minecraft.getInstance().gui.setScreen(screen);
         //?} else {
         /*Minecraft.getInstance().setScreen(screen);

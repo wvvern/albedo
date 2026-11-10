@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 /** The callbacks that the window sends to the mouse handler, which the dev harness calls to click as a real mouse does. */
 @Mixin(MouseHandler.class)
 public interface MouseHandlerInvoker {
-    //? if >=26.1 {
+    //? if >=26.3 {
     @Invoker("onMove")
     void albedo$onMove(long handle, double x, double y, double dx, double dy);
     //?} else {
