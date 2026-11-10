@@ -10,7 +10,7 @@ Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
-that starts with ! and no DIFFERENT, and each screenshot command made its image.
+that starts with ! and no DIFFERENT, each screenshot command made its image, and the run folder has config/albedo/config.json.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
@@ -66,8 +66,9 @@ function Set-EarlyWindow([string]$runDir) {
     @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
 }
 
-function Get-Failures([string]$harness, [string]$gradleLog) {
-    # The reasons why a run is not PASS, from the harness folder and the game log.
+function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir) {
+    # The reasons why a run is not PASS, from the harness folder, the game log and the run folder.
+    if (-not (Test-Path (Join-Path $runDir "config\albedo\config.json"))) { "the run folder does not have config/albedo/config.json" }
     $harnessLog = Join-Path $harness "log.txt"
     $harnessText = @(if (Test-Path $harnessLog) { Get-Content $harnessLog })
     $gameText = if (Test-Path $gradleLog) { Get-Content -Raw $gradleLog } else { "" }
@@ -169,7 +170,7 @@ foreach ($target in $Targets) {
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
-    $failures = @(Get-Failures $harness $log)
+    $failures = @(Get-Failures $harness $log $runDir)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
         Set-Content -Encoding ascii (Join-Path $out "result.txt")
