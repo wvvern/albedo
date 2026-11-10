@@ -1,11 +1,11 @@
-# The built-in pastel profile with its soft Chroma colors, which drift slowly: two screenshots 10 s apart, then frames in a row.
+# The built-in pastel profile with its soft Chroma colors: two screenshots 10 s apart, then frames in a row.
 # Run it after scene-*.txt, for example before chroma-modern.txt:
 # ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Extra pastel.txt -Shots chroma-modern.txt -OutDir build\chroma
 wait 60
 profile pastel
 wait 200
 screenshot p01-pastel
-# One turn takes about 96 s, so the hue of each block moves about 37 degrees in 10 s.
+# One turn takes about 13 s, so the hue of each block moves about 270 degrees in 10 s.
 wait 200
 screenshot p02-pastel-10s
 frames 3 p03-row

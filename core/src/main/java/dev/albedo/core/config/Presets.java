@@ -69,8 +69,8 @@ public final class Presets {
     /** A soft world where each kind of block has its own pastel color that drifts slowly and mobs and players keep their textures. */
     static Profile pastel() {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        // Half-strength Chroma at a low speed (one turn in about 96 s), so that the colors stay soft and the world stays calm.
-        Chroma pastel = new Chroma(55, 10, Chroma.DEFAULT_SATURATION, Chroma.DEFAULT_BRIGHTNESS);
+        // Half-strength Chroma keeps the colors soft, and one turn takes about 13 s.
+        Chroma pastel = new Chroma(55, 54, Chroma.DEFAULT_SATURATION, Chroma.DEFAULT_BRIGHTNESS);
         Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, Appearance.Alpha.KEEP, 60, 0, 35, 30, 0, pastel);
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
