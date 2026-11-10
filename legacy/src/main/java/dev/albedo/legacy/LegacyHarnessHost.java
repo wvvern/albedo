@@ -187,6 +187,11 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
+    public List<dev.albedo.core.dev.HookCounter> hookCounters() {
+        return LegacyHooks.COUNTERS;
+    }
+
+    @Override
     public int[] frameSize() {
         Minecraft mc = Minecraft.getMinecraft();
         return new int[]{mc.displayWidth, mc.displayHeight};

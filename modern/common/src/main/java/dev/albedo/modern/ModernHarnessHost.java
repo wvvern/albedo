@@ -270,6 +270,11 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public java.util.List<dev.albedo.core.dev.HookCounter> hookCounters() {
+        return ModernHooks.COUNTERS;
+    }
+
+    @Override
     public int[] frameSize() {
         var window = Minecraft.getInstance().getWindow();
         return new int[]{window.getWidth(), window.getHeight()};

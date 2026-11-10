@@ -154,6 +154,14 @@ class HarnessTest {
     }
 
     @Test
+    void theHooksLineShowsTheRunsOfEachCounter() {
+        HookCounter ran = new HookCounter("afterSolid"), missed = new HookCounter("tint");
+        ran.run();
+        ran.run();
+        assertEquals("hooks: afterSolid=2 tint=0", Harness.hooksLine(Arrays.asList(ran, missed)));
+    }
+
+    @Test
     void aSkinHashIsHexAndDiffersForACape() {
         byte[] png = {1, 2, 3};
         String skin = Harness.skinHash(png, false);

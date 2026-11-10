@@ -17,6 +17,7 @@ public abstract class SodiumAmbientOcclusionMixin {
     /** Missing in earlier Sodium versions and Embeddium (require = 0), which ask Minecraft.useAmbientOcclusion instead. */
     @Inject(method = "useAmbientOcclusion()Z", require = 0, at = @At("HEAD"), cancellable = true)
     private void albedo$ambientOcclusion(CallbackInfoReturnable<Boolean> cir) {
+        ModernHooks.SODIUM_SHADE.run();
         if (!ModernHooks.shading()) cir.setReturnValue(false);
     }
 }
