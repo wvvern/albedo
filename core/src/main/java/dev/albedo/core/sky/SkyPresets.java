@@ -77,7 +77,7 @@ public final class SkyPresets {
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF14203A, Param.COLOR_2, 0xFF020308, Param.HEIGHT, 20, Param.AMOUNT, 55)
             .add(Kind.STARS, Param.AMOUNT, 75, Param.HEIGHT, 30, Param.SEED, 8).blend(SkyLayer.Blend.ADD)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE)
-            .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
+            .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
 
     private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
 

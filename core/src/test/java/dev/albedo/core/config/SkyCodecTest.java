@@ -95,6 +95,10 @@ class SkyCodecTest {
         for (SkyDesign d : SkyPresets.all().values()) {
             if (d != SkyPresets.TRAILS) assertEquals(SkyTurning.DEFAULT, d.turning(), "each preset but Trails has the default turning");
         }
+        SkyTurning trails = SkyPresets.TRAILS.turning();
+        assertEquals(SkyTurning.DEFAULT.clock(), trails.clock(), "the Trails preset turns in real time");
+        assertEquals(SkyTurning.DEFAULT.speed(), trails.speed(), "the Trails preset turns at 1x");
+        assertEquals(SkyTurning.DEFAULT.amount(), trails.amount());
     }
 
     @Test
