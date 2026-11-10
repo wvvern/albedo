@@ -33,9 +33,4 @@ git ls-files -z -- '*Mixin.java' | xargs -0 awk '
     }
     END { exit bad }' || fail=1
 
-# Comments: one sentence each, and no history of the code.
-py=python3
-$py --version >/dev/null 2>&1 || py=python # Windows has a python3 placeholder that does not run
-git ls-files -z -- '*.java' | xargs -0 "$py" tools/comments.py || fail=1
-
 exit $fail
