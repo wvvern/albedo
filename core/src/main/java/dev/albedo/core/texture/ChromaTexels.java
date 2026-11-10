@@ -14,6 +14,11 @@ public final class ChromaTexels {
 
     private ChromaTexels() {}
 
+    /** The GPU memory that the pass adds for one level of an atlas: the texel texture and the pristine copy, 4 bytes for each texel. */
+    public static long levelBytes(int width, int height) {
+        return 2L * 4 * width * height;
+    }
+
     /** Puts the texels of one level into {@code out} as RGBA8 bytes from its position, and makes {@code out} ready to read. */
     public static void rgba(int[] texels, ByteBuffer out) {
         for (int c : texels) out.put((byte) (c >> 16)).put((byte) (c >> 8)).put((byte) c).put((byte) (c >>> 24));

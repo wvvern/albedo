@@ -303,16 +303,11 @@ final class GlSharpSky {
         return true;
     }
 
-    // Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null.
+    // The SkyImage.quad of a view, or of the whole image for null.
     private static VertexBuffer quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] v = SkyImage.quad(view);
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-        for (int i = 0; i < corners.length; i++) {
-            int c = corner[i] * 3;
-            if (view == null) b.addVertex(0, 0, 0).setUv(corners[i][0], corners[i][1]);
-            else b.addVertex(view[c], view[c + 1], view[c + 2]).setUv(corners[i][0], corners[i][1]);
-        }
+        for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
         VertexBuffer buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
         buffer.bind();
         buffer.upload(b.buildOrThrow());

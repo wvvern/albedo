@@ -558,15 +558,21 @@ public final class Harness {
     /**
      * Logs the times of the GPU pass of Chroma that an adapter measured for {@code chromatime}.
      *
-     * @param cpu the CPU time of the pass in each frame, in nanoseconds
-     * @param gpuStart the GPU time of the copy and the draws at the start of each frame, in nanoseconds
-     * @param gpuEnd the GPU time of the copy back at the end of each frame, in nanoseconds
+     * @param frames for each frame in nanoseconds: the CPU time of the pass, the GPU time of the copy and the draws at the
+     *     start of the frame, and the GPU time of the copy back at its end
      * @param bytes the GPU memory of the pass
      * @param atlases the names of the atlases that the pass turns
      */
-    public static void logChromaTimes(long[] cpu, long[] gpuStart, long[] gpuEnd, long bytes, String atlases) {
-        long[] gpu = new long[cpu.length];
-        for (int i = 0; i < gpu.length; i++) gpu[i] = gpuStart[i] + gpuEnd[i];
+    public static void logChromaTimes(List<long[]> frames, long bytes, String atlases) {
+        int n = frames.size();
+        long[] cpu = new long[n], gpuStart = new long[n], gpuEnd = new long[n], gpu = new long[n];
+        for (int i = 0; i < n; i++) {
+            long[] f = frames.get(i);
+            cpu[i] = f[0];
+            gpuStart[i] = f[1];
+            gpuEnd[i] = f[2];
+            gpu[i] = f[1] + f[2];
+        }
         log(String.format(Locale.ROOT, "chromatime: %d frames, GPU p50 %.3f ms, p95 %.3f ms, max %.3f ms (start p50 %.3f ms, end p50 %.3f ms),"
                         + " CPU p50 %.3f ms, p95 %.3f ms, GPU memory %.1f MiB for %s",
                 gpu.length, ms(gpu, 50), ms(gpu, 95), ms(gpu, 100), ms(gpuStart, 50), ms(gpuEnd, 50), ms(cpu, 50), ms(cpu, 95),

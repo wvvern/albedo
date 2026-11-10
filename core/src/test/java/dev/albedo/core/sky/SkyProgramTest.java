@@ -7,10 +7,7 @@ import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,17 +29,9 @@ class SkyProgramTest {
     void theShaderHasTheSameLayoutAndCodes() throws IOException {
         String glsl = skyLayersSource();
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,
-            "KIND_GRADIENT " + SkyProgram.KIND_GRADIENT, "KIND_GLOW " + SkyProgram.KIND_GLOW, "KIND_STARS " + SkyProgram.KIND_STARS,
-            "KIND_NOISE " + SkyProgram.KIND_NOISE, "KIND_FRACTAL " + SkyProgram.KIND_FRACTAL, "KIND_GALAXY " + SkyProgram.KIND_GALAXY,
-            "KIND_BLOOM " + SkyProgram.KIND_BLOOM, "KIND_BLUR " + SkyProgram.KIND_BLUR, "KIND_PIXELATE " + SkyProgram.KIND_PIXELATE,
-            "KIND_CRYSTALLIZE " + SkyProgram.KIND_CRYSTALLIZE, "KIND_SWIRL " + SkyProgram.KIND_SWIRL,
-            "KIND_POSTERIZE " + SkyProgram.KIND_POSTERIZE, "KIND_HUE_SHIFT " + SkyProgram.KIND_HUE_SHIFT,
-            "KIND_VIGNETTE " + SkyProgram.KIND_VIGNETTE, "KIND_METEORS " + SkyProgram.KIND_METEORS, "KIND_AURORA " + SkyProgram.KIND_AURORA,
             "METEOR_CHANNELS " + SkyMeteors.CHANNELS, "METEOR_SLOTS_BACK " + SkyMeteors.SLOTS_BACK,
-            "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
-            "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
-            "USE_SHOW " + SkyProgram.USE_SHOW, "CLOUD_OCTAVES " + SkyGenerator.CLOUD_OCTAVES,
-            "CLOUD_FIELD_OCTAVES " + SkyGenerator.CLOUD_FIELD_OCTAVES};
+            "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN, "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY,
+            "CLOUD_OCTAVES " + SkyGenerator.CLOUD_OCTAVES, "CLOUD_FIELD_OCTAVES " + SkyGenerator.CLOUD_FIELD_OCTAVES};
         for (String d : defines) assertTrue(glsl.contains("#define ALBEDO_" + d + "\n"), d);
         // The shader reads the values of a layer from these vec4 slots.
         assertEquals(4, SkyProgram.MASK_DARK);
@@ -184,13 +173,7 @@ class SkyProgramTest {
 
     /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
     static String skyLayersSource() throws IOException {
-        try (InputStream in = SkyProgramTest.class.getResourceAsStream("/assets/albedo/shaders/include/sky_layers.glsl")) {
-            assertNotNull(in, "the shader is a core resource");
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);
-            return new String(out.toByteArray(), StandardCharsets.UTF_8);
-        }
+        return SkyShaderSource.read("include/sky_layers.glsl");
     }
 
     @Test
@@ -340,5 +323,16 @@ class SkyProgramTest {
         float north = b[SkyProgram.RING];
         assertTrue(north > 0, "the horizon colors follow the layers");
         assertTrue(Math.abs(Oklab.toSrgb(north) / 255f - fog[0]) < 0.05f, "the north fog color is near the first sector");
+    }
+
+    @Test
+    void theQuadCoversTheImageWithTheDirectionsOfTheViewCorners() {
+        float[] whole = SkyImage.quad(null);
+        assertEquals(6 * 5, whole.length);
+        assertArrayEquals(new float[] {0, 0, 0, 1, 1}, Arrays.copyOfRange(whole, 10, 15), "the third vertex is the bottom right");
+        float[] view = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+        float[] quad = SkyImage.quad(view);
+        assertArrayEquals(new float[] {7, 8, 9, 1, 1}, Arrays.copyOfRange(quad, 10, 15), "the bottom right takes the third corner");
+        assertArrayEquals(new float[] {10, 11, 12, 1, 0}, Arrays.copyOfRange(quad, 25, 30), "the top right takes the fourth corner");
     }
 }

@@ -179,6 +179,24 @@ public final class SkyImage {
     }
 
     /**
+     * Two triangles over a whole image as x, y, z, u and v for each vertex, with texture coordinates from the top left
+     * corner, at the position 0 or at the sky direction of each corner of a camera view.
+     *
+     * @param view the sky directions of the four corners of a camera view, or null
+     */
+    public static float[] quad(float[] view) {
+        float[][] uv = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
+        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] out = new float[uv.length * 5];
+        for (int i = 0; i < uv.length; i++) {
+            if (view != null) System.arraycopy(view, corner[i] * 3, out, i * 5, 3);
+            out[i * 5 + 3] = uv[i][0];
+            out[i * 5 + 4] = uv[i][1];
+        }
+        return out;
+    }
+
+    /**
      * A sphere of triangles around the camera with texture coordinates into this image, as x, y, z, u and v for each vertex.
      *
      * @param radius the distance of the vertices from the camera

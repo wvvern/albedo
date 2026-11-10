@@ -285,7 +285,7 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public long bytes() {
             long out = 0;
-            for (int level = 0; level < widths.length; level++) out += 2L * 4 * widths[level] * heights[level];
+            for (int level = 0; level < widths.length; level++) out += ChromaTexels.levelBytes(widths[level], heights[level]);
             return out;
         }
 

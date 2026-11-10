@@ -305,17 +305,12 @@ final class PrecompiledSharpSky {
         return true;
     }
 
-    // Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null.
+    // The SkyImage.quad of a view, or of the whole image for null.
     private static GpuBuffer quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
-        try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(corners.length * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
+        float[] v = SkyImage.quad(view);
+        try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(v.length / 5 * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
             BufferBuilder b = new BufferBuilder(bytes, VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-            for (int i = 0; i < corners.length; i++) {
-                int c = corner[i] * 3;
-                if (view == null) b.addVertex(0, 0, 0).setUv(corners[i][0], corners[i][1]);
-                else b.addVertex(view[c], view[c + 1], view[c + 2]).setUv(corners[i][0], corners[i][1]);
-            }
+            for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
             try (MeshData mesh = b.buildOrThrow()) {
                 return RenderSystem.getDevice().createBuffer(() -> "Albedo sky compare quad", GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
             }

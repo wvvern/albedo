@@ -314,17 +314,12 @@ final class LegacySharpSky {
         return true;
     }
 
-    /** Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null. */
+    /** Draws the {@link SkyImage#quad} of a view, or of the whole image for null. */
     private static void quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] v = SkyImage.quad(view);
         WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
         r.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX);
-        for (int i = 0; i < corners.length; i++) {
-            int c = corner[i] * 3;
-            if (view == null) r.pos(0, 0, 0).tex(corners[i][0], corners[i][1]).endVertex();
-            else r.pos(view[c], view[c + 1], view[c + 2]).tex(corners[i][0], corners[i][1]).endVertex();
-        }
+        for (int i = 0; i < v.length; i += 5) r.pos(v[i], v[i + 1], v[i + 2]).tex(v[i + 3], v[i + 4]).endVertex();
         Tessellator.getInstance().draw();
     }
 }

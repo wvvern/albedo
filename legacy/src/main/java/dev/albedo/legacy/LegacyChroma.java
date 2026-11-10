@@ -305,7 +305,7 @@ public final class LegacyChroma {
 
     private static long bytes() {
         long out = 0;
-        for (int level = 0; level < size[2]; level++) out += 2L * 4 * width(level) * height(level);
+        for (int level = 0; level < size[2]; level++) out += ChromaTexels.levelBytes(width(level), height(level));
         return out;
     }
 
@@ -454,15 +454,7 @@ public final class LegacyChroma {
             it.remove();
         }
         if (timedLeft > 0) return;
-        int n = TIMES.size();
-        long[] cpu = new long[n], gpuStart = new long[n], gpuEnd = new long[n];
-        for (int i = 0; i < n; i++) {
-            long[] row = TIMES.get(i);
-            cpu[i] = row[0];
-            gpuStart[i] = row[1];
-            gpuEnd[i] = row[2];
-        }
-        Harness.logChromaTimes(cpu, gpuStart, gpuEnd, live == 0 ? 0 : bytes(), "the block atlas");
+        Harness.logChromaTimes(TIMES, live == 0 ? 0 : bytes(), "the block atlas");
         TIMES.clear();
     }
 }
