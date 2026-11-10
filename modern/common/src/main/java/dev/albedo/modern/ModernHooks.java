@@ -8,7 +8,6 @@ import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.TextureClassifier;
 import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.OptionInstance;
 import org.joml.Vector4f;
 
 /**
@@ -147,14 +146,26 @@ public final class ModernHooks {
         if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
     }
 
+    //? if >=1.19 {
     /** Only the brightness option is changed; the mixin wraps every option read in the lightmap code. */
-    public static Object gamma(OptionInstance<?> option, Object value) {
+    public static Object gamma(net.minecraft.client.OptionInstance<?> option, Object value) {
         return option == Minecraft.getInstance().options.gamma() ? (Object) Albedo.currentPolicy().gamma((Double) value) : value;
     }
 
-    public static Object entityShadows(OptionInstance<?> option, Object value) {
+    public static Object entityShadows(net.minecraft.client.OptionInstance<?> option, Object value) {
         return !Albedo.currentPolicy().shadows() && option == Minecraft.getInstance().options.entityShadows() ? Boolean.FALSE : value;
     }
+    //?} else {
+    /*// The brightness option as the lightmap code reads its field.
+    public static double gamma(double value) {
+        return Albedo.currentPolicy().gamma(value);
+    }
+
+    // The "entity shadows" option as the entity renderer reads its field.
+    public static boolean entityShadows(boolean value) {
+        return value && Albedo.currentPolicy().shadows();
+    }
+    *///?}
 
     public static boolean cloudsHidden() {
         return Albedo.currentPolicy().cloudsHidden();

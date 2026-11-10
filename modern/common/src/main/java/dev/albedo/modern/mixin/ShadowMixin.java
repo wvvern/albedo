@@ -1,5 +1,6 @@
 package dev.albedo.modern.mixin;
 
+//? if >=1.20.5 {
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.albedo.modern.ModernHooks;
@@ -7,7 +8,10 @@ import net.minecraft.client.OptionInstance;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/** Entity shadows off: where the renderer checks the "entity shadows" option, it reads false. */
+/**
+ * Entity shadows off: where the renderer checks the "entity shadows" option, it reads false; the versions before 1.20.5
+ * use {@code ShadowRedirectMixin}.
+ */
 //? if >=1.21.2 {
 @Mixin(net.minecraft.client.renderer.entity.EntityRenderer.class)
 //?} else {
@@ -23,3 +27,4 @@ public abstract class ShadowMixin {
         return ModernHooks.entityShadows(option, original.call(option));
     }
 }
+//?}
