@@ -1,0 +1,38 @@
+# The same commands as clouds-modern.txt for 1.8.9, where the clouds are at the height 128. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots clouds-modern.txt -OutDir build\clouds
+wait 60
+run setblock 0 109 4 minecraft:barrier
+run tp @p 0.5 110 4.5 180 -15
+wait 100
+screenshot c01-start
+mod off
+wait 100
+screenshot c02-off
+clouds shown
+mod on
+wait 100
+screenshot c03-on
+clouds hidden
+profile pastel
+wait 100
+screenshot c04-pastel
+clouds shown
+profile minimal
+wait 100
+screenshot c05-minimal
+clouds hidden
+sky dusk
+wait 160
+screenshot c06-minimal-dusk
+clouds hidden
+sky off
+profile pastel
+reload
+wait 300
+screenshot c07-pastel-after-reload
+clouds shown
+profile quake-white
+wait 100
+screenshot c08-quake-white
+clouds hidden
+quit

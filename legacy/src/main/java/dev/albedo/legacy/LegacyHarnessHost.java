@@ -191,4 +191,23 @@ final class LegacyHarnessHost implements Harness.Host {
         Minecraft mc = Minecraft.getMinecraft();
         return new int[]{mc.displayWidth, mc.displayHeight};
     }
+
+    /** Reads the clouds texture back from the GPU, because a hidden look makes all of its pixels transparent. */
+    @Override
+    public boolean cloudsDrawn() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.gameSettings.shouldRenderClouds() == 0) return false;
+        net.minecraft.client.renderer.texture.ITextureObject clouds =
+                mc.getTextureManager().getTexture(new ResourceLocation("textures/environment/clouds.png"));
+        if (clouds == null) return false;
+        net.minecraft.client.renderer.GlStateManager.bindTexture(clouds.getGlTextureId());
+        int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+        int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+        IntBuffer pixels = BufferUtils.createIntBuffer(width * height);
+        GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        for (int i = 0; i < width * height; i++) {
+            if ((pixels.get(i) >>> 24) != 0) return true;
+        }
+        return false;
+    }
 }

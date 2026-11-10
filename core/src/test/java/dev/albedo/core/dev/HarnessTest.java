@@ -35,6 +35,15 @@ class HarnessTest {
     }
 
     @Test
+    void theCloudsCommandMarksCloudsInTheWrongState() {
+        assertEquals("clouds hidden", Harness.cloudsLine(false, "hidden"));
+        assertEquals("clouds shown", Harness.cloudsLine(true, "shown"));
+        assertEquals("! clouds shown, expected hidden", Harness.cloudsLine(true, "hidden"));
+        assertEquals("! clouds hidden, expected shown", Harness.cloudsLine(false, "shown"));
+        assertThrows(IllegalArgumentException.class, () -> Harness.cloudsLine(true, "off"));
+    }
+
+    @Test
     void theSkyRenderCommandSetsTheRender() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
         assertEquals(SkyDesign.Render.FAST, Harness.withSkyRender(p, "fast").get(Category.SKY).sky().render());

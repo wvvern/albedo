@@ -123,6 +123,9 @@ public final class Harness {
 
         /** The width and the height of the frame that the game draws. */
         int[] frameSize();
+
+        /** Whether the next frame draws clouds with visible pixels, from the state that the renderer reads. */
+        boolean cloudsDrawn();
     }
 
     /** Receives the image of {@link Host#drawSharpSky}. */
@@ -272,6 +275,7 @@ public final class Harness {
         else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
+        else if (verb.equals("clouds")) log(cloudsLine(host.cloudsDrawn(), arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -284,6 +288,16 @@ public final class Harness {
         else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
+    }
+
+    /**
+     * The log line of {@code clouds shown|hidden}, which starts with "!" when the game does not draw the clouds as the
+     * command expects.
+     */
+    static String cloudsLine(boolean drawn, String expected) {
+        if (!expected.equals("shown") && !expected.equals("hidden")) throw new IllegalArgumentException("clouds shown|hidden");
+        String now = drawn ? "shown" : "hidden";
+        return now.equals(expected) ? "clouds " + now : "! clouds " + now + ", expected " + expected;
     }
 
     /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */

@@ -33,7 +33,9 @@ param(
     # More command files in tools/harness/, added after the scene.
     [string[]]$Extra = @(),
     # The GUI scale, where 0 is auto; 2 gives the settings screen room for the sky preview in the harness window.
-    [int]$GuiScale = 0
+    [int]$GuiScale = 0,
+    # Optional config.json that the game starts with in place of the default config, for example a copy of the config of a player.
+    [string]$Config = ""
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -42,6 +44,7 @@ if ($ShaderPack) {
     if (-not $iris) { throw "-ShaderPack needs -Compat iris" }
     $ShaderPack = (Resolve-Path $ShaderPack).Path
 }
+if ($Config) { $Config = (Resolve-Path $Config).Path }
 
 function Set-Options([string]$runDir) {
     # Turn off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
@@ -91,8 +94,13 @@ foreach ($target in $Targets) {
     Set-Options $runDir
     $irisRun = $iris -and $loader -ne "forge"
     if ($irisRun) { Set-Iris $runDir }
-    # Use the default config and a new world each time, so the screenshots are the same each run.
-    Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
+    # Use the default config (or the -Config file) and a new world each time, so the screenshots are the same each run.
+    $configFile = Join-Path $runDir "config\albedo\config.json"
+    Remove-Item -Force $configFile -ErrorAction SilentlyContinue
+    if ($Config) {
+        New-Item -ItemType Directory -Force (Split-Path $configFile) | Out-Null
+        Copy-Item -Force $Config $configFile
+    }
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
     # First the scene of this version, then the command file, where 1.8.9 runs the *-legacy.txt copy of a *-modern.txt file.
     $shotList = if ($loader -eq "forge") { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
