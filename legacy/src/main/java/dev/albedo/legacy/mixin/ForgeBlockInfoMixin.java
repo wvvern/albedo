@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ForgeBlockInfoMixin {
     @Inject(method = "getColorMultiplier", at = @At("RETURN"), cancellable = true)
     private void albedo$tint(int tint, CallbackInfoReturnable<Integer> cir) {
+        LegacyHooks.TINT.run();
         cir.setReturnValue(LegacyHooks.blockTint(cir.getReturnValue()));
     }
 }

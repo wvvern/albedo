@@ -24,12 +24,14 @@ import java.util.Locale;
 public final class LegacyHooks {
     public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
     public static final HookCounter BEFORE_CLOUDS = new HookCounter("beforeClouds");
+    /** The block tint hook of the light pipeline that draws the blocks: Forge or vanilla. */
     public static final HookCounter TINT = new HookCounter("tint");
-    public static final HookCounter QUAD = new HookCounter("quad");
+    /** The face shade hook of the light pipeline that draws the blocks: Forge or vanilla. */
+    public static final HookCounter SHADE = new HookCounter("shade");
     public static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
     public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
-    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, QUAD, RELOAD_STEP, TEXTURE_UPLOAD);
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD);
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 

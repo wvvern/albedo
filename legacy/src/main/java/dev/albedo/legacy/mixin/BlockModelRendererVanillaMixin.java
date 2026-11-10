@@ -27,7 +27,7 @@ public abstract class BlockModelRendererVanillaMixin {
     @Redirect(method = {"renderModelAmbientOcclusionQuads", "renderModelStandardQuads"}, require = 0,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/WorldRenderer;addVertexData([I)V"))
     private void albedo$quad(WorldRenderer renderer, int[] vertexData) {
-        LegacyHooks.QUAD.run();
+        LegacyHooks.SHADE.run();
         LegacyHooks.addQuad(renderer, vertexData);
     }
 }
