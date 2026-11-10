@@ -6,6 +6,18 @@ run time set 6000
 wait 40
 sky dusk
 wait 160
+# The wall of glass and leaves of the scene in front of the sharp sky and of the baked sky, with the time of the sky held.
+skyclock 0
+fov 70
+run tp @p ~ ~ ~ 0 -20
+wait 40
+screenshot wall-01-sharp-fov70
+skyrender fast
+wait 160
+screenshot wall-02-baked-fov70
+skyrender sharp
+skyclock run
+wait 160
 # Yaw 90 looks west (the Dusk glow), pitch -60 looks up to the stars.
 fov 30
 run tp @p 0 3000 0 0 -60

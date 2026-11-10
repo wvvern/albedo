@@ -47,8 +47,8 @@ $Dir = (Resolve-Path $Dir).Path
 if (-not $CommandLine) {
     $gradlew = Join-Path $Dir "gradlew.bat"
     # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
+    # --configure-on-demand: with all version projects configured, Loom can write the files of one version into the cache of a different one.
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
-    # --configure-on-demand: Loom mixes the mappings of the modern nodes when one run configures all of them.
     $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg"
 }
 $cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""

@@ -44,6 +44,10 @@ run fill -6 3 -4 -4 3 -3 minecraft:water
 run fill 4 3 -4 6 3 -3 minecraft:lava
 run setblock -2 4 -2 minecraft:tallgrass 1
 run setblock 2 4 -2 minecraft:red_flower
+# A wall of glass and leaves behind the camera: it is in front of the sky when the camera looks south, and not in the views of shots.txt.
+run fill -4 4 9 4 14 11 air
+run fill -3 4 10 -1 8 10 minecraft:glass
+run fill 1 4 10 3 8 10 minecraft:leaves 4
 run summon Pig -3 4 -1 {NoAI:1,Rotation:[0f,0f]}
 run summon Sheep -1 4 -1 {NoAI:1,Color:14,Rotation:[0f,0f]}
 run summon Villager 1 4 -1 {NoAI:1,Rotation:[0f,0f]}
