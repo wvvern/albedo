@@ -7,10 +7,8 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.TextureClassifier;
 import dev.albedo.core.texture.TextureStore;
-import dev.albedo.modern.mixin.SpriteContentsAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
-import net.minecraft.client.renderer.texture.SpriteContents;
 import org.joml.Vector4f;
 
 /**
@@ -51,11 +49,9 @@ public final class ModernHooks {
      *
      * @param atlas the location of the atlas texture
      */
-    public static void processSprite(Object atlas, SpriteContents sprite) {
+    public static void processSprite(Object atlas, SpriteAccess sprite) {
         bootstrap();
-        NativeImage image = ((SpriteContentsAccessor) sprite).albedo$originalImage();
-        processImage(AtlasPaths.spriteLocation(String.valueOf(atlas), String.valueOf(sprite.name())), image,
-                TextureUploads.sprite(atlas, sprite));
+        processImage(AtlasPaths.spriteLocation(String.valueOf(atlas), sprite.name()), sprite.image(), TextureUploads.sprite(atlas, sprite));
     }
 
     //? if >=1.21.4 {
