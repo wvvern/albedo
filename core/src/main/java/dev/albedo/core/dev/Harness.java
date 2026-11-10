@@ -78,8 +78,11 @@ public final class Harness {
         /**
          * Sends one typed character into the entry point of the game that the window events call, and returns false when
          * the window would drop it, for example because the game did not start text input.
+         *
+         * @param afterKey whether the key of the character went down just before, else the window sends the character as
+         *        typed text with no key, as for a character that needs Shift or AltGr
          */
-        boolean character(char c);
+        boolean character(char c, boolean afterKey);
 
         /** Whether the settings screen of Albedo is open. */
         boolean settingsOpen();
@@ -315,13 +318,13 @@ public final class Harness {
         else log("! unknown command: " + verb);
     }
 
-    /** Types each character as a real keyboard does: the key of a letter or digit goes down, the character follows, the key goes up. */
+    /** Types as a real keyboard does: the key of a letter or digit goes down, its character follows, and the key goes up. */
     private void type(String text) {
         int dropped = 0;
         for (char c : text.toCharArray()) {
             Keys.Key key = c < 128 && Character.isLetterOrDigit(c) ? Keys.byName(String.valueOf(c)) : null;
             if (key != null) host.key(key, true, ctrlHeld());
-            if (!host.character(c)) dropped++;
+            if (!host.character(c, key != null)) dropped++;
             if (key != null) host.key(key, false, ctrlHeld());
         }
         if (dropped > 0) log("! the window dropped " + dropped + " of " + text.length() + " typed characters");

@@ -38,15 +38,14 @@ ui expect search xakz
 ui pointer off
 wait 5
 screenshot t01-search
-# Ctrl+A selects all and the next letter replaces it; E is the inventory key and F6, F7 and F9 are the keys of Albedo.
+# Ctrl+A selects all and the next letter replaces it; E is the inventory key and F9 is the settings key of Albedo.
+# F6 and F7 are not here: they are also the vanilla stream keys of 1.8.9, which open a stream screen from each screen.
 keydown LEFT_CONTROL
 wait 2
 key A
 wait 2
 keyup LEFT_CONTROL
 type e
-key F6
-key F7
 key F9
 wait 5
 ui expect search e
@@ -129,8 +128,9 @@ wait 5
 screenshot t03-color-hex
 key ENTER
 wait 5
-# Profile search, then the name of a copy of the profile, where the name starts selected.
-ui click Profile:
+# Profile search, then the name of a copy of the profile, where the name starts selected; the color change made the
+# custom copy of quake-white, and a narrow window shows only its name on the profile button.
+ui click quake-white-custom
 wait 10
 type quake
 wait 5

@@ -30,6 +30,9 @@ import java.util.List;
 
 /** Development-only: what the test harness needs from 1.8.9 (see {@link Harness}). */
 final class LegacyHarnessHost implements Harness.Host {
+    /** The Windows virtual key of a typed character that has no key of its own. */
+    private static final int VK_PACKET = 0xE7;
+
     @Override
     public boolean inWorld() {
         Minecraft mc = Minecraft.getMinecraft();
@@ -120,10 +123,16 @@ final class LegacyHarnessHost implements Harness.Host {
         return windowMessage("handleKeyButton", virtualKey, lParam);
     }
 
-    /** Calls the handler of the character messages of the LWJGL 2 window, as Windows does after a key goes down. */
+    /**
+     * Calls the handler of the character messages of the LWJGL 2 window, as Windows does after a key goes down; Windows
+     * sends a character with no key between a press and a release of VK_PACKET.
+     */
     @Override
-    public boolean character(char c) {
-        return windowMessage("handleChar", c, 1L);
+    public boolean character(char c, boolean afterKey) {
+        if (!afterKey && !windowMessage("handleKeyButton", VK_PACKET, 1L)) return false;
+        boolean sent = windowMessage("handleChar", c, 1L);
+        if (!afterKey) windowMessage("handleKeyButton", VK_PACKET, 1L | 3L << 30);
+        return sent;
     }
 
     @Override

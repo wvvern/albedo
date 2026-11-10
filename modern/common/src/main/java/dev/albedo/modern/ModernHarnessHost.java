@@ -157,7 +157,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     /** Calls the keyboard handler as the text event of the window does; SDL sends no text while the game has not started text input. */
     @Override
-    public boolean character(char c) {
+    public boolean character(char c, boolean afterKey) {
         var keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
         //? if >=26.1 {
         if (!org.lwjgl.sdl.SDLKeyboard.SDL_TextInputActive(handle())) return false;

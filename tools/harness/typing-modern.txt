@@ -131,8 +131,9 @@ wait 5
 screenshot t03-color-hex
 key ENTER
 wait 5
-# Profile search, then the name of a copy of the profile, where the name starts selected.
-ui realclick Profile:
+# Profile search, then the name of a copy of the profile, where the name starts selected; the color change made the
+# custom copy of quake-white, and a narrow window shows only its name on the profile button.
+ui realclick quake-white-custom
 wait 10
 type quake
 wait 5
