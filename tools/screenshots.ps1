@@ -62,13 +62,13 @@ function Set-Options([string]$runDir) {
     ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii (Join-Path $runDir "options.txt")
 }
 
-function Set-EarlyWindow([string]$runDir) {
-    # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
+function Set-TomlKey([string]$runDir, [string]$name, [string]$key, [string]$value) {
+    # Puts "key = value" at the top of config/<name>, where it is outside each table, in place of the old line of the key.
     $config = Join-Path $runDir "config"
     New-Item -ItemType Directory -Force $config | Out-Null
-    $file = Join-Path $config "fml.toml"
-    $lines = @(if (Test-Path $file) { Get-Content $file | Where-Object { $_ -notmatch "^\s*earlyWindowControl\s*=" } })
-    @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
+    $file = Join-Path $config $name
+    $lines = @(if (Test-Path $file) { Get-Content $file | Where-Object { $_ -notmatch "^\s*$key\s*=" } })
+    @("$key = $value") + $lines | Set-Content -Encoding ascii $file
 }
 
 function Get-PngSize([string]$file) {
@@ -159,7 +159,12 @@ foreach ($target in $Targets) {
     # Images that the commands load, for example the test skin of skins.txt.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
-    if (-not $legacy -and $loader -ne "fabric") { Set-EarlyWindow $runDir }
+    # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
+    if (-not $legacy -and $loader -ne "fabric") { Set-TomlKey $runDir "fml.toml" "earlyWindowControl" "false" }
+    # The NeoForge dev run checks each Blaze3D call, but Sodium 0.8.14 casts a texture that this check wraps, so -Compat stops it.
+    if (-not $legacy -and $loader -eq "neoforge") {
+        Set-TomlKey $runDir "neoforge-client.toml" "enableB3DValidationLayer" $(if ($Compat) { "false" } else { "true" })
+    }
     $irisRun = $iris -and -not $legacy
     if ($irisRun) { Set-Iris $runDir }
     # Use the default config (or the -Config file) and a new world each time, so the screenshots are the same each run.

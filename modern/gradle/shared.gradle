@@ -105,8 +105,7 @@ if (loader != 'common' && project.hasProperty('compat')) {
             def modVersion = project.findProperty("${mod}_${loader}")
             // A node with no build of this mod for its loader only logs it.
             if (modVersion == null) logger.info("No ${mod} build for ${loader} ${project.minecraft_version}")
-            // A value "<project>:<version>" names another Modrinth project, for example a second Sodium version.
-            else add(runtime, "maven.modrinth:${modVersion.contains(':') ? modVersion : "${mod}:${modVersion}"}")
+            else add(runtime, "maven.modrinth:${mod}:${modVersion}")
         }
         // Most players use Sodium with Fabric API, so the test does too. Albedo itself does not need it.
         if (loader == 'fabric' && 'sodium' in mods) add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}")
