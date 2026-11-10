@@ -55,7 +55,9 @@ final class TextureUploads {
         return new TextureStore.Upload() {
             @Override
             public boolean upload(PixelBuffer pixels) {
-                if (!(registered(atlasId) instanceof TextureAtlas atlas)) return false;
+                AbstractTexture registered = registered(atlasId);
+                if (!(registered instanceof TextureAtlas)) return false;
+                TextureAtlas atlas = (TextureAtlas) registered;
                 TextureAtlasSprite sprite = access.in(atlas);
                 if (sprite == null) return false;
                 NativeImage original = access.image();

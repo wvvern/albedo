@@ -75,3 +75,4 @@ dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/AmbientOcclusionMixin.class The common code is compiled against the annotations of Mixin 0.8.5, which write the one "at" of a redirect as a value and not as an array, with the same meaning.
 dev/albedo/modern/mixin/SkySunriseMixin.class The sunrise fan redirect of SkyLayersMixin is a mixin of its own, so that a version without the redirect can leave it out.
+dev/albedo/modern/KeyCodes.class A new class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.

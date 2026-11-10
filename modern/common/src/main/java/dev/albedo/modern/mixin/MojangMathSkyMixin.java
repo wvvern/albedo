@@ -1,6 +1,6 @@
 package dev.albedo.modern.mixin;
 
-//? if <1.19.3 {
+//? if >=1.17 && <1.19.3 {
 /*import dev.albedo.modern.GlSky;
 import dev.albedo.modern.ModernHooks;
 import dev.albedo.modern.MojangMath;

@@ -14,8 +14,8 @@ final class HarnessKeyboard {
         KeyboardHandlerInvoker keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
         long handle = HarnessWindow.handle();
         int code = InputConstants.getKey(key.minecraftName).getValue();
-        int action = down ? InputConstants.PRESS : InputConstants.RELEASE;
-        int modifiers = ctrl ? InputConstants.MOD_CONTROL : 0;
+        int action = down ? KeyCodes.PRESS : KeyCodes.RELEASE;
+        int modifiers = ctrl ? KeyCodes.MOD_CONTROL : 0;
         //? if >=26.3 {
         // The SDL event gives the scancode and the key code of the keyboard layout.
         int keycode = org.lwjgl.sdl.SDLKeyboard.SDL_GetKeyFromScancode(code, (short) 0, false);

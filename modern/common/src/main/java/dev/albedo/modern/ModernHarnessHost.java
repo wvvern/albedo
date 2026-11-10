@@ -1,10 +1,12 @@
 package dev.albedo.modern;
 
+import com.mojang.blaze3d.platform.Window;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
 import net.minecraft.client.Options;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.sounds.SoundSource;
 
@@ -24,7 +26,11 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void openWorld(String name) {
+        //? if gl_fixed {
+        /*FixedHarnessWorlds.open(name);
+        *///?} else {
         HarnessWorlds.open(name);
+        //?}
     }
 
     @Override
@@ -34,7 +40,11 @@ final class ModernHarnessHost implements Harness.Host {
             Harness.log("! no singleplayer server");
             return;
         }
+        //? if >=1.19 {
         server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command));
+        //?} else {
+        /*server.execute(() -> server.getCommands().performCommand(server.createCommandSourceStack(), command));
+        *///?}
     }
 
     @Override
@@ -135,22 +145,35 @@ final class ModernHarnessHost implements Harness.Host {
         //?} else {
         /*if (o.getSoundSourceVolume(SoundSource.MASTER) != 0f) o.setSoundCategoryVolume(SoundSource.MASTER, 0f);
         *///?}
+        //? if >=1.19 {
         if (o.narrator().get() != NarratorStatus.OFF) o.narrator().set(NarratorStatus.OFF);
+        //?} else {
+        /*o.narratorStatus = NarratorStatus.OFF;
+        *///?}
         // A window on a hidden desktop never has focus; pausing would stop the command queue.
         o.pauseOnLostFocus = false;
     }
 
     @Override
     public void setFov(int degrees) {
+        //? if >=1.19 {
         Minecraft.getInstance().options.fov().set(degrees);
+        //?} else {
+        /*Minecraft.getInstance().options.fov = degrees;
+        *///?}
     }
 
     @Override
     public void look(float yaw, float pitch) {
-        var player = Minecraft.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
+        //? if >=1.17 {
         player.setYRot(yaw);
         player.setXRot(pitch);
+        //?} else {
+        /*player.yRot = yaw;
+        player.xRot = pitch;
+        *///?}
         player.yRotO = yaw;
         player.xRotO = pitch;
     }
@@ -162,6 +185,8 @@ final class ModernHarnessHost implements Harness.Host {
         return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         //?} elif >=1.21.6 {
         /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        *///?} elif gl_fixed {
+        /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?} else {
         /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?}
@@ -180,8 +205,14 @@ final class ModernHarnessHost implements Harness.Host {
     public void uncapFrameRate() {
         Options o = Minecraft.getInstance().options;
         // The option value 260 is "Unlimited".
+        //? if >=1.19 {
         o.framerateLimit().set(260);
         o.enableVsync().set(false);
+        //?} else {
+        /*o.framerateLimit = 260;
+        o.enableVsync = false;
+        Minecraft.getInstance().getWindow().updateVsync(false);
+        *///?}
         //? if >=1.21.2 {
         o.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
         //?}
@@ -194,7 +225,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public int[] frameSize() {
-        var window = Minecraft.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         return new int[]{window.getWidth(), window.getHeight()};
     }
 

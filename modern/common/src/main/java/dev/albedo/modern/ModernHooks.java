@@ -115,7 +115,7 @@ public final class ModernHooks {
     //?} else {
     /*// Gives a downloaded skin its name before it loads, because TextureManager.register loads it.
     public static void registering(Object id, net.minecraft.client.renderer.texture.AbstractTexture texture) {
-        if (texture instanceof DownloadedSkin skin) skin.albedo$setId(id);
+        if (texture instanceof DownloadedSkin) ((DownloadedSkin) texture).albedo$setId(id);
     }
 
     // A downloaded skin, cape or elytra, as HttpTexture decodes it before its upload.
@@ -173,7 +173,7 @@ public final class ModernHooks {
 
     /** The flat sky color, or the custom sky near the horizon where the camera looks, so that the fog meets the sky. */
     public static void overrideFog(net.minecraft.client.Camera camera, Vector4f color) {
-        if (specialFog(camera)) return;
+        if (fogHidesSky(camera)) return;
         SkyImage img = Albedo.skyImage();
         if (img != null && ModernSky.vanillaWithPack()) return;
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
@@ -188,10 +188,15 @@ public final class ModernHooks {
     }
 
     /** True when the fog code of the game gives the camera the fog of a fluid, blindness or darkness, which hides the sky. */
-    private static boolean specialFog(net.minecraft.client.Camera camera) {
+    static boolean fogHidesSky(net.minecraft.client.Camera camera) {
+        //? if >=1.17 {
         net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
         if (fluid == net.minecraft.world.level.material.FogType.WATER || fluid == net.minecraft.world.level.material.FogType.LAVA
                 || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
+        //?} else {
+        /*net.minecraft.world.level.material.FluidState fluid = camera.getFluidInCamera();
+        if (fluid.is(net.minecraft.tags.FluidTags.WATER) || fluid.is(net.minecraft.tags.FluidTags.LAVA)) return true;
+        *///?}
         //? if >=1.21.11 {
         net.minecraft.world.entity.Entity entity = camera.entity();
         //?} else {
@@ -199,8 +204,11 @@ public final class ModernHooks {
         *///?}
         if (!(entity instanceof net.minecraft.world.entity.LivingEntity)) return false;
         net.minecraft.world.entity.LivingEntity living = (net.minecraft.world.entity.LivingEntity) entity;
-        return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
-                || living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS);
+        boolean dark = living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
+        //? if >=1.19 {
+        dark |= living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS);
+        //?}
+        return dark;
     }
 
     //? if >=1.19 {

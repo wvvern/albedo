@@ -32,8 +32,10 @@ final class HarnessShots {
         *///?}
         //? if >=1.21.5 {
         Screenshot.takeScreenshot(target, use);
-        //?} else {
+        //?} elif >=1.17 {
         /*use.accept(Screenshot.takeScreenshot(target));
+        *///?} else {
+        /*use.accept(Screenshot.takeScreenshot(mc.getWindow().getWidth(), mc.getWindow().getHeight(), target));
         *///?}
     }
 

@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.albedo.forge.mixin",
+  "compatibilityLevel": "${compatibility_level}",
+  "client": [
+    "ForgeBlockInfoMixin",
+    "ForgeLightUtilMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

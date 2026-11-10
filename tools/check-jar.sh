@@ -19,6 +19,18 @@ listed=$(sed -n '/"client"/,/]/p' "$dir/albedo.mixins.json" | grep -o '"[A-Za-z0
 present=$(cd "$dir/dev/albedo/modern/mixin" && ls | grep -v '\$' | sed 's/\.class$//' | sort)
 [ "$listed" = "$present" ] || error 'the client list of albedo.mixins.json is not the list of the mixin classes in the jar'
 
+# A Forge jar of a version with the light pipeline of Forge also has a config for its own mixins, which the manifest names.
+if [ -f "$dir/albedo.forge.mixins.json" ]; then
+    forge_listed=$(sed -n '/"client"/,/]/p' "$dir/albedo.forge.mixins.json" | grep -o '"[A-Za-z0-9_]*"' | tr -d '"' | grep -vx client | sort)
+    forge_present=$(cd "$dir/dev/albedo/forge/mixin" && ls | grep -v '\$' | sed 's/\.class$//' | sort)
+    [ "$forge_listed" = "$forge_present" ] || error 'the client list of albedo.forge.mixins.json is not the list of the mixin classes in the jar'
+    grep -q 'MixinConfigs:.*albedo.forge.mixins.json' "$dir/META-INF/MANIFEST.MF" || error 'the manifest does not name albedo.forge.mixins.json'
+    grep -q "\"compatibilityLevel\": \"JAVA_$(( $(node_prop java_version) < 21 ? $(node_prop java_version) : 21 ))\"" "$dir/albedo.forge.mixins.json" \
+        || error 'the compatibilityLevel of albedo.forge.mixins.json is not the level of the node'
+fi
+# No Forge jar has the mixin of the dev run of Forge 1.16.5.
+[ ! -e "$dir/albedo.dev.mixins.json" ] && [ ! -d "$dir/dev/albedo/forge/dev" ] || error 'the jar has the mixin of the dev run'
+
 # The mixin level is the Java version of the node, but not above 21, which is the level of the 26.x jars.
 java=$(node_prop java_version)
 level=$(( java < 21 ? java : 21 ))

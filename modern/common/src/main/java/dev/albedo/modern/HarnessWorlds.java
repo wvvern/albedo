@@ -1,5 +1,6 @@
 package dev.albedo.modern;
 
+//? if >=1.17 {
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameType;
@@ -72,3 +73,4 @@ final class HarnessWorlds {
     }
     *///?}
 }
+//?}

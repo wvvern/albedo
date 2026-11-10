@@ -8,8 +8,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
+//? if >=1.18 {
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+//?} else {
+/*import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+*///?}
 
 import java.io.File;
 import java.util.HashMap;
@@ -18,7 +23,11 @@ import java.util.Map;
 /** The {@link Platform} for Minecraft 1.21 and later on all loaders, which keeps loader code in the entrypoints. */
 final class ModernPlatform implements Platform {
     static final String MINECRAFT = /*$ minecraft*/ "26.3";
+    //? if >=1.18 {
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
+    //?} else {
+    /*private static final Logger LOG = LogManager.getLogger("albedo");
+    *///?}
 
     private final Map<String, Integer> keyCodes = new HashMap<>();
     private final File loaderConfigDir;
@@ -87,9 +96,18 @@ final class ModernPlatform implements Platform {
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {
-        if (mc.player != null) mc.player.sendOverlayMessage(Component.literal(message));
+        if (mc.player != null) mc.player.sendOverlayMessage(text(message));
         //?} else {
-        /*mc.gui.setOverlayMessage(Component.literal(message), false);
+        /*mc.gui.setOverlayMessage(text(message), false);
+        *///?}
+    }
+
+    /** The game text of a plain string. */
+    static Component text(String text) {
+        //? if >=1.19 {
+        return Component.literal(text);
+        //?} else {
+        /*return new net.minecraft.network.chat.TextComponent(text);
         *///?}
     }
 
