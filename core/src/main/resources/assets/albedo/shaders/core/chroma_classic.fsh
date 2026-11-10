@@ -33,5 +33,5 @@ void main() {
     vec4 texel = ALBEDO_FETCH(AlbedoTexels);
     int speed = albedoChromaSpeed(texel);
     if (speed == 0) discard;
-    ALBEDO_FRAG_COLOR = albedoChroma(ALBEDO_FETCH(AlbedoPristine), texel, albedoChromaTurn(ChromaTurns[speed / 4], speed));
+    ALBEDO_FRAG_COLOR = albedoChroma(ALBEDO_FETCH(AlbedoPristine), texel, albedoChromaTurn(ChromaTurns[speed / 4], speed), gl_FragCoord.xy);
 }
