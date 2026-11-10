@@ -124,6 +124,11 @@ public final class SkyShaderSource {
         return out.append('\n').toString();
     }
 
+    /** True when a shader with these {@link #layerSteps} reads the term texture, which the compiler removes from a shader that does not. */
+    public static boolean readsTerms(String steps) {
+        return steps.contains("albedoField(") || steps.contains("albedoBloom(") || steps.contains("albedoTermFilter(");
+    }
+
     /** The GLSL call that gives the color and alpha of a layer, over the sky {@code img} below it for a filter. */
     private static String call(float[] b, int layer) {
         String frame = "albedoFrame(" + layer + ", dir)";

@@ -52,18 +52,21 @@ final class PrecompiledSharpSky {
     // A pipeline whose shaders come from the jar of the mod, because the game does not load the shaders of a mod as resources.
     private static final class Pipeline {
         final RenderPipeline pipeline;
+        final String name;
         final String steps;
         Compile state = Compile.NOT_STARTED;
 
-        Pipeline(RenderPipeline pipeline, String steps) {
-            this.pipeline = pipeline;
+        // The game keeps a compiled shader by its id, so the fragment shader of each sky gets its own id: the name of its file and n.
+        Pipeline(int n, String name, String steps) {
+            this.name = name;
             this.steps = steps;
+            this.pipeline = builder(n, name, SkyShaderSource.readsTerms(steps)).build();
         }
 
         // Gives the pipeline to the game before each use, because a resource reload empties the pipeline cache, and returns true when it compiled.
         boolean ready() {
             if (state == Compile.FAILED) return false;
-            if (RenderSystem.getDevice().precompilePipeline(pipeline, (id, type) -> source(id, type, steps)).isValid()) {
+            if (RenderSystem.getDevice().precompilePipeline(pipeline, (id, type) -> source(name, type, steps)).isValid()) {
                 if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
                 state = Compile.READY;
                 return true;
@@ -124,34 +127,31 @@ final class PrecompiledSharpSky {
     private static int pipelines;
 
     // The sky on the sphere with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
-    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
-            .withSampler("AlbedoTerms")
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_sharp_" + pipelines++))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.SHARP))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.SHARP))
-            .withoutBlend()
-            .withDepthWrite(false)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withCull(false)
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES)
-            .build(), steps), pipeline -> { });
+    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE,
+            steps -> new Pipeline(pipelines++, SkyShaderSource.SHARP, steps), pipeline -> { });
 
     // The sky into the equirectangular image of the CPU bake, for the harness.
-    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
-            .withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
-            .withSampler("AlbedoTerms")
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect_" + pipelines++))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.EQUIRECT))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.EQUIRECT))
-            .withoutBlend()
-            .withDepthWrite(false)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withCull(false)
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES)
-            .build(), steps), pipeline -> { });
+    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE,
+            steps -> new Pipeline(pipelines++, SkyShaderSource.EQUIRECT, steps), pipeline -> { });
+
+    // The pipeline number n of a sky shader file, with the transform blocks for the sky sphere, and the term sampler when the shader reads it.
+    private static RenderPipeline.Builder builder(int n, String name, boolean terms) {
+        RenderPipeline.Builder b = RenderPipeline.builder();
+        if (name.equals(SkyShaderSource.SHARP)) {
+            b.withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER).withUniform("Projection", UniformType.UNIFORM_BUFFER);
+        }
+        // The game warns about a sampler that the program does not use.
+        if (terms) b.withSampler("AlbedoTerms");
+        return b.withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
+                .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/" + name.replace('/', '_') + "_" + n))
+                .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, name))
+                .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, name + "/" + n))
+                .withoutBlend()
+                .withDepthWrite(false)
+                .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+                .withCull(false)
+                .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES);
+    }
 
     // The bytes of the time for writeTime, which the write copies at once, so one buffer serves all frames.
     private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
@@ -165,12 +165,12 @@ final class PrecompiledSharpSky {
 
     private PrecompiledSharpSky() {}
 
-    // The complete text of a shader of the mod, with the sky include and its layer steps in it.
-    private static String source(Identifier id, ShaderType type, String steps) {
+    // The complete text of a shader file of the mod, with the sky include and its layer steps in it.
+    private static String source(String name, ShaderType type, String steps) {
         try {
-            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, SkyShaderSource.Dialect.BLOCKS_330, steps);
+            return SkyShaderSource.classic(name, type == ShaderType.VERTEX, SkyShaderSource.Dialect.BLOCKS_330, steps);
         } catch (IOException e) {
-            Albedo.get().platform().warn("Cannot read the sky shader " + id, e);
+            Albedo.get().platform().warn("Cannot read the sky shader " + name, e);
             return null;
         }
     }

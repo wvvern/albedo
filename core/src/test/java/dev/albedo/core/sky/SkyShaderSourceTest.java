@@ -56,6 +56,10 @@ class SkyShaderSourceTest {
         // Dusk: its third layer masks the stars, and a mask that no layer uses has no step.
         SkyProgram dusk = SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program();
         assertEquals(4, count(SkyShaderSource.layerSteps(dusk), " s = "));
+        assertFalse(SkyShaderSource.readsTerms(dusk.shaderSteps()), "dusk has no term or field image");
+        assertTrue(SkyShaderSource.readsTerms(steps), "nebula has both");
+        SkyProgram bloom = SkyGenerator.bake(SkyPresets.DUSK.withAdded(SkyLayer.Kind.BLOOM), 64, 32).program();
+        assertTrue(SkyShaderSource.readsTerms(bloom.shaderSteps()), "a bloom term");
         SkyProgram lower = SkyGenerator.bake(SkyPresets.DUSK.withLayers(SkyPresets.DUSK.layers().subList(0, 3)), 64, 32).program();
         assertEquals(2, count(SkyShaderSource.layerSteps(lower), " s = "));
         assertSame(dusk.shaderSteps(), dusk.shaderSteps(), "the program keeps its steps");
