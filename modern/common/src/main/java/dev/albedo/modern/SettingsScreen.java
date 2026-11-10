@@ -46,21 +46,23 @@ public final class SettingsScreen extends Screen {
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // the editor draws its own backdrop and keeps the world visible behind it
     }
-    //?} elif >=1.20.2 {
+    //?} elif >=1.20 {
     /*@Override
     public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
         textInput();
     }
-
-    @Override
-    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // the editor draws its own backdrop and keeps the world visible behind it
-    }
     *///?} else {
     /*@Override
-    public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
+    public void render(com.mojang.blaze3d.vertex.PoseStack pose, int mouseX, int mouseY, float partialTick) {
+        editor.render(new PoseStackCanvas(pose, font, width, height, images), mouseX, mouseY);
+    }
+    *///?}
+
+    //? if >=1.20.2 && <26.1 {
+    /*@Override
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // the editor draws its own backdrop and keeps the world visible behind it
     }
     *///?}
 
