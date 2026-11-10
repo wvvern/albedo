@@ -44,8 +44,9 @@ if (loader == 'common') {
     sourceSets.main.resources.srcDir rootProject.file('../core/src/main/resources')
 
     // A mixin file with a whole-file version condition gives no class on some nodes, so the list of the node comes from its compiled classes.
+    // Only these three name endings are mixins, because the game stops at start for a different class in the list.
     def mixinClasses = fileTree(tasks.named('compileJava').flatMap { it.destinationDirectory.dir('dev/albedo/modern/mixin') }) {
-        include '*.class'
+        include '*Mixin.class', '*Accessor.class', '*Invoker.class'
         exclude '*$*'
     }
     // Mixin 0.8 has no level above JAVA_21 on all loaders, and a config can be at a lower level than its classes.
