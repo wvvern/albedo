@@ -16,7 +16,7 @@ dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe 
 dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white, because 26.x uses its alpha; 1.21.x reads only its red, green and blue.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
-dev/albedo/core/ui/ScriptedInput.class A ui command whose label or slider the screen does not show logs "! no such control".
+dev/albedo/core/ui/ScriptedInput*.class A ui command whose label or slider the screen does not show logs "! no such control".
 dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs.
 dev/albedo/legacy/LegacyHarnessHost.class The host gives the hook counters.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs.
