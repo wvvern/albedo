@@ -29,7 +29,7 @@ public final class ModernSky {
     private static java.lang.reflect.Method irisInUse;
     private static Object iris;
     private static boolean irisLooked;
-    //? if >=26.1 {
+    //? if >=26.3 {
     private static com.mojang.renderpearl.api.buffers.GpuBuffer sphere;
     /** The transforms of the sharp sky of the sky pass, which waits for the solid world. */
     private static final SkyDefer<com.mojang.renderpearl.api.buffers.GpuBufferSlice> DEFER = new SkyDefer<>();
@@ -164,7 +164,7 @@ public final class ModernSky {
 
     /** The camera yaw in degrees, where 0 looks south. */
     static float cameraYaw() {
-        //? if >=26.1 {
+        //? if >=26.2 {
         return Minecraft.getInstance().gameRenderer.mainCamera().yRot();
         //?} elif >=1.21.11 {
         /*return Minecraft.getInstance().gameRenderer.getMainCamera().yRot();
@@ -206,7 +206,7 @@ public final class ModernSky {
         if (sphere == null) sphere = buildSphere();
     }
 
-    //? if >=26.1 {
+    //? if >=26.3 {
     private static com.mojang.renderpearl.api.buffers.GpuBuffer buildSphere() {
         float[] v = SkyImage.sphere(RADIUS);
         vertexCount = v.length / 5;

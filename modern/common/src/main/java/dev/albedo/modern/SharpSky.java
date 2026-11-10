@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=26.1 {
+//? if >=26.3 {
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;

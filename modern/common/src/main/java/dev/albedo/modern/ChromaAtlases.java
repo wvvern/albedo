@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * painted, so that the game and Albedo always write into those colors.
  */
 final class ChromaAtlases {
-    //? if >=26.1 {
+    //? if >=26.3 {
     private static final ChromaBackend BACKEND = new ChromaPass();
     //?} elif >=1.21.11 {
     /*private static final ChromaBackend BACKEND = new PrecompiledChromaPass();

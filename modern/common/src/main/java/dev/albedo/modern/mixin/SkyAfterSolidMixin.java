@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Tells the custom sky that the solid world is drawn, so that the sky shader draws only the pixels that the world left
  * empty; if a renderer mod removes this point, the sky draws in the sky pass.
  */
-//? if >=26.1 {
+//? if >=26.3 {
 @Mixin(net.minecraft.client.renderer.LevelRenderer.class)
 public abstract class SkyAfterSolidMixin {
     @Inject(method = "executeSolid", at = @At("TAIL"), require = 0)
