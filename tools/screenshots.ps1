@@ -78,6 +78,7 @@ function Set-Iris([string]$runDir) {
     $lines | Set-Content -Encoding ascii (Join-Path $config "iris.properties")
 }
 
+$unknown = @()
 foreach ($target in $Targets) {
     $loader, $version = $target -split "-", 2
     if ($loader -eq "forge") {
@@ -137,10 +138,18 @@ foreach ($target in $Targets) {
     $pngs = Get-ChildItem $harness -Filter *.png
     $pngs | Copy-Item -Destination $out -Force
     Write-Host "[$target] $($pngs.Count) screenshots -> $out"
-    if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
+    if (Test-Path $harnessLog) {
+        Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" }
+        # A command that the harness does not know is an error in the command file, so the run fails after all targets.
+        if (Select-String -Path $harnessLog -Pattern "^! unknown command" -Quiet) { $unknown += $target }
+    }
     # Iris turns shaders off when the pack does not load, and the run continues.
     $gradleText = Get-Content -Raw $log
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
+}
+if ($unknown) {
+    Write-Host "error: unknown harness commands on $($unknown -join ', '); see the '! unknown command' lines above"
+    exit 1
 }
