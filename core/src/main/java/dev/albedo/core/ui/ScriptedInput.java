@@ -96,7 +96,10 @@ final class ScriptedInput {
                 // "slide 0 sky.turning": a press at 0 percent of the track of the slider with the widget id sky.turning.
                 int split = arg.indexOf(' ');
                 Rect area = split < 0 ? null : lastAreas.get(arg.substring(split + 1));
-                if (area == null) return false;
+                if (area == null) {
+                    Harness.log(noSuchControl(arg.substring(split + 1)));
+                    return false;
+                }
                 float at = Integer.parseInt(arg.substring(0, split)) / 100f;
                 pointer = new int[]{area.x + Math.round(at * (area.w - 1)), area.y + area.h / 2};
                 ui.mousePressed();
@@ -119,13 +122,19 @@ final class ScriptedInput {
         }
     }
 
-    /** The center of the label drawn as {@code text}, or else of a label that contains it, or null. */
+    /** The center of the label drawn as {@code text}, or else of a label that contains it, or null after a failed harness line. */
     private int[] find(String text) {
         int[] at = lastTexts.get(text);
         if (at == null) {
             for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(text)) at = e.getValue();
         }
+        if (at == null) Harness.log(noSuchControl(text));
         return at;
+    }
+
+    /** The harness line for a command whose control the last frame did not draw, which fails a script that names an old label. */
+    static String noSuchControl(String name) {
+        return "! no such control: " + name;
     }
 
     /** Passes drawing through and keeps where each text was drawn. */

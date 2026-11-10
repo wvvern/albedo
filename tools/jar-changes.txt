@@ -14,6 +14,7 @@ dev/albedo/core/sky/SkyShaderSource.class The constant BAKED names the program o
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
 dev/albedo/core/dev/Harness.class The harness has the command hooks.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
+dev/albedo/core/ui/ScriptedInput.class A ui command whose label or slider the screen does not show logs "! no such control".
 dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs.
 dev/albedo/legacy/LegacyHarnessHost.class The host gives the hook counters.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs.

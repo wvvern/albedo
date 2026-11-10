@@ -1076,6 +1076,29 @@ class SettingsEditorTest {
     }
 
     @Test
+    void aScriptedClickOnALabelThatIsNotDrawnFailsTheRun() throws Exception {
+        sc.apply(Config.defaults());
+        File harness = new File(dir.toFile(), "harness");
+        System.setProperty("albedo.harness", harness.getPath());
+        try {
+            Harness.fromSystemProperty(sc.platform());
+        } finally {
+            System.clearProperty("albedo.harness");
+        }
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        editor.render(canvas, 0, 0);
+        script(editor, canvas, "click No such label");
+        script(editor, canvas, "realclick No such label");
+        script(editor, canvas, "slide 50 no.such.slider");
+        script(editor, canvas, "click Average");
+        List<String> log = Files.readAllLines(new File(harness, "log.txt").toPath(), StandardCharsets.UTF_8);
+        assertEquals(Arrays.asList("! no such control: No such label", "! no such control: No such label",
+                "! no such control: no.such.slider"), log, "a drawn label logs nothing");
+        assertNull(SettingsEditor.takeRealClick());
+    }
+
+    @Test
     void aRealClickGivesTheLabelPositionAndLeavesThePressToTheGame() {
         sc.apply(Config.defaults());
         SettingsEditor editor = new SettingsEditor(sc);

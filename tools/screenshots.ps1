@@ -10,7 +10,8 @@ Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
-that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image, the hooks line shows
+that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image at the window size
+(1600 x 900, or the size of the last window command), the hooks line shows
 that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
 
 .EXAMPLE
@@ -70,6 +71,16 @@ function Set-EarlyWindow([string]$runDir) {
     @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
 }
 
+function Get-PngSize([string]$file) {
+    # The width and the height are the first two big-endian numbers of the IHDR chunk, at byte 16.
+    $stream = [IO.File]::OpenRead($file)
+    try {
+        $head = New-Object byte[] 24
+        if ($stream.Read($head, 0, 24) -lt 24) { return "not a PNG" }
+    } finally { $stream.Dispose() }
+    "$([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 16))) x $([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 20)))"
+}
+
 function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [string[]]$hooks) {
     # The reasons why a run is not PASS, from the harness folder, the game log and the run folder.
     if (-not (Test-Path (Join-Path $runDir "config\albedo\config.json"))) { "the run folder does not have config/albedo/config.json" }
@@ -89,14 +100,22 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     }
     # The harness renames commands.txt to commands.taken when it reads it.
     $compares = 0
+    # The game starts at the size of the run task, and the command "window" changes it.
+    $size = "1600 x 900"
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
         if ($words[0] -eq "skycompare") { $compares++ }
-        if ($words[0] -eq "screenshot" -and -not (Test-Path (Join-Path $harness "$($words[1] -replace '\.png$', '').png"))) {
-            "no image for: $line"
-        } elseif ($words[0] -eq "frames" -and @(Get-ChildItem $harness -Filter "$($words[2])-*.png").Count -lt [int]$words[1]) {
-            "not all images for: $line"
+        if ($words[0] -eq "window") { $size = "$($words[1]) x $($words[2])" }
+        $images = @()
+        if ($words[0] -eq "screenshot") {
+            $images = @(Get-Item (Join-Path $harness "$($words[1] -replace '\.png$', '').png") -ErrorAction SilentlyContinue)
+            if ($images.Count -eq 0) { "no image for: $line" }
+        } elseif ($words[0] -eq "frames") {
+            $images = @(Get-ChildItem $harness -Filter "$($words[2])-*.png")
+            if ($images.Count -lt [int]$words[1]) { "not all images for: $line" }
         }
+        # A game window of the wrong size gives screenshots that do not compare with the reference.
+        $images | Where-Object { (Get-PngSize $_.FullName) -ne $size } | ForEach-Object { "$($_.Name) is $(Get-PngSize $_.FullName), expected $size" }
     }
     # A skycompare logs its result in a later frame, so a run can get to quit with no result.
     $same = @($harnessText -match "^skycompare .*: same$").Count
