@@ -22,34 +22,34 @@ wait 10
 screenshot p02-groups
 ui click + New group
 wait 10
-typegrass
+type grass
 wait 10
 screenshot p03-group-suggestions
-keyENTER
+key ENTER
 wait 5
-typeoak_log
+type oak_log
 wait 5
-keyENTER
+key ENTER
 wait 5
-keyESCAPE
+key ESCAPE
 wait 5
 ui pointer off
 wait 10
 screenshot p04-group-chips
-keyESCAPE
+key ESCAPE
 wait 10
 ui click Only groups
 wait 10
 ui click x
 wait 20
 screenshot p05-groups-only-armed-delete
-keyESCAPE
+key ESCAPE
 wait 5
 ui click Textures
 wait 10
 ui click Search
 wait 5
-typeoak
+type oak
 wait 10
 ui pointer off
 wait 10
@@ -72,7 +72,7 @@ screenshot p09-world
 ui click Rename
 wait 10
 screenshot p10-rename
-keyESCAPE
+key ESCAPE
 wait 5
 ui click Export
 wait 10
@@ -91,8 +91,8 @@ ui click Servers
 wait 5
 ui click Server name
 wait 5
-typehypixel.net
-keyENTER
+type hypixel.net
+key ENTER
 wait 5
 ui pointer off
 wait 10

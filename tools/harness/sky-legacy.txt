@@ -50,7 +50,7 @@ wait 60
 ui pointer off
 wait 10
 screenshot sky-09-masked-blur-alone
-keyESCAPE
+key ESCAPE
 wait 10
 ui scroll -1 Bloom 7
 wait 10
@@ -61,7 +61,7 @@ wait 30
 ui pointer off
 wait 10
 screenshot sky-10-mask-place
-keyESCAPE
+key ESCAPE
 wait 10
 ui click + Add layer
 wait 20

@@ -27,15 +27,15 @@ ui click Groups
 wait 10
 ui click + New group
 wait 10
-typegrass_block*
+type grass_block*
 wait 5
-keyENTER
+key ENTER
 wait 5
-typeoak_log
+type oak_log
 wait 5
-keyENTER
+key ENTER
 wait 5
-keyESCAPE
+key ESCAPE
 wait 5
 ui click Vanilla
 wait 10
