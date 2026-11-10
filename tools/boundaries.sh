@@ -12,11 +12,12 @@ list="${1:-tools/boundaries.txt}"
 maven="${LOOM_MINECRAFT:-$HOME/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft}"
 nodes="${NODES:-1.16.5 1.17.1 1.18.2 1.19.2 1.19.4 1.20.1 1.20.4 1.20.6 1.21.1 1.21.3 1.21.4 1.21.5 1.21.8 1.21.10 1.21.11 26.1.2 26.2 26.3}"
 
-# The jar of a node: no remap from 26.1, else the newest layered Mojang mappings.
+# The jar of a node: no remap from 26.1, else the jar with the layered Mojang mappings that Loom wrote last.
 jar_of() {
     local found
-    found=$(ls "$maven"/minecraft-merged-deobf/"$1"/minecraft-merged-deobf-"$1".jar \
-        "$maven"/minecraft-merged/"$1"-loom.mappings.*/*.jar 2>/dev/null | sort | tail -1)
+    # shellcheck disable=SC2012
+    found=$(ls -t "$maven"/minecraft-merged-deobf/"$1"/minecraft-merged-deobf-"$1".jar \
+        "$maven"/minecraft-merged/"$1"-loom.mappings.*/*.jar 2>/dev/null | head -1)
     echo "$found"
 }
 
