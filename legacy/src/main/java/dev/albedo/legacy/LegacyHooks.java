@@ -165,7 +165,7 @@ public final class LegacyHooks {
     /** Changes the "grass" or "foliage" colormap in the array that the game keeps, so that a repaint can change it again. */
     public static void colormap(String name, int[] pixels) {
         bootstrap();
-        Albedo.processColormap("minecraft:textures/colormap/" + name + ".png", pixels);
+        Albedo.processColormap(name, pixels);
     }
 
     public static float gamma(float setting) {

@@ -526,25 +526,20 @@ public final class Harness {
 
     /** Takes one sample of {@code fps} each second, and logs the result after the last one. */
     private void sampleFps() {
-        // The sky CPU time starts with the first sample, so that it covers the frames of the samples.
-        if (fpsLeft == fpsSamples.length) SkyCpuTime.take();
         fpsSamples[fpsSamples.length - fpsLeft] = host.framesPerSecond();
         fpsLeft--;
         if (fpsLeft > 0) {
             waitTicks = FPS_TICKS - 1;
             return;
         }
-        long cpu = SkyCpuTime.take();
         int[] s = fpsSamples.clone();
         Arrays.sort(s);
         double sum = 0;
         for (int v : s) sum += v;
         double mean = sum / s.length;
-        // The first sample opens the time of the CPU, so the frames of the samples after it count.
-        double frames = mean * (s.length - 1);
         int[] size = host.frameSize();
-        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame, %.1f us of sky CPU for each frame",
-                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean, frames > 0 ? cpu / 1e3 / frames : 0));
+        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame",
+                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean));
     }
 
     /** Sets the window size from {@code window <width> <height>}. */

@@ -110,8 +110,6 @@ final class Ui {
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
     /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
-    /** True while a harness script runs, the only time that {@link #dragAreas} has a reader. */
-    private boolean recordAreas;
     private final Clipboard clipboard;
 
     Ui(Clipboard clipboard) {
@@ -160,20 +158,14 @@ final class Ui {
         dragAreas.clear();
     }
 
-    /** A copy of the drag areas that this frame drew, by id, while {@link #recordAreas} is on. */
+    /** A copy of the drag areas that this frame drew, by id. */
     Map<String, Rect> dragAreas() {
         return new HashMap<String, Rect>(dragAreas);
     }
 
-    /** Starts or stops keeping the drag areas of each frame for a harness script. */
-    void recordAreas(boolean on) {
-        recordAreas = on;
-    }
-
     /** Ends the frame: an unclaimed press clears focus and armed buttons, unclaimed input is dropped, and the tooltip draws. */
     void end() {
-        overlay = null;
-        drawingOverlay = false;
+        endOverlay();
         if (pointer.click) {
             focus = null;
             armed = null;
@@ -654,14 +646,13 @@ final class Ui {
      * dragged, otherwise null.
      */
     float[] dragArea(String id, int x, int y, int w, int h) {
-        if (recordAreas) dragAreas.put(id, new Rect(x, y, w, h));
+        dragAreas.put(id, new Rect(x, y, w, h));
         if (!press(id, x, y, w, h) && !dragging(id)) return null;
         float fx = Math.max(0f, Math.min(1f, (pointer.x - x) / (float) Math.max(1, w - 1)));
         float fy = Math.max(0f, Math.min(1f, (pointer.y - y) / (float) Math.max(1, h - 1)));
         return new float[]{fx, fy};
     }
 
-    /** The height of a {@link #slider}. */
     static final int SLIDER_H = 12;
 
     /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
@@ -671,14 +662,8 @@ final class Ui {
 
     /** A slider from 0 to 100 with {@code valueText} at the right in the room of "100%", which returns the value after a click or drag. */
     int slider(String id, int x, int y, int w, int value, String valueText, String tipText) {
-        int textW = width("100%") + 6, trackW = Math.max(10, w - textW);
-        int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * value / 100;
-        fill(x, ty, trackW, 3, CARD);
-        fill(x, ty, knobX - x + 2, 3, ACCENT);
-        round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(valueText, x + trackW + 6, y + 2, MUTED);
-        tip(x, y, w, SLIDER_H, tipText);
-        float[] at = dragArea(id, x, y, trackW, SLIDER_H);
+        int trackW = Math.max(10, w - width("100%") - 6);
+        float[] at = track(id, x, y, w, trackW, x + (trackW - 4) * value / 100, valueText, tipText);
         return at == null ? value : Math.round(at[0] * 100);
     }
 
@@ -686,14 +671,20 @@ final class Ui {
     int rangeSlider(String id, int x, int y, int w, int value, int min, int max, String unit, String tipText) {
         // The same text room for every range, so that sliders on rows below each other line up.
         int textW = Math.max(width("-180%"), Math.max(width(max + unit), width(min + unit))) + 6, trackW = Math.max(10, w - textW);
-        int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * (value - min) / Math.max(1, max - min);
+        int knobX = x + (trackW - 4) * (value - min) / Math.max(1, max - min);
+        float[] at = track(id, x, y, w, trackW, knobX, value + unit, tipText);
+        return at == null ? value : min + Math.round(at[0] * (max - min));
+    }
+
+    /** Draws a slider track with its knob and its text at the right, and returns the {@link #dragArea} of the track. */
+    private float[] track(String id, int x, int y, int w, int trackW, int knobX, String text, String tipText) {
+        int ty = y + SLIDER_H / 2 - 1;
         fill(x, ty, trackW, 3, CARD);
         fill(x, ty, knobX - x + 2, 3, ACCENT);
         round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(value + unit, x + trackW + 6, y + 2, MUTED);
+        text(text, x + trackW + 6, y + 2, MUTED);
         tip(x, y, w, SLIDER_H, tipText);
-        float[] at = dragArea(id, x, y, trackW, SLIDER_H);
-        return at == null ? value : min + Math.round(at[0] * (max - min));
+        return dragArea(id, x, y, trackW, SLIDER_H);
     }
 
     /** A single-line text input that returns true when the text changed this frame. */

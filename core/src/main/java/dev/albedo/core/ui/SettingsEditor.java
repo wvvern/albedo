@@ -37,7 +37,6 @@ public final class SettingsEditor {
     };
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
-    /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
     /** The first effect under the Effects heading, which all categories with effects have. */
     private static final String CHROMA_LABEL = "Chroma";
@@ -140,8 +139,8 @@ public final class SettingsEditor {
     private Page page = Page.of(Category.BLOCKS);
     private Mode mode = Mode.BROWSE;
     private Toast toast;
-    /** The open sections of the look, kept for all categories and groups; only a click on a section heading changes it. */
-    private Accordion sections = Accordion.of();
+    /** True while the Effects section is open, for all categories and groups; only a click on its heading changes it. */
+    private boolean effectsOpen;
     /** Shown under the scope switch when a switch was refused. */
     private String notice;
     private boolean closed;
@@ -200,7 +199,6 @@ public final class SettingsEditor {
 
     public void render(Canvas canvas, int mouseX, int mouseY) {
         boolean scripted = script.active();
-        ui.recordAreas(scripted);
         if (scripted) canvas = script.beginFrame(canvas, ui);
         int mx = script.x(mouseX), my = script.y(mouseY);
         changed = false;
@@ -508,7 +506,7 @@ public final class SettingsEditor {
         }
         String name = Labels.name(category);
         int cy = y + ui.title(x, y, w, name, Labels.description(category));
-        Tab tab = category.hasGroups() ? page.tab : Tab.LOOK;
+        Tab tab = page.tab;
         // A category without groups shows only the Look tab, so that the Style row has the same place on every page.
         String lookTip = category.hasGroups() ? "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group"
                 : "The look of the " + name.toLowerCase(Locale.ROOT);
@@ -699,24 +697,25 @@ public final class SettingsEditor {
      * for blocks and fluids.
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
-        boolean edges = page.category.hasEdgeEffects(), open = sections.isOpen(EFFECTS);
+        boolean edges = page.category.hasEdgeEffects(), open = effectsOpen;
         Chroma chroma = target.chroma();
+        boolean more = chroma.isOn() || edges;
         // One item for each group of rows, so that a short window scrolls to each, with one guide line through all of them.
-        int chromaH = chroma.isOn() || edges ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
+        int chromaH = more ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
         int optionsH = edges ? Form.rowsHeight(CHROMA_LABELS.length) : Form.slidersHeight(CHROMA_LABELS.length, false);
         int edgesH = Form.slidersHeight(EFFECT_LABELS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
             String tip = (open ? "Hide" : "Show") + " the effects: " + CHROMA_LABEL + (edges ? ", " + String.join(", ", EFFECT_LABELS) : "");
             if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
-            sections = sections.toggled(EFFECTS);
+            effectsOpen = !open;
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
         items.add(Column.of(chromaH, (x, y, w) -> {
             Form form = form(x, w);
-            form.guide(y, chromaH == Form.rowsHeight(1) ? chromaH : chromaH - GAP);
+            form.guide(y, more ? chromaH : chromaH - GAP);
             int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, CHROMA_TIP, chroma.strength());
             if (strength == chroma.strength()) return false;
             setLook(cs, index, target.withEffects(target.bevel(), target.outline(), chroma.withStrength(strength)));

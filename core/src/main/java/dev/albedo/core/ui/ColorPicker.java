@@ -40,7 +40,7 @@ final class ColorPicker {
     static int height(int sqH) { return sqH + GAP; }
 
     /** The height of the compact picker, gap included. */
-    static int compactHeight() { return ColorField.H + GAP; }
+    static int compactHeight() { return Ui.H + GAP; }
 
     /** One row with a swatch and the hex input, for a window too short for the full picker, which returns the color. */
     int compact(String id, int x, int y, int w, int argb) {

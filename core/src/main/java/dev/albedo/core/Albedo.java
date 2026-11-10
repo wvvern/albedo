@@ -151,10 +151,15 @@ public final class Albedo {
         }
     }
 
-    /** Changes a biome colormap in the ARGB array that the game reads by reference, now and on each repaint. */
-    public static void processColormap(String location, int[] pixels) {
+    /**
+     * Changes a biome colormap in the ARGB array that the game reads by reference, now and on each repaint.
+     *
+     * @param name the name of the colormap, such as "grass" or "foliage"
+     */
+    public static void processColormap(String name, int[] pixels) {
         if (pixels != null && pixels.length == COLORMAP_SIZE * COLORMAP_SIZE) {
-            processTexture(location, new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels), TextureStore.intoArray(pixels));
+            processTexture("minecraft:textures/colormap/" + name + ".png", new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels),
+                    TextureStore.intoArray(pixels));
         }
     }
 

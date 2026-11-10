@@ -185,12 +185,11 @@ final class SharpSky {
             .withUniform("AlbedoTerms", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
-    /** The shaders of each sky that came recently, and the number of pipelines, which gives each pipeline its own name. */
-    private static final int CACHE = 4;
+    /** The number of pipelines, which gives each pipeline its own name. */
     private static int pipelines;
 
     // The sky on the sphere, added to a black frame only where the depth is still the far depth of the clear, with no cull.
-    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(SkyShaderCache.SIZE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
@@ -222,7 +221,7 @@ final class SharpSky {
             .build(), Runnable::run, "black sky shader", "The sky draws in a simpler way.");
 
     // The sky into the equirectangular image of the CPU bake, for the harness, with no depth texture.
-    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(SkyShaderCache.SIZE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(SKY_BLOCK)
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect_" + pipelines++))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_equirect"))

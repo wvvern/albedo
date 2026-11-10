@@ -49,12 +49,10 @@ final class ScriptedInput {
 
     /** A scripted click is one frame long: the button goes up after the frame that took it. */
     void endFrame(Ui ui) {
-        if (recorder == null) return;
         if (release) ui.mouseReleased();
         // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
         lastTexts = active() ? recorder.texts : null;
         lastAreas = active() ? ui.dragAreas() : null;
-        recorder = null;
     }
 
     /** Returns true when the left button must be released after this frame. */

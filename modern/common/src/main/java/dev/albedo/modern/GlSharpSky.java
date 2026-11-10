@@ -144,10 +144,9 @@ final class GlSharpSky {
     }
 
     // The programs of each sky that came recently.
-    private static final int CACHE = 4;
-    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(CACHE, steps -> new Program(SkyShaderSource.SHARP, steps),
-            Program::close);
-    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(CACHE,
+    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
+            steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
+    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
             steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
 
     private static final Block BLOCK = new Block();

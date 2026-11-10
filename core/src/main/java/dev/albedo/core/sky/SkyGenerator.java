@@ -765,7 +765,7 @@ public final class SkyGenerator {
     static short half(float v) {
         // This test is also false for NaN, which then gives 0 as a negative value does.
         if (!(v > 0)) return 0;
-        int bits = Float.floatToIntBits(Math.max(0f, Math.min(65504f, v)));
+        int bits = Float.floatToIntBits(Math.min(65504f, v));
         int exp = (bits >>> 23) - 127 + 15;
         int mantissa = bits & 0x7FFFFF;
         if (exp > 0) return (short) (((exp << 10) | (mantissa >> 13)) + ((mantissa >> 12) & 1));
