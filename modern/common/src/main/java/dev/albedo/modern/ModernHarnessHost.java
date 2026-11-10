@@ -1,5 +1,6 @@
 package dev.albedo.modern;
 
+import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
@@ -42,6 +43,11 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public void framePixels(Harness.FramePixels done) {
+        HarnessShots.pixels(done);
+    }
+
+    @Override
     public void setHudVisible(boolean visible) {
         //? if >=26.2 {
         net.minecraft.client.gui.Hud hud = Minecraft.getInstance().gui.hud;
@@ -70,6 +76,22 @@ final class ModernHarnessHost implements Harness.Host {
     public boolean mouseButton(int guiX, int guiY, boolean down) {
         HarnessMouse.leftButton(guiX, guiY, down);
         return true;
+    }
+
+    @Override
+    public boolean key(Keys.Key key, boolean down, boolean ctrl) {
+        HarnessKeyboard.key(key, down, ctrl);
+        return true;
+    }
+
+    @Override
+    public boolean character(char c, boolean afterKey) {
+        return HarnessKeyboard.character(c);
+    }
+
+    @Override
+    public boolean settingsOpen() {
+        return ModernPlatform.currentScreen() instanceof SettingsScreen;
     }
 
     @Override
@@ -166,5 +188,36 @@ final class ModernHarnessHost implements Harness.Host {
     public int[] frameSize() {
         var window = Minecraft.getInstance().getWindow();
         return new int[]{window.getWidth(), window.getHeight()};
+    }
+
+    @Override
+    public boolean cloudsDrawn() {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=26.1 {
+        if (mc.options.getCloudStatus() == net.minecraft.client.CloudStatus.OFF) return false;
+        //?} else {
+        /*if (mc.options.getCloudsType() == net.minecraft.client.CloudStatus.OFF) return false;
+        *///?}
+        //? if >=26.2 {
+        return hasCloudCells(mc.levelRenderer.cloudRenderer());
+        //?} elif >=1.21.2 {
+        /*return hasCloudCells(mc.levelRenderer.getCloudRenderer());
+        *///?} else {
+        /*return true;
+        *///?}
+    }
+
+    /** Whether the cloud renderer holds the cells of clouds.png, which it draws nothing without; the dev run has Mojang names. */
+    private static boolean hasCloudCells(Object renderer) {
+        for (java.lang.reflect.Field f : renderer.getClass().getDeclaredFields()) {
+            if (!f.getType().getSimpleName().equals("TextureData")) continue;
+            try {
+                f.setAccessible(true);
+                return f.get(renderer) != null;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        throw new IllegalStateException("the cloud renderer has no TextureData field");
     }
 }

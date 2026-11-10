@@ -39,7 +39,9 @@ param(
     # More command files in tools/harness/, added after the scene.
     [string[]]$Extra = @(),
     # The GUI scale, where 0 is auto; 2 gives the settings screen room for the sky preview in the harness window.
-    [int]$GuiScale = 0
+    [int]$GuiScale = 0,
+    # Optional config.json that the game starts with in place of the default config, for example a copy of the config of a player.
+    [string]$Config = ""
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -48,6 +50,7 @@ if ($ShaderPack) {
     if (-not $iris) { throw "-ShaderPack needs -Compat iris" }
     $ShaderPack = (Resolve-Path $ShaderPack).Path
 }
+if ($Config) { $Config = (Resolve-Path $Config).Path }
 
 function Set-Options([string]$runDir) {
     # A new file each run, so that no option of an earlier run changes the screenshots.
@@ -140,8 +143,13 @@ foreach ($target in $Targets) {
     if (-not $legacy -and $loader -ne "fabric") { Set-EarlyWindow $runDir }
     $irisRun = $iris -and -not $legacy
     if ($irisRun) { Set-Iris $runDir }
-    # Use the default config and a new world each time, so the screenshots are the same each run.
-    Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
+    # Use the default config (or the -Config file) and a new world each time, so the screenshots are the same each run.
+    $configFile = Join-Path $runDir "config\albedo\config.json"
+    Remove-Item -Force $configFile -ErrorAction SilentlyContinue
+    if ($Config) {
+        New-Item -ItemType Directory -Force (Split-Path $configFile) | Out-Null
+        Copy-Item -Force $Config $configFile
+    }
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
     # First the scene of this version, then the command file, where a legacy target runs the *-legacy.txt copy of a *-modern.txt file.
     $shotList = if ($legacy) { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
@@ -179,6 +187,7 @@ foreach ($target in $Targets) {
     $pngs = Get-ChildItem $harness -Filter *.png
     $pngs | Copy-Item -Destination $out -Force
     Write-Host "[$target] $($pngs.Count) screenshots -> $out"
+    # Each line that starts with ! fails the target, also "! unknown command" for an error in the command file.
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
     # Iris turns shaders off when the pack does not load, and the run continues.
     $gradleText = Get-Content -Raw $log

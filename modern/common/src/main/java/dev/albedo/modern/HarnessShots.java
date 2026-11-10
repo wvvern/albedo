@@ -14,6 +14,16 @@ final class HarnessShots {
     private HarnessShots() {}
 
     static void take(File png) {
+        frame(image -> save(image, png));
+    }
+
+    /** Gives the pixels of the frame to {@code done}, on the thread that reads the frame. */
+    static void pixels(Harness.FramePixels done) {
+        frame(image -> pixels(image, done));
+    }
+
+    /** Reads the frame into an image, which {@code use} must close. */
+    private static void frame(java.util.function.Consumer<NativeImage> use) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.2 {
         RenderTarget target = mc.gameRenderer.mainRenderTarget();
@@ -21,10 +31,22 @@ final class HarnessShots {
         /*RenderTarget target = mc.getMainRenderTarget();
         *///?}
         //? if >=1.21.5 {
-        Screenshot.takeScreenshot(target, image -> save(image, png));
+        Screenshot.takeScreenshot(target, use);
         //?} else {
-        /*save(Screenshot.takeScreenshot(target), png);
+        /*use.accept(Screenshot.takeScreenshot(target));
         *///?}
+    }
+
+    private static void pixels(NativeImage image, Harness.FramePixels done) {
+        try (NativeImage owned = image) {
+            NativeImagePixels pixels = new NativeImagePixels(owned);
+            int w = pixels.width(), h = pixels.height();
+            int[] argb = new int[w * h];
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) argb[y * w + x] = pixels.getArgb(x, y);
+            }
+            done.accept(w, h, argb);
+        }
     }
 
     private static void save(NativeImage image, File png) {

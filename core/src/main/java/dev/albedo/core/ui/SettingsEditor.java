@@ -177,12 +177,22 @@ public final class SettingsEditor {
 
     public void mouseScrolled(double amount) { ui.scrolled(amount); }
 
-    public void keyPressed(UiKey key, boolean ctrl) { ui.key(key, ctrl); }
+    public void keyPressed(UiKey key) { ui.key(key); }
 
+    /** A typed character, where the editor drops control characters, so that an adapter can pass each character that its game gives. */
     public void charTyped(char c) { ui.typed(c); }
 
     /** The adapter closes its screen once this turns true. */
     public boolean isClosed() { return closed; }
+
+    /**
+     * The cursor {x0, y0, x1, y1} in GUI pixels of the text field that takes typing after the last render, or null when no
+     * field does, for a game that sends text only while it asks the window for text input.
+     */
+    public int[] textCursor() {
+        Rect r = ui.textCursor();
+        return r == null ? null : new int[]{r.x, r.y, r.x + r.w, r.bottom()};
+    }
 
     /** Queues an input for the open screen, from the dev harness (see {@link ScriptedInput}). */
     public static void script(String command) {

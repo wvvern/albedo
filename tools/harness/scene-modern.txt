@@ -7,8 +7,10 @@ wait 100
 hud off
 run time set 6000
 run weather clear
-# Lava next to wool and TNT must not start fires, so that every run gives the same shots.
+# Lava next to wool and TNT must not start fires, so that every run gives the same shots. 1.21.1 has doFireTick; 1.21.11
+# and 26.x replace it with fire_spread_radius_around_player, where 0 stops fire. Each version rejects the other name.
 run gamerule doFireTick false
+run gamerule fire_spread_radius_around_player 0
 run kill @e[type=!player]
 run fill -9 -60 -12 9 -50 3 air
 run fill -9 -61 -12 9 -61 3 grass_block

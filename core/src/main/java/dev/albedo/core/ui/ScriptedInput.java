@@ -1,5 +1,7 @@
 package dev.albedo.core.ui;
 
+import dev.albedo.core.dev.Harness;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
@@ -8,7 +10,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Dev harness input for the settings screen, one command per frame: click a label, click it through the game's mouse
- * handler, press a slider at a percent of its track, turn the wheel over a label, type text, press a key, or move the pointer off.
+ * handler, press a slider at a percent of its track, turn the wheel over a label, compare the text of a field, or move the
+ * pointer off; keys and typing go through the game's own keyboard path instead (see {@code Harness}).
  */
 final class ScriptedInput {
     private static final Queue<String> QUEUE = new ConcurrentLinkedQueue<String>();
@@ -19,6 +22,8 @@ final class ScriptedInput {
     private Map<String, int[]> lastTexts;
     /** The drag areas of the last recorded frame by widget id, where a slide command finds its slider. */
     private Map<String, Rect> lastAreas;
+    /** The text of each text field of the last recorded frame by widget id, which an expect command compares. */
+    private Map<String, String> lastFields;
     /** The scripted pointer position, or null while the real pointer is used. */
     private int[] pointer;
     private Recorder recorder;
@@ -53,6 +58,7 @@ final class ScriptedInput {
         // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
         lastTexts = active() ? recorder.texts : null;
         lastAreas = active() ? ui.dragAreas() : null;
+        lastFields = active() ? ui.fieldTexts() : null;
     }
 
     /** Returns true when the left button must be released after this frame. */
@@ -96,12 +102,15 @@ final class ScriptedInput {
                 ui.mousePressed();
                 return true;
             }
-            case "type":
-                for (char ch : arg.toCharArray()) ui.typed(ch);
+            case "expect": {
+                // "expect search oak log": the text field with the id search shows "oak log".
+                int split = arg.indexOf(' ');
+                String id = split < 0 ? arg : arg.substring(0, split), want = split < 0 ? "" : arg.substring(split + 1);
+                String got = lastFields.get(id);
+                if (want.equals(got)) Harness.log("PASS " + id + " = \"" + got + "\"");
+                else Harness.log("! " + id + " = " + (got == null ? "not drawn" : "\"" + got + "\"") + ", expected \"" + want + "\"");
                 return false;
-            case "key":
-                ui.key(UiKey.valueOf(arg), false);
-                return false;
+            }
             case "pointer":
                 pointer = new int[]{-1, -1};
                 return false;

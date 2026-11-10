@@ -23,15 +23,15 @@ settings open
 wait 20
 ui click #FFFFFF
 wait 5
-ui key BACKSPACE
-ui key BACKSPACE
-ui key BACKSPACE
-ui key BACKSPACE
-ui key BACKSPACE
-ui key BACKSPACE
-ui type 3A6EA5
+key BACKSPACE
+key BACKSPACE
+key BACKSPACE
+key BACKSPACE
+key BACKSPACE
+key BACKSPACE
+type 3A6EA5
 wait 5
-ui key ENTER
+key ENTER
 wait 5
 ui click Done
 wait 200

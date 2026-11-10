@@ -112,9 +112,18 @@ net.minecraft.client.renderer.item.ItemStackRenderState#isAnimated
 net.minecraft.client.renderer.FogRenderer|net.minecraft.client.renderer.fog.FogRenderer#setupColor
 net.minecraft.client.renderer.FogRenderer|net.minecraft.client.renderer.fog.FogRenderer#computeFogColor
 net.minecraft.client.renderer.FogRenderer|net.minecraft.client.renderer.fog.FogRenderer#fogRed
+net.minecraft.client.Camera#getFluidInCamera
+net.minecraft.client.Camera#entity
+net.minecraft.client.Camera#getEntity
+net.minecraft.world.level.material.FogType#POWDER_SNOW
+net.minecraft.world.effect.MobEffects#DARKNESS
 
 # Clouds
-net.minecraft.client.renderer.CloudRenderer#prepare
+net.minecraft.client.Options#getCloudsType
+net.minecraft.client.Options#getCloudStatus
+net.minecraft.client.renderer.LevelRenderer#getCloudRenderer
+net.minecraft.client.renderer.LevelRenderer#cloudRenderer
+net.minecraft.client.renderer.CloudRenderer#texture
 
 # Fullbright
 net.minecraft.client.OptionInstance
@@ -168,6 +177,17 @@ net.minecraft.client.player.LocalPlayer#sendOverlayMessage
 net.minecraft.client.MouseHandler#onMove
 net.minecraft.client.MouseHandler#onPress
 net.minecraft.client.MouseHandler#onButton
+net.minecraft.client.KeyboardHandler#keyPress
+net.minecraft.client.KeyboardHandler#charTyped
+net.minecraft.client.KeyboardHandler#textInput
+net.minecraft.client.input.KeyEvent#<init>
+net.minecraft.client.input.InputWithModifiers#isSelectAll
+net.minecraft.client.input.CharacterEvent#<init>
+net.minecraft.client.Minecraft#ON_OSX
+net.minecraft.client.Minecraft#textInputManager
+com.mojang.blaze3d.platform.TextInputManager#startTextInput
+com.mojang.blaze3d.platform.TextInputManager#stopTextInput
+com.mojang.blaze3d.platform.InputConstants#MOD_CONTROL
 com.mojang.blaze3d.platform.InputConstants#isKeyDown
 com.mojang.blaze3d.platform.Window#getWindow
 com.mojang.blaze3d.platform.Window#handle

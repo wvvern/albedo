@@ -3,6 +3,7 @@ package dev.albedo.core.dev;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Colors;
+import dev.albedo.core.Keys;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
@@ -35,8 +36,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Development harness, created only with {@code -Dalbedo.harness=<directory>}, that runs the lines of
@@ -63,6 +66,26 @@ public final class Harness {
          * as a real mouse does, and returns false when this version cannot do that.
          */
         boolean mouseButton(int guiX, int guiY, boolean down);
+
+        /**
+         * Sends a press or a release of a key into the entry point of the game that the window events call, as a real
+         * keyboard does, and returns false when this version cannot do that.
+         *
+         * @param ctrl whether a Control key is held, for the versions that read it from the event
+         */
+        boolean key(Keys.Key key, boolean down, boolean ctrl);
+
+        /**
+         * Sends one typed character into the entry point of the game that the window events call, and returns false when
+         * the window would drop it, for example because the game did not start text input.
+         *
+         * @param afterKey whether the key of the character went down just before, else the window sends the character as
+         *        typed text with no key, as for a character that needs Shift or AltGr
+         */
+        boolean character(char c, boolean afterKey);
+
+        /** Whether the settings screen of Albedo is open. */
+        boolean settingsOpen();
 
         void quit();
 
@@ -112,6 +135,9 @@ public final class Harness {
          */
         boolean timeChroma(int frames);
 
+        /** Gives the pixels of the last frame that the game drew to {@code done}, on any thread. */
+        void framePixels(FramePixels done);
+
         /** The frames of the last full second, as the debug screen shows them. */
         int framesPerSecond();
 
@@ -126,6 +152,15 @@ public final class Harness {
 
         /** The counters of the hooks of this version that can miss their target with no error. */
         List<HookCounter> hookCounters();
+
+        /** Whether the next frame draws clouds with visible pixels, from the state that the renderer reads. */
+        boolean cloudsDrawn();
+    }
+
+    /** Receives the pixels of {@link Host#framePixels}. */
+    public interface FramePixels {
+        /** @param argb the ARGB pixels in rows from the top */
+        void accept(int width, int height, int[] argb);
     }
 
     /** Receives the image of {@link Host#drawSharpSky}. */
@@ -152,6 +187,16 @@ public final class Harness {
     static final double COMPARE_LIMIT = 0.02;
     /** The number of frames that {@code chromatime} measures. */
     private static final int CHROMA_FRAMES = 300;
+    /** The ticks that {@code chromacompare} waits for frames at the time 0, and for the still colors that the CPU paints. */
+    private static final int COMPARE_GPU_TICKS = 10, COMPARE_CPU_TICKS = 60;
+    /** The ticks that {@code chromacompare} waits for the pixels of the two frames before it stops. */
+    private static final int COMPARE_PIXEL_TICKS = 200;
+    /** A pixel is far off when a channel differs by more 8-bit steps than this, which dither and rounding never do. */
+    static final int CHROMA_FAR_STEP = 48;
+    /** The largest mean difference of a channel in 8-bit steps that {@code chromacompare} accepts. */
+    static final double CHROMA_MEAN_LIMIT = 1.0;
+    /** The largest part of far-off pixels that {@code chromacompare} accepts. */
+    static final double CHROMA_FAR_LIMIT = 0.002;
 
     private static volatile File logFile;
 
@@ -176,6 +221,15 @@ public final class Harness {
     private int burstLeft;
     private String burstName;
     private int burstIndex;
+    /** The keys that {@code keydown} holds until {@code keyup}. */
+    private final Set<Keys.Key> held = new HashSet<Keys.Key>();
+    /** The step of the running {@code chromacompare}, 0 when none runs, and the ticks that its last step waited for pixels. */
+    private int chromaStep;
+    private int chromaTicks;
+    /** The pixels of the frames of {@code chromacompare} with the GPU colors and with the CPU colors, which other threads give. */
+    private volatile int[] chromaGpuFrame, chromaCpuFrame;
+    /** The width and the height of the frame with the GPU colors. */
+    private volatile int[] chromaFrameSize;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -212,7 +266,11 @@ public final class Harness {
             return;
         }
         if (burstLeft > 0) return; // the next commands wait for the screenshots of a frames command
-        while (!queue.isEmpty() && waitTicks == 0 && fpsLeft == 0 && !waitingForWorld && burstLeft == 0) {
+        if (chromaStep > 0) {
+            chromaCompareStep();
+            return;
+        }
+        while (!queue.isEmpty() && waitTicks == 0 && fpsLeft == 0 && !waitingForWorld && burstLeft == 0 && chromaStep == 0) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             log("> " + line);
@@ -273,13 +331,22 @@ public final class Harness {
         else if (verb.equals("frames")) frames(arg.split("\\s+"));
         else if (verb.equals("chromagpu")) sc.chromaGpu(arg.equals("on"));
         else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
+        else if (verb.equals("chromacompare")) chromaCompare(sc);
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
+        else if (verb.equals("clouds")) log(cloudsLine(host.cloudsDrawn(), arg));
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
         } else if (verb.equals("ui")) SettingsEditor.script(arg);
+        else if (verb.equals("type")) type(arg);
+        else if (verb.equals("key")) {
+            key(arg, true);
+            key(arg, false);
+        } else if (verb.equals("keydown")) key(arg, true);
+        else if (verb.equals("keyup")) key(arg, false);
+        else if (verb.equals("expect")) expectScreen(arg);
         else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
         else if (verb.equals("reload")) platform.reloadResources();
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
@@ -295,6 +362,49 @@ public final class Harness {
         StringBuilder line = new StringBuilder("hooks:");
         for (HookCounter counter : counters) line.append(' ').append(counter.name()).append('=').append(counter.runs());
         return line.toString();
+    }
+
+    /**
+     * The log line of {@code clouds shown|hidden}, which starts with "!" when the game does not draw the clouds as the
+     * command expects.
+     */
+    static String cloudsLine(boolean drawn, String expected) {
+        if (!expected.equals("shown") && !expected.equals("hidden")) throw new IllegalArgumentException("clouds shown|hidden");
+        String now = drawn ? "shown" : "hidden";
+        return now.equals(expected) ? "clouds " + now : "! clouds " + now + ", expected " + expected;
+    }
+
+    /** Types as a real keyboard does: the key of a letter or digit goes down, its character follows, and the key goes up. */
+    private void type(String text) {
+        int dropped = 0;
+        for (char c : text.toCharArray()) {
+            Keys.Key key = c < 128 && Character.isLetterOrDigit(c) ? Keys.byName(String.valueOf(c)) : null;
+            if (key != null) host.key(key, true, ctrlHeld());
+            if (!host.character(c, key != null)) dropped++;
+            if (key != null) host.key(key, false, ctrlHeld());
+        }
+        if (dropped > 0) log("! the window dropped " + dropped + " of " + text.length() + " typed characters");
+    }
+
+    /** Presses or releases a key by its config name, where a key that goes down stays held until it goes up. */
+    private void key(String name, boolean down) {
+        Keys.Key key = Keys.byName(name);
+        if (key == null) throw new IllegalArgumentException("unknown key: " + name);
+        if (down) held.add(key);
+        else held.remove(key);
+        if (!host.key(key, down, ctrlHeld())) log("! key input is not available on this version");
+    }
+
+    private boolean ctrlHeld() {
+        return held.contains(Keys.byName("LEFT_CONTROL")) || held.contains(Keys.byName("RIGHT_CONTROL"));
+    }
+
+    /** Logs PASS when the settings screen is {@code open} or {@code closed} as the argument says, else a line that starts with "!". */
+    private void expectScreen(String state) {
+        if (!state.equals("open") && !state.equals("closed")) throw new IllegalArgumentException("expect open|closed");
+        boolean open = host.settingsOpen();
+        if (open == state.equals("open")) log("PASS the settings screen is " + state);
+        else log("! the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
     }
 
     /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */
@@ -564,6 +674,81 @@ public final class Harness {
     /** Asks the adapter to measure the GPU pass of Chroma in the next frames, and logs when this version cannot. */
     private void chromaTime(int frames) {
         if (!host.timeChroma(frames)) log("! chromatime: this version has no GPU pass of Chroma, or the pass does not run");
+    }
+
+    /**
+     * Starts {@code chromacompare}: it holds the clock at the time 0, takes a frame with the GPU colors, stops the pass,
+     * takes a frame with the still colors that the CPU paints, starts the pass again, lets the clock run and logs how far
+     * apart the two frames are.
+     */
+    private void chromaCompare(Albedo sc) {
+        if (sc.chromaStill()) {
+            log("! chromacompare: the GPU pass of Chroma does not run");
+            return;
+        }
+        SkyClock.hold(0);
+        chromaGpuFrame = null;
+        chromaCpuFrame = null;
+        chromaFrameSize = null;
+        chromaStep = 1;
+        waitTicks = COMPARE_GPU_TICKS;
+    }
+
+    /** Does the next step of {@code chromacompare}, which holds the next commands until it logs its result. */
+    private void chromaCompareStep() {
+        Albedo sc = Albedo.get();
+        if (chromaStep == 1) {
+            host.framePixels((w, h, argb) -> {
+                chromaFrameSize = new int[]{w, h};
+                chromaGpuFrame = argb;
+            });
+            sc.chromaGpu(false);
+            chromaStep = 2;
+            waitTicks = COMPARE_CPU_TICKS;
+        } else if (chromaStep == 2) {
+            host.framePixels((w, h, argb) -> chromaCpuFrame = argb);
+            sc.chromaGpu(true);
+            SkyClock.run();
+            chromaStep = 3;
+            chromaTicks = 0;
+        } else if (chromaGpuFrame != null && chromaCpuFrame != null) {
+            int[] size = chromaFrameSize;
+            log(chromaCompareLine(size[0], size[1], chromaDifference(chromaGpuFrame, chromaCpuFrame, CHROMA_FAR_STEP)));
+            chromaStep = 0;
+        } else if (++chromaTicks > COMPARE_PIXEL_TICKS) {
+            log("! chromacompare: the game gave no frame");
+            chromaStep = 0;
+        }
+    }
+
+    /**
+     * The mean difference of the color channels of two frames of the same size in 8-bit steps, and the part of the pixels
+     * that have a channel more than {@code farStep} steps off.
+     *
+     * @return {mean, far-off part}, or {Infinity, 1} when the frames have different sizes
+     */
+    static double[] chromaDifference(int[] a, int[] b, int farStep) {
+        if (a.length != b.length || a.length == 0) return new double[]{Double.POSITIVE_INFINITY, 1};
+        long sum = 0;
+        int far = 0;
+        for (int i = 0; i < a.length; i++) {
+            int largest = 0;
+            for (int shift = 0; shift <= 16; shift += 8) {
+                int d = Math.abs(((a[i] >> shift) & 0xFF) - ((b[i] >> shift) & 0xFF));
+                sum += d;
+                largest = Math.max(largest, d);
+            }
+            if (largest > farStep) far++;
+        }
+        return new double[]{sum / (3.0 * a.length), far / (double) a.length};
+    }
+
+    /** The log line of {@code chromacompare}, which starts with "!" when the mean or the part of far-off pixels is above its limit. */
+    static String chromaCompareLine(int width, int height, double[] d) {
+        boolean same = d[0] <= CHROMA_MEAN_LIMIT && d[1] <= CHROMA_FAR_LIMIT;
+        return String.format(Locale.ROOT, "%schromacompare %dx%d: GPU at the time 0 against the CPU still colors: mean %.2f steps"
+                        + " (limit %.1f), far-off pixels %.3f%% (limit %.1f%%): %s", same ? "" : "! ", width, height, d[0],
+                CHROMA_MEAN_LIMIT, d[1] * 100, CHROMA_FAR_LIMIT * 100, same ? "same" : "DIFFERENT");
     }
 
     /**

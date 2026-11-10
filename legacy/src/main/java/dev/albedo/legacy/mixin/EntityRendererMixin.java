@@ -24,7 +24,7 @@ public abstract class EntityRendererMixin {
     @Inject(method = "updateCameraAndRender", at = @At("HEAD"))
     private void albedo$frameStart(float partialTicks, long nanoTime, CallbackInfo ci) {
         LegacyChroma.frameStart();
-        LegacySky.frameStart();
+        LegacySky.frameStart(partialTicks);
     }
 
     @Inject(method = "updateCameraAndRender", at = @At("RETURN"))
@@ -34,6 +34,7 @@ public abstract class EntityRendererMixin {
 
     @Inject(method = "updateFogColor", at = @At("TAIL"))
     private void albedo$flatFog(float partialTicks, CallbackInfo ci) {
+        if (LegacyHooks.specialFog(partialTicks)) return;
         float[] rgb = LegacySky.fogRgb();
         if (rgb == null) rgb = LegacyHooks.skyRgb();
         if (rgb == null) return;

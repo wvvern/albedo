@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+- feat: Make the highest Chroma speed 5 times faster
+- feat: Make the Chroma colors of the pastel profile move faster
+- fix: Remove the checker of black pixels from blocks with moving Chroma colors on 1.21.11 and NeoForge 26.3
+- fix: Make typing work in the text fields of the settings screen on 26.3
+- fix: Let you type characters that need AltGr in the settings screen on 1.8.9
+- fix: Replace all of the text when you type after Ctrl+A in the settings screen
+- fix: Keep the vanilla fog color under water, in lava and in powder snow with a custom or flat sky
+- fix: Hide the custom sky on 1.8.9 with blindness, under water and in lava, as the game hides its sky
+- fix: Hide or show the clouds at once on 1.21.11 and 26.3 when you change the profile
+
 ## 0.5.0
 
 - feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
