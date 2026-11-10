@@ -66,7 +66,7 @@ function Set-EarlyWindow([string]$runDir) {
     @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
 }
 
-function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir) {
+function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [string[]]$hooks) {
     # The reasons why a run is not PASS, from the harness folder, the game log and the run folder.
     if (-not (Test-Path (Join-Path $runDir "config\albedo\config.json"))) { "the run folder does not have config/albedo/config.json" }
     $harnessLog = Join-Path $harness "log.txt"
@@ -77,6 +77,10 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir) {
     if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
     $harnessText -match "^!" | ForEach-Object { "harness error: $_" }
     $harnessText -cmatch "DIFFERENT" | ForEach-Object { "harness compare: $_" }
+    # The command "hooks" logs how many times each optional hook ran, and an optional hook with a wrong target name never runs.
+    foreach ($line in $harnessText -match "^hooks:") {
+        $hooks | Where-Object { $line -notmatch "\b$_=[1-9]" } | ForEach-Object { "the hook $_ did not run: $line" }
+    }
     # The harness renames commands.txt to commands.taken when it reads it.
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
@@ -112,7 +116,7 @@ foreach ($target in $Targets) {
     # The legacy build has the Forge targets with MCP names; all other Forge targets are in the modern build.
     $legacy = $target -in @("forge-1.8.9", "forge-1.12.2")
     if ($legacy) {
-        $dir = Join-Path $root "legacy"; $task = "runClientDev"; $runDir = Join-Path $dir "run"; $scene = "scene-legacy.txt"
+        $dir = Join-Path $root "legacy"; $task = ":${version}:runClientDev"; $runDir = Join-Path $dir "versions\$version\run"; $scene = "scene-legacy.txt"
     } else {
         $dir = Join-Path $root "modern"; $task = ":${loader}:${version}:runClient"
         $runDir = Join-Path $dir "$loader\versions\$version\run"; $scene = "scene-modern.txt"
@@ -170,7 +174,10 @@ foreach ($target in $Targets) {
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
-    $failures = @(Get-Failures $harness $log $runDir)
+    # A renderer mod replaces the terrain draw, so only the hooks that it does not touch must run.
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow") }
+             else { @("afterSolid", "tint", "fullbright", "shadow") }
+    $failures = @(Get-Failures $harness $log $runDir $hooks)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
         Set-Content -Encoding ascii (Join-Path $out "result.txt")

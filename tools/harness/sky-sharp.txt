@@ -146,4 +146,5 @@ wait 40
 screenshot sharp-18-dusk-swirl-on-fov30
 skycompare
 wait 40
+hooks
 quit
