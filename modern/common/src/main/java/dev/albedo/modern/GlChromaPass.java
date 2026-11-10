@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.17 && <1.21.11 {
+//? if gl_chroma {
 /*import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;

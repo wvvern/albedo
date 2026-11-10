@@ -22,4 +22,7 @@ stonecutter.parameters {
     constants.put('frame_graph', family('>=1.21.2 <1.21.5'))
     constants.put('gpu_device', family('>=1.21.5 <26.3'))
     constants.put('renderpearl', family('>=26.3'))
+    // The raw GL classes go past their families: the sky classes to 1.21.5, and the Chroma and atlas classes to 1.21.10.
+    constants.put('gl_sky', family('>=1.17 <1.21.6'))
+    constants.put('gl_chroma', family('>=1.17 <1.21.11'))
 }

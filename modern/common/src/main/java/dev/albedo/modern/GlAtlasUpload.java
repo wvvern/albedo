@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.17 && <1.21.11 {
+//? if gl_chroma {
 /*import java.util.List;
 
 // Puts repainted sprites into their atlases on the versions where each sprite uploads its own pixels, through the GL or

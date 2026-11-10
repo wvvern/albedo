@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.17 && <1.21.11 {
+//? if gl_chroma {
 /*import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyShaderSource;
 import org.lwjgl.opengl.GL11;

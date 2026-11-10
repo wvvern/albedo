@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.17 && <1.21.6 {
+//? if gl_sky {
 /*import dev.albedo.core.Albedo;
 import dev.albedo.core.Colors;
 import dev.albedo.core.sky.SkyDefer;

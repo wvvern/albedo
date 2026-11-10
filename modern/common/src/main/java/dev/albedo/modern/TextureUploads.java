@@ -100,50 +100,10 @@ final class TextureUploads {
             return true;
         };
     }
-    //?} elif >=1.21.5 {
-    /*// A stand-alone texture, loaded with TextureContents.load into a GPU texture with one level, which keeps the filters of the load.
+    //?} elif >=1.21.4 {
+    /*// A stand-alone texture, loaded again by the class of the versions up to 1.21.10.
     static TextureStore.Upload texture(Object location) {
-        return pixels -> {
-            AbstractTexture registered = registered(location);
-            if (!(registered instanceof net.minecraft.client.renderer.texture.ReloadableTexture)
-                    || !((net.minecraft.client.renderer.texture.ReloadableTexture) registered).resourceId().equals(location)) return false;
-            com.mojang.blaze3d.textures.GpuTexture gpu = registered.getTexture();
-            if (gpu.getWidth(0) != pixels.width() || gpu.getHeight(0) != pixels.height()) return false;
-            try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
-                write(pixels, image);
-                com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().writeToTexture(gpu, image);
-            }
-            return true;
-        };
-    }
-    *///?} elif >=1.21.4 {
-    /*// A stand-alone texture, loaded again with the blur and clamp of its metadata file, as TextureContents.load reads them.
-    static TextureStore.Upload texture(Object location) {
-        return pixels -> {
-            AbstractTexture registered = registered(location);
-            if (!(registered instanceof net.minecraft.client.renderer.texture.ReloadableTexture)
-                    || !((net.minecraft.client.renderer.texture.ReloadableTexture) registered).resourceId().equals(location)) return false;
-            boolean blur = false;
-            boolean clamp = false;
-            java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
-                    Minecraft.getInstance().getResourceManager().getResource((net.minecraft.resources.ResourceLocation) location);
-            try {
-                java.util.Optional<net.minecraft.client.resources.metadata.texture.TextureMetadataSection> section = resource.isPresent()
-                        ? resource.get().metadata().getSection(net.minecraft.client.resources.metadata.texture.TextureMetadataSection.TYPE)
-                        : java.util.Optional.empty();
-                if (section.isPresent()) {
-                    blur = section.get().blur();
-                    clamp = section.get().clamp();
-                }
-            } catch (java.io.IOException e) {
-                dev.albedo.core.Albedo.get().platform().warn("Cannot read the metadata of " + location, e);
-            }
-            try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
-                write(pixels, image);
-                ((TextureUploadInvoker) registered).albedo$doLoad(image, blur, clamp);
-            }
-            return true;
-        };
+        return ReloadableTextureUpload.texture(location);
     }
     *///?} else {
     /*// A stand-alone texture. The texture object loaded it with these filter settings.
@@ -189,7 +149,7 @@ final class TextureUploads {
         return ((TextureManagerAccessor) Minecraft.getInstance().getTextureManager()).albedo$byPath().get(location);
     }
 
-    private static void write(PixelBuffer pixels, NativeImage image) {
+    static void write(PixelBuffer pixels, NativeImage image) {
         //? if >=1.21.11 {
         if (pixels instanceof PixelBuffer.Heap heap && image.format() == NativeImage.Format.RGBA && image.getWidth() == heap.width()
                 && image.getHeight() == heap.height()) {

@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.17 && <1.21.6 {
+//? if gl_sky {
 /*import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;

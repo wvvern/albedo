@@ -26,7 +26,7 @@ public abstract class SodiumTintMixin {
         return ModernHooks.blockTintIndex(tintIndex);
     }
 
-    /** Sodium 0.6.13 (1.21.5) and 0.7 (1.21.8, 1.21.10). */
+    /** Sodium 0.6.13 (1.21.4, 1.21.5) and 0.7 (1.21.8, 1.21.10). */
     @ModifyExpressionValue(method = "tintQuad", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/caffeinemc/mods/sodium/client/render/frapi/mesh/MutableQuadViewImpl;tintIndex()I"))
     private int albedo$quadTintIndex(int tintIndex) {
@@ -51,13 +51,6 @@ public abstract class SodiumTintMixin {
             target = "Lorg/embeddedt/embeddium/impl/model/quad/BakedQuadView;hasColor()Z"))
     private boolean albedo$hasColor(boolean tinted) {
         return ModernHooks.blockTinted(tinted);
-    }
-
-    /** Sodium 0.6.13 (1.21.4). */
-    @ModifyExpressionValue(method = "tintQuad", require = 0, at = @At(value = "INVOKE",
-            target = "Lnet/caffeinemc/mods/sodium/client/render/frapi/mesh/MutableQuadViewImpl;tintIndex()I"))
-    private int albedo$frapiTintIndex(int tintIndex) {
-        return ModernHooks.blockTintIndex(tintIndex);
     }
 }
 //?}
