@@ -43,13 +43,15 @@ final class Ui {
         String get();
     }
 
-    private static final class KeyPress {
+    /** A key press or a typed character, which a text field takes in the order that they came. */
+    private static final class Input {
+        /** The key, or null for a typed character. */
         final UiKey key;
-        final boolean ctrl;
+        final char ch;
 
-        KeyPress(UiKey key, boolean ctrl) {
+        Input(UiKey key, char ch) {
             this.key = key;
-            this.ctrl = ctrl;
+            this.ch = ch;
         }
     }
 
@@ -105,8 +107,9 @@ final class Ui {
     private Rect overlayDrawn;
     /** The area that tooltips stay in: the screen, or the panel that the owner sets each frame. */
     private Rect tipBounds;
-    private final List<KeyPress> keys = new ArrayList<KeyPress>();
-    private final StringBuilder typed = new StringBuilder();
+    private final List<Input> inputs = new ArrayList<Input>();
+    /** The cursor of the focused text field of this frame, or null when no field takes typing. */
+    private Rect cursor;
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
     /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
@@ -132,12 +135,12 @@ final class Ui {
         wheel += amount > 0 ? 1 : amount < 0 ? -1 : 0;
     }
 
-    void key(UiKey key, boolean ctrl) {
-        keys.add(new KeyPress(key, ctrl));
+    void key(UiKey key) {
+        inputs.add(new Input(key, '\0'));
     }
 
     void typed(char ch) {
-        if (ch >= ' ' && ch != 127) typed.append(ch);
+        if (ch >= ' ' && ch != 127) inputs.add(new Input(null, ch));
     }
 
     void begin(Canvas canvas, int mouseX, int mouseY) {
@@ -159,6 +162,7 @@ final class Ui {
         focusDrawn = false;
         dragAreas.clear();
         fieldTexts.clear();
+        cursor = null;
     }
 
     /** A copy of the drag areas that this frame drew, by id. */
@@ -180,11 +184,14 @@ final class Ui {
             pointer.click = false;
         }
         if (focus != null && focus.equals(focusAtBegin) && !focusDrawn) focus = null;
+        if (focus == null) cursor = null;
         wheel = 0;
-        typed.setLength(0);
-        keys.clear();
+        inputs.clear();
         tooltip();
     }
+
+    /** The cursor of the text field that takes typing after this frame, or null when no field does. */
+    Rect textCursor() { return cursor; }
 
     /** True when the left button went down since the last frame (before any widget takes the press). */
     boolean clicked() { return pointer.clickedThisFrame; }
@@ -202,7 +209,7 @@ final class Ui {
 
     /** Takes an unclaimed key press (e.g. Escape for the screen itself). */
     boolean takeKey(UiKey key) {
-        for (Iterator<KeyPress> it = keys.iterator(); it.hasNext(); ) {
+        for (Iterator<Input> it = inputs.iterator(); it.hasNext(); ) {
             if (it.next().key == key) {
                 it.remove();
                 return true;
@@ -723,29 +730,27 @@ final class Ui {
         while (width(visible) > room && !visible.isEmpty()) visible = visible.substring(0, visible.length() - 1);
         if (focused && field.selectAll && !visible.isEmpty()) fill(tx - 1, ty - 1, width(visible) + 2, LINE + 1, 0xFF2F5FB3);
         text(visible, tx, ty, TEXT);
-        if (focused && (now() / 500) % 2 == 0) {
+        if (focused) {
             int cx = tx + width(shown.substring(start, Math.max(start, field.cursor)));
-            fill(cx, ty - 1, 1, LINE + 1, TEXT);
+            if (id.equals(focus)) cursor = new Rect(cx, ty - 1, 1, LINE + 1);
+            if ((now() / 500) % 2 == 0) fill(cx, ty - 1, 1, LINE + 1, TEXT);
         }
         return changed;
     }
 
-    /** Gives this frame's keys and typing to the focused field, until Esc, Enter or Tab ends the input. */
+    /** Gives this frame's keys and typing to the focused field in their order, until Esc, Enter or Tab ends the input. */
     private boolean edit(TextField field) {
         boolean changed = false;
-        for (Iterator<KeyPress> it = keys.iterator(); it.hasNext(); ) {
-            KeyPress k = it.next();
+        for (Iterator<Input> it = inputs.iterator(); it.hasNext(); ) {
+            Input in = it.next();
             it.remove();
-            if (k.key == UiKey.ESCAPE || k.key == UiKey.ENTER || k.key == UiKey.TAB) {
+            if (in.key == UiKey.ESCAPE || in.key == UiKey.ENTER || in.key == UiKey.TAB) {
                 focus = null;
                 break;
             }
-            if (k.ctrl && k.key == UiKey.V) changed |= field.insert(clipboard.get());
-            else changed |= field.key(k.key, k.ctrl);
-        }
-        if (typed.length() > 0) {
-            changed |= field.insert(typed.toString());
-            typed.setLength(0);
+            if (in.key == null) changed |= field.insert(String.valueOf(in.ch));
+            else if (in.key == UiKey.PASTE) changed |= field.insert(clipboard.get());
+            else changed |= field.key(in.key);
         }
         return changed;
     }

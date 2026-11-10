@@ -12,7 +12,7 @@ final class TextField {
 
     String text = "";
     int cursor;
-    /** After Ctrl+A the next edit replaces everything. */
+    /** After select-all the next edit replaces everything. */
     boolean selectAll;
     private final int maxLength;
     private final Filter filter;
@@ -42,8 +42,8 @@ final class TextField {
         return true;
     }
 
-    boolean key(UiKey key, boolean ctrl) {
-        if (ctrl && key == UiKey.A) {
+    boolean key(UiKey key) {
+        if (key == UiKey.SELECT_ALL) {
             selectAll = true;
             return false;
         }

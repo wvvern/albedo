@@ -52,6 +52,16 @@ wait 5
 ui expect search e
 wait 3
 expect open
+# AltGr is Control and Alt on Windows, as for | on a German keyboard.
+keydown LEFT_CONTROL
+keydown RIGHT_ALT
+wait 2
+type |
+wait 2
+keyup RIGHT_ALT
+keyup LEFT_CONTROL
+wait 3
+ui expect search e|
 # Esc in a field ends the input and keeps the screen open, then a second Esc closes it.
 key ESCAPE
 wait 5

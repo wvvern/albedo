@@ -81,25 +81,30 @@ public final class GuiSettings extends GuiScreen implements Canvas {
         if (wheel != 0) editor.mouseScrolled(wheel);
     }
 
+    /** LWJGL 2 gives the key and its character in one event, where the character of a key such as Backspace is a control character. */
     @Override
     protected void keyTyped(char c, int code) {
-        UiKey key = code == Keyboard.KEY_BACK ? UiKey.BACKSPACE
-                : code == Keyboard.KEY_DELETE ? UiKey.DELETE
-                : code == Keyboard.KEY_LEFT ? UiKey.LEFT
-                : code == Keyboard.KEY_RIGHT ? UiKey.RIGHT
-                : code == Keyboard.KEY_UP ? UiKey.UP
-                : code == Keyboard.KEY_DOWN ? UiKey.DOWN
-                : code == Keyboard.KEY_HOME ? UiKey.HOME
-                : code == Keyboard.KEY_END ? UiKey.END
-                : code == Keyboard.KEY_RETURN || code == Keyboard.KEY_NUMPADENTER ? UiKey.ENTER
-                : code == Keyboard.KEY_ESCAPE ? UiKey.ESCAPE
-                : code == Keyboard.KEY_TAB ? UiKey.TAB
-                : code == Keyboard.KEY_A ? UiKey.A
-                : code == Keyboard.KEY_V ? UiKey.V
-                : null;
-        boolean ctrl = isCtrlKeyDown();
-        if (key != null) editor.keyPressed(key, ctrl);
-        if (!ctrl && c >= ' ' && key != UiKey.ESCAPE) editor.charTyped(c);
+        UiKey key = isKeyComboCtrlA(code) ? UiKey.SELECT_ALL : isKeyComboCtrlV(code) ? UiKey.PASTE : uiKey(code);
+        if (key != null) editor.keyPressed(key);
+        editor.charTyped(c);
+    }
+
+    private static UiKey uiKey(int code) {
+        switch (code) {
+            case Keyboard.KEY_BACK: return UiKey.BACKSPACE;
+            case Keyboard.KEY_DELETE: return UiKey.DELETE;
+            case Keyboard.KEY_LEFT: return UiKey.LEFT;
+            case Keyboard.KEY_RIGHT: return UiKey.RIGHT;
+            case Keyboard.KEY_UP: return UiKey.UP;
+            case Keyboard.KEY_DOWN: return UiKey.DOWN;
+            case Keyboard.KEY_HOME: return UiKey.HOME;
+            case Keyboard.KEY_END: return UiKey.END;
+            case Keyboard.KEY_RETURN:
+            case Keyboard.KEY_NUMPADENTER: return UiKey.ENTER;
+            case Keyboard.KEY_ESCAPE: return UiKey.ESCAPE;
+            case Keyboard.KEY_TAB: return UiKey.TAB;
+            default: return null;
+        }
     }
 
     @Override public int width() { return width; }

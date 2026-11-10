@@ -67,7 +67,24 @@ public final class SettingsScreen extends Screen {
 
     private void draw(Canvas canvas, int mouseX, int mouseY) {
         editor.render(canvas, mouseX, mouseY);
+        //? if >=26.1 {
+        textInput();
+        //?}
     }
+
+    //? if >=26.1 {
+    /** Asks the window for text input while a field has the focus, because SDL sends typed text only then, as for an edit box. */
+    private void textInput() {
+        var input = Minecraft.getInstance().textInputManager();
+        int[] cursor = editor.textCursor();
+        if (cursor == null) {
+            input.stopTextInput(this);
+            return;
+        }
+        input.setTextInputArea(cursor[0], cursor[1], cursor[2], cursor[3]);
+        input.startTextInput(this);
+    }
+    //?}
 
     /** Closes the screen in the tick and not in the frame, because the GUI draws this frame's images after the frame's calls. */
     @Override
@@ -96,7 +113,8 @@ public final class SettingsScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        return key(event.key(), event.hasControlDown());
+        key(event.isSelectAll() ? UiKey.SELECT_ALL : event.isPaste() ? UiKey.PASTE : uiKey(event.key()));
+        return true;
     }
 
     @Override
@@ -119,7 +137,11 @@ public final class SettingsScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        return key(keyCode, Screen.hasControlDown());
+        // A shortcut is Command on a Mac, else Control, with no Shift or Alt, read from the modifiers of the event.
+        int shortcut = Minecraft.ON_OSX ? org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER : org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL;
+        boolean plain = (modifiers & shortcut) != 0 && (modifiers & (org.lwjgl.glfw.GLFW.GLFW_MOD_SHIFT | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT)) == 0;
+        key(plain && keyCode == InputConstants.KEY_A ? UiKey.SELECT_ALL : plain && keyCode == InputConstants.KEY_V ? UiKey.PASTE : uiKey(keyCode));
+        return true;
     }
 
     @Override
@@ -129,23 +151,26 @@ public final class SettingsScreen extends Screen {
     }
     *///?}
 
-    private boolean key(int code, boolean ctrl) {
-        UiKey key = code == InputConstants.KEY_BACKSPACE ? UiKey.BACKSPACE
-                : code == InputConstants.KEY_DELETE ? UiKey.DELETE
-                : code == InputConstants.KEY_LEFT ? UiKey.LEFT
-                : code == InputConstants.KEY_RIGHT ? UiKey.RIGHT
-                : code == InputConstants.KEY_UP ? UiKey.UP
-                : code == InputConstants.KEY_DOWN ? UiKey.DOWN
-                : code == InputConstants.KEY_HOME ? UiKey.HOME
-                : code == InputConstants.KEY_END ? UiKey.END
-                : code == InputConstants.KEY_RETURN || code == InputConstants.KEY_NUMPADENTER ? UiKey.ENTER
-                : code == InputConstants.KEY_ESCAPE ? UiKey.ESCAPE
-                : code == InputConstants.KEY_TAB ? UiKey.TAB
-                : code == InputConstants.KEY_A ? UiKey.A
-                : code == InputConstants.KEY_V ? UiKey.V
-                : null;
-        if (key != null) editor.keyPressed(key, ctrl);
-        return true;
+    private void key(UiKey key) {
+        if (key != null) editor.keyPressed(key);
+    }
+
+    /** The editor key of a key code of this version (a GLFW key, or an SDL scancode on 26.x), or null. */
+    private static UiKey uiKey(int code) {
+        return switch (code) {
+            case InputConstants.KEY_BACKSPACE -> UiKey.BACKSPACE;
+            case InputConstants.KEY_DELETE -> UiKey.DELETE;
+            case InputConstants.KEY_LEFT -> UiKey.LEFT;
+            case InputConstants.KEY_RIGHT -> UiKey.RIGHT;
+            case InputConstants.KEY_UP -> UiKey.UP;
+            case InputConstants.KEY_DOWN -> UiKey.DOWN;
+            case InputConstants.KEY_HOME -> UiKey.HOME;
+            case InputConstants.KEY_END -> UiKey.END;
+            case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> UiKey.ENTER;
+            case InputConstants.KEY_ESCAPE -> UiKey.ESCAPE;
+            case InputConstants.KEY_TAB -> UiKey.TAB;
+            default -> null;
+        };
     }
 
     private final class GraphicsCanvas implements Canvas {
@@ -192,6 +217,9 @@ public final class SettingsScreen extends Screen {
 
     @Override
     public void removed() {
+        //? if >=26.1 {
+        Minecraft.getInstance().textInputManager().stopTextInput(this);
+        //?}
         images.close();
         super.removed();
     }
