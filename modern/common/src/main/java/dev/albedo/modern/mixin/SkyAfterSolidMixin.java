@@ -1,7 +1,6 @@
 package dev.albedo.modern.mixin;
 
 import dev.albedo.modern.ModernHooks;
-import dev.albedo.modern.ModernSky;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,7 +18,7 @@ public abstract class SkyAfterSolidMixin {
                                       net.minecraft.client.renderer.feature.FeatureRenderDispatcher.PreparedFrame frame,
                                       com.mojang.renderpearl.api.commands.RenderPass pass, CallbackInfo ci) {
         ModernHooks.AFTER_SOLID.run();
-        ModernSky.afterSolid(pass);
+        dev.albedo.modern.PearlSky.afterSolid(pass);
     }
 }
 //?} elif >=1.21.11 {
@@ -30,7 +29,7 @@ public abstract class SkyAfterSolidMixin {
     private void albedo$skyAfterSolid(com.mojang.blaze3d.platform.Lighting.Entry entry, CallbackInfo ci) {
         if (entry != com.mojang.blaze3d.platform.Lighting.Entry.LEVEL) return;
         ModernHooks.AFTER_SOLID.run();
-        ModernSky.afterSolid();
+        dev.albedo.modern.PrecompiledSky.afterSolid();
     }
 }
 *///?} else {
@@ -42,7 +41,7 @@ public abstract class SkyAfterSolidMixin {
                                       org.joml.Matrix4f modelView, org.joml.Matrix4f projection, CallbackInfo ci) {
         if (type != net.minecraft.client.renderer.RenderType.cutout()) return;
         ModernHooks.AFTER_SOLID.run();
-        ModernSky.afterSolid();
+        dev.albedo.modern.GlSky.afterSolid();
     }
 }
 *///?}

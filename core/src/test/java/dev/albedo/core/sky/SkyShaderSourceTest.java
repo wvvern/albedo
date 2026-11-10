@@ -33,6 +33,18 @@ class SkyShaderSourceTest {
     }
 
     @Test
+    void theBakedSkyShaderIsOneTextWithNoSkyInclude() throws IOException {
+        for (boolean vertex : new boolean[] {true, false}) {
+            String text = SkyShaderSource.classic(SkyShaderSource.BAKED, vertex, SkyShaderSource.Dialect.UNIFORMS_150);
+            assertTrue(text.startsWith("#version 150\n"), text);
+            assertFalse(text.contains("#include"), text);
+            assertFalse(text.contains("albedoSky"), "the baked image needs no sky layers");
+            assertEquals(vertex, text.contains("ProjMat * ModelViewMat"), text);
+            assertEquals(!vertex, text.contains("texture(Sampler0, skyUv) * ColorModulator"), text);
+        }
+    }
+
+    @Test
     void theLayerStepsHaveTheStructureOfEachLayerThatShowsOrMasksAsConstants() {
         // Nebula: gradient, fractal with pulse, noise as a mask, blur and hue shift through the mask, stars that twinkle, bloom.
         String steps = SkyShaderSource.layerSteps(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program());

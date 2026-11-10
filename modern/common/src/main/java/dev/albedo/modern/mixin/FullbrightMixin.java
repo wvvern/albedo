@@ -1,5 +1,6 @@
 package dev.albedo.modern.mixin;
 
+//? if >=1.20.5 {
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.albedo.modern.ModernHooks;
@@ -9,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 
 /**
  * Fullbright: while the lightmap is computed, the brightness (gamma) option reads as far above its maximum, with every
- * option read wrapped and only the gamma one changed so that nothing depends on call order.
+ * option read wrapped and only the gamma one changed so that nothing depends on call order; the versions before 1.20.5
+ * use {@code FullbrightRedirectMixin}.
  */
 //? if >=26.1 {
 @Mixin(net.minecraft.client.renderer.LightmapRenderStateExtractor.class)
@@ -26,3 +28,4 @@ public abstract class FullbrightMixin {
         return ModernHooks.gamma(option, original.call(option));
     }
 }
+//?}

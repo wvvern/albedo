@@ -16,12 +16,12 @@ public abstract class SkyLayersMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void albedo$upload(com.mojang.renderpearl.api.buffers.GpuBufferSlice fog,
                                net.minecraft.client.renderer.state.level.SkyRenderState state, CallbackInfo ci) {
-        ModernSky.beforePass(state.skybox == net.minecraft.world.level.dimension.DimensionType.Skybox.OVERWORLD);
+        dev.albedo.modern.PearlSky.beforePass(state.skybox == net.minecraft.world.level.dimension.DimensionType.Skybox.OVERWORLD);
     }
 
     @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
     private void albedo$sky(com.mojang.renderpearl.api.commands.RenderPass pass, org.joml.Vector3fc color, CallbackInfo ci) {
-        if (ModernSky.draw(pass)) ci.cancel();
+        if (dev.albedo.modern.PearlSky.draw(pass)) ci.cancel();
     }
 
     @Inject(method = "renderDarkDisc", at = @At("HEAD"), cancellable = true)
@@ -46,7 +46,7 @@ public abstract class SkyLayersMixin {
 public abstract class SkyLayersMixin {
     @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
     private void albedo$sky(int color, CallbackInfo ci) {
-        if (ModernSky.draw()) ci.cancel();
+        if (dev.albedo.modern.PrecompiledSky.draw()) ci.cancel();
     }
 
     @Inject(method = "renderDarkDisc", at = @At("HEAD"), cancellable = true)
@@ -72,7 +72,9 @@ public abstract class SkyLayersMixin {
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$sky(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                             net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!ModernSky.draw(modelView, projection)) buffer.drawWithShader(modelView, projection, shader);
+        if (!dev.albedo.modern.GlSky.draw(modelView.get(new float[16]), projection.get(new float[16]))) {
+            buffer.drawWithShader(modelView, projection, shader);
+        }
     }
 
     @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 1,

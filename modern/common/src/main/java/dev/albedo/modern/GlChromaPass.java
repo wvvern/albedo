@@ -1,8 +1,7 @@
 package dev.albedo.modern;
 
-//? if <1.21.11 {
+//? if gl_core || frame_graph {
 /*import com.mojang.blaze3d.platform.GlStateManager;
-import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;
@@ -16,75 +15,42 @@ import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryUtil;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
-// The Chroma pass on 1.21.1: its own GL program draws into each mip level of an atlas through a framebuffer, and puts
-// back each GL state that it changes, through GlStateManager where the game keeps a copy of the state.
+// The Chroma pass through the raw GL: its own GL program draws into each mip level of an atlas through a framebuffer, and
+// puts back each GL state that it changes.
 final class GlChromaPass implements ChromaBackend {
-    private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
+    // The program of the pass, with the pristine copy on unit 0, the Chroma texels on unit 1, two framebuffers for the
+    // copies, the second also for the draws, and an empty vertex array for the triangle.
+    private static final class Program extends GlProgram {
+        int turns;
+        int readFbo;
+        int drawFbo;
+        int vertexArray;
 
-    private enum Compile { NOT_STARTED, READY, FAILED }
+        Program() {
+            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", "Chroma shader", "The Chroma colors stay still.");
+        }
 
-    private static Compile state = Compile.NOT_STARTED;
-    private static int program;
-    private static int turnsUniform;
-    // Two framebuffers for the copies, the second also for the draws, and an empty vertex array for the triangle.
-    private static int readFbo;
-    private static int drawFbo;
-    private static int vertexArray;
+        @Override
+        void linked() {
+            turns = uniform("ChromaTurns");
+            int previous = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+            GlStateManager._glUseProgram(id());
+            GL20.glUniform1i(uniform("AlbedoPristine"), 0);
+            GL20.glUniform1i(uniform("AlbedoTexels"), 1);
+            GlStateManager._glUseProgram(previous);
+            readFbo = GlStateManager.glGenFramebuffers();
+            drawFbo = GlStateManager.glGenFramebuffers();
+            vertexArray = GlStateManager._glGenVertexArrays();
+        }
+    }
+
+    private static final Program PROGRAM = new Program();
 
     @Override
     public Shader compile() {
-        if (state == Compile.NOT_STARTED) compileNow();
-        return state == Compile.READY ? Shader.READY : Shader.FAILED;
-    }
-
-    private static void compileNow() {
-        int p = GL20.glCreateProgram();
-        int vertex = 0;
-        int fragment = 0;
-        try {
-            vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, true, DIALECT));
-            fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, false, DIALECT));
-            GL20.glAttachShader(p, vertex);
-            GL20.glAttachShader(p, fragment);
-            GL20.glLinkProgram(p);
-            if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p));
-        } catch (IOException | IllegalStateException e) {
-            GL20.glDeleteProgram(p);
-            state = Compile.FAILED;
-            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". The Chroma colors stay still.", e);
-            return;
-        } finally {
-            if (vertex != 0) GL20.glDeleteShader(vertex);
-            if (fragment != 0) GL20.glDeleteShader(fragment);
-        }
-        program = p;
-        turnsUniform = GL20.glGetUniformLocation(p, "ChromaTurns");
-        int previous = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-        GlStateManager._glUseProgram(p);
-        GL20.glUniform1i(GL20.glGetUniformLocation(p, "AlbedoPristine"), 0);
-        GL20.glUniform1i(GL20.glGetUniformLocation(p, "AlbedoTexels"), 1);
-        GlStateManager._glUseProgram(previous);
-        readFbo = GlStateManager.glGenFramebuffers();
-        drawFbo = GlStateManager.glGenFramebuffers();
-        vertexArray = GlStateManager._glGenVertexArrays();
-        state = Compile.READY;
-        Albedo.get().platform().info("Compiled the Chroma shader " + SkyShaderSource.CHROMA);
-    }
-
-    // A compiled shader of a type, or an exception with the log of the GL.
-    private static int shader(int type, String source) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, source);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            String log = GL20.glGetShaderInfoLog(shader);
-            GL20.glDeleteShader(shader);
-            throw new IllegalStateException(log);
-        }
-        return shader;
+        return PROGRAM.ready() ? Shader.READY : Shader.FAILED;
     }
 
     @Override
@@ -119,47 +85,6 @@ final class GlChromaPass implements ChromaBackend {
         return new Timer();
     }
 
-    // The GL state that the pass changes, as it was before the pass.
-    private static final class Saved {
-        final int drawFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        final int readFramebuffer = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        final int[] viewport = new int[4];
-        final int activeTexture = GlStateManager._getActiveTexture();
-        final int texture0;
-        final int texture1;
-        final int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-        final int vertexArray = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
-        final boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-        final boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        final boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-
-        Saved() {
-            GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            texture0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE1);
-            texture1 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        }
-
-        void restore() {
-            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
-            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
-            GlStateManager._viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE1);
-            GlStateManager._bindTexture(texture1);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(texture0);
-            GlStateManager._activeTexture(activeTexture);
-            GlStateManager._glUseProgram(program);
-            GlStateManager._glBindVertexArray(vertexArray);
-            if (blend) GlStateManager._enableBlend();
-            if (depth) GlStateManager._enableDepthTest();
-            if (scissor) GlStateManager._enableScissorTest();
-            if (cull) GlStateManager._enableCull();
-        }
-    }
-
     private static final class Target implements ChromaBackend.Target {
         private final int live;
         private final int[] size;
@@ -179,7 +104,7 @@ final class GlChromaPass implements ChromaBackend {
                 widths[level] = Math.max(1, size[0] >> level);
                 heights[level] = Math.max(1, size[1] >> level);
             }
-            Saved saved = new Saved();
+            GlState saved = GlState.ofAll();
             pristine = texture();
             texels = texture();
             saved.restore();
@@ -208,7 +133,7 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void texels(int[][] levels) {
-            Saved saved = new Saved();
+            GlState saved = GlState.ofAll();
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             GlStateManager._bindTexture(texels);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
@@ -229,18 +154,18 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void recolor(float[] turns) {
-            Saved saved = new Saved();
+            GlState saved = GlState.ofAll();
             GlStateManager._disableBlend();
             GlStateManager._disableDepthTest();
             GlStateManager._disableScissorTest();
             GlStateManager._disableCull();
             for (int level = 0; level < widths.length; level++) copy(live, pristine, level);
-            GlStateManager._glUseProgram(program);
+            GlStateManager._glUseProgram(PROGRAM.id());
             turnBytes.clear();
             turnBytes.asFloatBuffer().put(turns);
-            GL20.nglUniform4fv(turnsUniform, Chroma.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
-            GlStateManager._glBindVertexArray(vertexArray);
-            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, drawFbo);
+            GL20.nglUniform4fv(PROGRAM.turns, Chroma.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
+            GlStateManager._glBindVertexArray(PROGRAM.vertexArray);
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, PROGRAM.drawFbo);
             for (int level = 0; level < widths.length; level++) {
                 GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
                 GlStateManager._viewport(0, 0, widths[level], heights[level]);
@@ -264,7 +189,7 @@ final class GlChromaPass implements ChromaBackend {
 
         @Override
         public void restore() {
-            Saved saved = new Saved();
+            GlState saved = GlState.ofAll();
             GlStateManager._disableScissorTest();
             for (int level = 0; level < widths.length; level++) copy(pristine, live, level);
             saved.restore();
@@ -272,9 +197,9 @@ final class GlChromaPass implements ChromaBackend {
 
         // Copies one mip level of a texture into the same level of a texture of the same size, through two framebuffers.
         private void copy(int from, int to, int level) {
-            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, PROGRAM.readFbo);
             GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, from, level);
-            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, PROGRAM.drawFbo);
             GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, to, level);
             int w = widths[level], h = heights[level];
             GlStateManager._glBlitFrameBuffer(0, 0, w, h, 0, 0, w, h, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);

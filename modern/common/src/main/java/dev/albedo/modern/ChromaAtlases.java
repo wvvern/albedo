@@ -175,8 +175,8 @@ final class ChromaAtlases {
             //?} else {
             /*int padding = 0;
             *///?}
-            texels.sprite(AtlasPaths.spriteLocation(atlasName, String.valueOf(sprite.contents().name())), sprite.getX(), sprite.getY(),
-                    sprite.contents().width(), sprite.contents().height(), padding);
+            SpriteAccess access = SpriteAccess.of(sprite);
+            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), sprite.getX(), sprite.getY(), access.width(), access.height(), padding);
         }
         if (!texels.moving()) return;
         if (BACKEND.compile() == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");
