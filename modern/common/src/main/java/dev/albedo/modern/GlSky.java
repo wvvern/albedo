@@ -98,6 +98,14 @@ public final class GlSky {
         return replacedDisc;
     }
 
+    //? if frame_graph {
+    /^// Draws the sky in place of the sky disc of the SkyRenderer, with the matrices that the game gives its disc.
+    public static boolean drawDisc() {
+        return draw(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix().get(new float[16]),
+                com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().get(new float[16]));
+    }
+    ^///?}
+
     // True when the custom sky drew in place of the sky disc of this sky pass, so the dark lower disc and the sunrise fan must not draw.
     public static boolean replacedDisc() {
         return replacedDisc;

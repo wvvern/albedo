@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
  * Downloaded skins, capes and elytra: from 1.21.4 a DynamicTexture that TextureManager.register keeps on the client
  * thread, before 1.21.4 the image that HttpTexture decodes.
  */
-//? if >=1.21.4 {
+//? if >=1.21.11 {
 @Mixin(net.minecraft.client.renderer.texture.TextureManager.class)
 public abstract class SkinTextureMixin {
     @Inject(method = "register(Lnet/minecraft/resources/Identifier;Lnet/minecraft/client/renderer/texture/AbstractTexture;)V",
@@ -19,7 +19,17 @@ public abstract class SkinTextureMixin {
         ModernHooks.registered(id, texture);
     }
 }
-//?} else {
+//?} elif >=1.21.4 {
+/*@Mixin(net.minecraft.client.renderer.texture.TextureManager.class)
+public abstract class SkinTextureMixin {
+    @Inject(method = "register(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/client/renderer/texture/AbstractTexture;)V",
+            at = @At("RETURN"))
+    private void albedo$registered(net.minecraft.resources.ResourceLocation id, net.minecraft.client.renderer.texture.AbstractTexture texture,
+                                   org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        ModernHooks.registered(id, texture);
+    }
+}
+*///?} else {
 /*@Mixin(net.minecraft.client.renderer.texture.HttpTexture.class)
 public abstract class SkinTextureMixin implements dev.albedo.modern.DownloadedSkin {
     private Object albedo$id;

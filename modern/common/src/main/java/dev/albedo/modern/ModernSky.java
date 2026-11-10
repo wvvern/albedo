@@ -40,13 +40,24 @@ public final class ModernSky {
 
     /** True when the custom sky replaces the vanilla sky disc in this frame. */
     public static boolean active() {
-        return Albedo.skyImage() != null;
+        return Albedo.skyImage() != null && !vanillaWithPack();
     }
 
     /** True when the custom sky hides the vanilla stars. */
     public static boolean hidesStars() {
         SkyImage img = Albedo.skyImage();
-        return img != null && img.design().celestial() == SkyDesign.Celestial.HIDE;
+        return img != null && !vanillaWithPack() && img.design().celestial() == SkyDesign.Celestial.HIDE;
+    }
+
+    /** Draws the custom sky in place of the sky disc of the {@code SkyRenderer}, and returns false when the game must draw its disc. */
+    public static boolean drawDisc() {
+        //? if frame_graph {
+        /*return GlSky.drawDisc();
+        *///?} elif gpu_device {
+        /*return PrecompiledSky.draw();
+        *///?} else {
+        return false;
+        //?}
     }
 
     /** True when the image draws with the sky shader in this frame: the design and the setting permit it, and no shader pack draws the sky. */
@@ -112,7 +123,7 @@ public final class ModernSky {
 
     /** The part of a tick from the last tick to this frame. */
     private static float partialTick() {
-        //? if >=1.21.11 {
+        //? if >=1.21.2 {
         return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         //?} else {
         /*return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);

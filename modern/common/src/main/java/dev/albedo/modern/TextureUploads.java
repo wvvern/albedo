@@ -95,11 +95,37 @@ final class TextureUploads {
             try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
                 write(pixels, image);
                 // Makes a new GPU texture (with mip levels where the texture has them), as a reload does.
-                ((TextureUploadInvoker) texture).albedo$doLoad(image);
+                reload((TextureUploadInvoker) texture, location, image);
             }
             return true;
         };
     }
+
+    //? if >=1.21.11 {
+    private static void reload(TextureUploadInvoker texture, Object location, NativeImage image) {
+        texture.albedo$doLoad(image);
+    }
+    //?} elif >=1.21.4 {
+    /*// Gives the load step the blur and clamp of the metadata file of the texture, as TextureContents.load reads them.
+    private static void reload(TextureUploadInvoker texture, Object location, NativeImage image) {
+        boolean blur = false;
+        boolean clamp = false;
+        java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
+                Minecraft.getInstance().getResourceManager().getResource((net.minecraft.resources.ResourceLocation) location);
+        try {
+            java.util.Optional<net.minecraft.client.resources.metadata.texture.TextureMetadataSection> section = resource.isPresent()
+                    ? resource.get().metadata().getSection(net.minecraft.client.resources.metadata.texture.TextureMetadataSection.TYPE)
+                    : java.util.Optional.empty();
+            if (section.isPresent()) {
+                blur = section.get().blur();
+                clamp = section.get().clamp();
+            }
+        } catch (java.io.IOException e) {
+            dev.albedo.core.Albedo.get().platform().warn("Cannot read the metadata of " + location, e);
+        }
+        texture.albedo$doLoad(image, blur, clamp);
+    }
+    *///?}
 
     /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it. */
     static TextureStore.Upload downloaded(Object id, net.minecraft.client.renderer.texture.DynamicTexture texture) {

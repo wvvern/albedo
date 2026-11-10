@@ -31,6 +31,8 @@ net.minecraft.client.renderer.texture.TextureManager#register
 net.minecraft.client.renderer.texture.TextureManager#release
 net.minecraft.client.renderer.texture.TextureManager#byPath
 net.minecraft.client.renderer.texture.DynamicTexture#<init>
+net.minecraft.client.renderer.texture.SkinTextureDownloader#downloadAndRegisterSkin
+net.minecraft.client.resources.metadata.texture.TextureMetadataSection#TYPE
 com.mojang.blaze3d.platform.NativeImage#getPixel
 com.mojang.blaze3d.platform.NativeImage#getPixelRGBA
 net.minecraft.resources.ResourceLocation|net.minecraft.resources.Identifier
@@ -88,6 +90,7 @@ com.mojang.blaze3d.pipeline.RenderPipeline$Builder|com.mojang.renderpearl.api.pi
 com.mojang.blaze3d.pipeline.RenderPipeline$Builder|com.mojang.renderpearl.api.pipeline.RenderPipeline$Builder#withColorTargetState
 net.minecraft.client.renderer.DynamicUniforms#writeTransform
 com.mojang.blaze3d.systems.RenderSystem#getModelViewMatrix
+com.mojang.blaze3d.systems.RenderSystem#getProjectionMatrix
 com.mojang.blaze3d.systems.RenderSystem#getModelViewMatrixCopy
 com.mojang.blaze3d.systems.RenderSystem#clearColor
 com.mojang.blaze3d.opengl.GlCommandEncoder#lastPipeline
@@ -210,6 +213,8 @@ net.minecraft.client.Minecraft#getTimer
 net.minecraft.client.Minecraft#getDeltaTracker
 net.minecraft.client.Screenshot#takeScreenshot
 net.minecraft.world.level.LevelSettings#<init>
+net.minecraft.world.level.GameRules|net.minecraft.world.level.gamerules.GameRules#<init>
+net.minecraft.client.renderer.RenderType#guiTextured
 net.minecraft.commands.Commands#performPrefixedCommand
 net.minecraft.client.Options#hideGui
 net.minecraft.client.gui.Hud
