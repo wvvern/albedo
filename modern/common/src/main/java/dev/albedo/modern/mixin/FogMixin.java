@@ -17,13 +17,14 @@ public abstract class FogMixin {
         ModernHooks.overrideFog(camera, color);
     }
 }
-//?} elif >=1.21.6 {
+//?} elif >=1.21.11 {
 /*@Mixin(net.minecraft.client.renderer.fog.FogRenderer.class)
 public abstract class FogMixin {
-    // The parameters change between the versions, so the handler takes none of them and asks for the camera of the frame.
     @Inject(method = "computeFogColor", at = @At("RETURN"))
-    private void albedo$flatFog(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<org.joml.Vector4f> cir) {
-        ModernHooks.overrideFog(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera(), cir.getReturnValue());
+    private void albedo$flatFog(net.minecraft.client.Camera camera, float partialTick,
+                                     net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float darkenWorld,
+                                     org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<org.joml.Vector4f> cir) {
+        ModernHooks.overrideFog(camera, cir.getReturnValue());
     }
 }
 *///?} elif <1.21.2 {

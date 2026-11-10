@@ -14,7 +14,7 @@ dev/albedo/core/sky/SkyShaderSource*.class The constant BAKED names the program 
 assets/albedo/shaders/core/sky_sharp_classic.vsh The far depth of a reversed depth buffer is a define that only 26.2 sets.
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
 dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe and framechanged.
-dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white, because 26.x uses its alpha; 1.21.x reads only its red, green and blue.
+dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white on 26.x, because 26.x uses its alpha; 1.21.x reads only its red, green and blue and keeps the old value.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput*.class A ui command whose label or slider the screen does not show logs "! no such control".
@@ -52,7 +52,7 @@ dev/albedo/modern/SettingsScreen*.class The canvas and its images are classes of
 dev/albedo/modern/ExtractorCanvas.class A new class has the canvas of 26.x.
 dev/albedo/modern/GraphicsCanvas.class A new class has the canvas of the versions before 26.1, and the texture draw of TextureScreen.
 dev/albedo/modern/CanvasImages.class A new class has the images of the canvas.
-dev/albedo/modern/TextureUploads*.class The sprite upload of each family is a class of its own, and the load step of a stand-alone texture is a method with a variant for 1.21.4 to 1.21.10.
+dev/albedo/modern/TextureUploads*.class The sprite upload of each family is a class of its own, and the load step of a stand-alone texture is a method with a variant for 1.21.4 to 1.21.10, which ReloadableTextureUpload has.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change on 1.21.1, because the file has a variant for 1.21.4 to 1.21.10.
 dev/albedo/modern/DeviceAtlasUpload.class A new class has the sprite upload through the GPU device.
 dev/albedo/modern/GlAtlasUpload.class A new class has the sprite upload of 1.21.1.
@@ -64,16 +64,14 @@ dev/albedo/modern/Harness*.class New classes have the worlds, window, mouse, key
 dev/albedo/modern/TextureScreen.class The texture id comes from HarnessSkins, and before 26.1 GraphicsCanvas draws the texture, with a blit that takes GraphicsCanvas.TEXTURED from 1.21.2.
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
-dev/albedo/modern/mixin/ShadowMixin.class Only the line numbers change, because the file has a condition around it and, before 1.21.9, a selector that takes each method with the name render.
-dev/albedo/modern/mixin/SodiumTintMixin.class The file has a condition around it, and new handlers with require = 0 remove the tint in Sodium 0.6.13 on 1.21.4 and read the tint index of Sodium 0.6.13 and 0.7 on 1.21.5 to 1.21.10, whose quad class is in the package frapi.mesh.
+dev/albedo/modern/mixin/ShadowMixin.class Only the line numbers change, because the file has a condition around it; 1.21.2 to 1.21.8 have a selector that takes each method with a name that starts with render.
+dev/albedo/modern/mixin/SodiumTintMixin.class The file has a condition around it, and a new handler with require = 0 reads the tint index of Sodium 0.6.13 and 0.7 on 1.21.4 to 1.21.10, whose quad class is in the package frapi.mesh.
 dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device that changed from 1.21.6 to 26.2, so that 1.21.8 to 26.2 share the sky and Chroma of 1.21.11.
 dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed from 1.21.10 to 26.2 go through DeviceApi.
 dev/albedo/modern/PrecompiledChromaPass*.class The pipelines, passes, textures and the timer go through DeviceApi.
-dev/albedo/modern/mixin/FogMixin.class From 1.21.6 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 only the line numbers change.
+dev/albedo/modern/mixin/FogMixin.class From 1.21.6 to 1.21.10 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 and 1.21.11 only the line numbers change.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/AmbientOcclusionMixin.class The common code is compiled against the annotations of Mixin 0.8.5, which write the one "at" of a redirect as a value and not as an array, with the same meaning.
 dev/albedo/modern/mixin/SkySunriseMixin.class The sunrise fan redirect of SkyLayersMixin is a mixin of its own, so that a version without the redirect can leave it out.
-dev/albedo/modern/ModernMixinPlugin.class A new class leaves out the sky mixins when OptiFine is present.
-META-INF/neoforge.mods.toml The key displayTest is for NeoForge 1.20.4, and later NeoForge ignores it.

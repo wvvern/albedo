@@ -6,8 +6,6 @@ license = "Apache-2.0"
 modId = "${mod_id}"
 version = "${version}"
 displayName = "${mod_name}"
-# NeoForge 1.20.4 reads this key, so that a server without the mod stays compatible in the server list.
-displayTest = "IGNORE_ALL_VERSION"
 description = '''
 Paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
 '''
