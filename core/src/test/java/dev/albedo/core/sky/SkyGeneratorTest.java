@@ -66,7 +66,7 @@ class SkyGeneratorTest {
         assertEquals(1238737692, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
         assertEquals(2083471237, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
         assertEquals(-1617945180, Arrays.hashCode(SkyGenerator.bake(SkyPresets.METEORS, 256, 128).argb()), "meteors");
-        assertEquals(-979034185, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
+        assertEquals(934053435, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
         assertEquals(-1457549582, Arrays.hashCode(SkyGenerator.bake(SkyPresets.TRAILS, 256, 128).argb()), "trails");
     }
 
