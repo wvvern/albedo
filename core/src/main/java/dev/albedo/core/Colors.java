@@ -36,8 +36,6 @@ public final class Colors {
         return (clamp(alpha) << 24) | (argb & 0x00FFFFFF);
     }
 
-    public static int rgb(int argb) { return argb & 0x00FFFFFF; }
-
     private static int clamp(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
     /**

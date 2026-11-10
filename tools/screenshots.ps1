@@ -99,7 +99,6 @@ foreach ($target in $Targets) {
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
-    (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"
@@ -132,7 +131,7 @@ foreach ($target in $Targets) {
     Write-Host "[$target] $($pngs.Count) screenshots -> $out"
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
     # Iris turns shaders off when the pack does not load, and the run continues.
-    $gradleText = Get-Content -Raw $log -ErrorAction SilentlyContinue
+    $gradleText = Get-Content -Raw $log
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }

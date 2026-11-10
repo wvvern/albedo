@@ -153,7 +153,6 @@ foreach ($variant in $Variants) {
     Set-Variant $variant
     Get-Content (Join-Path $PSScriptRoot "harness\scene-legacy.txt"), (Join-Path $PSScriptRoot "harness\$Shots") |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
-    (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
     # The class path is too long for cmd.exe, so it goes in the CLASSPATH variable that the game process inherits.
     $env:CLASSPATH = $classPath

@@ -38,10 +38,6 @@ public final class Policy {
         return new Policy(profile);
     }
 
-    public boolean enabled() {
-        return profile != null;
-    }
-
     /** How the sky of the overworld is drawn. */
     public enum SkyStyle {
         VANILLA,
@@ -141,7 +137,7 @@ public final class Policy {
     }
 
     /** Far above the brightness slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
-    public static final float FULLBRIGHT_GAMMA = 16f;
+    static final float FULLBRIGHT_GAMMA = 16f;
 
     /** The brightness (gamma) setting the lightmap should use instead of the player's {@code setting}. */
     public double gamma(double setting) {

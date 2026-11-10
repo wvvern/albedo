@@ -7,7 +7,6 @@ import dev.albedo.core.config.SkyMask;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 
 /**
@@ -94,23 +93,15 @@ public final class SkyGenerator {
 
     /** Bakes on the calling thread. */
     public static SkyImage bake(SkyDesign design, int w, int h) {
-        return bake(design, w, h, serial(() -> false));
+        return bake(design, w, h, (count, row) -> {
+            for (int i = 0; i < count; i++) row.accept(i);
+            return true;
+        });
     }
 
     /** Bakes with {@code rows}, and returns null when the bake stops because it is out of date. */
     static SkyImage bake(SkyDesign design, int w, int h, Rows rows) {
         return new SkyGenerator(design, w, h, rows).run();
-    }
-
-    /** Runs all rows on the calling thread and checks {@code stale} before each row. */
-    static Rows serial(BooleanSupplier stale) {
-        return (count, row) -> {
-            for (int i = 0; i < count; i++) {
-                if (stale.getAsBoolean()) return false;
-                row.accept(i);
-            }
-            return true;
-        };
     }
 
     private SkyImage run() {

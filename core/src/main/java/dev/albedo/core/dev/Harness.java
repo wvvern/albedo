@@ -102,9 +102,7 @@ public final class Harness {
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png, SkyDone done) {
-            return false;
-        }
+        boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png, SkyDone done);
 
         /**
          * Measures the GPU and CPU time of the GPU pass of Chroma in each of the next frames, then logs the times, the
@@ -112,9 +110,7 @@ public final class Harness {
          *
          * @return false when this version has no GPU pass of Chroma, or the pass does not run now
          */
-        default boolean timeChroma(int frames) {
-            return false;
-        }
+        boolean timeChroma(int frames);
 
         /** The frames of the last full second, as the debug screen shows them. */
         int framesPerSecond();
@@ -285,7 +281,6 @@ public final class Harness {
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("skin")) skin(arg);
         else if (verb.equals("release")) host.releaseTexture(textureArg(arg));
-        else if (verb.equals("overlay") && arg.equals("off")) host.closeScreen();
         else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
@@ -695,8 +690,7 @@ public final class Harness {
 
     private void takeCommandFile() {
         File commands = new File(dir, "commands.txt");
-        // Leave a file that is still being written alone; taking it early queues only part of it.
-        if (!commands.isFile() || System.currentTimeMillis() - commands.lastModified() < 500) return;
+        if (!commands.isFile()) return;
         File taken = new File(dir, "commands.taken");
         taken.delete();
         if (!commands.renameTo(taken)) return; // the writer may still hold it; try next tick

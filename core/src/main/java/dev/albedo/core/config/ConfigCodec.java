@@ -135,7 +135,7 @@ public final class ConfigCodec {
         return new ServerRule(server, (String) value);
     }
 
-    static Profile decodeProfile(String name, Map<String, Object> map) {
+    private static Profile decodeProfile(String name, Map<String, Object> map) {
         Map<Category, CategorySettings> cats = new EnumMap<Category, CategorySettings>(Category.class);
         Set<Toggle> on = EnumSet.noneOf(Toggle.class);
         for (Toggle t : Toggle.values()) if (bool(map, t.key, t.defaultOn)) on.add(t);
@@ -149,7 +149,7 @@ public final class ConfigCodec {
         return new Profile(name, cats, on);
     }
 
-    static CategorySettings decodeCategory(Category category, String where, Map<String, Object> map) {
+    private static CategorySettings decodeCategory(Category category, String where, Map<String, Object> map) {
         Appearance appearance = decodeAppearance(category, where, map, Appearance.ORIGINAL);
         boolean onlyGroups = bool(map, "onlyGroups", false);
         List<Rule> rules = new ArrayList<Rule>();
@@ -184,7 +184,7 @@ public final class ConfigCodec {
     }
 
     /** Unspecified fields inherit from {@code parent} (the category's look for groups). */
-    static Appearance decodeAppearance(Category category, String where, Map<String, Object> map, Appearance parent) {
+    private static Appearance decodeAppearance(Category category, String where, Map<String, Object> map, Appearance parent) {
         try {
             Appearance.Mode mode = map.containsKey("mode") ? Appearance.Mode.byKey(str(map, "mode", "")) : parent.mode();
             if (!category.supportedModes().contains(mode)) {
@@ -245,7 +245,7 @@ public final class ConfigCodec {
         return Json.write(root);
     }
 
-    static Map<String, Object> encodeProfile(Profile p) {
+    private static Map<String, Object> encodeProfile(Profile p) {
         Map<String, Object> out = new LinkedHashMap<String, Object>();
         for (Toggle t : Toggle.values()) if (p.is(t) != t.defaultOn) out.put(t.key, p.is(t));
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {

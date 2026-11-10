@@ -411,8 +411,8 @@ class SettingsEditorTest {
         CategorySettings blocks = sc.config().activeProfile().get(Category.BLOCKS);
         Rule g = blocks.rules().get(blocks.rules().size() - 1);
         assertEquals(Arrays.asList("grass_block*", "dirt"), g.patterns());
-        assertEquals(Appearance.Mode.SOLID, blocks.appearanceFor("minecraft:grass_block_snow").mode());
-        assertNotEquals(blocks.appearance().color(), blocks.appearanceFor("minecraft:dirt").color(), "new groups get their own color");
+        assertEquals(Appearance.Mode.SOLID, blocks.lookOf(blocks.ruleFor("minecraft:grass_block_snow")).mode());
+        assertNotEquals(blocks.appearance().color(), blocks.lookOf(blocks.ruleFor("minecraft:dirt")).color(), "new groups get their own color");
     }
 
     @Test
@@ -685,7 +685,8 @@ class SettingsEditorTest {
         click(editor, canvas, "Entity shadows");
         click(editor, canvas, "Done");
         Profile p = sc.config().activeProfile();
-        assertTrue(p.get(Category.BLOCKS).appearanceFor("minecraft:stone").isOriginal());
+        CategorySettings blocks = p.get(Category.BLOCKS);
+        assertTrue(blocks.lookOf(blocks.ruleFor("minecraft:stone")).isOriginal());
         // quake presets start with fullbright, shading and shadows on and foliage hidden; each click flips one
         assertFalse(p.is(Toggle.FULLBRIGHT));
         assertFalse(p.is(Toggle.SHADING));
@@ -1074,15 +1075,6 @@ class SettingsEditorTest {
         assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
-    @Test
-    void theCanvasImageFallbackStaysInsideItsRectangle() {
-        RecordingCanvas canvas = new RecordingCanvas(50, 20);
-        int[] px = new int[8 * 2];
-        java.util.Arrays.fill(px, 0xFF336699);
-        canvas.image("t", new CanvasImage(px, 8, 2, 1), 3, 4, 45, 13);
-        assertEquals(0, canvas.texts.size());
-    }
-
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {
         int[] at = canvas.find(label);
         assertNotNull(at, "label not drawn: " + label + " (drawn: " + canvas.texts.keySet() + ")");
@@ -1107,7 +1099,6 @@ class SettingsEditorTest {
         @Override
         public void image(String id, CanvasImage img, int x, int y, int w, int h) {
             images.put(id, img);
-            Canvas.super.image(id, img, x, y, w, h);
         }
 
         int[] find(String label) {

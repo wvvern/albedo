@@ -56,9 +56,9 @@ public final class SkyImage {
      */
     public short[] terms() { return terms; }
 
-    public int termWidth() { return termWidth; }
+    int termWidth() { return termWidth; }
 
-    public int termHeight() { return termHeight; }
+    int termHeight() { return termHeight; }
 
     /** The width of the texture of all term images, which is 1 when there are no terms, because a sampler needs a texture. */
     public int termTextureWidth() { return program.terms() == 0 ? 1 : termWidth; }
@@ -92,18 +92,8 @@ public final class SkyImage {
     }
 
     /** The texture coordinate v of an elevation in degrees, from 0 at the top row to 1 at the last row. */
-    public static float v(double elevation) {
+    private static float v(double elevation) {
         return (float) Math.max(0, Math.min(1, (TOP - elevation) / (TOP - BOTTOM)));
-    }
-
-    /**
-     * The sRGB fog color {r, g, b} from 0 to 1 near the horizon in the direction the camera looks.
-     *
-     * @param cameraYaw the Minecraft yaw in degrees, where 0 looks south and 90 looks west
-     * @param brightness the factor of {@link SkyLight#brightness}, or 1
-     */
-    public float[] fogRgb(float cameraYaw, float brightness) {
-        return fogRgb(SkyTurn.STILL, cameraYaw, brightness);
     }
 
     /**

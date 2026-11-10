@@ -138,9 +138,9 @@ class SkyGeneratorTest {
         int top = img.argb()[W / 2], bottom = img.argb()[(H - 1) * W + W / 2];
         assertTrue(Math.abs(red(top) - 0x0B) <= 3, Integer.toHexString(top));
         assertTrue(red(bottom) > 0xB0, Integer.toHexString(bottom));
-        float[] fog = img.fogRgb(0, 1);
+        float[] fog = img.fogRgb(SkyTurn.STILL, 0, 1);
         assertTrue(fog[0] > 0.7f && fog[2] < 0.5f, "the fog takes the horizon color: " + Arrays.toString(fog));
-        assertEquals(fog[0] * 0, img.fogRgb(0, 0)[0], 0.02f, "a dark night darkens the fog");
+        assertEquals(0f, img.fogRgb(SkyTurn.STILL, 0, 0)[0], 0.02f, "a dark night darkens the fog");
     }
 
     @Test
@@ -150,7 +150,7 @@ class SkyGeneratorTest {
         SkyImage img = SkyGenerator.bake(of(noise), w, h);
         for (int y = row(-3, h) + 1; y < h; y++) {
             for (int x = 0; x < w; x += 7) {
-                float[] fog = img.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
+                float[] fog = img.fogRgb(SkyTurn.STILL, (float) ((x + 0.5) / w * 360 - 180), 1);
                 assertEquals(Math.round(fog[0] * 255), red(img.argb()[y * w + x]), 2, "row " + y + ", column " + x);
             }
         }
@@ -265,7 +265,7 @@ class SkyGeneratorTest {
         SkyImage sphere = SkyGenerator.bake(of(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
         int low = row(-45, h);
         for (int x = 0; x < w; x++) {
-            float[] fog = horizon.fogRgb((float) ((x + 0.5) / w * 360 - 180), 1);
+            float[] fog = horizon.fogRgb(SkyTurn.STILL, (float) ((x + 0.5) / w * 360 - 180), 1);
             assertEquals(Math.round(fog[0] * 255), red(horizon.argb()[low * w + x]), 2, "the horizon sky is the fog color at -45");
         }
         assertTrue(spread(sphere, low) > 40, "the layers continue below the horizon");

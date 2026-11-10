@@ -336,7 +336,7 @@ class SkyProgramTest {
         assertEquals(0.75f, b[SkyProgram.at(3, SkyProgram.OPACITY)], 1e-6f);
         assertEquals(-1, b[SkyProgram.at(0, SkyProgram.MASK_INDEX)]);
         assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)], 1e-6f, "an identity rotation");
-        float[] fog = img.fogRgb(180, 1);
+        float[] fog = img.fogRgb(SkyTurn.STILL, 180, 1);
         float north = b[SkyProgram.RING];
         assertTrue(north > 0, "the horizon colors follow the layers");
         assertTrue(Math.abs(Oklab.toSrgb(north) / 255f - fog[0]) < 0.05f, "the north fog color is near the first sector");

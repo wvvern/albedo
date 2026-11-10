@@ -207,8 +207,6 @@ public final class SkyLayer {
         return v == null ? 0 : v;
     }
 
-    public Map<Param, Integer> params() { return params; }
-
     public SkyLayer withBlend(Blend b) { return new SkyLayer(id, kind, b, opacity, output, mask, params, transform); }
     public SkyLayer withOpacity(int o) { return new SkyLayer(id, kind, blend, o, output, mask, params, transform); }
     public SkyLayer withOutput(Output o) { return new SkyLayer(id, kind, blend, opacity, o, mask, params, transform); }

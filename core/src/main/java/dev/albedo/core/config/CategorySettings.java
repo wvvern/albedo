@@ -43,12 +43,7 @@ public final class CategorySettings {
         return null;
     }
 
-    /** What applies to {@code id}: its group's look, the global look, or vanilla for unlisted ids in "only groups". */
-    public Appearance appearanceFor(String id) {
-        return lookOf(ruleFor(id));
-    }
-
-    /** The look for a texture in {@code group}, or in no group when it's null. */
+    /** The look for a texture in {@code group}, or in no group when it is null, which is vanilla in "only groups". */
     public Appearance lookOf(Rule group) {
         if (group != null) return group.lookIn(appearance);
         return onlyGroups ? Appearance.ORIGINAL : appearance;

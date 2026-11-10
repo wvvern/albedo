@@ -30,9 +30,6 @@ public final class Transform {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    public int yaw() { return yaw; }
-    public int pitch() { return pitch; }
-    public int roll() { return roll; }
     public int scale() { return scale; }
 
     public int get(Axis a) {

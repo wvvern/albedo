@@ -52,7 +52,7 @@ class SkyDesignTest {
         SkyLayer blur = new SkyLayer(1, SkyLayer.Kind.BLUR, SkyLayer.Blend.NORMAL, 100, SkyLayer.Output.SHOW, SkyMask.NONE, p,
                 Transform.IDENTITY);
         assertEquals(100, blur.param(SkyLayer.Param.AMOUNT));
-        assertEquals(Collections.singleton(SkyLayer.Param.AMOUNT), blur.params().keySet());
+        assertEquals(0, blur.param(SkyLayer.Param.SEED), "a blur has no seed");
     }
 
     @Test

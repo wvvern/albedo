@@ -26,6 +26,8 @@ public final class Albedo {
     public static final String MOD_ID = "albedo";
     public static final String NAME = "Albedo";
     private static final int WATCH_INTERVAL_TICKS = 20;
+    /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
+    private static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
 
     private static volatile Albedo instance;
 
@@ -64,9 +66,6 @@ public final class Albedo {
         this.harness = Harness.fromSystemProperty(platform);
         this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
-
-    /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
-    public static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
 
     /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {
@@ -267,7 +266,7 @@ public final class Albedo {
         apply(config, new Config.State(!effective.enabled(), effective.activeProfileName()));
     }
 
-    public void cycleProfile() {
+    private void cycleProfile() {
         apply(config, new Config.State(true, effective.profileNameAt(1)));
     }
 

@@ -106,12 +106,6 @@ tasks.withType(AbstractArchiveTask).configureEach {
     zip64 = true
 }
 
-processResources {
-    def props = [mod_id: rootProject.mod_id, java_version: javaVersion]
-    inputs.properties props
-    filesMatching(['*.mixins.json']) { expand props }
-}
-
 if (loader in ['fabric', 'neoforge']) {
     tasks.named('shadowJar') {
         archiveClassifier = unobfuscated ? '' : 'dev-shadow'

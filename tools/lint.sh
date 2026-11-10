@@ -4,9 +4,9 @@
 set -u
 fail=0
 
-# Text: all tracked text files. -I skips binary files. .bat files use CRLF (.gitattributes).
+# Text: all tracked text files (-I skips binary files), where the .bat files keep their CRLF line ends.
 git grep -nIP '[^\x00-\x7F]' && { echo 'error: use only ASCII characters'; fail=1; }
-git grep -nIP '\t' -- . ':!*.bat' && { echo 'error: use spaces, not tabs'; fail=1; }
+git grep -nIP '\t' && { echo 'error: use spaces, not tabs'; fail=1; }
 git grep -nIP '[ \t\r]+$' -- . ':!*.bat' && { echo 'error: remove the spaces at the end of the line'; fail=1; }
 while IFS= read -r -d '' f; do
     if [ -n "$(tail -c1 "$f")" ]; then echo "$f: error: add a newline at the end of the file"; fail=1; fi
