@@ -51,7 +51,7 @@ final class ModernPlatform implements Platform {
     public void reloadResources() {
         long start = System.nanoTime();
         Minecraft.getInstance().reloadResourcePacks()
-                .thenRun(() -> info("Reloaded resources in " + (System.nanoTime() - start) / 1000000 + " ms"));
+                .thenRun(() -> info("Reloaded all resources in " + (System.nanoTime() - start) / 1000000 + " ms"));
     }
 
     @Override

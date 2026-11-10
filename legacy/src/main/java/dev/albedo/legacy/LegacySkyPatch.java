@@ -98,8 +98,8 @@ final class LegacySkyPatch {
         if (customSky != null) target.methods.add(customSkyBridge(customSky));
         hooked = found.size() == Part.values().length && meshes.size() == MESHES;
         String message = "Sky hooks in " + target.name + ": " + found + ", " + meshes.size() + " meshes, OptiFine custom sky " + (customSky != null);
-        if (hooked) LogManager.getLogger("Albedo").info(message);
-        else LogManager.getLogger("Albedo").warn(message + "; the custom sky is off, because renderSky is not as expected");
+        if (hooked) LogManager.getLogger("albedo").info(message);
+        else LogManager.getLogger("albedo").warn(message + "; the custom sky is off, because renderSky is not as expected");
     }
 
     /** A static method that calls OptiFine's CustomSky.renderSky only when the custom sky does not replace it. */

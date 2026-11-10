@@ -258,7 +258,7 @@ class CoreTest {
         assertTrue(typo.getMessage().contains("'rules'"), typo.getMessage());
         IllegalArgumentException mode = assertThrows(IllegalArgumentException.class,
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"texture\" } } } }"));
-        assertTrue(mode.getMessage().startsWith("x.blocks: "), mode.getMessage());
+        assertTrue(mode.getMessage().startsWith("x.blocks: 'mode': use one of [original, "), mode.getMessage());
         IllegalArgumentException key = assertThrows(IllegalArgumentException.class,
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"texture\": \"a.png\" } } } }"));
         assertTrue(key.getMessage().contains("x.blocks: unknown setting 'texture'"), key.getMessage());

@@ -73,7 +73,7 @@ final class SharpSky {
 
         /** @param steps the layer steps of the sky include of a sky shader */
         Pipeline(RenderPipeline pipeline, Executor executor, String steps) {
-            this(pipeline, executor, steps, "sky shader", "The sky draws in a simpler way.");
+            this(pipeline, executor, steps, "sharp sky shader", "The sky draws from the baked image.");
         }
 
         /** A pipeline with no sky include. */
@@ -218,7 +218,7 @@ final class SharpSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run, "black sky shader", "The sky draws in a simpler way.");
+            .build(), Runnable::run, "black sky shader", "The sky draws from the baked image.");
 
     // The sky into the equirectangular image of the CPU bake, for the harness, with no depth texture.
     private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(SkyShaderCache.SIZE, steps -> new Pipeline(RenderPipeline.builder()

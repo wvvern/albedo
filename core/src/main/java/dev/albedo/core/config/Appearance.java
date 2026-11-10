@@ -36,10 +36,6 @@ public final class Appearance {
         /** Every pixel becomes opaque (leaves become solid cubes). */
         OPAQUE;
 
-        public static Alpha byKey(String s) {
-            return valueOf(s.trim().toUpperCase(Locale.ROOT));
-        }
-
         public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 

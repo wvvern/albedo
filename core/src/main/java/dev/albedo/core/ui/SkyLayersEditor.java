@@ -194,7 +194,7 @@ final class SkyLayersEditor {
         ui.fill(x, y, w, 1, 0x66FFFFFF);
         ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, 0xCCFFFFFF);
         ui.tip(x, y, w, ph, "Preview of the sky, with the horizon (line) and the zenith (top). Yellow: the sun path. "
-                + "The sky in the world changes when you push Apply or Done.");
+                + "The sky in the world changes when you click Apply or Done.");
         if (w >= 24) {
             for (int i = 0; i < SkyPreviewGeometry.COMPASS.length; i++) {
                 int cx = SkyPreviewGeometry.x(strip, i * 90);

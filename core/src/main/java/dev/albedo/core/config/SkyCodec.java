@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static dev.albedo.core.config.ConfigCodec.keys;
 import static dev.albedo.core.config.ConfigCodec.object;
 
 /**
@@ -53,7 +54,7 @@ final class SkyCodec {
         Object raw = category.get("layers");
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         if (raw != null) {
-            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".layers must be a list");
+            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".layers: use a list");
             List<?> list = (List<?>) raw;
             if (list.size() > SkyDesign.MAX_LAYERS) {
                 throw new IllegalArgumentException(where + ".layers: a sky has a maximum of " + SkyDesign.MAX_LAYERS + " layers");
@@ -93,7 +94,9 @@ final class SkyCodec {
         if (!map.containsKey("id")) throw new IllegalArgumentException(at + ": set \"id\" to a whole number from 1");
         int id = number(map, "id", 1, 99999, at);
         if (below.contains(id)) throw new IllegalArgumentException(at + ".id: another layer has id " + id);
-        if (!map.containsKey("kind")) throw new IllegalArgumentException(at + ": set \"kind\" to one of " + keys(SkyLayer.Kind.values()));
+        if (!map.containsKey("kind")) {
+            throw new IllegalArgumentException(at + ": set \"kind\" to one of " + keys(Arrays.asList(SkyLayer.Kind.values())));
+        }
         SkyLayer.Kind kind = choice(map, "kind", SkyLayer.Kind.GRADIENT, at);
         SkyLayer.Blend blend = choice(map, "blend", SkyLayer.Blend.NORMAL, at);
         SkyLayer.Output output = choice(map, "output", SkyLayer.Output.SHOW, at);
@@ -126,7 +129,7 @@ final class SkyCodec {
         try {
             return Enum.valueOf(type, string(m, key, where).trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(where + "." + key + ": use one of " + keys(type.getEnumConstants()), e);
+            throw new IllegalArgumentException(where + "." + key + ": use one of " + keys(Arrays.asList(type.getEnumConstants())), e);
         }
     }
 
@@ -215,7 +218,7 @@ final class SkyCodec {
 
     private static String string(Map<String, Object> m, String key, String where) {
         Object o = m.get(key);
-        if (!(o instanceof String)) throw new IllegalArgumentException(where + "." + key + " must be a string");
+        if (!(o instanceof String)) throw new IllegalArgumentException(where + "." + key + ": use a string");
         return (String) o;
     }
 
@@ -229,12 +232,6 @@ final class SkyCodec {
     private static List<String> axisKeys(SkyLayer.Kind kind) {
         List<String> out = new ArrayList<String>();
         for (Transform.Axis a : kind.axes()) out.add(TRANSFORM_KEYS.get(a.ordinal()));
-        return out;
-    }
-
-    private static List<String> keys(Enum<?>[] values) {
-        List<String> out = new ArrayList<String>();
-        for (Enum<?> v : values) out.add(v.name().toLowerCase(Locale.ROOT));
         return out;
     }
 }

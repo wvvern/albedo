@@ -310,7 +310,7 @@ public final class SettingsEditor {
             tx += titleW;
         }
         boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(),
-                (showTitle ? "" : Albedo.NAME + ". ") + "Turn the mod on or off (" + draft.keys().toggle + ")");
+                "Turn " + Albedo.NAME + " on or off (" + draft.keys().toggle + ")");
         if (on != draft.enabled()) setDraft(draft.withEnabled(on));
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 
@@ -325,7 +325,7 @@ public final class SettingsEditor {
             setMode(Mode.BROWSE);
             return;
         }
-        if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _");
+        if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _, where a space becomes -");
         // Enter or a click elsewhere ends the input; both keep the name.
         if (save || !ui.isFocused("rename")) finishRename();
     }
@@ -613,7 +613,7 @@ public final class SettingsEditor {
             labels[0] = "Global";
             tips[0] = "Use the " + Labels.name(category) + " look";
         } else if (rule != null) {
-            tips[0] = "Do not change these blocks";
+            tips[0] = "Do not change these textures";
         }
         int selected = current;
         List<Column.Item> items = new ArrayList<Column.Item>();
@@ -762,8 +762,8 @@ public final class SettingsEditor {
         Form form = form(x, w);
         form.label(y, Ui.H, "Scope", null);
         int scope = ui.segmented("scope", form.lx(), y, form.cw(), scopes, cs.onlyGroups() ? 1 : 0, new String[]{
-                "The " + name + " look applies to all. Groups change their own blocks.",
-                "Only blocks in groups change. All other blocks stay vanilla."});
+                "The " + name + " look applies to all. Groups change their own textures.",
+                "Only textures in groups change. All other textures stay vanilla."});
         int cy = y + ui.segmentedHeight(scopes, form.cw()) + GAP;
         if (scope != (cs.onlyGroups() ? 1 : 0)) {
             Rule blocker = cs.blocksScopeSwitch();
@@ -779,7 +779,7 @@ public final class SettingsEditor {
         if (notice != null) cy += ui.paragraph(notice, x, cy, w, Ui.DANGER) + GAP;
         String newLabel = "+ New group";
         int nw = ui.buttonWidth(newLabel);
-        if (ui.button("group.new", x, cy, nw, Ui.H, newLabel, Ui.Style.PRIMARY, true, "Make a set of blocks with its own look")) {
+        if (ui.button("group.new", x, cy, nw, Ui.H, newLabel, Ui.Style.PRIMARY, true, "Make a set of textures with its own look")) {
             setCategory(cs.withRuleAt(cs.rules().size(), cs.newGroup(freeGroupName(cs), Collections.<String>emptyList())));
             go(page.withGroup(cs.rules().size()));
             ui.focus("add");
@@ -812,7 +812,7 @@ public final class SettingsEditor {
         int room = bx - x - 22;
         int nameW = Math.min(ui.width(r.displayName()), room / 2);
         ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, y + 3, Ui.TEXT);
-        String members = r.patterns().isEmpty() ? "no blocks" : String.join(", ", r.patterns());
+        String members = r.patterns().isEmpty() ? "no textures" : String.join(", ", r.patterns());
         ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, y + 3, Ui.MUTED);
         if (ui.button("group.up." + i, bx, y + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
             setCategory(cs.withRuleMoved(i, -1));
@@ -1032,8 +1032,8 @@ public final class SettingsEditor {
 
     private void serversPage(int x, int y, int w, int h) {
         int cy = y + ui.title(x, y, w, "Servers", "For all profiles") + 1;
-        cy += ui.paragraph("On a server in this list, Albedo uses its profile. F6 or F7 on the server changes it until you leave.",
-                x, cy, w, Ui.FAINT) + GAP;
+        cy += ui.paragraph("On a server in this list, Albedo uses its profile. " + draft.keys().toggle + " or " + draft.keys().cycleProfile
+                + " on the server changes it until you leave.", x, cy, w, Ui.FAINT) + GAP;
         String active = draft.activeProfileName();
         String here = sc.server();
         if (here != null) {
@@ -1170,7 +1170,7 @@ public final class SettingsEditor {
     private void exportProfile() {
         try {
             File file = sc.exportProfile(profile());
-            say("Saved to profiles/" + file.getName() + " and copied to the clipboard");
+            say("Saved to profiles/" + file.getName() + " and copied to the clipboard.");
         } catch (IOException e) {
             sc.platform().warn("Cannot export the profile", e);
             sayError("Cannot save the file: " + e.getMessage());
@@ -1180,12 +1180,12 @@ public final class SettingsEditor {
     private void importProfile() {
         String text = sc.platform().clipboard();
         if (text == null || text.trim().isEmpty()) {
-            sayError("The clipboard is empty. Copy the text of a profile file, then push Import.");
+            sayError("The clipboard is empty. Copy the text of a profile file, then click Import.");
             return;
         }
         try {
             switchProfile(draft.withImportedProfile(ConfigCodec.decodeProfileFile(text)));
-            say("Added profile " + draft.activeProfileName() + ". Push Apply or Done to keep it.");
+            say("Added profile " + draft.activeProfileName() + ". Click Apply or Done to keep it.");
         } catch (IllegalArgumentException e) {
             sayError("Cannot import: " + e.getMessage());
         }
@@ -1196,7 +1196,7 @@ public final class SettingsEditor {
         // A server rule can make the state in effect differ from the draft, so the screen shows what is in effect.
         saved = sc.config();
         setDraft(saved);
-        say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved");
+        say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved.");
     }
 
     private void done() {
