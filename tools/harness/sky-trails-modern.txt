@@ -7,10 +7,12 @@ run time set 18000
 wait 40
 fov 70
 sky nebula
+skyturn 0
 wait 160
 skytime
 wait 40
 sky galaxy
+skyturn 0
 wait 160
 skytime
 wait 40

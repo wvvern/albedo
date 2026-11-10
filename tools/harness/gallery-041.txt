@@ -249,6 +249,7 @@ wait 3
 screenshot g03-galaxy
 # 4. The Nebula over the cottage at night.
 sky nebula
+skyturn 0
 run time set 18000
 run tp @p 40.5 -60 15.5 180 -10
 wait 100
@@ -260,6 +261,7 @@ screenshot g04-nebula
 # 5. The sky editor with the layers of the Galaxy and the preview.
 run time set 6000
 sky galaxy
+skyturn 0
 run tp @p 0.5 -60 4.5 180 -8
 wait 160
 run tp @e[type=!player,tag=!g] 0 -300 0

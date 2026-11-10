@@ -7,12 +7,14 @@ wait 40
 fov 70
 # Nebula from the ground, where the fog of the world meets the sky.
 sky nebula
+skyturn 0
 wait 160
 run tp @p ~ ~ ~ 180 0
 wait 40
 screenshot horizon-00-nebula-ground
 # Yaw 90 looks west (the Dusk glow), yaw 180 looks north (the Nebula), yaw -45 looks south-east (the galaxy).
 sky dusk
+skyturn 0
 skyextent horizon
 wait 160
 run tp @p 0 3000 0 90 0
@@ -33,6 +35,7 @@ skyrender fast
 wait 40
 screenshot horizon-04-dusk-on-fast
 sky nebula
+skyturn 0
 skyextent sphere
 wait 160
 run tp @p 0 3000 0 180 0
@@ -53,6 +56,7 @@ skyrender fast
 wait 40
 screenshot horizon-08-nebula-off-fast
 sky galaxy
+skyturn 0
 skyextent sphere
 wait 160
 run tp @p 0 3000 0 -45 0

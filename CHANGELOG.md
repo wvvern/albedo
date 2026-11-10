@@ -2,6 +2,8 @@
 
 ## 0.4.2
 
+- feat: Turn the custom sky slowly by default, at 1x in real time
+- fix: Make the pulse of the Nebula clouds easy to see, and let a high Pulse value be strong
 - fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on
 
 ## 0.4.1

@@ -878,7 +878,7 @@ class SettingsEditorTest {
     void theMotionSectionTurnsTheSkyAndShowsTheOptionsOnlyWhileItTurns() {
         Config c = withOwnProfile();
         sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
-                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY))));
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.STILL)))));
         SettingsEditor editor = new SettingsEditor(sc);
         RecordingCanvas canvas = new RecordingCanvas(640, 360);
         editor.render(canvas, 0, 0);
@@ -975,7 +975,7 @@ class SettingsEditorTest {
             for (String[] path : paths) {
                 Config c = withOwnProfile();
                 Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                        Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.NONE.withAmount(50))));
+                        Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.STILL.withAmount(50))));
                 sc.apply(c.withProfile(p));
                 SettingsEditor editor = new SettingsEditor(sc);
                 editor.ui.tipDelay = 0;

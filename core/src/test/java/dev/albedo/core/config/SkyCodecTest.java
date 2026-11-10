@@ -86,20 +86,52 @@ class SkyCodecTest {
     }
 
     @Test
-    void theTurningIsWrittenOnlyWhenItIsNotTheDefaultAndAnOldFileLoadsStill() {
-        SkyDesign still = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
-        assertFalse(ConfigCodec.encode(withSky(layers(still))).contains("turning"));
-        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
-                + "[{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
-        assertEquals(SkyTurning.NONE, old.turning(), "a file from before turning loads with a still sky");
+    void theDefaultTurningIsOneSlowTurnInRealTimeAndTheBakeReadsItAsStill() {
+        assertEquals(new SkyTurning(100, 1, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.NORMAL, 0), SkyTurning.DEFAULT);
+        assertTrue(SkyTurning.DEFAULT.turns());
+        assertFalse(SkyTurning.DEFAULT.showsTrails());
+        assertFalse(SkyTurning.STILL.turns());
+        assertEquals(SkyTurning.STILL, SkyTurning.DEFAULT.baked());
+        for (SkyDesign d : SkyPresets.all().values()) {
+            if (d != SkyPresets.TRAILS) assertEquals(SkyTurning.DEFAULT, d.turning(), "each preset but Trails has the default turning");
+        }
+        SkyTurning trails = SkyPresets.TRAILS.turning();
+        assertEquals(SkyTurning.DEFAULT.clock(), trails.clock(), "the Trails preset turns in real time");
+        assertEquals(SkyTurning.DEFAULT.speed(), trails.speed(), "the Trails preset turns at 1x");
+        assertEquals(SkyTurning.DEFAULT.amount(), trails.amount());
+    }
 
-        SkyDesign turning = still.withTurning(new SkyTurning(40, 3, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.REVERSE, 270));
+    @Test
+    void theTurningIsWrittenOnlyWhenItIsNotTheDefault() {
+        SkyDesign stars = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
+        assertEquals(SkyTurning.DEFAULT, stars.turning(), "a new sky turns");
+        assertFalse(ConfigCodec.encode(withSky(layers(stars))).contains("turning"));
+        SkyDesign missing = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
+                + "[{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(SkyTurning.DEFAULT, missing.turning(), "a file with no turning loads with the default turning");
+
+        SkyDesign turning = stars.withTurning(new SkyTurning(40, 3, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.REVERSE, 270));
         Config c = withSky(layers(turning));
         String text = ConfigCodec.encode(c);
         assertTrue(text.contains("\"amount\": 40") && text.contains("\"clock\": \"real\"") && text.contains("\"pole\": 270"), text);
         assertEquals(turning, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
-        String amountOnly = ConfigCodec.encode(withSky(layers(still.withTurning(SkyTurning.NONE.withAmount(30)))));
+        String amountOnly = ConfigCodec.encode(withSky(layers(stars.withTurning(SkyTurning.STILL.withAmount(30)))));
         assertTrue(amountOnly.contains("\"turning\": {\n          \"amount\": 30\n        },"), "only the values that differ: " + amountOnly);
+        SkyDesign world = ConfigCodec.decode(amountOnly).profiles().get("night").get(Category.SKY).sky();
+        assertEquals(SkyTurning.Clock.WORLD, world.turning().clock(), "a turning with no clock follows the world time, as before");
+        assertEquals(SkyTurning.STILL.withAmount(30), world.turning());
+        SkyDesign oldStill = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"turning\": {\"trails\": 20},"
+                + " \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        assertEquals(SkyTurning.STILL.withTrails(20), oldStill.turning(), "a turning with no amount stays still, as before");
+
+        SkyTurning[] all = {SkyTurning.DEFAULT, SkyTurning.STILL, SkyTurning.DEFAULT.withClock(SkyTurning.Clock.WORLD),
+            SkyTurning.DEFAULT.withAmount(0), SkyTurning.DEFAULT.withSpeed(4).withTrails(30), SkyTurning.STILL.withClock(SkyTurning.Clock.REAL)};
+        for (SkyTurning t : all) {
+            Config d = withSky(layers(stars.withTurning(t)));
+            Config back = ConfigCodec.decode(ConfigCodec.encode(d));
+            assertEquals(t, back.profiles().get("night").get(Category.SKY).sky().turning(), "a round trip keeps " + ConfigCodec.encode(d));
+            assertEquals(ConfigCodec.encode(d), ConfigCodec.encode(back));
+        }
 
         assertEquals("night.sky.turning.height: use a whole number from 0 to 90",
                 error("{\"mode\": \"layers\", \"turning\": {\"height\": 91}, \"layers\": []}"));
@@ -112,10 +144,10 @@ class SkyCodecTest {
 
     @Test
     void theTrailsAreOffByDefaultAndAreWrittenOnlyWhenTheyAreNotTheDefault() {
-        assertEquals(0, SkyTurning.NONE.trails());
-        assertEquals(SkyTurning.TRAIL_LIGHT, SkyTurning.NONE.trailLight());
-        assertFalse(SkyTurning.NONE.withTrails(40).showsTrails(), "a still sky has no trails");
-        assertTrue(SkyTurning.NONE.withAmount(10).withTrails(40).showsTrails());
+        assertEquals(0, SkyTurning.DEFAULT.trails());
+        assertEquals(SkyTurning.TRAIL_LIGHT, SkyTurning.DEFAULT.trailLight());
+        assertFalse(SkyTurning.STILL.withTrails(40).showsTrails(), "a still sky has no trails");
+        assertTrue(SkyTurning.STILL.withAmount(10).withTrails(40).showsTrails());
         SkyDesign stars = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         SkyTurning turning = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 45, SkyTurning.Direction.NORMAL, 0);
         String plain = ConfigCodec.encode(withSky(layers(stars.withTurning(turning))));

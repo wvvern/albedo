@@ -506,16 +506,27 @@ float albedoPulse(int layer, vec3 p, float v) {
     if (amount <= 0.0) return 1.0;
     vec4 shape = albedoLayer(layer, 2);
     int seed = int(shape.y);
-    float n = albedoNoise(p * (1.6 / shape.x), seed + 71);
-    float region = albedoSmooth(-0.1, 0.25, n);
+    float n = albedoNoise(p * (2.2 / shape.x), seed + 71);
+    float region = albedoSmooth(-0.35, 0.0, n);
     if (region <= 0.0) return 1.0;
     // One slow noise sets the regions, their phases and the weights of the three waves, so that each region has its own rhythm.
     float phase = 1.5 * n, m = 0.5 + 0.5 * sin(9.0 * n);
     // The clouds pulse at the time of the header, and at time 0 in a still sky, as in the bake.
     float time = max(SkyHeader.w, 0.0);
-    float wave = (1.0 - m) * (1.0 - m) * albedoWave(1.0 / 12.0, phase, time)
-            + 2.0 * m * (1.0 - m) * albedoWave(1.0 / 18.0, phase * 1.3, time) + m * m * albedoWave(1.0 / 25.0, phase * 1.6, time);
-    return 1.0 + amount * 0.7 * region * wave * (0.4 + 0.6 * v);
+    float wave = (1.0 - m) * (1.0 - m) * albedoWave(1.0 / 4.5, phase, time)
+            + 2.0 * m * (1.0 - m) * albedoWave(1.0 / 5.625, phase * 1.3, time) + m * m * albedoWave(1.0 / 7.2, phase * 1.6, time);
+    // The square of the amount gives fine steps at a low pulse and a very strong pulse at 100 percent.
+    return exp(amount * amount * 2.4 * region * wave * (0.4 + 0.6 * v));
+}
+
+// SkyGenerator.brighten: a linear color times a factor, where a color that gets brighter goes smoothly up to a peak channel of 1, so that it keeps its hue.
+vec3 albedoBrighten(vec3 c, float k) {
+    float peak = max(c.r, max(c.g, c.b));
+    if (k > 1.0 && peak > 0.0) {
+        float room = max(1.0 - peak, 1e-4);
+        k = (peak + room * (1.0 - exp(-peak * (k - 1.0) / room))) / peak;
+    }
+    return c * k;
 }
 
 // Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover.
@@ -526,7 +537,7 @@ vec4 albedoClouds(int layer, vec3 p) {
     vec4 c = albedoMix(layer, v);
     float edge = 1.0 - values.z * 1.2;
     c.a *= albedoSmooth(edge - 0.12, edge + 0.12, v);
-    c.rgb *= albedoPulse(layer, p, v);
+    c.rgb = albedoBrighten(c.rgb, albedoPulse(layer, p, v));
     return c;
 }
 
@@ -542,7 +553,7 @@ vec4 albedoFractal(int layer, vec3 p) {
     v = v * v;
     vec4 c = albedoMix(layer, v);
     c.a *= clamp(v * 1.6, 0.0, 1.0);
-    c.rgb *= albedoPulse(layer, p, v);
+    c.rgb = albedoBrighten(c.rgb, albedoPulse(layer, p, v));
     return c;
 }
 

@@ -5,6 +5,7 @@ profile minimal
 run time set 6000
 wait 40
 sky nebula
+skyturn 0
 wait 160
 run tp @p 0 3000 0 180 -5
 wait 40
@@ -33,6 +34,7 @@ run tp @p 0 3000 0 180 40
 wait 40
 screenshot sphere-06-nebula-off-below
 sky galaxy
+skyturn 0
 wait 160
 run tp @p 0 3000 0 -45 -5
 wait 40

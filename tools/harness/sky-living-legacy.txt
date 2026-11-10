@@ -5,6 +5,7 @@ profile minimal
 run time set 18000
 wait 40
 sky nebula
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 135.4 -42.9
@@ -15,43 +16,72 @@ screenshot living-01-nebula-0s
 skyclock 0.3
 wait 10
 screenshot living-02-nebula-0.3s
+skyclock 1.5
+wait 10
+screenshot living-03-nebula-1.5s
+skyclock 3
+wait 10
+screenshot living-04-nebula-3s
 skyclock 6
 wait 10
-screenshot living-03-nebula-6s
-skyclock 12
-wait 10
-screenshot living-04-nebula-12s
+screenshot living-05-nebula-6s
 skycompare
 wait 40
 skytime
 wait 40
+# The strongest pulse, and no pulse, of the Nebula clouds.
+skyparam 2 pulse 100
+wait 160
+skyclock 0
+wait 10
+screenshot living-06-nebula-pulse100-0s
+skyclock 1.5
+wait 10
+screenshot living-07-nebula-pulse100-1.5s
+skyclock 3
+wait 10
+screenshot living-08-nebula-pulse100-3s
+skyclock 6
+wait 10
+screenshot living-09-nebula-pulse100-6s
+skycompare
+wait 40
+skyparam 2 pulse 0
+wait 160
+skyclock 3
+wait 10
+screenshot living-10-nebula-pulse0-3s
 # Stars near the horizon twinkle more than stars high in the sky.
 sky galaxy
+skyturn 0
 wait 160
 run tp @p 0 3000 0 90 -4
 wait 40
 skyclock 0
 wait 10
-screenshot living-05-galaxy-low-0s
+screenshot living-11-galaxy-low-0s
 skyclock 0.3
 wait 10
-screenshot living-06-galaxy-low-0.3s
+screenshot living-12-galaxy-low-0.3s
 skyclock 2
 wait 10
-screenshot living-07-galaxy-low-2s
+screenshot living-13-galaxy-low-2s
 skycompare
 wait 40
 skytime
 wait 40
 sky meteors
+skyturn 0
 wait 160
 skytime
 wait 40
 sky aurora
+skyturn 0
 wait 160
 skytime
 wait 40
 sky dusk
+skyturn 0
 wait 160
 skytime
 wait 40
