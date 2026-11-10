@@ -40,7 +40,7 @@ ui pointer off
 wait 10
 screenshot sky-07-settings-list
 # The blur is masked by the light parts of the noise (layer 3), which is only a mask.
-ui click Blur 5
+ui click Blur 4
 wait 60
 ui pointer off
 wait 10
@@ -50,7 +50,7 @@ wait 60
 ui pointer off
 wait 10
 screenshot sky-09-masked-blur-alone
-keyESCAPE
+key ESCAPE
 wait 10
 ui scroll -1 Bloom 7
 wait 10
@@ -61,7 +61,7 @@ wait 30
 ui pointer off
 wait 10
 screenshot sky-10-mask-place
-keyESCAPE
+key ESCAPE
 wait 10
 ui click + Add layer
 wait 20
