@@ -206,8 +206,13 @@ foreach ($target in $Targets) {
     # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
     # The block short_grass has the name grass before 1.20.3.
     $oldGrass = -not $legacy -and [version]$version -lt [version]"1.20.3"
+    # A flat world before 1.18 has its ground at y 3 and not at y -61, so each y from -61 to -50 that has an other number after it moves up by 64.
+    # The server stands at the world spawn, which a flat world before 1.18 puts away from 0 0, so a relative tp starts from the player there.
+    $oldHeight = -not $legacy -and [version]$version -lt [version]"1.18"
     $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
         ForEach-Object { if ($oldGrass) { $_ -replace "\bshort_grass\b", "grass" } else { $_ } } |
+        ForEach-Object { if ($oldHeight) { [regex]::Replace($_, "(?<=\s)-(6[01]|5\d)(?=\s+\S)", { param($m) [string](64 - [int]$m.Groups[1].Value) }) } else { $_ } } |
+        ForEach-Object { if ($oldHeight) { $_ -replace "^run tp @p ~ ~ ~ ", "run execute as @p at @p run tp @p ~ ~ ~ " } else { $_ } } |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"
