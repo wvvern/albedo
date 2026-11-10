@@ -21,12 +21,12 @@ public abstract class SkyAfterSolidMixin {
     }
 }
 //?} elif >=1.21.11 {
-/*@Mixin(net.minecraft.client.renderer.chunk.ChunkSectionsToRender.class)
+/*@Mixin(com.mojang.blaze3d.platform.Lighting.class)
 public abstract class SkyAfterSolidMixin {
-    @Inject(method = "renderGroup", at = @At("TAIL"), require = 0)
-    private void albedo$skyAfterSolid(net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup group,
-                                      com.mojang.blaze3d.textures.GpuSampler sampler, CallbackInfo ci) {
-        if (group == net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup.OPAQUE) ModernSky.afterSolid();
+    // The level renderer sets the light of the level directly after the solid terrain, also when Sodium draws the terrain.
+    @Inject(method = "setupFor", at = @At("HEAD"), require = 0)
+    private void albedo$skyAfterSolid(com.mojang.blaze3d.platform.Lighting.Entry entry, CallbackInfo ci) {
+        if (entry == com.mojang.blaze3d.platform.Lighting.Entry.LEVEL) ModernSky.afterSolid();
     }
 }
 *///?} else {
