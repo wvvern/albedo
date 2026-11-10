@@ -63,6 +63,7 @@ Checkstyle examines `core/src/main` and `core/src/test` only. It does not examin
 29. Put the code that only one rendering family can compile in a class with a condition around the whole file. Such a class can have conditions for one API change, and Stonecutter writes an inactive branch inside an inactive file as `/^ ... ^/`. `[review]`
 30. Use a family constant of `modern/stonecutter.gradle` (`gl_fixed`, `gl_core`, `frame_graph`, `gpu_device`, `renderpearl`) for a rendering family. Use a version predicate only for one API change. `[review]`
 31. Each version in a condition is a boundary in the table of [ARCHITECTURE.md](ARCHITECTURE.md). `[lint]`
+32. Do not add Java 9 syntax (`var`, `instanceof` with a name, `Math.clamp`, `List.of`, `List.copyOf`) to a file that all versions share, because the oldest version compiles with Java 8. A file with a condition around the whole file can use it. `[lint]`
 
 ## When a check is incorrect
 
