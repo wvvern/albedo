@@ -117,11 +117,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - name: Build
         working-directory: legacy
-        run: ./gradlew -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 ${TAG:+-Pversion=${TAG#v}+1.8.9} build
+        run: ./gradlew -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 ${TAG:+-PmodVersion=${TAG#v}} build
       - uses: actions/upload-artifact@v7
         with:
           name: jars-1.8.9
-          path: legacy/build/libs/albedo-*.jar
+          path: legacy/versions/1.8.9/build/libs/albedo-*.jar
           if-no-files-found: error
 
   release:

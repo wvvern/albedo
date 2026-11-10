@@ -6,7 +6,7 @@ A release is a tag such as `v1.2.0`. CI builds all jars, makes a GitHub release 
 
 1. Make sure that CI is green on `master`.
 2. Select the version (semantic versioning): a breaking config change increases the major number, a `feat` increases the minor number, only `fix` and `perf` increase the patch number. Before 1.0.0, increase the minor number for breaking changes.
-3. Set `mod_version` in `modern/gradle.properties` and `version` in `legacy/gradle.properties` (`X.Y.Z+1.8.9`) to the version.
+3. Set `mod_version` in `modern/gradle.properties` to the version. The legacy build reads the same value.
 4. Write the `CHANGELOG.md` section for the version (rules below). Put it at the top, under the title.
 5. Commit as `chore: Release X.Y.Z`, push, and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 6. Monitor the CI run. Check that the release has 7 jars and the notes.

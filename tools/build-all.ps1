@@ -52,6 +52,6 @@ foreach ($node in $loaderNodes.fabric) {
 
 Write-Host "[1.8.9] forge"
 Invoke-Gradle $legacy @("build")
-Copy-Item (Join-Path $legacy "build\libs\albedo-forge-$(Get-Property (Join-Path $legacy 'gradle.properties') 'version').jar") $libs
+Copy-Item (Join-Path $legacy "versions\1.8.9\build\libs\albedo-forge-$modVersion+1.8.9.jar") $libs
 
 Get-ChildItem $libs -Filter albedo-*.jar | ForEach-Object { Write-Host $_.Name }

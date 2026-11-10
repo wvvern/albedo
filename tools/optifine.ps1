@@ -110,7 +110,7 @@ function Set-Lines([string]$file, [hashtable]$wanted) {
 function Set-Variant([string]$variant) {
     New-Item -ItemType Directory -Force (Join-Path $game "mods") | Out-Null
     Get-ChildItem (Join-Path $game "mods") -Filter *.jar | Remove-Item -Force
-    $jar = Get-ChildItem (Join-Path $legacy "build\libs") -Filter "albedo-forge-*.jar" | Select-Object -First 1
+    $jar = Get-ChildItem (Join-Path $legacy "versions\1.8.9\build\libs") -Filter "albedo-forge-*.jar" | Select-Object -First 1
     if (-not $jar) { throw "Run ./gradlew build in legacy/ first." }
     Copy-Item $jar.FullName (Join-Path $game "mods")
     if ($variant -ne "none") {
