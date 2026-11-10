@@ -130,7 +130,11 @@ final class ModernHarnessHost implements Harness.Host {
     @Override
     public void quiet() {
         Options o = Minecraft.getInstance().options;
+        //? if >=1.19.3 {
         if (o.getSoundSourceOptionInstance(SoundSource.MASTER).get() != 0.0) o.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
+        //?} else {
+        /*if (o.getSoundSourceVolume(SoundSource.MASTER) != 0f) o.setSoundCategoryVolume(SoundSource.MASTER, 0f);
+        *///?}
         if (o.narrator().get() != NarratorStatus.OFF) o.narrator().set(NarratorStatus.OFF);
         // A window on a hidden desktop never has focus; pausing would stop the command queue.
         o.pauseOnLostFocus = false;
@@ -165,7 +169,11 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public int framesPerSecond() {
+        //? if >=1.19.3 {
         return Minecraft.getInstance().getFps();
+        //?} else {
+        /*return dev.albedo.modern.mixin.MinecraftFpsAccessor.albedo$fps();
+        *///?}
     }
 
     @Override

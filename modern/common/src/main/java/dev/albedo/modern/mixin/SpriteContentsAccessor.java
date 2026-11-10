@@ -1,5 +1,6 @@
 package dev.albedo.modern.mixin;
 
+//? if >=1.19.3 {
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.SpriteContents;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,3 +17,4 @@ public interface SpriteContentsAccessor {
     @Accessor("byMipLevel")
     void albedo$setByMipLevel(NativeImage[] images);
 }
+//?}

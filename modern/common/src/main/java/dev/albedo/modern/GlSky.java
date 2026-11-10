@@ -102,6 +102,7 @@ public final class GlSky {
         return replacedDisc;
     }
 
+    //? if >=1.21.2 {
     // Draws the sky in place of the sky disc of SkyRenderer with the matrices of RenderSystem, and returns false when the game must draw its disc.
     public static boolean drawDisc() {
         try (Bound ignored = mainTarget()) {
@@ -109,6 +110,7 @@ public final class GlSky {
                     com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().get(new float[16]));
         }
     }
+    //?}
 
     // A main render target that the raw GL draws into until close.
     private interface Bound extends AutoCloseable {

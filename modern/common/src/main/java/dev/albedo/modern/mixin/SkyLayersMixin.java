@@ -65,7 +65,7 @@ public abstract class SkyLayersMixin {
         if (ModernSky.hidesStars()) ci.cancel();
     }
 }
-*///?} elif <1.21.2 {
+*///?} elif >=1.19.3 && <1.21.2 {
 /*@Mixin(net.minecraft.client.renderer.LevelRenderer.class)
 public abstract class SkyLayersMixin {
     // The vertex buffer draws of renderSky are the sky disc, the stars and the dark lower disc, in this order.
