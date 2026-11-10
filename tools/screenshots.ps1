@@ -195,7 +195,11 @@ foreach ($target in $Targets) {
         }
     }
     # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
-    $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } | Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
+    # The block short_grass has the name grass before 1.20.3.
+    $oldGrass = -not $legacy -and [version]$version -lt [version]"1.20.3"
+    $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
+        ForEach-Object { if ($oldGrass) { $_ -replace "\bshort_grass\b", "grass" } else { $_ } } |
+        Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"

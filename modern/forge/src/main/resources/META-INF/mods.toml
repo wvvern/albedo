@@ -1,0 +1,27 @@
+modLoader = "javafml"
+loaderVersion = "${forge_range}"
+license = "Apache-2.0"
+
+[[mods]]
+modId = "${mod_id}"
+version = "${version}"
+displayName = "${mod_name}"
+# Forge 1.19 and later read this key, so that a server without the mod stays compatible in the server list.
+displayTest = "IGNORE_ALL_VERSION"
+description = '''
+Paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
+'''
+
+[[dependencies.${mod_id}]]
+modId = "forge"
+mandatory = true
+versionRange = "${forge_range}"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "minecraft"
+mandatory = true
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "CLIENT"

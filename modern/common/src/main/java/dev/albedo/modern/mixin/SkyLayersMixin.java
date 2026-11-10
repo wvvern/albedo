@@ -41,12 +41,13 @@ public abstract class SkyLayersMixin {
         if (ModernSky.hidesStars()) ci.cancel();
     }
 }
-//?} elif >=1.21.11 {
+//?} elif >=1.21.2 {
 /*@Mixin(net.minecraft.client.renderer.SkyRenderer.class)
 public abstract class SkyLayersMixin {
+    // The parameters of these methods change between the versions, so the handlers take none.
     @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
-    private void albedo$sky(int color, CallbackInfo ci) {
-        if (dev.albedo.modern.PrecompiledSky.draw()) ci.cancel();
+    private void albedo$sky(CallbackInfo ci) {
+        if (ModernSky.drawDisc()) ci.cancel();
     }
 
     @Inject(method = "renderDarkDisc", at = @At("HEAD"), cancellable = true)
@@ -55,12 +56,12 @@ public abstract class SkyLayersMixin {
     }
 
     @Inject(method = "renderSunriseAndSunset", at = @At("HEAD"), cancellable = true)
-    private void albedo$sunrise(com.mojang.blaze3d.vertex.PoseStack pose, float angle, int color, CallbackInfo ci) {
+    private void albedo$sunrise(CallbackInfo ci) {
         if (ModernSky.active()) ci.cancel();
     }
 
     @Inject(method = "renderStars", at = @At("HEAD"), cancellable = true)
-    private void albedo$stars(float brightness, com.mojang.blaze3d.vertex.PoseStack pose, CallbackInfo ci) {
+    private void albedo$stars(CallbackInfo ci) {
         if (ModernSky.hidesStars()) ci.cancel();
     }
 }
@@ -89,14 +90,6 @@ public abstract class SkyLayersMixin {
     private void albedo$darkDisc(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                                  net.minecraft.client.renderer.ShaderInstance shader) {
         if (!dev.albedo.modern.GlSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
-    }
-
-    // The first mesh that renderSky uploads is the sunrise fan.
-    @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
-            target = "Lcom/mojang/blaze3d/vertex/BufferUploader;drawWithShader(Lcom/mojang/blaze3d/vertex/MeshData;)V"))
-    private void albedo$sunrise(com.mojang.blaze3d.vertex.MeshData mesh) {
-        if (dev.albedo.modern.GlSky.replacedDisc()) mesh.close();
-        else com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
     }
 }
 *///?}

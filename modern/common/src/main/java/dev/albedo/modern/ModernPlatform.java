@@ -30,7 +30,8 @@ final class ModernPlatform implements Platform {
 
     @Override
     public String describe() {
-        String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge" : "Fabric";
+        String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge"
+                : classExists("net.minecraftforge.fml.loading.FMLLoader") ? "Forge" : "Fabric";
         return loader + " " + MINECRAFT;
     }
 

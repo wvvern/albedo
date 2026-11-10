@@ -94,6 +94,12 @@ if (loader != 'common' && project.hasProperty('compat')) {
     // NeoForge runs with Mojang names from 1.20.5, and a remap would drop the jar-in-jar list from which Sodium loads its mod.
     def mojangRuntime = unobfuscated || (loader == 'neoforge' && stonecutter.eval(stonecutter.current.version, '>=1.20.5'))
     def runtime = mojangRuntime ? 'runtimeOnly' : 'modLocalRuntime'
+    // Sodium 0.5 starts only with the LWJGL version of the game, and the dev run can pick a newer one.
+    if (project.hasProperty('lwjgl_version')) {
+        configurations.configureEach {
+            resolutionStrategy.eachDependency { if (it.requested.group == 'org.lwjgl') it.useVersion(project.lwjgl_version) }
+        }
+    }
     repositories {
         exclusiveContent {
             forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }

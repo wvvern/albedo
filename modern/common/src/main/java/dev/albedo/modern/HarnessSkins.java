@@ -15,9 +15,13 @@ final class HarnessSkins {
     static net.minecraft.resources.Identifier id(String id) {
         return net.minecraft.resources.Identifier.parse(id);
     }
-    //?} else {
+    //?} elif >=1.21 {
     /*static net.minecraft.resources.ResourceLocation id(String id) {
         return net.minecraft.resources.ResourceLocation.parse(id);
+    }
+    *///?} else {
+    /*static net.minecraft.resources.ResourceLocation id(String id) {
+        return new net.minecraft.resources.ResourceLocation(id);
     }
     *///?}
 
@@ -31,13 +35,24 @@ final class HarnessSkins {
         Files.createDirectories(file.getParentFile().toPath());
         Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
         String url = "http://127.0.0.1:9/" + hash; // never read, because the cache file exists
-        //? if >=1.21.4 {
+        //? if >=1.21.11 {
         new net.minecraft.client.renderer.texture.SkinTextureDownloader(java.net.Proxy.NO_PROXY, mc.getTextureManager(), mc)
                 .downloadAndRegisterSkin(id, file.toPath(), url, !cape);
-        //?} else {
+        //?} elif >=1.21.4 {
+        /*net.minecraft.client.renderer.texture.SkinTextureDownloader.downloadAndRegisterSkin(id, file.toPath(), url, !cape);
+        *///?} else {
         /*mc.getTextureManager().register(id, new net.minecraft.client.renderer.texture.HttpTexture(file, url,
-                net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture(), !cape, null));
+                id(defaultSkin()), !cape, null));
         *///?}
         return id.toString();
+    }
+
+    /** The id of the default skin of the game. */
+    static String defaultSkin() {
+        //? if >=1.20.2 {
+        return net.minecraft.client.resources.DefaultPlayerSkin.getDefaultTexture().toString();
+        //?} else {
+        /*return net.minecraft.client.resources.DefaultPlayerSkin.getDefaultSkin().toString();
+        *///?}
     }
 }

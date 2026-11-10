@@ -32,7 +32,7 @@ public abstract class SkyAfterSolidMixin {
         dev.albedo.modern.PrecompiledSky.afterSolid();
     }
 }
-*///?} else {
+*///?} elif >=1.20.5 {
 /*@Mixin(net.minecraft.client.renderer.LevelRenderer.class)
 public abstract class SkyAfterSolidMixin {
     // The cutout layer is the last solid layer of the world.

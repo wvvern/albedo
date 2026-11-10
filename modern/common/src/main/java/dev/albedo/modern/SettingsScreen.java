@@ -46,7 +46,7 @@ public final class SettingsScreen extends Screen {
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // the editor draws its own backdrop and keeps the world visible behind it
     }
-    //?} else {
+    //?} elif >=1.20.2 {
     /*@Override
     public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
@@ -56,6 +56,11 @@ public final class SettingsScreen extends Screen {
     @Override
     public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // the editor draws its own backdrop and keeps the world visible behind it
+    }
+    *///?} else {
+    /*@Override
+    public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
     }
     *///?}
 
@@ -79,11 +84,19 @@ public final class SettingsScreen extends Screen {
         if (editor.isClosed()) onClose();
     }
 
+    //? if >=1.20.2 {
     @Override
     public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
         editor.mouseScrolled(vertical);
         return true;
     }
+    //?} else {
+    /*@Override
+    public boolean mouseScrolled(double x, double y, double vertical) {
+        editor.mouseScrolled(vertical);
+        return true;
+    }
+    *///?}
 
     //? if >=1.21.9 {
     @Override

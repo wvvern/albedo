@@ -20,7 +20,10 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class ShadowMixin {
     //? if >=1.21.9 {
     @WrapOperation(method = "extractShadow", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
-    //?} else {
+    //?} elif >=1.21.2 {
+    /*@WrapOperation(method = "render(Lnet/minecraft/world/entity/Entity;DDDFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/renderer/entity/EntityRenderer;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
+    *///?} else {
     /*@WrapOperation(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
     *///?}
     private Object albedo$shadows(OptionInstance<?> option, Operation<Object> original) {

@@ -27,9 +27,13 @@ final class CanvasImages {
     static Identifier id(String key) {
         return Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "gui/" + key);
     }
-    //?} else {
+    //?} elif >=1.21 {
     /*static ResourceLocation id(String key) {
         return ResourceLocation.fromNamespaceAndPath(Albedo.MOD_ID, "gui/" + key);
+    }
+    *///?} else {
+    /*static ResourceLocation id(String key) {
+        return new ResourceLocation(Albedo.MOD_ID, "gui/" + key);
     }
     *///?}
 
