@@ -113,7 +113,7 @@ public final class LegacySky {
         waiting = null;
         float k = brightness(img);
         SkyTurn turn = turn(img);
-        if (LegacySharpSky.prepare(img)) {
+        if (LegacySharpSky.prepare(img, turn)) {
             // The sharp sky adds its color to the frame, so the frame must be black below it.
             GlStateManager.clearColor(0f, 0f, 0f, 0f);
             GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT);

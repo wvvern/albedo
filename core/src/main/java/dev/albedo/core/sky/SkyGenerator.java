@@ -41,9 +41,9 @@ public final class SkyGenerator {
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
     private static final int RING_SOFTEN = 5;
     /** The periods in seconds of the three waves of a pulse, which divide the hour of the sky clock so that no pulse jumps. */
-    private static final float[] PULSE_PERIODS = {12f, 18f, 25f};
-    /** The largest change of brightness of a pulse at a pulse of 100 percent. */
-    private static final float PULSE_LIGHT = 0.7f;
+    private static final float[] PULSE_PERIODS = {4.5f, 5.625f, 7.2f};
+    /** The largest change of the natural log of the brightness of a pulse at a pulse of 100 percent. */
+    private static final float PULSE_LIGHT = 2.4f;
 
     private final SkyDesign design;
     private final int w, h;
@@ -357,8 +357,8 @@ public final class SkyGenerator {
             case FRACTAL: fractal(l, p, out); break;
             case GALAXY: galaxy(l, p, out); break;
             case STARS: stars(l, p, out); break;
-            // The bake is a still sky: it draws the aurora at time 0, and only the sky shader draws the meteors.
-            case AURORA: Aurora.sample(l.block, l.index, p, texel, 0, out); break;
+            // The bake is a still sky that does not turn: it draws the aurora at clock 0, and only the sky shader draws the meteors.
+            case AURORA: Aurora.sample(l.block, l.index, p, texel, out); break;
             default: out[3] = 0;
         }
     }
@@ -405,21 +405,27 @@ public final class SkyGenerator {
 
     /** The smooth values of a cloud layer (its value and its pulse noise) or a fractal layer (its bend and its pulse noise). */
     private static void field(Layer l, float[] p, float[] out) {
-        boolean pulse = l.block[SkyProgram.at(l.index, SkyProgram.PULSE)] > 0;
-        float g = 1.6f / l.scale;
+        float pulse = l.block[SkyProgram.at(l.index, SkyProgram.PULSE)] > 0 ? pulseNoise(l.scale, l.seed, p) : 0;
         out[3] = 0;
         if (l.layer.kind() == SkyLayer.Kind.NOISE) {
             float f = 2.5f / l.scale;
             out[0] = Noise.fbm(p[0] * f, p[1] * f, p[2] * f, l.seed, 6) * 0.5f + 0.5f;
-            out[1] = pulse ? Noise.noise(p[0] * g, p[1] * g, p[2] * g, l.seed + 71) : 0;
+            out[1] = pulse;
             out[2] = 0;
             return;
         }
+        float g = 1.6f / l.scale;
         float x = p[0] * g, y = p[1] * g, z = p[2] * g;
         out[0] = Noise.fbm(x + 5.2f, y + 1.3f, z + 2.8f, l.seed + 11, 4);
         out[1] = Noise.fbm(x + 1.7f, y + 9.2f, z + 4.4f, l.seed + 23, 4);
         out[2] = Noise.fbm(x + 8.3f, y + 2.8f, z + 7.1f, l.seed + 37, 4);
-        out[3] = pulse ? Noise.noise(x, y, z, l.seed + 71) : 0;
+        out[3] = pulse;
+    }
+
+    /** The slow noise that sets the regions of a pulse and their phases. */
+    private static float pulseNoise(float scale, int seed, float[] p) {
+        float f = 2.2f / scale;
+        return Noise.noise(p[0] * f, p[1] * f, p[2] * f, seed + 71);
     }
 
     /** Clouds of fractal noise from COLOR_1 to COLOR_2, where AMOUNT is the part of the sky they cover. */
@@ -434,8 +440,7 @@ public final class SkyGenerator {
 
     /** Multiplies the color of a cloud layer by its pulse, where the bake is a still sky at time 0. */
     private static void pulse(Layer l, float[] p, float v, float[] out) {
-        float k = pulse(l.block[SkyProgram.at(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0);
-        for (int c = 0; c < 3; c++) out[c] *= k;
+        brighten(pulse(l.block[SkyProgram.at(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0), out);
     }
 
     /**
@@ -449,14 +454,28 @@ public final class SkyGenerator {
      */
     static float pulse(float amount, float scale, int seed, float[] p, float v, float time) {
         if (amount <= 0) return 1;
-        float f = 1.6f / scale, n = Noise.noise(p[0] * f, p[1] * f, p[2] * f, seed + 71);
-        float region = smooth(-0.1f, 0.25f, n);
+        float n = pulseNoise(scale, seed, p);
+        float region = smooth(-0.35f, 0f, n);
         if (region <= 0) return 1;
         // One slow noise sets the regions, their phases and the weights of the three waves, so that each region has its own rhythm.
         float phase = 1.5f * n, m = 0.5f + 0.5f * (float) Math.sin(9 * n);
         float wave = (1 - m) * (1 - m) * wave(time / PULSE_PERIODS[0] + phase) + 2 * m * (1 - m) * wave(time / PULSE_PERIODS[1] + phase * 1.3f)
                 + m * m * wave(time / PULSE_PERIODS[2] + phase * 1.6f);
-        return 1 + amount * PULSE_LIGHT * region * wave * (0.4f + 0.6f * v);
+        // The square of the amount gives fine steps at a low pulse and a very strong pulse at 100 percent.
+        return (float) Math.exp(amount * amount * PULSE_LIGHT * region * wave * (0.4f + 0.6f * v));
+    }
+
+    /**
+     * Multiplies a linear color by a factor, where a color that gets brighter goes smoothly up to a peak channel of 1, so
+     * that it keeps its hue, with the same steps as {@code albedoBrighten} in the shader.
+     */
+    static void brighten(float k, float[] rgb) {
+        float peak = Math.max(rgb[0], Math.max(rgb[1], rgb[2]));
+        if (k > 1 && peak > 0) {
+            float room = Math.max(1 - peak, 1e-4f);
+            k = (peak + room * (1 - (float) Math.exp(-peak * (k - 1) / room))) / peak;
+        }
+        for (int c = 0; c < 3; c++) rgb[c] *= k;
     }
 
     /** A sine wave from -1 to 1 at a number of turns, where only the part after the point counts, so that a large time keeps its precision. */

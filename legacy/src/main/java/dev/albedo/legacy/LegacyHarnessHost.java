@@ -4,16 +4,22 @@ import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.SoundCategory;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.ScreenShotHelper;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.IntBuffer;
+import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
@@ -50,20 +56,41 @@ final class LegacyHarnessHost implements Harness.Host {
         });
     }
 
+    /** Reads the last frame now and writes the PNG on a thread of its own, so that screenshots of frames in a row stay one frame apart. */
     @Override
-    public void screenshot(File png) {
+    public void screenshot(final File png) {
         Minecraft mc = Minecraft.getMinecraft();
-        // saveScreenshot writes <dir>/screenshots/<name>; move it next to the other harness output.
-        File dir = png.getParentFile();
-        ScreenShotHelper.saveScreenshot(dir, png.getName(), mc.displayWidth, mc.displayHeight, mc.getFramebuffer());
-        File written = new File(new File(dir, "screenshots"), png.getName());
-        png.delete();
-        Harness.log(written.renameTo(png) ? "saved " + png.getName() : "! screenshot failed: " + png.getName());
+        final int w = mc.displayWidth, h = mc.displayHeight;
+        if (OpenGlHelper.isFramebufferEnabled()) mc.getFramebuffer().bindFramebuffer(true);
+        final IntBuffer pixels = BufferUtils.createIntBuffer(w * h);
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+        GL11.glReadPixels(0, 0, w, h, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+                // The GL rows go from the bottom up.
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) image.setRGB(x, y, pixels.get((h - 1 - y) * w + x));
+                }
+                try {
+                    ImageIO.write(image, "png", png);
+                    Harness.log("saved " + png.getName());
+                } catch (IOException e) {
+                    Harness.log("! screenshot failed: " + png.getName() + ": " + e);
+                }
+            }
+        }, "albedo-screenshot").start();
     }
 
     @Override
     public void setHudVisible(boolean visible) {
         Minecraft.getMinecraft().gameSettings.hideGUI = !visible;
+    }
+
+    @Override
+    public boolean timeChroma(int frames) {
+        return LegacyChroma.time(frames);
     }
 
     @Override
@@ -128,9 +155,9 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float time, int width, int height, int repeat, float[] view, File png,
+    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
-        return LegacySharpSky.drawEquirect(sky, time, width, height, repeat, view, png, done);
+        return LegacySharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
     }
 
     @Override

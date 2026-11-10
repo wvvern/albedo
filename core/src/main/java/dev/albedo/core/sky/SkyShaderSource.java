@@ -30,7 +30,9 @@ public final class SkyShaderSource {
         FIXED_130("#version 130\n#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n"),
         /** 1.8.9 with only EXT_gpu_shader4: GLSL 1.20 with the unsigned integers of the extension. */
         FIXED_120_EXT("#version 120\n#extension GL_EXT_gpu_shader4 : require\n#define uint unsigned int\n"
-                + "#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n");
+                + "#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n"),
+        /** 1.8.9 with only OpenGL 2.0: GLSL 1.20 for the Chroma pass, which needs no integers of an extension. */
+        FIXED_120("#version 120\n#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n");
 
         private final String header;
 
@@ -46,6 +48,8 @@ public final class SkyShaderSource {
     public static final String SHARP = "core/sky_sharp_classic";
     /** The vertex and fragment shaders that draw the sky into an equirectangular image for the classic GL programs. */
     public static final String EQUIRECT = "core/sky_equirect_classic";
+    /** The vertex and fragment shaders of the GPU pass of Chroma, which turns the colors of an atlas, for the classic GL programs. */
+    public static final String CHROMA = "core/chroma_classic";
 
     /** The include with the sky layers, which gets the layer steps of the sky on top. */
     public static final String LAYERS_INCLUDE = Albedo.MOD_ID + ":sky_layers.glsl";
@@ -81,6 +85,11 @@ public final class SkyShaderSource {
      */
     public static String classic(String name, boolean vertex, Dialect dialect, String steps) throws IOException {
         return dialect.header() + inline(read(name + (vertex ? ".vsh" : ".fsh")), id -> readInclude(id, steps));
+    }
+
+    /** One complete classic shader with no sky include, which is {@link #CHROMA}. */
+    public static String classic(String name, boolean vertex, Dialect dialect) throws IOException {
+        return classic(name, vertex, dialect, "");
     }
 
     /**
@@ -148,8 +157,9 @@ public final class SkyShaderSource {
                 if (field == null) field = "albedoFractalField(" + layer + ", " + frame + ", " + flags + ")";
                 return "albedoFractal(" + layer + ", " + frame + ", " + field + ", " + flags + ")";
             case SkyProgram.KIND_GALAXY: return "albedoGalaxy(" + layer + ", " + frame + ", footprint, " + flags + ")";
-            case SkyProgram.KIND_METEORS: return "albedoMeteors(" + layer + ", " + frame + ", footprint)";
-            case SkyProgram.KIND_AURORA: return "albedoAurora(" + layer + ", " + frame + ", footprint)";
+            // The layers in the air take the world direction, so that they do not turn with the sky.
+            case SkyProgram.KIND_METEORS: return "albedoMeteors(" + layer + ", world, footprint)";
+            case SkyProgram.KIND_AURORA: return "albedoAurora(" + layer + ", albedoFrame(" + layer + ", world), footprint)";
             case SkyProgram.KIND_BLOOM: return "albedoBloom(" + layer + ", img, dir)";
             case SkyProgram.KIND_BLUR:
             case SkyProgram.KIND_PIXELATE:

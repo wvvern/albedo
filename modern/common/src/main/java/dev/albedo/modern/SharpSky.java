@@ -33,6 +33,7 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.renderer.BindGroupLayouts;
@@ -65,15 +66,28 @@ final class SharpSky {
         private final RenderPipeline pipeline;
         private final Executor executor;
         private final String steps;
+        /** The name of the shader in the log, and what the game does when it cannot compile. */
+        private final String name, fallback;
         private Compile state = Compile.NOT_STARTED;
         private CompletableFuture<CompiledRenderPipeline.Pending> pending;
         private CompiledRenderPipeline compiled;
 
-        /** @param steps the layer steps of the sky include, or no text for a pipeline with no sky include */
+        /** @param steps the layer steps of the sky include of a sky shader */
         Pipeline(RenderPipeline pipeline, Executor executor, String steps) {
+            this(pipeline, executor, steps, "sky shader", "The sky draws in a simpler way.");
+        }
+
+        /** A pipeline with no sky include. */
+        Pipeline(RenderPipeline pipeline, Executor executor, String name, String fallback) {
+            this(pipeline, executor, "", name, fallback);
+        }
+
+        private Pipeline(RenderPipeline pipeline, Executor executor, String steps, String name, String fallback) {
             this.pipeline = pipeline;
             this.executor = executor;
             this.steps = steps;
+            this.name = name;
+            this.fallback = fallback;
         }
 
         /** Frees the compiled pipeline. */
@@ -81,6 +95,11 @@ final class SharpSky {
             if (compiled != null) compiled.close();
             compiled = null;
             state = Compile.FAILED;
+        }
+
+        /** Whether the compile failed, which it does at once in the call that starts it with an executor that runs at once. */
+        boolean failed() {
+            return state == Compile.FAILED;
         }
 
         /** Starts or finishes the compile on the render thread, and returns the compiled pipeline once it is ready, else null. */
@@ -110,14 +129,14 @@ final class SharpSky {
                 fail(null);
             } else {
                 state = Compile.READY;
-                Albedo.get().platform().info("Compiled the sky shader " + pipeline.getLocation());
+                Albedo.get().platform().info("Compiled the " + name + " " + pipeline.getLocation());
             }
         }
 
         private void fail(Throwable e) {
             state = Compile.FAILED;
             compiled = null;
-            Albedo.get().platform().warn("Cannot compile the sky shader " + pipeline.getLocation() + ". The sky draws in a simpler way.", e);
+            Albedo.get().platform().warn("Cannot compile the " + name + " " + pipeline.getLocation() + ". " + fallback, e);
         }
     }
 
@@ -198,8 +217,8 @@ final class SharpSky {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build(), Util.backgroundExecutor(), steps), Pipeline::close);
 
-    /** The bytes of the time for {@link #writeTime}, which the write copies at once, so one buffer serves all frames. */
-    private static final ByteBuffer TIME_BYTES = MemoryUtil.memAlloc(4);
+    /** The bytes of the block of a frame for {@link #writeFrame}, which the write copies at once, so one buffer serves all frames. */
+    private static final ByteBuffer FRAME_BYTES = MemoryUtil.memAlloc(SkyProgram.FLOATS * 4);
     private static GpuBuffer block;
     private static Terms terms;
     private static long blockSerial = -1;
@@ -218,11 +237,12 @@ final class SharpSky {
         if (blockSerial != img.serial()) {
             if (block != null) block.close();
             if (terms != null) terms.close();
-            block = upload(img.program(), SkyProgram.STILL, "Albedo sky block");
+            block = upload(img.program().block(), "Albedo sky block");
             terms = Terms.upload(img, "Albedo sky terms");
             blockSerial = img.serial();
         }
-        if (img.program().moves()) writeTime(block, SkyClock.seconds());
+        SkyTurn turn = ModernSky.turn(img);
+        if (img.program().moves() || !turn.still()) writeFrame(block, img.program().at(SkyClock.longSeconds(), turn));
         return true;
     }
 
@@ -231,10 +251,10 @@ final class SharpSky {
         return ready != null;
     }
 
-    /** Writes the time of the layers that move into the header of a block, outside a render pass. */
-    private static void writeTime(GpuBuffer target, float time) {
-        TIME_BYTES.putFloat(0, time);
-        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
+    /** Writes the block of a frame, with the time of the layers that move and the turn of the sky, outside a render pass. */
+    private static void writeFrame(GpuBuffer target, float[] values) {
+        FRAME_BYTES.asFloatBuffer().put(values);
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(), FRAME_BYTES);
     }
 
     /** Draws the image of the last {@link #prepare} sharp in a pass that has the depth of the frame, also when a newer image came after it. */
@@ -250,12 +270,11 @@ final class SharpSky {
         pass.popDebugGroup();
     }
 
-    /** A uniform buffer with the block of a program at a time, which {@link #writeTime} can change. */
-    private static GpuBuffer upload(SkyProgram program, float time, String label) {
-        float[] values = program.block();
+    /** A uniform buffer with a block of a program, which {@link #writeFrame} can change. */
+    private static GpuBuffer upload(float[] values, String label) {
         ByteBuffer bytes = MemoryUtil.memAlloc(values.length * 4);
         try {
-            bytes.asFloatBuffer().put(values).put(SkyProgram.TIME, time);
+            bytes.asFloatBuffer().put(values);
             return RenderSystem.getDevice().createBuffer(() -> label, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, bytes);
         } finally {
             MemoryUtil.memFree(bytes);
@@ -266,15 +285,15 @@ final class SharpSky {
      * Draws the program and the term images of a sky {@code repeat} times into an image of this size, then gives the
      * pixels and the GPU time of one draw, and returns false while the shader compiles or when it cannot compile.
      *
-     * @param time the time of the layers that move, or {@link SkyProgram#STILL}
+     * @param values the block of the program of the sky for this draw
      * @param view the sky directions of the corners of a camera view, or null for the equirectangular image
      * @param png a file for the image, or null
      */
-    static boolean drawEquirect(SkyImage sky, float time, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
+    static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         CompiledRenderPipeline pipeline = EQUIRECT.get(sky.program().shaderSteps()).get();
         if (pipeline == null) return false;
         TextureTarget target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
-        GpuBuffer uniforms = upload(sky.program(), time, "Albedo sky compare block");
+        GpuBuffer uniforms = upload(values, "Albedo sky compare block");
         Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
         GpuBuffer quad = quad(view);
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();

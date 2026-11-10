@@ -110,6 +110,8 @@ final class Ui {
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
     /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
+    /** True while a harness script runs, the only time that {@link #dragAreas} has a reader. */
+    private boolean recordAreas;
     private final Clipboard clipboard;
 
     Ui(Clipboard clipboard) {
@@ -163,9 +165,14 @@ final class Ui {
         dragAreas.clear();
     }
 
-    /** A copy of the drag areas that this frame drew, by id. */
+    /** A copy of the drag areas that this frame drew, by id, while {@link #recordAreas} is on. */
     Map<String, Rect> dragAreas() {
         return new HashMap<String, Rect>(dragAreas);
+    }
+
+    /** Starts or stops keeping the drag areas of each frame for a harness script. */
+    void recordAreas(boolean on) {
+        recordAreas = on;
     }
 
     /** Ends the frame: an unclaimed press clears focus and armed buttons, unclaimed input is dropped, and the tooltip draws. */
@@ -658,7 +665,7 @@ final class Ui {
      * dragged, otherwise null.
      */
     float[] dragArea(String id, int x, int y, int w, int h) {
-        dragAreas.put(id, new Rect(x, y, w, h));
+        if (recordAreas) dragAreas.put(id, new Rect(x, y, w, h));
         if (!press(id, x, y, w, h) && !dragging(id)) return null;
         float fx = Math.max(0f, Math.min(1f, (pointer.x - x) / (float) Math.max(1, w - 1)));
         float fy = Math.max(0f, Math.min(1f, (pointer.y - y) / (float) Math.max(1, h - 1)));

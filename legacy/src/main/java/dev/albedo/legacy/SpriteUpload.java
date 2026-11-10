@@ -44,7 +44,14 @@ public final class SpriteUpload implements TextureStore.Upload {
     }
 
     @Override
+    public boolean gpuHue() {
+        return LegacyChroma.gpuHue();
+    }
+
+    @Override
     public boolean upload(PixelBuffer pixels) throws Exception {
+        // The new sprite goes into the colors that Albedo painted, which the Chroma pass copies at the start of the next frame.
+        LegacyChroma.restore();
         TextureMap atlas = Minecraft.getMinecraft().getTextureMapBlocks();
         if (atlas == null || atlas.getAtlasSprite(sprite.getIconName()) != sprite) return false; // a reload replaced it
         if (OptiFine.shaders()) throw new IllegalStateException("OptiFine shaders use their own atlas upload");

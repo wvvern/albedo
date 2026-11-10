@@ -4,6 +4,7 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.SkyTurning;
+import dev.albedo.core.config.Transform;
 
 import java.util.List;
 
@@ -32,8 +33,10 @@ public final class SkyProgram {
     public static final int MAX_SLOTS = 6;
     /** The vec4 values of each layer. */
     public static final int LAYER_VEC4S = 10;
-    /** The float index of the first layer, after the header vec4. */
-    public static final int LAYERS = 4;
+    /** The float index of the three rows of the turn from sky directions to world directions, each a vec4 after the header. */
+    public static final int WORLD = 4;
+    /** The float index of the first layer, after the header and the turn. */
+    public static final int LAYERS = WORLD + 12;
     /** The float index of the first horizon color. */
     public static final int RING = LAYERS + SkyDesign.MAX_LAYERS * LAYER_VEC4S * 4;
     /** The number of floats in the block. */
@@ -78,8 +81,12 @@ public final class SkyProgram {
     static final int TRAIL = 23, TRAIL_LIGHT = 27;
     /** The trail axis of the stars in the layer frame ({@link SkyTurn#trailAxis}), in the same free floats as the jet color. */
     static final int TRAIL_AXIS = COLOR_3;
+    /** The aurora clock of the frame ({@link Aurora#clock}), in the same free float as the length of the meteors. */
+    static final int CLOCK = LENGTH;
 
     private final float[] block = new float[FLOATS];
+    /** The block of the last {@link #at}, which the render thread fills again for each frame. */
+    private final float[] frame = new float[FLOATS];
     private final Path[] paths;
     private final int terms;
     private final boolean moves;
@@ -91,6 +98,7 @@ public final class SkyProgram {
         block[0] = layers.size();
         block[1] = design.extent() == SkyDesign.Extent.SPHERE ? 1 : 0;
         block[TIME] = STILL;
+        for (int row = 0; row < 3; row++) block[WORLD + row * 5] = 1;
         boolean anyMoves = false;
         paths = new Path[layers.size()];
         boolean[] maskSource = new boolean[layers.size()];
@@ -134,7 +142,7 @@ public final class SkyProgram {
                 block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
             } else if (l.kind() == SkyLayer.Kind.STARS) {
                 block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
-                if (design.turning().showsTrails()) trails(design.turning(), l.transform().rotation(), base);
+                if (design.turning().showsTrails()) trails(design.turning(), l.transform(), base);
             } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
                 block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
             }
@@ -192,8 +200,26 @@ public final class SkyProgram {
         }
     }
 
-    /** The block, which the caller must not change. */
+    /** The block of a still sky that does not turn, which the caller must not change. */
     public float[] block() { return block; }
+
+    /**
+     * The block of one frame, with the time of the layers that move and the aurora clocks at a time of the sky clock, and
+     * the turn of the sky, so that the layers in the air stay in the world; each call fills the same array again.
+     *
+     * @param seconds the time of the sky clock with no wrap ({@link SkyClock#longSeconds})
+     */
+    public float[] at(double seconds, SkyTurn turn) {
+        System.arraycopy(block, 0, frame, 0, FLOATS);
+        turn.rows(frame, WORLD);
+        if (!moves) return frame;
+        double period = SkyClock.PERIOD_MS / 1000.0;
+        frame[TIME] = (float) (seconds - period * Math.floor(seconds / period));
+        for (int i = 0; i < paths.length; i++) {
+            if ((int) block[at(i, KIND)] == KIND_AURORA) frame[at(i, CLOCK)] = Aurora.clock(seconds, block[at(i, SPEED)]);
+        }
+        return frame;
+    }
 
     /** The path of each layer from the bottom up. */
     public Path path(int layer) { return paths[layer]; }
@@ -226,9 +252,15 @@ public final class SkyProgram {
         return LAYERS + layer * LAYER_VEC4S * 4 + offset;
     }
 
-    /** Writes the trails of a stars layer: the arc, the light and the trail axis turned into the layer frame. */
-    private void trails(SkyTurning turning, double[] rotation, int base) {
-        block[base + TRAIL] = (float) Math.toRadians(turning.trails());
+    /**
+     * Writes the trails of a stars layer: the arc, the light and the trail axis turned into the layer frame, where the arc
+     * of a layer smaller than 100 is at most the largest Trails times its size, because a pixel reads the cells along the
+     * whole arc and a smaller layer has more cells.
+     */
+    private void trails(SkyTurning turning, Transform transform, int base) {
+        double arc = Math.toRadians(turning.trails()), longest = Math.toRadians(SkyTurning.MAX_TRAILS) * transform.scale() / 100.0;
+        block[base + TRAIL] = (float) Math.min(arc, longest);
+        double[] rotation = transform.rotation();
         block[base + TRAIL_LIGHT] = turning.trailLight() / 100f;
         double[] axis = SkyTurn.trailAxis(turning);
         for (int row = 0; row < 3; row++) {

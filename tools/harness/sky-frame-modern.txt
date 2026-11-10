@@ -67,4 +67,30 @@ screenshot frame-day-dusk-up
 sky off
 wait 100
 screenshot frame-day-off-up
+# The GPU sky of each other preset compared with the CPU bake, and the aurora and the meteors in the world.
+run time set 18000
+run tp @p 0.5 -60 4.5 180 -20
+sky dusk
+wait 160
+skycompare
+wait 20
+sky galaxy
+wait 160
+skycompare
+wait 20
+sky meteors
+wait 160
+skycompare
+wait 20
+screenshot frame-meteors
+sky aurora
+wait 160
+skycompare
+wait 20
+screenshot frame-aurora
+sky trails
+wait 160
+skycompare
+wait 20
+screenshot frame-trails
 quit

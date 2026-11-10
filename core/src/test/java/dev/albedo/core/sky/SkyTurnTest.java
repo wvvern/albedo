@@ -27,8 +27,9 @@ class SkyTurnTest {
 
     @Test
     void aSkyWithNoAmountStaysStill() {
-        assertSame(SkyTurn.STILL, SkyTurn.at(SkyTurning.NONE, 12345));
-        assertSame(SkyTurn.STILL, SkyTurn.preview(SkyTurning.NONE));
+        assertSame(SkyTurn.STILL, SkyTurn.at(SkyTurning.STILL, 12345));
+        assertSame(SkyTurn.STILL, SkyTurn.preview(SkyTurning.STILL));
+        assertSame(SkyTurn.STILL, SkyTurn.at(SkyTurning.DEFAULT.withAmount(0), 12345));
         assertArrayEquals(new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, SkyTurn.STILL.matrix());
     }
 

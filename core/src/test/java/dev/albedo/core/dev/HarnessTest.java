@@ -3,6 +3,7 @@ package dev.albedo.core.dev;
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
+import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
@@ -52,8 +53,10 @@ class HarnessTest {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
         SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
         assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
-        assertEquals(SkyTurning.NONE.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
-        assertEquals(SkyTurning.NONE.withAmount(100).withTrails(45).withTrailLight(80),
+        assertEquals(SkyTurning.DEFAULT, p.get(Category.SKY).sky().turning(), "a preset turns with the default turning");
+        assertEquals(SkyTurning.STILL, Harness.withSkyTurning(p, new String[]{"0"}).get(Category.SKY).sky().turning());
+        assertEquals(SkyTurning.STILL.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
+        assertEquals(SkyTurning.STILL.withAmount(100).withTrails(45).withTrailLight(80),
                 Harness.withSkyTurning(p, "100 trails 45 light 80".split(" ")).get(Category.SKY).sky().turning());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 speed".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 fast 2".split(" ")));
@@ -82,12 +85,20 @@ class HarnessTest {
     void theEffectsCommandSetsTheEffectsOfACategoryAndTurnsOffTheOthers() {
         Profile p = Config.defaults().profiles().get("quake-white");
         Appearance before = p.get(Category.BLOCKS).appearance();
-        p = Harness.withEffects(p, "blocks bevel 50".split(" "));
-        assertEquals(before.withEffects(50, 0), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "blocks chroma 100 bevel 50".split(" "));
+        assertEquals(before.withEffects(50, 0, Chroma.of(100)), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "blocks chroma 80 speed 100 saturation 70 brightness 40".split(" "));
+        assertEquals(before.withEffects(0, 0, new Chroma(80, 100, 70, 40)), p.get(Category.BLOCKS).appearance());
         p = Harness.withEffects(p, "blocks outline 70".split(" "));
-        assertEquals(before.withEffects(0, 70), p.get(Category.BLOCKS).appearance());
-        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks chroma 5".split(" ")));
+        assertEquals(before.withEffects(0, 70, Chroma.OFF), p.get(Category.BLOCKS).appearance());
+        p = Harness.withEffects(p, "items chroma 60".split(" "));
+        assertEquals(60, p.get(Category.ITEMS).appearance().chroma().strength());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks glow 5".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "items bevel 5".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "sky chroma 5".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(),
+                "blocks chroma 100 speed 200".split(" ")), "the next start would not read a speed of 200");
+        assertThrows(IllegalArgumentException.class, () -> Harness.withEffects(Config.defaults().activeProfile(), "blocks bevel -5".split(" ")));
     }
 
     @Test
@@ -129,6 +140,15 @@ class HarnessTest {
         assertEquals(-2, north[0], 1e-5, "the left edge at aspect 2 is to the west, the left of a camera that looks north");
         float[] up = Harness.viewCorners(0, -90, 70, 1);
         assertEquals(4, (up[1] + up[4] + up[7] + up[10]), 1e-5, "each corner of a view straight up is 1 up");
+    }
+
+    @Test
+    void theSkyParamCommandSetsOneSettingOfALayer() {
+        Profile p = Harness.withSkyParam(Harness.withSky(Config.defaults().activeProfile(), "nebula"), "2 pulse 100".split(" "));
+        List<SkyLayer> layers = p.get(Category.SKY).sky().layers();
+        assertEquals(100, layers.get(1).param(SkyLayer.Param.PULSE));
+        assertEquals(SkyPresets.NEBULA.layers().get(1).withParam(SkyLayer.Param.PULSE, 100), layers.get(1));
+        assertEquals(SkyPresets.NEBULA.layers().get(2), layers.get(2));
     }
 
     @Test

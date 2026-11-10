@@ -51,7 +51,7 @@ public final class ModernSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(com.mojang.renderpearl.api.pipeline.PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run, "");
+            .build(), Runnable::run, "sky texture shader", "The game draws its own sky.");
     //?} elif >=1.21.11 {
     /*private static com.mojang.blaze3d.buffers.GpuBuffer sphere;
     // The transforms of the sharp sky of this frame until the solid world is drawn, else null.

@@ -5,6 +5,7 @@ profile minimal
 run time set 6000
 wait 40
 sky galaxy
+skyturn 0
 wait 160
 # Yaw -45 looks south-east to the galaxy, pitch -46 looks up to its center.
 fov 70
@@ -29,6 +30,7 @@ wait 40
 screenshot galaxy-04-night-up-fov70
 # The generators with no bloom, so that the shader draws all of them.
 sky galaxy 4
+skyturn 0
 wait 160
 fov 30
 run tp @p ~ 3000 ~ -45 -46
@@ -43,6 +45,7 @@ wait 160
 screenshot galaxy-06-nobloom-fast-fov30
 skyrender sharp
 sky galaxy
+skyturn 0
 wait 160
 # From the ground, where the terrain is in the view.
 fov 70

@@ -2,7 +2,21 @@
 
 ## 0.4.2
 
+- feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions
+- feat: Set the Speed, Vivid and Bright of Chroma in the Effects section
+- feat: Give the pastel profile soft Chroma colors that move slowly
+- feat: Turn the custom sky slowly by default at 1x in real time, also in the Trails preset
+- fix: Make the pulse of the Nebula clouds stronger and faster, so that you can see it
+- fix: Give each aurora curtain one smooth lower edge and long tapered ends
+- fix: Stop the jump of the aurora once each hour
+- fix: Keep the meteors in flight at the start of each hour
+- fix: Keep the meteors and the aurora above the horizon when the custom sky turns
+- fix: Show the star trails on the layer pages of the sky editor
+- fix: Name the Aurora colors Low and High, as in the Gradient layer
+- fix: Say that the game draws its own sky on 26.3 when the sky texture shader fails
 - fix: Stop the crash on 1.8.9 with a custom sky when the video setting Use VBOs is on
+- perf: Draw the star trails faster on a Stars layer with a small Size
+- compat: Show still Chroma colors on 1.8.9 when OptiFine uses anisotropic filtering or antialiasing
 
 ## 0.4.1
 

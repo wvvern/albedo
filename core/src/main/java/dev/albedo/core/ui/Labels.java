@@ -131,8 +131,9 @@ final class Labels {
     static String param(SkyLayer.Kind k, SkyLayer.Param p) {
         switch (p) {
             case COLOR_1:
-                return k == SkyLayer.Kind.GRADIENT ? "Low" : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : k == SkyLayer.Kind.AURORA ? "Bottom" : "Color";
+                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "Low"
+                        : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : "Color";
             case COLOR_2:
                 return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
                         : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
@@ -229,11 +230,14 @@ final class Labels {
         return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
     }
 
-    /** The effects that are on, such as "Bevel 20%, Outline 50%", or "Off". */
-    static String effects(Appearance a) {
+    /** The effects that are on, such as "Chroma 60%, Bevel 20%", or "Off". */
+    static String effects(Appearance a, boolean edges) {
         StringBuilder s = new StringBuilder();
-        effect(s, "Bevel", a.bevel());
-        effect(s, "Outline", a.outline());
+        effect(s, "Chroma", a.chroma().strength());
+        if (edges) {
+            effect(s, "Bevel", a.bevel());
+            effect(s, "Outline", a.outline());
+        }
         return s.length() == 0 ? "Off" : s.toString();
     }
 
