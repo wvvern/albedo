@@ -28,16 +28,20 @@ final class GraphicsCanvas implements Canvas {
     @Override public void text(String text, int x, int y, int argb) { g.drawString(font, text, x, y, argb, false); }
     @Override public int textWidth(String text) { return font.width(text); }
 
+    // How a GUI texture draws, for a blit.
+    //? if >=1.21.6 {
+    static final com.mojang.blaze3d.pipeline.RenderPipeline TEXTURED = net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+    //?} elif >=1.21.2 {
+    /^static final java.util.function.Function<net.minecraft.resources.ResourceLocation, net.minecraft.client.renderer.RenderType> TEXTURED =
+            net.minecraft.client.renderer.RenderType::guiTextured;
+    ^///?}
+
     @Override
     public void image(String id, CanvasImage img, int x, int y, int w, int h) {
         var location = CanvasImages.id(images.prepare(id, img));
-        //? if >=1.21.11 {
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, location, x, y, 0f, 0f, w, h,
-                img.width(), img.height(), img.width(), img.height());
-        //?} elif >=1.21.2 {
-        /^g.blit(net.minecraft.client.renderer.RenderType::guiTextured, location, x, y, 0f, 0f, w, h,
-                img.width(), img.height(), img.width(), img.height());
-        ^///?} else {
+        //? if >=1.21.2 {
+        g.blit(TEXTURED, location, x, y, 0f, 0f, w, h, img.width(), img.height(), img.width(), img.height());
+        //?} else {
         /^g.blit(location, x, y, w, h, 0f, 0f, img.width(), img.height(), img.width(), img.height());
         ^///?}
     }
@@ -49,8 +53,7 @@ final class GraphicsCanvas implements Canvas {
     }
     //?} elif >=1.21.2 {
     /^static void texture(GuiGraphics g, net.minecraft.resources.ResourceLocation texture, int x, int y, int size, int textureSize) {
-        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, texture, x, y, 0f, 0f, size, size,
-                textureSize, textureSize, textureSize, textureSize);
+        g.blit(TEXTURED, texture, x, y, 0f, 0f, size, size, textureSize, textureSize, textureSize, textureSize);
     }
     ^///?} else {
     /^static void texture(GuiGraphics g, net.minecraft.resources.ResourceLocation texture, int x, int y, int size, int textureSize) {

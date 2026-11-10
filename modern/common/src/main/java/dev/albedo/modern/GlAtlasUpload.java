@@ -1,9 +1,10 @@
 package dev.albedo.modern;
 
-//? if gl_core || frame_graph {
+//? if >=1.17 && <1.21.11 {
 /*import java.util.List;
 
-// Puts repainted sprites into their atlases on the versions where each sprite uploads its own pixels through the GL.
+// Puts repainted sprites into their atlases on the versions where each sprite uploads its own pixels, through the GL or
+// before 1.21.11 through the GPU device.
 final class GlAtlasUpload {
     private GlAtlasUpload() {}
 
@@ -11,8 +12,12 @@ final class GlAtlasUpload {
         pending.parallelStream().forEach(TextureUploads.Pending::repaint);
         // Animated sprites upload their next frame from their mip levels, so they animate with the new pixels.
         for (TextureUploads.Pending p : pending) {
-            p.atlas.bind();
+            //? if >=1.21.5 {
+            p.sprite.uploadFirstFrame(p.atlas.getTexture());
+            //?} else {
+            /^p.atlas.bind();
             p.sprite.uploadFirstFrame();
+            ^///?}
         }
     }
 }

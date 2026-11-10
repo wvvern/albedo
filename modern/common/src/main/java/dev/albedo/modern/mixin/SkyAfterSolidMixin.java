@@ -21,7 +21,7 @@ public abstract class SkyAfterSolidMixin {
         dev.albedo.modern.PearlSky.afterSolid(pass);
     }
 }
-//?} elif >=1.21.11 {
+//?} elif >=1.21.6 {
 /*@Mixin(com.mojang.blaze3d.platform.Lighting.class)
 public abstract class SkyAfterSolidMixin {
     // The level renderer sets the light of the level directly after the solid terrain, also when Sodium draws the terrain.

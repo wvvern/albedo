@@ -24,6 +24,11 @@ public final class SkyShaderSource {
     public enum Dialect {
         /** 1.21.11: GLSL 3.30 core, with the transforms in the uniform blocks of the game and the sky in its own block. */
         BLOCKS_330("#version 330\n#define ALBEDO_TRANSFORM_BLOCKS\n"),
+        /** 26.2: the dialect of 1.21.11 with a reversed depth buffer, where the far depth is 0. */
+        BLOCKS_330_REVERSED("#version 330\n#define ALBEDO_TRANSFORM_BLOCKS\n#define ALBEDO_REVERSED_DEPTH\n"),
+        /** 26.2 with a clip volume that starts at 0: the far depth is the clip z 0. */
+        BLOCKS_330_REVERSED_ZERO_TO_ONE(
+                "#version 330\n#define ALBEDO_TRANSFORM_BLOCKS\n#define ALBEDO_REVERSED_DEPTH\n#define ALBEDO_DEPTH_ZERO_TO_ONE\n"),
         /** 1.21.1: GLSL 1.50 core, with plain uniforms for the transforms and the sky. */
         UNIFORMS_150("#version 150\n#define ALBEDO_PLAIN_UNIFORMS\n"),
         /** 1.8.9 with OpenGL 3.0: GLSL 1.30 with the fixed function matrices and plain uniforms for the sky. */

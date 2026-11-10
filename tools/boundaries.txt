@@ -99,6 +99,13 @@ com.mojang.blaze3d.opengl.GlTexture#glId
 com.mojang.blaze3d.platform.GlStateManager|com.mojang.blaze3d.opengl.GlStateManager#_getActiveTexture
 com.mojang.blaze3d.platform.GlStateManager|com.mojang.blaze3d.opengl.GlStateManager#_glGenVertexArrays
 com.mojang.blaze3d.platform.GlStateManager|com.mojang.blaze3d.opengl.GlStateManager#_glBindVertexArray
+com.mojang.blaze3d.pipeline.BindGroupLayout$Builder|com.mojang.renderpearl.api.pipeline.BindGroupLayout$Builder#withSampler
+com.mojang.blaze3d.systems.CommandEncoder|com.mojang.renderpearl.api.commands.CommandEncoder#createRenderPass
+com.mojang.blaze3d.pipeline.TextureTarget#<init>
+com.mojang.blaze3d.vertex.DefaultVertexFormat#EMPTY
+com.mojang.blaze3d.vertex.BufferBuilder#<init>
+com.mojang.blaze3d.systems.DeviceInfo|com.mojang.renderpearl.api.device.DeviceInfo#isZZeroToOne
+com.mojang.blaze3d.systems.DeviceInfo|com.mojang.renderpearl.api.device.DeviceInfo#backendName
 
 # Sky after the solid world
 net.minecraft.client.renderer.LevelRenderer#renderChunkLayer

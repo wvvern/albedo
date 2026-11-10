@@ -1,23 +1,16 @@
 package dev.albedo.modern;
 
-//? if >=1.21.11 && <26.2 {
+//? if >=1.21.11 && <26.3 {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.shaders.ShaderType;
-import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.GpuQuery;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -28,39 +21,27 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-// The Chroma pass on 1.21.11: a render pass of its own into each mip level of an atlas, with a pipeline that the game
+// The Chroma pass from 1.21.11 to 26.2: a render pass of its own into each mip level of an atlas, with a pipeline that the game
 // compiles from the complete shader text of the mod; it never casts a GPU texture, because the NeoForge validation layer
 // gives wrappers in place of the textures of the game.
 final class PrecompiledChromaPass implements ChromaBackend {
     // One triangle over the whole mip level with no blend and no depth, so that each texel of the pass replaces the atlas texel.
-    private static final RenderPipeline PIPELINE = RenderPipeline.builder()
-            .withUniform("AlbedoChroma", UniformType.UNIFORM_BUFFER)
-            .withSampler("AlbedoPristine")
-            .withSampler("AlbedoTexels")
+    private static final RenderPipeline PIPELINE = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.sampler(
+            DeviceApi.uniformBlock(DeviceApi.state(RenderPipeline.builder(), false, false), "AlbedoChroma"), "AlbedoPristine"), "AlbedoTexels")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
-            .withoutBlend()
-            .withDepthWrite(false)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withCull(false)
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withCull(false), null)
             .build();
 
     // A draw that copies one mip level, because the texture copy of 1.21.11 copies only the level 0.
-    private static final RenderPipeline COPY = RenderPipeline.builder()
-            .withSampler("AlbedoSource")
+    private static final RenderPipeline COPY = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.state(RenderPipeline.builder(), false, false), "AlbedoSource")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA_COPY))
-            .withoutBlend()
-            .withDepthWrite(false)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withCull(false)
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withCull(false), null)
             .build();
 
     // The state of the compile, which the game does again after each resource reload.
@@ -71,7 +52,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
     // The complete text of a shader of the mod, with the Chroma include in it.
     private static String source(Identifier id, ShaderType type) {
         try {
-            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, SkyShaderSource.Dialect.BLOCKS_330);
+            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, DeviceApi.dialect());
         } catch (IOException e) {
             Albedo.get().platform().warn("Cannot read the Chroma shader " + id, e);
             return null;
@@ -136,10 +117,9 @@ final class PrecompiledChromaPass implements ChromaBackend {
             this.levels = levels;
             int w = live.getWidth(0), h = live.getHeight(0);
             var device = RenderSystem.getDevice();
-            pristine = device.createTexture(() -> "Albedo Chroma pristine", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_COPY_SRC
-                    | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.RGBA8, w, h, 1, levels);
-            texels = device.createTexture(() -> "Albedo Chroma texels", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
-                    TextureFormat.RGBA8, w, h, 1, levels);
+            pristine = DeviceApi.texture("Albedo Chroma pristine", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_COPY_SRC
+                    | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT, w, h, levels);
+            texels = DeviceApi.texture("Albedo Chroma texels", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING, w, h, levels);
             liveViews = new GpuTextureView[levels];
             pristineViews = new GpuTextureView[levels];
             texelViews = new GpuTextureView[levels];
@@ -164,7 +144,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
                 ByteBuffer bytes = MemoryUtil.memAlloc(w * h * 4);
                 try {
                     ChromaTexels.rgba(texelLevels[level], bytes);
-                    encoder.writeToTexture(texels, bytes, NativeImage.Format.RGBA, level, 0, 0, 0, w, h);
+                    DeviceApi.write(encoder, texels, bytes, level, w, h);
                 } finally {
                     MemoryUtil.memFree(bytes);
                 }
@@ -180,12 +160,12 @@ final class PrecompiledChromaPass implements ChromaBackend {
             GpuSampler nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
             for (int level = 0; level < levels; level++) {
                 copy(encoder, live, liveViews, pristine, pristineViews, level);
-                try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma", liveViews[level], OptionalInt.empty())) {
+                try (RenderPass pass = DeviceApi.pass("Albedo Chroma", liveViews[level])) {
                     pass.setPipeline(PIPELINE);
                     pass.setUniform("AlbedoChroma", turns);
                     pass.bindTexture("AlbedoPristine", pristineViews[level], nearest);
                     pass.bindTexture("AlbedoTexels", texelViews[level], nearest);
-                    pass.draw(0, 3);
+                    DeviceApi.draw(pass, 3);
                 }
             }
         }
@@ -204,10 +184,10 @@ final class PrecompiledChromaPass implements ChromaBackend {
                 encoder.copyTextureToTexture(from, to, 0, 0, 0, 0, 0, from.getWidth(0), from.getHeight(0));
                 return;
             }
-            try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma copy", toViews[level], OptionalInt.empty())) {
+            try (RenderPass pass = DeviceApi.pass("Albedo Chroma copy", toViews[level])) {
                 pass.setPipeline(COPY);
                 pass.bindTexture("AlbedoSource", fromViews[level], RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
-                pass.draw(0, 3);
+                DeviceApi.draw(pass, 3);
             }
         }
 
@@ -234,13 +214,13 @@ final class PrecompiledChromaPass implements ChromaBackend {
 
     // A GPU timer query around the work of the pass, which the game allows only one at a time.
     private static final class Timer implements ChromaBackend.Timer {
-        private GpuQuery query;
+        private DeviceApi.Timer query;
         private boolean failed;
 
         @Override
         public void begin() {
             try {
-                query = RenderSystem.getDevice().createCommandEncoder().timerQueryBegin();
+                query = DeviceApi.Timer.begin();
             } catch (IllegalStateException e) {
                 failed = true;
             }
@@ -248,13 +228,13 @@ final class PrecompiledChromaPass implements ChromaBackend {
 
         @Override
         public void end() {
-            if (query != null) RenderSystem.getDevice().createCommandEncoder().timerQueryEnd(query);
+            if (query != null) query.end();
         }
 
         @Override
         public long nanos() {
             if (failed) return 0;
-            OptionalLong t = query == null ? OptionalLong.empty() : query.getValue();
+            OptionalLong t = query == null ? OptionalLong.empty() : query.value();
             return t.isPresent() ? t.getAsLong() : -1;
         }
 

@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if gpu_device || renderpearl {
+//? if >=1.21.11 {
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.modern.mixin.SpriteContentsAccessor;
 import dev.albedo.modern.mixin.TextureAtlasAccessor;
@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 /**
- * Puts repainted sprites into their atlases on the versions with a GPU device, where a still sprite goes into the atlas
- * texture with its padding and an animated sprite keeps each frame in a texture of its own.
+ * Puts repainted sprites into their atlases from 1.21.11, where a still sprite goes into the atlas texture with its
+ * padding and an animated sprite keeps each frame in a texture of its own.
  */
 final class DeviceAtlasUpload {
     private DeviceAtlasUpload() {}

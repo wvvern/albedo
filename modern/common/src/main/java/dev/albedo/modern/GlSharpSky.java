@@ -1,8 +1,7 @@
 package dev.albedo.modern;
 
-//? if gl_core || frame_graph {
-/*import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.platform.NativeImage;
+//? if >=1.17 && <1.21.6 {
+/*import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
@@ -18,6 +17,11 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryUtil;
+//? if >=1.21.5 {
+import com.mojang.blaze3d.opengl.GlStateManager;
+//?} else {
+/^import com.mojang.blaze3d.platform.GlStateManager;
+^///?}
 
 import java.io.File;
 import java.io.IOException;
@@ -112,7 +116,7 @@ final class GlSharpSky {
         ready = sharp != null && sharp.ready() && BLACK.ready() ? sharp : null;
         if (ready == null) return false;
         if (blockSerial != img.serial()) {
-            GlState saved = GlState.ofDraw();
+            GlState saved = GlState.ofAll();
             if (termTexture != 0) GlStateManager._deleteTexture(termTexture);
             termTexture = uploadTerms(img);
             blockSerial = img.serial();
@@ -229,8 +233,12 @@ final class GlSharpSky {
         int[] argb = new int[width * height];
         ByteBuffer bytes = MemoryUtil.memAlloc(width * height * 4);
         try {
+            // The game can leave a row length and skips for its own reads.
+            GlStateManager._pixelStore(GL11.GL_PACK_ROW_LENGTH, 0);
+            GlStateManager._pixelStore(GL11.GL_PACK_SKIP_ROWS, 0);
+            GlStateManager._pixelStore(GL11.GL_PACK_SKIP_PIXELS, 0);
             GlStateManager._pixelStore(GL11.GL_PACK_ALIGNMENT, 4);
-            GlStateManager._readPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
+            GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
             for (int y = 0; y < height; y++) {
                 // The GL gives the bottom row first.
                 int row = (height - 1 - y) * width * 4;

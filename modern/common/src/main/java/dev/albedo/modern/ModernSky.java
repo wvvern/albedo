@@ -8,7 +8,7 @@ import dev.albedo.core.sky.SkyLight;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-//? if >=1.21.11 {
+//? if >=1.21.6 {
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.joml.Matrix4f;
@@ -31,7 +31,7 @@ public final class ModernSky {
     static void frameStart() {
         //? if >=26.3 {
         PearlSky.frameStart();
-        //?} elif >=1.21.11 {
+        //?} elif >=1.21.6 {
         /*PrecompiledSky.frameStart();
         *///?} else {
         /*GlSky.frameStart();
@@ -49,17 +49,6 @@ public final class ModernSky {
         return img != null && !vanillaWithPack() && img.design().celestial() == SkyDesign.Celestial.HIDE;
     }
 
-    /** Draws the custom sky in place of the sky disc of the {@code SkyRenderer}, and returns false when the game must draw its disc. */
-    public static boolean drawDisc() {
-        //? if frame_graph {
-        /*return GlSky.drawDisc();
-        *///?} elif gpu_device {
-        /*return PrecompiledSky.draw();
-        *///?} else {
-        return false;
-        //?}
-    }
-
     /** True when the image draws with the sky shader in this frame: the design and the setting permit it, and no shader pack draws the sky. */
     static boolean wantsSharp(SkyImage img) {
         return img.drawsSharp() && !shaderPackInUse();
@@ -67,7 +56,7 @@ public final class ModernSky {
 
     /** True when the vanilla sky draws in place of the custom sky, because the GL families do not draw it with a shader pack. */
     static boolean vanillaWithPack() {
-        //? if gl_core || frame_graph {
+        //? if >=1.17 && <1.21.6 {
         /*return shaderPackInUse();
         *///?} else {
         return false;
@@ -143,7 +132,7 @@ public final class ModernSky {
         *///?}
     }
 
-    //? if >=1.21.11 {
+    //? if >=1.21.6 {
     private static DynamicTexture texture;
     private static long uploaded = -1;
 

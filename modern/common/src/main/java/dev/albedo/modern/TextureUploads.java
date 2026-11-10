@@ -86,7 +86,7 @@ final class TextureUploads {
         }
     }
 
-    //? if >=1.21.4 {
+    //? if >=1.21.11 {
     /** A stand-alone texture, loaded with TextureContents.load. */
     static TextureStore.Upload texture(Object location) {
         return pixels -> {
@@ -95,49 +95,56 @@ final class TextureUploads {
             try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
                 write(pixels, image);
                 // Makes a new GPU texture (with mip levels where the texture has them), as a reload does.
-                reload((TextureUploadInvoker) texture, location, image);
+                ((TextureUploadInvoker) texture).albedo$doLoad(image);
             }
             return true;
         };
     }
-
-    //? if >=1.21.11 {
-    private static void reload(TextureUploadInvoker texture, Object location, NativeImage image) {
-        texture.albedo$doLoad(image);
-    }
-    //?} elif >=1.21.4 {
-    /*// Gives the load step the blur and clamp of the metadata file of the texture, as TextureContents.load reads them.
-    private static void reload(TextureUploadInvoker texture, Object location, NativeImage image) {
-        boolean blur = false;
-        boolean clamp = false;
-        java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
-                Minecraft.getInstance().getResourceManager().getResource((net.minecraft.resources.ResourceLocation) location);
-        try {
-            java.util.Optional<net.minecraft.client.resources.metadata.texture.TextureMetadataSection> section = resource.isPresent()
-                    ? resource.get().metadata().getSection(net.minecraft.client.resources.metadata.texture.TextureMetadataSection.TYPE)
-                    : java.util.Optional.empty();
-            if (section.isPresent()) {
-                blur = section.get().blur();
-                clamp = section.get().clamp();
-            }
-        } catch (java.io.IOException e) {
-            dev.albedo.core.Albedo.get().platform().warn("Cannot read the metadata of " + location, e);
-        }
-        texture.albedo$doLoad(image, blur, clamp);
-    }
-    *///?}
-
-    /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it. */
-    static TextureStore.Upload downloaded(Object id, net.minecraft.client.renderer.texture.DynamicTexture texture) {
+    //?} elif >=1.21.5 {
+    /*// A stand-alone texture, loaded with TextureContents.load into a GPU texture with one level, which keeps the filters of the load.
+    static TextureStore.Upload texture(Object location) {
         return pixels -> {
-            NativeImage image = texture.getPixels();
-            if (registered(id) != texture || image == null) return false; // released, which closed the image
-            write(pixels, image);
-            texture.upload();
+            AbstractTexture registered = registered(location);
+            if (!(registered instanceof net.minecraft.client.renderer.texture.ReloadableTexture)
+                    || !((net.minecraft.client.renderer.texture.ReloadableTexture) registered).resourceId().equals(location)) return false;
+            com.mojang.blaze3d.textures.GpuTexture gpu = registered.getTexture();
+            if (gpu.getWidth(0) != pixels.width() || gpu.getHeight(0) != pixels.height()) return false;
+            try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
+                write(pixels, image);
+                com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().writeToTexture(gpu, image);
+            }
             return true;
         };
     }
-    //?} else {
+    *///?} elif >=1.21.4 {
+    /*// A stand-alone texture, loaded again with the blur and clamp of its metadata file, as TextureContents.load reads them.
+    static TextureStore.Upload texture(Object location) {
+        return pixels -> {
+            if (!(registered(location) instanceof net.minecraft.client.renderer.texture.ReloadableTexture texture)
+                    || !texture.resourceId().equals(location)) return false;
+            boolean blur = false;
+            boolean clamp = false;
+            java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
+                    Minecraft.getInstance().getResourceManager().getResource((net.minecraft.resources.ResourceLocation) location);
+            try {
+                java.util.Optional<net.minecraft.client.resources.metadata.texture.TextureMetadataSection> section = resource.isPresent()
+                        ? resource.get().metadata().getSection(net.minecraft.client.resources.metadata.texture.TextureMetadataSection.TYPE)
+                        : java.util.Optional.empty();
+                if (section.isPresent()) {
+                    blur = section.get().blur();
+                    clamp = section.get().clamp();
+                }
+            } catch (java.io.IOException e) {
+                dev.albedo.core.Albedo.get().platform().warn("Cannot read the metadata of " + location, e);
+            }
+            try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
+                write(pixels, image);
+                ((TextureUploadInvoker) texture).albedo$doLoad(image, blur, clamp);
+            }
+            return true;
+        };
+    }
+    *///?} else {
     /*// A stand-alone texture. The texture object loaded it with these filter settings.
     static TextureStore.Upload texture(Object location, net.minecraft.client.renderer.texture.SimpleTexture texture,
                                        boolean blur, boolean clamp) {
@@ -150,8 +157,21 @@ final class TextureUploads {
             return true;
         };
     }
+    *///?}
 
-    // A downloaded skin, cape or elytra, written with the upload step of HttpTexture.
+    //? if >=1.21.4 {
+    /** A downloaded skin, cape or elytra, which keeps its image in memory until the game releases it. */
+    static TextureStore.Upload downloaded(Object id, net.minecraft.client.renderer.texture.DynamicTexture texture) {
+        return pixels -> {
+            NativeImage image = texture.getPixels();
+            if (registered(id) != texture || image == null) return false; // released, which closed the image
+            write(pixels, image);
+            texture.upload();
+            return true;
+        };
+    }
+    //?} else {
+    /*// A downloaded skin, cape or elytra, written with the upload step of HttpTexture.
     static TextureStore.Upload downloaded(Object id, DownloadedSkin texture) {
         return pixels -> {
             if (registered(id) != texture) return false;

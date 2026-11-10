@@ -1,8 +1,7 @@
 package dev.albedo.modern;
 
-//? if gl_core || frame_graph {
-/*import com.mojang.blaze3d.platform.GlStateManager;
-import dev.albedo.core.config.Chroma;
+//? if >=1.17 && <1.21.11 {
+/*import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -14,11 +13,16 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryUtil;
+//? if >=1.21.5 {
+import com.mojang.blaze3d.opengl.GlStateManager;
+//?} else {
+/^import com.mojang.blaze3d.platform.GlStateManager;
+^///?}
 
 import java.nio.ByteBuffer;
 
 // The Chroma pass through the raw GL: its own GL program draws into each mip level of an atlas through a framebuffer, and
-// puts back each GL state that it changes.
+// puts back each GL state that it changes; the GPU device before 1.21.11 has no render pass into a mip level above 0.
 final class GlChromaPass implements ChromaBackend {
     // The program of the pass, with the pristine copy on unit 0, the Chroma texels on unit 1, two framebuffers for the
     // copies, the second also for the draws, and an empty vertex array for the triangle.
@@ -61,10 +65,10 @@ final class GlChromaPass implements ChromaBackend {
 
     // The width, height and number of mip levels of the GL texture of an atlas, on texture unit 0.
     private static int[] sizeOf(TextureAtlas atlas) {
-        int active = GlStateManager._getActiveTexture();
+        int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        GlStateManager._bindTexture(atlas.getId());
+        GlStateManager._bindTexture(glId(atlas));
         int[] size = {GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH),
             GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT),
             GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1};
@@ -75,9 +79,33 @@ final class GlChromaPass implements ChromaBackend {
         return size;
     }
 
+    // The GL name of the texture of an atlas, or 0 while a reload has not made its GPU texture.
+    private static int glId(TextureAtlas atlas) {
+        //? if >=1.21.5 {
+        com.mojang.blaze3d.textures.GpuTexture texture;
+        try {
+            texture = atlas.getTexture();
+        } catch (IllegalStateException e) {
+            return 0;
+        }
+        if (texture.isClosed()) return 0;
+        // The validation layer of NeoForge gives a wrapper of the GL texture.
+        while (!(texture instanceof com.mojang.blaze3d.opengl.GlTexture)) {
+            try {
+                texture = (com.mojang.blaze3d.textures.GpuTexture) texture.getClass().getMethod("getRealTexture").invoke(texture);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("the atlas texture is not a GL texture: " + texture.getClass().getName(), e);
+            }
+        }
+        return ((com.mojang.blaze3d.opengl.GlTexture) texture).glId();
+        //?} else {
+        /^return atlas.getId();
+        ^///?}
+    }
+
     @Override
     public ChromaBackend.Target create(TextureAtlas atlas, int[] size) {
-        return new Target(atlas.getId(), size);
+        return new Target(glId(atlas), size);
     }
 
     @Override
@@ -128,7 +156,7 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public boolean sameTexture(TextureAtlas atlas) {
             // A reload or a change of the mip levels gives the atlas new storage under the same GL name.
-            return atlas.getId() == live && java.util.Arrays.equals(size, sizeOf(atlas));
+            return glId(atlas) == live && java.util.Arrays.equals(size, sizeOf(atlas));
         }
 
         @Override
