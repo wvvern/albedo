@@ -45,7 +45,7 @@ jobs:
             echo "$GAME_VERSIONS" | tr ' ' '\n'
             echo "EOF"
             echo "notes<<EOF"
-            bash tools/release-notes.sh "${TAG#v}"
+            bash tools/release-notes.sh "$TAG"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: Kir-Antipov/mc-publish@v3

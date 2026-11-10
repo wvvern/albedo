@@ -15,7 +15,7 @@ import java.util.List;
  */
 public final class SkyProgram {
     /** Where the GPU gets the pixels of a layer. */
-    public enum Path {
+    enum Path {
         /** The sky shader computes the layer for each screen pixel. */
         PIXEL,
         /** The CPU bake makes a soft term image of the layer, which the sky shader mixes in for each screen pixel. */
@@ -176,7 +176,7 @@ public final class SkyProgram {
     }
 
     /** The path of a kind: a filter that reads near pixels or other directions is a term image, and the other kinds are pixels. */
-    public static Path path(SkyLayer.Kind kind) {
+    static Path path(SkyLayer.Kind kind) {
         switch (kind) {
             case GRADIENT:
             case GLOW:
@@ -223,7 +223,7 @@ public final class SkyProgram {
     }
 
     /** The path of each layer from the bottom up. */
-    public Path path(int layer) { return paths[layer]; }
+    Path path(int layer) { return paths[layer]; }
 
     /** True when the shader draws all layers, some from their term images, so the sky can draw sharp with no baked image. */
     public boolean drawsSharp() {
@@ -244,7 +244,7 @@ public final class SkyProgram {
     public int terms() { return terms; }
 
     /** The term image of a filter or the field image of a cloud or fractal layer, or -1 when it has none. */
-    public int termSlot(int layer) {
+    int termSlot(int layer) {
         return (int) block[at(layer, TERM_SLOT)];
     }
 

@@ -93,7 +93,7 @@ Invariants:
 
 - The CPU bake and the GPU shader must give the same sky. They use the same integer hashes and noise. Java copies of the shader parts (`SkyStars`, `SkyMeteors`, `Aurora`) must change together with the GLSL. The harness command `skycompare` draws the shader sky into an image and logs `DIFFERENT` when its mean OKLab distance from the bake is at or above `Harness.COMPARE_LIMIT`. Run it after each sky change.
 - `SkyGeneratorTest.thePresetsKeepTheirPixels` keeps a hash of the bake of each preset. If a change of the pixels is intentional, update the hashes in the same commit. Else, find the change.
-- One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` use the time 0 (`SkyProgram.STILL`). Meteors draw only in the shader. The meteor hashes use the slot modulo 3600, so a meteor in flight goes on across the wrap.
+- One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` draw a still sky (`SkyProgram.STILL`). Meteors draw only in the shader. The meteor hashes use the slot modulo 3600, so a meteor in flight goes on across the wrap.
 - The aurora has its own clock (`Aurora.clock`): `longSeconds()` times 2 times its speed, in double precision on the CPU, with a wrap at `Aurora.PERIOD` (7200 s). Each aurora wave and the ray noise repeat a whole number of times in this period.
 - The lower edge, the height and the presence of an aurora curtain are functions of the azimuth of the view, so each curtain has one smooth lower edge, also where its sheet folds. The folded sheet gives only the rays and their light.
 - For each frame of a sky that moves or turns, the adapter writes the block from `SkyProgram.at` (time, aurora clocks and the turn in `SkyWorld`). A still sky that does not turn keeps `SkyProgram.block`, so `skycompare` and the bake agree.
@@ -143,7 +143,7 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 ## Add a Minecraft version (modern)
 
 1. Add `modern/versions/<v>/gradle.properties`, and `modern/neoforge/versions/<v>/gradle.properties` with `loom.platform=neoforge`.
-2. Add `<v>` to the `versions` list in `modern/settings.gradle`.
+2. Add `<v>` to the `versions` list in `modern/settings.gradle` and a line to the `modern` matrix in `.github/workflows/ci.yml`.
 3. Run `./gradlew :fabric:<v>:build :neoforge:<v>:build` in `modern/`. The compile errors show the hooks that moved. Fix each one with a `//? if` branch.
 4. Examine the condition boundaries (`>=1.21.2`, `>=1.21.4`, ... `>=26.1`). The project tests them only on the built versions.
 5. Run `./gradlew :fabric:<v>:runClient`. The log must show `Albedo ready` and `Flattened N textures`.
@@ -151,9 +151,10 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 ## Check and test
 
 - Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
-- `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A `*-modern.txt` file has a `*-legacy.txt` copy for 1.8.9, which the script takes.
-- Key harness commands: `sky <preset> [layers]`, `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate and CPU time of the sky), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
-- Chroma harness commands (`tools/harness/chroma-modern.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
+- `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A command file runs on all targets, except that 1.8.9 runs the `*-legacy.txt` copy of a `*-modern.txt` file.
+- With no `-Shots`, the script writes `docs/screenshots/<target>/` from `shots.txt`: one image for each feature, to find a version where a feature does not work. Make them again when a change affects what a player sees.
+- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
+- Chroma harness commands (`tools/harness/chroma.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
 - `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
 - After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
 

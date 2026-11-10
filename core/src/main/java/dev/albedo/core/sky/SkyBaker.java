@@ -79,7 +79,7 @@ public final class SkyBaker {
     }
 
     /** True when the last finished image shows the last requested design. */
-    public boolean current() {
+    boolean current() {
         SkyImage i = image;
         return i != null && i.design().equals(requested);
     }

@@ -53,7 +53,9 @@ class HarnessTest {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
         SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
         assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
-        assertEquals(SkyTurning.DEFAULT, p.get(Category.SKY).sky().turning(), "a preset turns with the default turning");
+        assertEquals(SkyTurning.STILL, p.get(Category.SKY).sky().turning(), "a preset with the default turning stands still");
+        assertEquals(SkyPresets.TRAILS.turning(), Harness.withSky(p, "trails").get(Category.SKY).sky().turning(),
+                "Trails keeps its own turning");
         assertEquals(SkyTurning.STILL, Harness.withSkyTurning(p, new String[]{"0"}).get(Category.SKY).sky().turning());
         assertEquals(SkyTurning.STILL.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
         assertEquals(SkyTurning.STILL.withAmount(100).withTrails(45).withTrailLight(80),
@@ -105,7 +107,7 @@ class HarnessTest {
     void theSkyCommandSetsAPresetOrTheVanillaSky() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
         assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());
-        assertEquals(SkyPresets.NEBULA, p.get(Category.SKY).sky());
+        assertEquals(SkyPresets.NEBULA.withTurning(SkyTurning.STILL), p.get(Category.SKY).sky());
         assertEquals(Appearance.Mode.ORIGINAL, Harness.withSky(p, "off").get(Category.SKY).appearance().mode());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "rainbow"));
     }

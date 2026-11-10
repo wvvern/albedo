@@ -30,12 +30,8 @@ public final class Transform {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    public int yaw() { return yaw; }
-    public int pitch() { return pitch; }
-    public int roll() { return roll; }
     public int scale() { return scale; }
 
-    /** The value of one axis. */
     public int get(Axis a) {
         switch (a) {
             case YAW: return yaw;
@@ -45,7 +41,6 @@ public final class Transform {
         }
     }
 
-    /** This transform with one axis changed. */
     public Transform with(Axis a, int value) {
         switch (a) {
             case YAW: return new Transform(value, pitch, roll, scale);
@@ -60,7 +55,6 @@ public final class Transform {
         return IDENTITY.get(a);
     }
 
-    /** The smallest value of an axis. */
     public static int min(Axis a) {
         switch (a) {
             case YAW: return 0;
@@ -70,7 +64,6 @@ public final class Transform {
         }
     }
 
-    /** The largest value of an axis. */
     public static int max(Axis a) {
         switch (a) {
             case YAW: return 359;

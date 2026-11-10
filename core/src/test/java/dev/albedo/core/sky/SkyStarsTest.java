@@ -15,6 +15,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class SkyStarsTest {
     private static final float DEGREE = (float) (Math.PI / 180);
 
+    /** Stars that do not twinkle and have no trails. */
+    private static SkyStars stars(float amount, float spikes, float scale, int seed) {
+        return stars(amount, spikes, scale, seed, 0, 0, new float[] {0, 1, 0});
+    }
+
+    private static SkyStars stars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up) {
+        return new SkyStars(amount, spikes, scale, seed, twinkle, time, up, 0, 0, new float[] {0, 1, 0});
+    }
+
     /** The light at {@code p} of all stars of all cells up to three cells away, with no limit on the search. */
     private static float[] allStars(SkyStars stars, float scale, float[] p, float footprint) {
         float[] light = new float[3], star = new float[SkyStars.STAR_FLOATS], work = new float[SkyStars.WORK_FLOATS];
@@ -34,7 +43,7 @@ class SkyStarsTest {
     void noStarIsCutAtACellBoundary() {
         int checked = 0, lit = 0;
         for (float scale : new float[] {0.5f, 1f, 2.5f}) {
-            SkyStars stars = new SkyStars(1f, 2f, scale, 4);
+            SkyStars stars = stars(1f, 2f, scale, 4);
             float[] star = new float[SkyStars.STAR_FLOATS];
             // Points all around the brightest stars of many large cells, where the halos and the spikes reach the farthest.
             for (int cell = 0; cell < 4000; cell++) {
@@ -70,7 +79,7 @@ class SkyStarsTest {
 
     @Test
     void manyStarsAreFaintAndFewAreBright() {
-        SkyStars stars = new SkyStars(0.5f, 1f, 1f, 1);
+        SkyStars stars = stars(0.5f, 1f, 1f, 1);
         float[] star = new float[SkyStars.STAR_FLOATS];
         List<Float> field = new ArrayList<Float>(), bright = new ArrayList<Float>();
         // The stars of the two grids in the same cap of the sky, up to about 37 degrees from the z axis.
@@ -95,7 +104,7 @@ class SkyStarsTest {
 
     @Test
     void aDiagonalOfTheGridHasAboutAsManyStarsAsAnAxis() {
-        SkyStars stars = new SkyStars(1f, 1f, 1f, 2);
+        SkyStars stars = stars(1f, 1f, 1f, 2);
         int axis = capStars(stars, new float[] {0f, 0f, 1f}), diagonal = capStars(stars, new float[] {0.57735f, 0.57735f, 0.57735f});
         float ratio = diagonal / (float) axis;
         assertTrue(ratio > 0.8f && ratio < 1.1f, axis + " stars near the axis and " + diagonal + " near the diagonal");
@@ -134,7 +143,7 @@ class SkyStarsTest {
     @Test
     void theStarsTwinkleGentlySlowlyAndMoreNearTheHorizon() {
         float[] up = {0, 1, 0}, star = new float[SkyStars.STAR_FLOATS], work = new float[SkyStars.WORK_FLOATS];
-        SkyStars still = new SkyStars(1f, 1f, 1f, 3);
+        SkyStars still = stars(1f, 1f, 1f, 3);
         float frame = 1 / 60f;
         double low = 0, high = 0;
         int lowCount = 0, highCount = 0;
@@ -145,8 +154,8 @@ class SkyStarsTest {
             float base = centerLight(still, star, work);
             float max = 0, deviation = 0;
             for (int i = 0; i < 300; i++) {
-                SkyStars now = new SkyStars(1f, 1f, 1f, 3, 1f, i * frame * 4, up);
-                SkyStars next = new SkyStars(1f, 1f, 1f, 3, 1f, (i * 4 + 1) * frame, up);
+                SkyStars now = stars(1f, 1f, 1f, 3, 1f, i * frame * 4, up);
+                SkyStars next = stars(1f, 1f, 1f, 3, 1f, (i * 4 + 1) * frame, up);
                 now.star(SkyStars.Tier.BRIGHT, hx, hy, hz, star);
                 float a = centerLight(now, star, work), b = centerLight(next, star, work);
                 max = Math.max(max, Math.abs(b - a) / base);
@@ -164,7 +173,7 @@ class SkyStarsTest {
         }
         assertTrue(lowCount > 5 && highCount > 5, lowCount + " low and " + highCount + " high stars");
         assertTrue(low / lowCount > 1.5 * high / highCount, "more twinkle near the horizon: " + low / lowCount + " and " + high / highCount);
-        SkyStars none = new SkyStars(1f, 1f, 1f, 3, 0f, 7f, up);
+        SkyStars none = stars(1f, 1f, 1f, 3, 0f, 7f, up);
         assertEquals(centerLight(still, star, work), centerLight(none, star, work), "a twinkle of 0 keeps the stars still");
     }
 
@@ -182,7 +191,8 @@ class SkyStarsTest {
             String call = "albedoStarTier(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt
                     + ", " + t.detail + ",";
             assertTrue(glsl.contains(call), call);
-        }    }
+        }
+    }
 
     /** A unit trail axis that is not on a grid axis, so that the arcs cross the cells at all angles. */
     private static final float[] AXIS = unit(0.3f, 0.8f, -0.5f);

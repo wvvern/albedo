@@ -21,11 +21,6 @@ public final class CanvasImage {
 
     public long serial() { return serial; }
 
-    /** The pixel at x, y as 0xAARRGGBB. */
-    public int get(int x, int y) {
-        return argb[y * width + x];
-    }
-
     /** The pixels row by row from the top, which the caller must not change. */
     public int[] argb() { return argb; }
 }

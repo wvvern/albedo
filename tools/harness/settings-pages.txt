@@ -1,5 +1,5 @@
-# Screenshots of each settings page, for review. Run it after scene-*.txt in place of shots.txt.
-# It does not write the README screenshots. "ui" lines are input for the open settings screen.
+# Screenshots of each settings page, for review. Run it after the scene in place of shots.txt.
+# "ui" lines are input for the open settings screen.
 wait 60
 profile quake-white
 wait 200

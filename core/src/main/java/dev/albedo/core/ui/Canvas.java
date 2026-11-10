@@ -19,16 +19,5 @@ public interface Canvas {
      *
      * @param id the same for each frame that shows the same place, such as "sky.preview"
      */
-    default void image(String id, CanvasImage img, int x, int y, int w, int h) {
-        // Without textures, cells of about 4 GUI pixels show the image coarsely.
-        int cell = 4;
-        for (int cy = 0; cy < h; cy += cell) {
-            for (int cx = 0; cx < w; cx += cell) {
-                int cw = Math.min(cell, w - cx), ch = Math.min(cell, h - cy);
-                int px = Math.min(img.width() - 1, (cx + cw / 2) * img.width() / w);
-                int py = Math.min(img.height() - 1, (cy + ch / 2) * img.height() / h);
-                fill(x + cx, y + cy, x + cx + cw, y + cy + ch, img.get(px, py) | 0xFF000000);
-            }
-        }
-    }
+    void image(String id, CanvasImage img, int x, int y, int w, int h);
 }

@@ -55,7 +55,6 @@ import java.util.concurrent.Executor;
  * view, when the design, the setting and the GPU permit; else the baked texture draws it.
  */
 final class SharpSky {
-    /** The state of the compile of one pipeline. */
     private enum Compile { NOT_STARTED, RUNNING, READY, FAILED }
 
     /**
@@ -74,7 +73,7 @@ final class SharpSky {
 
         /** @param steps the layer steps of the sky include of a sky shader */
         Pipeline(RenderPipeline pipeline, Executor executor, String steps) {
-            this(pipeline, executor, steps, "sky shader", "The sky draws in a simpler way.");
+            this(pipeline, executor, steps, "sharp sky shader", "The sky draws from the baked image.");
         }
 
         /** A pipeline with no sky include. */
@@ -186,12 +185,11 @@ final class SharpSky {
             .withUniform("AlbedoTerms", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
-    /** The shaders of each sky that came recently, and the number of pipelines, which gives each pipeline its own name. */
-    private static final int CACHE = 4;
+    /** The number of pipelines, which gives each pipeline its own name. */
     private static int pipelines;
 
     // The sky on the sphere, added to a black frame only where the depth is still the far depth of the clear, with no cull.
-    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(SkyShaderCache.SIZE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
@@ -220,10 +218,10 @@ final class SharpSky {
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run, "black sky shader", "The sky draws in a simpler way.");
+            .build(), Runnable::run, "black sky shader", "The sky draws from the baked image.");
 
     // The sky into the equirectangular image of the CPU bake, for the harness, with no depth texture.
-    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
+    private static final SkyShaderCache<Pipeline> EQUIRECT = new SkyShaderCache<Pipeline>(SkyShaderCache.SIZE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(SKY_BLOCK)
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_equirect_" + pipelines++))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_equirect"))
@@ -383,18 +381,13 @@ final class SharpSky {
         return true;
     }
 
-    /** Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null. */
+    /** The {@link SkyImage#quad} of a view, or of the whole image for null. */
     private static GpuBuffer quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] v = SkyImage.quad(view);
         try (com.mojang.blaze3d.vertex.ByteBufferBuilder bytes = com.mojang.blaze3d.vertex.ByteBufferBuilder.exactlySized(
-                corners.length * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
+                v.length / 5 * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
             BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-            for (int i = 0; i < corners.length; i++) {
-                int c = corner[i] * 3;
-                if (view == null) b.addVertex(0, 0, 0).setUv(corners[i][0], corners[i][1]);
-                else b.addVertex(view[c], view[c + 1], view[c + 2]).setUv(corners[i][0], corners[i][1]);
-            }
+            for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
             try (com.mojang.blaze3d.vertex.MeshData mesh = b.buildOrThrow()) {
                 return RenderSystem.getDevice().createBuffer(() -> "Albedo sky compare quad", GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
             }

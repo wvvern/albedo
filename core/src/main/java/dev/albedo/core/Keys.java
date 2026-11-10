@@ -7,7 +7,6 @@ import java.util.Map;
 /** Key names usable in the config, polled as raw keys because keybinding APIs differ on every loader and version. */
 public final class Keys {
     public static final class Key {
-        public final String name;
         /**
          * The stable translation key ("key.keyboard.f6"), which works through InputConstants on 1.13+ although
          * 1.13-1.21.x use GLFW codes and 26.x uses SDL scancodes.
@@ -16,14 +15,10 @@ public final class Keys {
         /** The LWJGL 2 code that 1.8.9-1.12.2 use. */
         public final int lwjgl2;
 
-        Key(String name, String minecraftName, int lwjgl2) {
-            this.name = name;
+        Key(String minecraftName, int lwjgl2) {
             this.minecraftName = minecraftName;
             this.lwjgl2 = lwjgl2;
         }
-
-        @Override
-        public String toString() { return name; }
     }
 
     private static final Map<String, Key> KEYS = new HashMap<String, Key>();
@@ -56,12 +51,11 @@ public final class Keys {
     private Keys() {}
 
     private static void put(String name, String mcSuffix, int lwjgl2) {
-        KEYS.put(name, new Key(name, "key.keyboard." + mcSuffix, lwjgl2));
+        KEYS.put(name, new Key("key.keyboard." + mcSuffix, lwjgl2));
     }
 
     /** @return the key, or null for "NONE"/unknown names */
     public static Key byName(String name) {
-        if (name == null) return null;
         return KEYS.get(name.trim().toUpperCase(Locale.ROOT));
     }
 }

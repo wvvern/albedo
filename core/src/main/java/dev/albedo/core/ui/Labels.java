@@ -48,8 +48,7 @@ final class Labels {
     }
 
     private static Words words(Category c) {
-        Words w = WORDS.get(c);
-        return w != null ? w : new Words(c.key(), "Textures", "stone", "");
+        return WORDS.get(c);
     }
 
     static String name(Category c) { return words(c).name; }

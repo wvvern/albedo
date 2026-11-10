@@ -187,7 +187,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
         @Override
         public long bytes() {
             long out = 0;
-            for (int level = 0; level < levels; level++) out += 2L * 4 * pristine.getWidth(level) * pristine.getHeight(level);
+            for (int level = 0; level < levels; level++) out += ChromaTexels.levelBytes(pristine.getWidth(level), pristine.getHeight(level));
             return out;
         }
 

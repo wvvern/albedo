@@ -36,8 +36,6 @@ public final class Colors {
         return (clamp(alpha) << 24) | (argb & 0x00FFFFFF);
     }
 
-    public static int rgb(int argb) { return argb & 0x00FFFFFF; }
-
     private static int clamp(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
     /**
@@ -61,7 +59,6 @@ public final class Colors {
             if (s.length() == 6) return 0xFF000000 | Integer.parseInt(s, 16);
             if (s.length() == 8) return (int) Long.parseLong(s, 16);
         } catch (NumberFormatException ignored) {
-            // fall through
         }
         throw new IllegalArgumentException("Not a color: '" + text + "' (use #RGB, #RRGGBB, #AARRGGBB or a name)");
     }

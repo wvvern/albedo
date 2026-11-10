@@ -6,12 +6,14 @@ import dev.albedo.core.Glob;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -135,7 +137,7 @@ public final class ConfigCodec {
         return new ServerRule(server, (String) value);
     }
 
-    static Profile decodeProfile(String name, Map<String, Object> map) {
+    private static Profile decodeProfile(String name, Map<String, Object> map) {
         Map<Category, CategorySettings> cats = new EnumMap<Category, CategorySettings>(Category.class);
         Set<Toggle> on = EnumSet.noneOf(Toggle.class);
         for (Toggle t : Toggle.values()) if (bool(map, t.key, t.defaultOn)) on.add(t);
@@ -149,13 +151,13 @@ public final class ConfigCodec {
         return new Profile(name, cats, on);
     }
 
-    static CategorySettings decodeCategory(Category category, String where, Map<String, Object> map) {
+    private static CategorySettings decodeCategory(Category category, String where, Map<String, Object> map) {
         Appearance appearance = decodeAppearance(category, where, map, Appearance.ORIGINAL);
         boolean onlyGroups = bool(map, "onlyGroups", false);
         List<Rule> rules = new ArrayList<Rule>();
         Object raw = map.get("groups");
         if (raw != null) {
-            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".groups must be a list");
+            if (!(raw instanceof List)) throw new IllegalArgumentException(where + ".groups: use a list");
             int k = 0;
             for (Object o : (List<?>) raw) {
                 String at = where + ".groups[" + k++ + "]";
@@ -184,15 +186,15 @@ public final class ConfigCodec {
     }
 
     /** Unspecified fields inherit from {@code parent} (the category's look for groups). */
-    static Appearance decodeAppearance(Category category, String where, Map<String, Object> map, Appearance parent) {
+    private static Appearance decodeAppearance(Category category, String where, Map<String, Object> map, Appearance parent) {
         try {
-            Appearance.Mode mode = map.containsKey("mode") ? Appearance.Mode.byKey(str(map, "mode", "")) : parent.mode();
+            Appearance.Mode mode = choice(map, "mode", parent.mode());
             if (!category.supportedModes().contains(mode)) {
                 throw new IllegalArgumentException("this category cannot use mode '" + mode.key() + "'. Use one of "
                         + keys(category.supportedModes()));
             }
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
-            Appearance.Alpha alpha = map.containsKey("alpha") ? Appearance.Alpha.byKey(str(map, "alpha", "")) : parent.alpha();
+            Appearance.Alpha alpha = choice(map, "alpha", parent.alpha());
             if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
             }
@@ -245,7 +247,7 @@ public final class ConfigCodec {
         return Json.write(root);
     }
 
-    static Map<String, Object> encodeProfile(Profile p) {
+    private static Map<String, Object> encodeProfile(Profile p) {
         Map<String, Object> out = new LinkedHashMap<String, Object>();
         for (Toggle t : Toggle.values()) if (p.is(t) != t.defaultOn) out.put(t.key, p.is(t));
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
@@ -322,7 +324,7 @@ public final class ConfigCodec {
     /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
     @SuppressWarnings("unchecked")
     static Map<String, Object> object(Object o, String where, List<String> known) {
-        if (!(o instanceof Map)) throw new IllegalArgumentException("'" + where + "' must be a JSON object");
+        if (!(o instanceof Map)) throw new IllegalArgumentException(where + ": use a JSON object");
         Map<String, Object> map = (Map<String, Object>) o;
         if (known != null) {
             for (String key : map.keySet()) {
@@ -338,16 +340,28 @@ public final class ConfigCodec {
         return Collections.unmodifiableList(out);
     }
 
-    private static List<String> keys(List<Appearance.Mode> modes) {
+    /** The keys of enum values in the file: their names in lower case. */
+    static List<String> keys(Collection<? extends Enum<?>> values) {
         List<String> out = new ArrayList<String>();
-        for (Appearance.Mode m : modes) out.add(m.key());
+        for (Enum<?> v : values) out.add(v.name().toLowerCase(Locale.ROOT));
         return out;
+    }
+
+    /** The enum value that {@code key} names in lower case, or {@code def} when the key is not there. */
+    private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def) {
+        if (!m.containsKey(key)) return def;
+        Class<E> type = def.getDeclaringClass();
+        try {
+            return Enum.valueOf(type, str(m, key, "").trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("'" + key + "': use one of " + keys(Arrays.asList(type.getEnumConstants())), e);
+        }
     }
 
     private static boolean bool(Map<String, Object> m, String key, boolean def) {
         Object o = m.get(key);
         if (o == null) return def;
-        if (!(o instanceof Boolean)) throw new IllegalArgumentException("'" + key + "' must be true or false");
+        if (!(o instanceof Boolean)) throw new IllegalArgumentException("'" + key + "': use true or false");
         return (Boolean) o;
     }
 
@@ -355,14 +369,14 @@ public final class ConfigCodec {
         Object o = m.get(key);
         if (o == null) return def;
         double v = o instanceof Number ? ((Number) o).doubleValue() : Double.NaN;
-        if (v != Math.rint(v) || v < 0 || v > 100) throw new IllegalArgumentException("'" + key + "' must be a whole number from 0 to 100");
+        if (v != Math.rint(v) || v < 0 || v > 100) throw new IllegalArgumentException("'" + key + "': use a whole number from 0 to 100");
         return (int) v;
     }
 
     private static String str(Map<String, Object> m, String key, String def) {
         Object o = m.get(key);
         if (o == null) return def;
-        if (!(o instanceof String)) throw new IllegalArgumentException("'" + key + "' must be a string");
+        if (!(o instanceof String)) throw new IllegalArgumentException("'" + key + "': use a string");
         return (String) o;
     }
 }

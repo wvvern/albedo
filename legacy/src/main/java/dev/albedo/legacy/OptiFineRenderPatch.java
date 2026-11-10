@@ -45,8 +45,8 @@ final class OptiFineRenderPatch {
             }
         }
         String message = "OptiFine: " + count + " Albedo hooks in " + target.name;
-        if (count == 0) LogManager.getLogger("Albedo").warn(message);
-        else LogManager.getLogger("Albedo").info(message);
+        if (count == 0) LogManager.getLogger("albedo").warn(message);
+        else LogManager.getLogger("albedo").info(message);
     }
 
     private static MethodInsnNode hook(String name, String desc) {

@@ -24,8 +24,8 @@ class CoreTest {
 
     @Test
     void classifiesModernAndLegacyPaths() {
-        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:stone"), TextureClassifier.classify("minecraft", "textures/block/stone.png"));
-        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:stone"), TextureClassifier.classify("minecraft", "blocks/stone"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:stone"), TextureClassifier.classify("minecraft:textures/block/stone.png"));
+        assertEquals(new TextureKey(Category.BLOCKS, "minecraft:stone"), TextureClassifier.classify("minecraft:blocks/stone"));
         assertEquals(Category.FLUIDS, TextureClassifier.classify("minecraft:block/water_still").category());
         assertEquals(Category.FLUIDS, TextureClassifier.classify("minecraft:blocks/lava_flow").category());
         assertEquals(Category.BLOCK_BREAKING, TextureClassifier.classify("minecraft:block/destroy_stage_3").category());
@@ -44,7 +44,7 @@ class CoreTest {
         assertEquals(Category.PLAYERS, TextureClassifier.classify("minecraft:textures/entity/player/wide/alex.png").category());
         assertEquals(Category.COLORMAPS, TextureClassifier.classify("minecraft:textures/colormap/grass.png").category());
         assertEquals(Category.OTHER, TextureClassifier.classify("minecraft:textures/gui/widgets.png").category());
-        assertEquals("mymod:copper_ore", TextureClassifier.classify("MyMod", "textures/block/copper_ore.png").id());
+        assertEquals("mymod:copper_ore", TextureClassifier.classify("MyMod:textures/block/copper_ore.png").id());
     }
 
     @Test
@@ -158,12 +158,12 @@ class CoreTest {
 
         Rule ground = new Rule("Ground", Arrays.asList("dirt", "grass_block*", "gravel"), Appearance.solid(0xFF7A5C3A), false);
         CategorySettings blocks = c.activeProfile().get(Category.BLOCKS).withRules(Collections.singletonList(ground));
-        assertEquals(0xFF7A5C3A, blocks.appearanceFor("minecraft:grass_block_side").color());
-        assertEquals(0xFFFFFFFF, blocks.appearanceFor("minecraft:stone").color());
+        assertEquals(0xFF7A5C3A, look(blocks, "minecraft:grass_block_side").color());
+        assertEquals(0xFFFFFFFF, look(blocks, "minecraft:stone").color());
 
         // The preset's solid-leaves rule follows a new blocks color but keeps its own (opaque) shape.
         CategorySettings red = c.activeProfile().get(Category.BLOCKS).withAppearance(Appearance.solid(0xFFFF0000));
-        Appearance leaves = red.appearanceFor("minecraft:oak_leaves");
+        Appearance leaves = look(red, "minecraft:oak_leaves");
         assertEquals(0xFFFF0000, leaves.color());
         assertEquals(Appearance.Alpha.OPAQUE, leaves.alpha());
 
@@ -214,14 +214,14 @@ class CoreTest {
 
         // Everything: the global look everywhere, a vanilla group excludes (blacklist).
         CategorySettings everything = new CategorySettings(white, false, false, Collections.singletonList(keep));
-        assertTrue(everything.appearanceFor("minecraft:diamond_ore").isOriginal());
-        assertEquals(white, everything.appearanceFor("minecraft:stone"));
+        assertTrue(look(everything, "minecraft:diamond_ore").isOriginal());
+        assertEquals(white, look(everything, "minecraft:stone"));
         assertEquals(keep, everything.blocksScopeSwitch(), "a vanilla group means nothing under 'only groups'");
 
         // Only groups: unlisted stays vanilla, a global-look group takes the look (whitelist).
         CategorySettings only = new CategorySettings(white, false, true, Collections.singletonList(globalLook));
-        assertTrue(only.appearanceFor("minecraft:stone").isOriginal());
-        assertEquals(white, only.appearanceFor("minecraft:gravel"));
+        assertTrue(look(only, "minecraft:stone").isOriginal());
+        assertEquals(white, look(only, "minecraft:gravel"));
         assertEquals(globalLook, only.blocksScopeSwitch(), "a global-look group means nothing under 'everything'");
 
         // Both survive the file, including the "global look" (no look fields) and "onlyGroups".
@@ -258,7 +258,7 @@ class CoreTest {
         assertTrue(typo.getMessage().contains("'rules'"), typo.getMessage());
         IllegalArgumentException mode = assertThrows(IllegalArgumentException.class,
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"texture\" } } } }"));
-        assertTrue(mode.getMessage().startsWith("x.blocks: "), mode.getMessage());
+        assertTrue(mode.getMessage().startsWith("x.blocks: 'mode': use one of [original, "), mode.getMessage());
         IllegalArgumentException key = assertThrows(IllegalArgumentException.class,
                 () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"texture\": \"a.png\" } } } }"));
         assertTrue(key.getMessage().contains("x.blocks: unknown setting 'texture'"), key.getMessage());
@@ -378,5 +378,9 @@ class CoreTest {
         assertEquals("key.keyboard.keypad.3", Keys.byName("KP_3").minecraftName);
         assertEquals(0x40, Keys.byName("F6").lwjgl2);
         assertNull(Keys.byName("NONE"));
+    }
+
+    private static Appearance look(CategorySettings settings, String id) {
+        return settings.lookOf(settings.ruleFor(id));
     }
 }

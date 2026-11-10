@@ -49,14 +49,9 @@ public final class SkyDesign {
     private final Render render;
     private final SkyTurning turning;
 
-    /** A design with the sharp render. */
+    /** A design with the sharp render and the default turning. */
     public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent) {
-        this(layers, celestial, light, extent, Render.SHARP);
-    }
-
-    /** A design with the default turning. */
-    public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent, Render render) {
-        this(layers, celestial, light, extent, render, SkyTurning.DEFAULT);
+        this(layers, celestial, light, extent, Render.SHARP, SkyTurning.DEFAULT);
     }
 
     public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent, Render render, SkyTurning turning) {

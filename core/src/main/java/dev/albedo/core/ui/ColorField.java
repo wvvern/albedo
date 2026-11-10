@@ -4,9 +4,6 @@ import dev.albedo.core.Colors;
 
 /** A hex input for one color, which keeps the typed text while it has the focus; each color on a page has its own. */
 final class ColorField {
-    /** The height of {@link #draw}, gap not included. */
-    static final int H = Ui.H;
-
     private final Ui ui;
     private final TextField hex = new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#');
 

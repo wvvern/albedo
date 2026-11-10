@@ -9,32 +9,9 @@
 #define ALBEDO_LAYER_VEC4S 10
 #define ALBEDO_RING 64
 
-// The filters have the kind codes from ALBEDO_KIND_BLOOM to ALBEDO_KIND_VIGNETTE, and the generators have the other codes.
-#define ALBEDO_KIND_GRADIENT 1
-#define ALBEDO_KIND_GLOW 2
-#define ALBEDO_KIND_STARS 3
-#define ALBEDO_KIND_NOISE 4
-#define ALBEDO_KIND_FRACTAL 5
-#define ALBEDO_KIND_GALAXY 6
-#define ALBEDO_KIND_BLOOM 7
-#define ALBEDO_KIND_BLUR 8
-#define ALBEDO_KIND_PIXELATE 9
-#define ALBEDO_KIND_CRYSTALLIZE 10
-#define ALBEDO_KIND_SWIRL 11
-#define ALBEDO_KIND_POSTERIZE 12
-#define ALBEDO_KIND_HUE_SHIFT 13
-#define ALBEDO_KIND_VIGNETTE 14
-#define ALBEDO_KIND_METEORS 15
-#define ALBEDO_KIND_AURORA 16
-
-#define ALBEDO_BLEND_NORMAL 0
 #define ALBEDO_BLEND_ADD 1
 #define ALBEDO_BLEND_SCREEN 2
 #define ALBEDO_BLEND_MULTIPLY 3
-
-#define ALBEDO_USE_NONE 0
-#define ALBEDO_USE_MASK 1
-#define ALBEDO_USE_SHOW 2
 
 // The parts of a layer that its values turn on, which SkyShaderSource puts in each layer step, so that the compiler leaves out the parts that are off.
 #define ALBEDO_FLAG_TWINKLE 1

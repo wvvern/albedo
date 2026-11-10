@@ -31,7 +31,7 @@ public final class Rule {
 
     /** Copies share the compiled patterns, so changing a look or name doesn't recompile anything. */
     private Rule(String name, List<String> patterns, List<Glob> globs, Appearance values, Set<Appearance.Field> own) {
-        this.name = name == null ? "" : name;
+        this.name = name;
         this.patterns = patterns;
         this.globs = globs;
         this.values = values;

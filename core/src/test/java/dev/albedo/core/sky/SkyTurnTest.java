@@ -114,14 +114,12 @@ class SkyTurnTest {
 
     @Test
     void theFogTakesTheColorOfTheDesignPartAtTheHorizon() {
-        SkyImage nebula = SkyGenerator.bake(SkyPresets.NEBULA, 128, 64);
-        assertArrayEquals(nebula.fogRgb(-90, 1), nebula.fogRgb(SkyTurn.STILL, -90, 1), "a still sky reads the ring");
         // An image that is black at the top and red at the bottom, with a black ring, and a red that shows the elevation.
         int w = 64, h = 32;
         int[] argb = new int[w * h];
         for (int i = 0; i < argb.length; i++) argb[i] = 0xFF000000 | (i / w * 8) << 16;
         SkyImage img = new SkyImage(argb, w, h, SkyDesign.NONE, new float[SkyImage.RING * 3], null, 1, 1, new short[4]);
-        assertEquals(0, img.fogRgb(-90, 1)[0], 1e-6f);
+        assertEquals(0, img.fogRgb(SkyTurn.STILL, -90, 1)[0], 1e-6f);
         // A quarter turn around the north pole on the horizon puts the bottom of the design at the east horizon.
         float east = img.fogRgb(SkyTurn.of(SUN, 0.25), -90, 1)[0];
         assertEquals(248 / 255f, east, 0.01f, "the fog has the color of the last row, near the nadir of the design");

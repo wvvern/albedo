@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # To add a Minecraft version, add its folder in modern/versions, its entry in modern/settings.gradle, and a line here.
+        # To add a Minecraft version, see "Add a Minecraft version" in docs/ARCHITECTURE.md.
         target: &modern
           # mc-publish reads one game version per line.
           - { mc: '1.21.1', game_versions: "1.21\n1.21.1" }

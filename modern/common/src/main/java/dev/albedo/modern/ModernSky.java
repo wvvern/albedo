@@ -5,7 +5,6 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
-import dev.albedo.core.dev.SkyCpuTime;
 import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
@@ -123,8 +122,7 @@ public final class ModernSky {
     /** The factor of the sky and fog colors for the time of day and the weather, 1 for a sky that stays bright. */
     static float brightness(SkyImage img) {
         ClientLevel level = Minecraft.getInstance().level;
-        if (level == null || img.design().light() != SkyDesign.Light.DAY_NIGHT) return 1f;
-        return SkyLight.brightness(dayTime(level), level.getRainLevel(1f), level.getThunderLevel(1f));
+        return level == null ? 1f : SkyLight.of(img.design(), dayTime(level), level.getRainLevel(1f), level.getThunderLevel(1f));
     }
 
     /** The day time of the world in ticks with no wrap, where 0 is sunrise. */
@@ -177,7 +175,7 @@ public final class ModernSky {
 
     /** Sends a new image to the texture and makes the sphere once; the render thread calls this. */
     private static void prepare(SkyImage img) {
-        if (texture == null || texture.getPixels() == null || texture.getPixels().getWidth() != img.width()
+        if (texture == null || texture.getPixels().getWidth() != img.width()
                 || texture.getPixels().getHeight() != img.height()) {
             if (texture != null) texture.close();
             NativeImage pixels = new NativeImage(img.width(), img.height(), false);
@@ -227,32 +225,19 @@ public final class ModernSky {
     public static void beforePass(boolean overworldSkybox) {
         SkyImage img = Albedo.skyImage();
         if (img == null || !overworldSkybox) return;
-        long start = SkyCpuTime.start();
         prepare(img);
         SharpSky.prepare(img);
-        SkyCpuTime.add(start);
     }
 
     // Draws the sharp sky that waits, in the pass of the solid world, only on the pixels that the world left empty.
     public static void afterSolid(com.mojang.renderpearl.api.commands.RenderPass pass) {
         com.mojang.renderpearl.api.buffers.GpuBufferSlice waiting = DEFER.take();
         if (waiting == null) return;
-        long start = SkyCpuTime.start();
         SharpSky.draw(pass, waiting, sphere, vertexCount);
-        SkyCpuTime.add(start);
     }
 
     // Draws the last uploaded image in the shared sky pass, also when a newer one waits for the next frame, and returns false when there is no custom sky.
     public static boolean draw(com.mojang.renderpearl.api.commands.RenderPass pass) {
-        long start = SkyCpuTime.start();
-        try {
-            return drawInPass(pass);
-        } finally {
-            SkyCpuTime.add(start);
-        }
-    }
-
-    private static boolean drawInPass(com.mojang.renderpearl.api.commands.RenderPass pass) {
         SkyImage img = Albedo.skyImage();
         if (img == null || texture == null || sphere == null || uploaded < 0) return false;
         float k = brightness(img);
@@ -295,15 +280,6 @@ public final class ModernSky {
 
     // Draws the sky in its own render pass in place of the vanilla disc, and returns false when there is no custom sky.
     public static boolean draw() {
-        long start = SkyCpuTime.start();
-        try {
-            return drawPass();
-        } finally {
-            SkyCpuTime.add(start);
-        }
-    }
-
-    private static boolean drawPass() {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
@@ -339,14 +315,12 @@ public final class ModernSky {
     public static void afterSolid() {
         com.mojang.blaze3d.buffers.GpuBufferSlice waiting = DEFER.take();
         if (waiting == null) return;
-        long start = SkyCpuTime.start();
         com.mojang.blaze3d.pipeline.RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
         try (com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
                 .createRenderPass(() -> "Albedo sky", target.getColorTextureView(), java.util.OptionalInt.empty(),
                         target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
             PrecompiledSharpSky.draw(pass, waiting, sphere, vertexCount);
         }
-        SkyCpuTime.add(start);
     }
     *///?} else {
     /*private static com.mojang.blaze3d.vertex.VertexBuffer buildSphere() {
@@ -365,15 +339,6 @@ public final class ModernSky {
 
     // Draws the sky with the matrices of the vanilla disc, and returns false when there is no custom sky.
     public static boolean draw(org.joml.Matrix4f skyModelView, org.joml.Matrix4f projection) {
-        long start = SkyCpuTime.start();
-        try {
-            return drawGl(skyModelView, projection);
-        } finally {
-            SkyCpuTime.add(start);
-        }
-    }
-
-    private static boolean drawGl(org.joml.Matrix4f skyModelView, org.joml.Matrix4f projection) {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
         prepare(img);
@@ -408,11 +373,9 @@ public final class ModernSky {
     public static void afterSolid() {
         Matrix4f waiting = DEFER.take();
         if (waiting == null) return;
-        long start = SkyCpuTime.start();
         GlSharpSky.draw(sphere, waiting, waitingProjection, waitingBrightness);
         com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
         com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
-        SkyCpuTime.add(start);
     }
     *///?}
 }

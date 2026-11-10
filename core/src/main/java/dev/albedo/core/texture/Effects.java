@@ -196,7 +196,6 @@ final class Effects {
         return Math.min(Math.min(x, w - 1 - x), Math.min(y, h - 1 - y));
     }
 
-    /** Adds {@code dl} to a pixel's lightness. */
     private static void shadeLightness(PixelBuffer img, int x, int y, double dl) {
         int p = img.getArgb(x, y);
         if (Colors.alpha(p) == 0) return;

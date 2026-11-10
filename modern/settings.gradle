@@ -22,8 +22,7 @@ plugins {
 
 rootProject.name = 'albedo-modern'
 
-// The Minecraft-free core lives outside this build so the legacy build can share it.
-// It is a project here only so its unit tests run; platform jars compile its sources directly.
+// The core is outside this build so that the legacy build can share it; this project runs its checks and tests.
 include 'core'
 project(':core').projectDir = file('../core')
 
@@ -32,7 +31,7 @@ stonecutter {
     centralScript = 'build.gradle'
 
     create(getRootProject()) {
-        // Each node needs versions/<version>/gradle.properties. Add a node by adding a folder + entry here.
+        // Each node needs versions/<version>/gradle.properties.
         versions '1.21.1', '1.21.11', '26.3'
         vcsVersion = '26.3'
 

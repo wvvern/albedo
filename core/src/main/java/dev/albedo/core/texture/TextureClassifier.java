@@ -11,7 +11,7 @@ import java.util.Locale;
 public final class TextureClassifier {
     private TextureClassifier() {}
 
-    public static TextureKey classify(String namespace, String path) {
+    private static TextureKey classify(String namespace, String path) {
         String p = optiFine(normalise(path));
         int slash = p.indexOf('/');
         String folder = slash < 0 ? p : p.substring(0, slash);
@@ -20,7 +20,7 @@ public final class TextureClassifier {
         return new TextureKey(category(folder, rest), ns + ":" + rest);
     }
 
-    /** Accepts "minecraft:textures/block/stone.png" style strings too. */
+    /** The key of a location such as "minecraft:textures/block/stone.png", where no namespace means "minecraft". */
     public static TextureKey classify(String location) {
         String folder = downloadedFolder(location);
         if (folder != null) return new TextureKey(Category.PLAYERS, "minecraft:" + folder);

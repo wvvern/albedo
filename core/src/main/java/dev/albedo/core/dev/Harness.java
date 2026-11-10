@@ -102,9 +102,7 @@ public final class Harness {
          * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        default boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png, SkyDone done) {
-            return false;
-        }
+        boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png, SkyDone done);
 
         /**
          * Measures the GPU and CPU time of the GPU pass of Chroma in each of the next frames, then logs the times, the
@@ -112,9 +110,7 @@ public final class Harness {
          *
          * @return false when this version has no GPU pass of Chroma, or the pass does not run now
          */
-        default boolean timeChroma(int frames) {
-            return false;
-        }
+        boolean timeChroma(int frames);
 
         /** The frames of the last full second, as the debug screen shows them. */
         int framesPerSecond();
@@ -285,7 +281,6 @@ public final class Harness {
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
         else if (verb.equals("skin")) skin(arg);
         else if (verb.equals("release")) host.releaseTexture(textureArg(arg));
-        else if (verb.equals("overlay") && arg.equals("off")) host.closeScreen();
         else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
@@ -378,7 +373,7 @@ public final class Harness {
 
     /**
      * Sets the sky to a preset of custom layers ({@code sky dusk}), to only its lowest layers ({@code sky galaxy 4}), or
-     * back to the vanilla sky with {@code sky off}.
+     * back to the vanilla sky with {@code sky off}, where a preset with the default turning stands still until {@code skyturn}.
      */
     static Profile withSky(Profile profile, String arg) {
         CategorySettings sky = profile.get(Category.SKY);
@@ -388,6 +383,8 @@ public final class Harness {
         if (design == null || parts.length > 2) {
             throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off> [layers]");
         }
+        // A still sky gives the same screenshots in each run, and Trails keeps the turning that draws its trails.
+        if (design.turning().equals(SkyTurning.DEFAULT)) design = design.withTurning(SkyTurning.STILL);
         if (parts.length == 2) {
             int keep = Integer.parseInt(parts[1]);
             if (keep < 1 || keep > design.layers().size()) throw new IllegalArgumentException("layers: 1 to " + design.layers().size());
@@ -531,25 +528,20 @@ public final class Harness {
 
     /** Takes one sample of {@code fps} each second, and logs the result after the last one. */
     private void sampleFps() {
-        // The sky CPU time starts with the first sample, so that it covers the frames of the samples.
-        if (fpsLeft == fpsSamples.length) SkyCpuTime.take();
         fpsSamples[fpsSamples.length - fpsLeft] = host.framesPerSecond();
         fpsLeft--;
         if (fpsLeft > 0) {
             waitTicks = FPS_TICKS - 1;
             return;
         }
-        long cpu = SkyCpuTime.take();
         int[] s = fpsSamples.clone();
         Arrays.sort(s);
         double sum = 0;
         for (int v : s) sum += v;
         double mean = sum / s.length;
-        // The first sample opens the time of the CPU, so the frames of the samples after it count.
-        double frames = mean * (s.length - 1);
         int[] size = host.frameSize();
-        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame, %.1f us of sky CPU for each frame",
-                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean, frames > 0 ? cpu / 1e3 / frames : 0));
+        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame",
+                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean));
     }
 
     /** Sets the window size from {@code window <width> <height>}. */
@@ -566,15 +558,21 @@ public final class Harness {
     /**
      * Logs the times of the GPU pass of Chroma that an adapter measured for {@code chromatime}.
      *
-     * @param cpu the CPU time of the pass in each frame, in nanoseconds
-     * @param gpuStart the GPU time of the copy and the draws at the start of each frame, in nanoseconds
-     * @param gpuEnd the GPU time of the copy back at the end of each frame, in nanoseconds
+     * @param frames for each frame in nanoseconds: the CPU time of the pass, the GPU time of the copy and the draws at the
+     *     start of the frame, and the GPU time of the copy back at its end
      * @param bytes the GPU memory of the pass
      * @param atlases the names of the atlases that the pass turns
      */
-    public static void logChromaTimes(long[] cpu, long[] gpuStart, long[] gpuEnd, long bytes, String atlases) {
-        long[] gpu = new long[cpu.length];
-        for (int i = 0; i < gpu.length; i++) gpu[i] = gpuStart[i] + gpuEnd[i];
+    public static void logChromaTimes(List<long[]> frames, long bytes, String atlases) {
+        int n = frames.size();
+        long[] cpu = new long[n], gpuStart = new long[n], gpuEnd = new long[n], gpu = new long[n];
+        for (int i = 0; i < n; i++) {
+            long[] f = frames.get(i);
+            cpu[i] = f[0];
+            gpuStart[i] = f[1];
+            gpuEnd[i] = f[2];
+            gpu[i] = f[1] + f[2];
+        }
         log(String.format(Locale.ROOT, "chromatime: %d frames, GPU p50 %.3f ms, p95 %.3f ms, max %.3f ms (start p50 %.3f ms, end p50 %.3f ms),"
                         + " CPU p50 %.3f ms, p95 %.3f ms, GPU memory %.1f MiB for %s",
                 gpu.length, ms(gpu, 50), ms(gpu, 95), ms(gpu, 100), ms(gpuStart, 50), ms(gpuEnd, 50), ms(cpu, 50), ms(cpu, 95),
@@ -695,8 +693,7 @@ public final class Harness {
 
     private void takeCommandFile() {
         File commands = new File(dir, "commands.txt");
-        // Leave a file that is still being written alone; taking it early queues only part of it.
-        if (!commands.isFile() || System.currentTimeMillis() - commands.lastModified() < 500) return;
+        if (!commands.isFile()) return;
         File taken = new File(dir, "commands.taken");
         taken.delete();
         if (!commands.renameTo(taken)) return; // the writer may still hold it; try next tick
