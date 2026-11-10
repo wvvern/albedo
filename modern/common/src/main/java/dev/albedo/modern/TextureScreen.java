@@ -17,7 +17,7 @@ final class TextureScreen extends Screen {
     /** @param id the texture, for example "minecraft:skins/<sha1>" */
     TextureScreen(String id) {
         super(Component.literal("Texture"));
-        this.texture = ModernHarnessHost.id(id);
+        this.texture = HarnessSkins.id(id);
     }
 
     @Override
