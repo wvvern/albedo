@@ -120,8 +120,9 @@ final class TextureUploads {
     /*// A stand-alone texture, loaded again with the blur and clamp of its metadata file, as TextureContents.load reads them.
     static TextureStore.Upload texture(Object location) {
         return pixels -> {
-            if (!(registered(location) instanceof net.minecraft.client.renderer.texture.ReloadableTexture texture)
-                    || !texture.resourceId().equals(location)) return false;
+            AbstractTexture registered = registered(location);
+            if (!(registered instanceof net.minecraft.client.renderer.texture.ReloadableTexture)
+                    || !((net.minecraft.client.renderer.texture.ReloadableTexture) registered).resourceId().equals(location)) return false;
             boolean blur = false;
             boolean clamp = false;
             java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
@@ -139,7 +140,7 @@ final class TextureUploads {
             }
             try (NativeImage image = new NativeImage(pixels.width(), pixels.height(), false)) {
                 write(pixels, image);
-                ((TextureUploadInvoker) texture).albedo$doLoad(image, blur, clamp);
+                ((TextureUploadInvoker) registered).albedo$doLoad(image, blur, clamp);
             }
             return true;
         };
