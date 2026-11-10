@@ -5,7 +5,7 @@ Albedo uses ports and adapters. The core has almost all of the code and no Minec
 | Module | Contents |
 |--------|----------|
 | `core/` | Plain Java 8, no Minecraft types. Config, `Policy`, texture classification and pixel math, the custom sky (bake and shaders), the settings screen (`ui/`) and the harness (`dev/Harness`). It compiles into every jar. It has unit tests. |
-| `modern/` | 1.21.1, 1.21.4, 1.21.11 and 26.3, Fabric and NeoForge, with Mojang names. Stonecutter 0.9, Architectury Loom 1.17, Gradle 9.8. `common/` has the adapter and the mixins. `fabric/` and `neoforge/` have only the entrypoint and the config button. |
+| `modern/` | 1.21.1, 1.21.3, 1.21.4, 1.21.11 and 26.3, Fabric and NeoForge, with Mojang names. Stonecutter 0.9, Architectury Loom 1.17, Gradle 9.8. `common/` has the adapter and the mixins. `fabric/` and `neoforge/` have only the entrypoint and the config button. |
 | `legacy/` | 1.8.9 Forge, with MCP names. Essential Loom 0.10, Mixin 0.7.11, Gradle 8.8. Gradle runs on JDK 21, the game on Java 8. |
 
 One tool chain cannot build both 1.8.9 Forge and 26.x, so there are two builds. Both compile `core/src`.
