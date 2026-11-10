@@ -1,4 +1,4 @@
-# The same commands as fog-modern.txt for 1.8.9, which has no powder snow and no darkness. Run it after scene-legacy.txt:
+# The commands of fog-modern.txt for 1.8.9, which has no powder snow and no darkness, with lava and blindness also for the sky off and for Nebula. Run it after scene-legacy.txt:
 # ./tools/screenshots.ps1 -Targets forge-1.8.9 -Extra fog-legacy.txt -Shots sky-frame.txt -OutDir build\fog
 wait 60
 profile minimal
@@ -18,6 +18,17 @@ screenshot fog-water-off-side
 run tp @p 38.5 7 0.5 90 -60
 wait 10
 screenshot fog-water-off-up
+run tp @p 54.5 6 0.5 90 -30
+wait 20
+screenshot fog-lava-off
+run tp @p 0.5 4 4.5 180 -10
+wait 20
+screenshot fog-air-off
+run effect @p 15 60 0 true
+wait 40
+screenshot fog-blindness-off
+run effect @p clear
+wait 40
 sky dusk
 wait 160
 run tp @p 38.5 7 0.5 90 0
@@ -49,6 +60,26 @@ screenshot fog-blindness-dusk
 run effect @p clear
 wait 40
 screenshot fog-air-dusk-after
+sky nebula
+wait 160
+run tp @p 38.5 7 0.5 90 0
+wait 10
+screenshot fog-water-nebula-side
+run tp @p 38.5 7 0.5 90 -60
+wait 10
+screenshot fog-water-nebula-up
+run tp @p 54.5 6 0.5 90 -30
+wait 20
+screenshot fog-lava-nebula
+run tp @p 0.5 4 4.5 180 -10
+wait 20
+screenshot fog-air-nebula
+run effect @p 15 60 0 true
+wait 40
+screenshot fog-blindness-nebula
+run effect @p clear
+wait 40
+screenshot fog-air-nebula-after
 sky off
 run fill 30 3 -8 58 14 8 minecraft:air
 run fill 30 3 -8 58 3 8 minecraft:grass
