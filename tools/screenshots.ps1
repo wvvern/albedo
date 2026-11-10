@@ -10,7 +10,8 @@ Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
-that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image, the hooks line shows
+that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image at the window size
+(1600 x 900, or the size of the last window command), the hooks line shows
 that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
 
 .EXAMPLE
@@ -61,13 +62,23 @@ function Set-Options([string]$runDir) {
     ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii (Join-Path $runDir "options.txt")
 }
 
-function Set-EarlyWindow([string]$runDir) {
-    # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
+function Set-TomlKey([string]$runDir, [string]$name, [string]$key, [string]$value) {
+    # Puts "key = value" at the top of config/<name>, where it is outside each table, in place of the old line of the key.
     $config = Join-Path $runDir "config"
     New-Item -ItemType Directory -Force $config | Out-Null
-    $file = Join-Path $config "fml.toml"
-    $lines = @(if (Test-Path $file) { Get-Content $file | Where-Object { $_ -notmatch "^\s*earlyWindowControl\s*=" } })
-    @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
+    $file = Join-Path $config $name
+    $lines = @(if (Test-Path $file) { Get-Content $file | Where-Object { $_ -notmatch "^\s*$key\s*=" } })
+    @("$key = $value") + $lines | Set-Content -Encoding ascii $file
+}
+
+function Get-PngSize([string]$file) {
+    # The width and the height are the first two big-endian numbers of the IHDR chunk, at byte 16.
+    $stream = [IO.File]::OpenRead($file)
+    try {
+        $head = New-Object byte[] 24
+        if ($stream.Read($head, 0, 24) -lt 24) { return "not a PNG" }
+    } finally { $stream.Dispose() }
+    "$([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 16))) x $([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 20)))"
 }
 
 function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [string[]]$hooks) {
@@ -89,14 +100,22 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     }
     # The harness renames commands.txt to commands.taken when it reads it.
     $compares = 0
+    # The game starts at the size of the run task, and the command "window" changes it.
+    $size = "1600 x 900"
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
         if ($words[0] -eq "skycompare") { $compares++ }
-        if ($words[0] -eq "screenshot" -and -not (Test-Path (Join-Path $harness "$($words[1] -replace '\.png$', '').png"))) {
-            "no image for: $line"
-        } elseif ($words[0] -eq "frames" -and @(Get-ChildItem $harness -Filter "$($words[2])-*.png").Count -lt [int]$words[1]) {
-            "not all images for: $line"
+        if ($words[0] -eq "window") { $size = "$($words[1]) x $($words[2])" }
+        $images = @()
+        if ($words[0] -eq "screenshot") {
+            $images = @(Get-Item (Join-Path $harness "$($words[1] -replace '\.png$', '').png") -ErrorAction SilentlyContinue)
+            if ($images.Count -eq 0) { "no image for: $line" }
+        } elseif ($words[0] -eq "frames") {
+            $images = @(Get-ChildItem $harness -Filter "$($words[2])-*.png")
+            if ($images.Count -lt [int]$words[1]) { "not all images for: $line" }
         }
+        # A game window of the wrong size gives screenshots that do not compare with the reference.
+        $images | Where-Object { (Get-PngSize $_.FullName) -ne $size } | ForEach-Object { "$($_.Name) is $(Get-PngSize $_.FullName), expected $size" }
     }
     # A skycompare logs its result in a later frame, so a run can get to quit with no result.
     $same = @($harnessText -match "^skycompare .*: same$").Count
@@ -140,7 +159,12 @@ foreach ($target in $Targets) {
     # Images that the commands load, for example the test skin of skins.txt.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
-    if (-not $legacy -and $loader -ne "fabric") { Set-EarlyWindow $runDir }
+    # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
+    if (-not $legacy -and $loader -ne "fabric") { Set-TomlKey $runDir "fml.toml" "earlyWindowControl" "false" }
+    # The NeoForge dev run checks each Blaze3D call, but Sodium 0.8.14 casts a texture that this check wraps, so -Compat stops it.
+    if (-not $legacy -and $loader -eq "neoforge") {
+        Set-TomlKey $runDir "neoforge-client.toml" "enableB3DValidationLayer" $(if ($Compat) { "false" } else { "true" })
+    }
     $irisRun = $iris -and -not $legacy
     if ($irisRun) { Set-Iris $runDir }
     # Use the default config (or the -Config file) and a new world each time, so the screenshots are the same each run.
@@ -194,9 +218,10 @@ foreach ($target in $Targets) {
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
-    # A renderer mod replaces the terrain draw, so only the hooks that it does not touch must run.
-    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow") }
-             else { @("afterSolid", "tint", "fullbright", "shadow") }
+    # A renderer mod replaces the terrain draw, so its own tint hook must run in place of the game's tint and afterSolid hooks.
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") }
+             elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint") }
+             else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |

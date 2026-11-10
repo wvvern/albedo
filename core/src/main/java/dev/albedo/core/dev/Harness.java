@@ -198,6 +198,9 @@ public final class Harness {
     /** The largest part of far-off pixels that {@code chromacompare} accepts. */
     static final double CHROMA_FAR_LIMIT = 0.002;
 
+    /** The smallest mean difference of a channel in 8-bit steps at which {@code framechanged} says that the frame changed. */
+    static final double FRAME_CHANGE_LIMIT = 8.0;
+
     private static volatile File logFile;
 
     private final File dir;
@@ -230,6 +233,8 @@ public final class Harness {
     private volatile int[] chromaGpuFrame, chromaCpuFrame;
     /** The width and the height of the frame with the GPU colors. */
     private volatile int[] chromaFrameSize;
+    /** The middle of the frame of the last {@code keepframe}, which another thread gives. */
+    private volatile int[] keptFrame;
 
     private Harness(File dir, Platform platform) {
         this.dir = dir;
@@ -336,6 +341,8 @@ public final class Harness {
         else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("clouds")) log(cloudsLine(host.cloudsDrawn(), arg));
+        else if (verb.equals("keepframe")) host.framePixels((w, h, argb) -> keptFrame = middle(argb, w, h));
+        else if (verb.equals("framechanged")) frameChanged(arg);
         else if (verb.equals("settings")) {
             if (arg.equals("open")) platform.openSettings();
             else host.closeScreen();
@@ -372,6 +379,31 @@ public final class Harness {
         if (!expected.equals("shown") && !expected.equals("hidden")) throw new IllegalArgumentException("clouds shown|hidden");
         String now = drawn ? "shown" : "hidden";
         return now.equals(expected) ? "clouds " + now : "! clouds " + now + ", expected " + expected;
+    }
+
+    /** Logs whether the middle of the next frame differs from the frame of the last {@code keepframe}, for example after a block goes. */
+    private void frameChanged(String name) {
+        int[] kept = keptFrame;
+        if (kept == null) {
+            log("! framechanged " + name + ": no keepframe before it");
+            return;
+        }
+        host.framePixels((w, h, argb) -> log(frameChangedLine(name, chromaDifference(kept, middle(argb, w, h), CHROMA_FAR_STEP)[0])));
+    }
+
+    /** The middle part of a frame, a fifth of its width and of its height, where a check puts the thing that it looks at. */
+    static int[] middle(int[] argb, int width, int height) {
+        int w = Math.max(1, width / 5), h = Math.max(1, height / 5), x0 = (width - w) / 2, y0 = (height - h) / 2;
+        int[] out = new int[w * h];
+        for (int y = 0; y < h; y++) System.arraycopy(argb, (y0 + y) * width + x0, out, y * w, w);
+        return out;
+    }
+
+    /** The log line of {@code framechanged}, which starts with "!" when the mean difference is not above its limit. */
+    static String frameChangedLine(String name, double mean) {
+        boolean changed = mean > FRAME_CHANGE_LIMIT;
+        return String.format(Locale.ROOT, "%sframechanged %s: mean %.1f steps (limit %.1f)%s", changed ? "" : "! ", name, mean,
+                FRAME_CHANGE_LIMIT, changed ? "" : ": the frame did not change");
     }
 
     /** Types as a real keyboard does: the key of a letter or digit goes down, its character follows, and the key goes up. */

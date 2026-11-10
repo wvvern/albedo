@@ -91,7 +91,9 @@ if (loader != 'common' && project.hasProperty('compat')) {
         if ('embeddium' in mods) logger.warn('-Pcompat: Iris needs Sodium, so Embeddium is not added')
         mods = ['sodium'] + (mods - ['sodium', 'embeddium'])
     }
-    def runtime = unobfuscated ? 'runtimeOnly' : 'modLocalRuntime'
+    // NeoForge runs with Mojang names from 1.20.5, and a remap would drop the jar-in-jar list from which Sodium loads its mod.
+    def mojangRuntime = unobfuscated || (loader == 'neoforge' && stonecutter.eval(stonecutter.current.version, '>=1.20.5'))
+    def runtime = mojangRuntime ? 'runtimeOnly' : 'modLocalRuntime'
     repositories {
         exclusiveContent {
             forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }

@@ -29,9 +29,11 @@ public final class ModernHooks {
     private static final HookCounter CLOUDS = new HookCounter("clouds");
     private static final HookCounter FULLBRIGHT = new HookCounter("fullbright");
     private static final HookCounter SHADOW = new HookCounter("shadow");
+    /** The flat sky hook, which a loader can skip when it adds an overload of the sky pass method and calls that one. */
+    private static final HookCounter SKY_PASS = new HookCounter("skyPass");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
     static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_SHADE, ITEM_ICON, CLOUDS, DRY_FOLIAGE,
-            FULLBRIGHT, SHADOW);
+            FULLBRIGHT, SHADOW, SKY_PASS);
 
     private ModernHooks() {}
 
@@ -161,6 +163,7 @@ public final class ModernHooks {
     }
 
     public static boolean overridesSky() {
+        SKY_PASS.run();
         return Albedo.currentPolicy().overridesSky();
     }
 
