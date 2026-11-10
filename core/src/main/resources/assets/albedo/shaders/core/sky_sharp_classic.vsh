@@ -9,6 +9,8 @@ varying vec3 skyPosition;
 
 void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    // The far depth, so that a depth test hides the sky behind the world.
+    gl_Position.z = gl_Position.w;
     skyPosition = gl_Vertex.xyz;
 }
 #else
@@ -35,6 +37,8 @@ out vec3 skyPosition;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+    // The far depth, so that a depth test hides the sky behind the world.
+    gl_Position.z = gl_Position.w;
     skyPosition = Position;
 }
 #endif

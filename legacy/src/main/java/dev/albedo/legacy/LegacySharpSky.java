@@ -166,30 +166,40 @@ final class LegacySharpSky {
         return null;
     }
 
-    /** Compiles the program and sends the term images of a new image to the GPU. */
-    static void prepare(SkyImage img) {
+    /**
+     * Compiles the program and sends the term images of a new image to the GPU.
+     *
+     * @return true when the sky shader draws this image, false when the baked texture must draw it
+     */
+    static boolean prepare(SkyImage img) {
         Program sharp = img.drawsSharp() ? SHARP.get(img.program().shaderSteps()) : null;
         ready = sharp != null && sharp.ready() ? sharp : null;
-        if (ready == null || blockSerial == img.serial()) return;
+        if (ready == null) return false;
+        if (blockSerial == img.serial()) return true;
         if (termTexture != 0) GlStateManager.deleteTexture(termTexture);
         block = new Block(img.program());
         termTexture = uploadTerms(img);
         blockSerial = img.serial();
+        return true;
     }
 
     /**
-     * Draws the image sharp on the sphere display list.
-     *
-     * @return false when the baked texture must draw the sky
+     * Adds the image of the last {@link #prepare} on the sphere display list to a black frame, only where the depth is
+     * still the far depth of the clear, and leaves the blend and the depth write off.
      */
-    static boolean draw(SkyImage img, int sphere, float brightness) {
-        if (ready == null || blockSerial != img.serial()) return false;
+    static void draw(int sphere, float brightness) {
         ready.use(block, SkyClock.seconds(), termTexture, brightness);
+        GlStateManager.enableDepth();
+        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager.depthMask(false);
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
         GlStateManager.disableCull();
         GlStateManager.callList(sphere);
         GlStateManager.enableCull();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        GlStateManager.disableBlend();
         GL20.glUseProgram(0);
-        return true;
     }
 
     /** A compiled shader of a type, or an exception with the log of the GL. */

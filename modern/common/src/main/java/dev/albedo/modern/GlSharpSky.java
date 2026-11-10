@@ -155,30 +155,37 @@ final class GlSharpSky {
 
     private GlSharpSky() {}
 
-    // Compiles the program and sends the term images of a new image to the GPU.
-    static void prepare(SkyImage img) {
+    // Compiles the program and sends the term images of a new image to the GPU, and returns true when the sky shader draws this image.
+    static boolean prepare(SkyImage img) {
         Program sharp = ModernSky.wantsSharp(img) ? SHARP.get(img.program().shaderSteps()) : null;
         ready = sharp != null && sharp.ready() ? sharp : null;
-        if (ready == null || blockSerial == img.serial()) return;
+        if (ready == null) return false;
+        if (blockSerial == img.serial()) return true;
         if (termTexture != 0) GlStateManager._deleteTexture(termTexture);
         block = new Block(img.program());
         termTexture = uploadTerms(img);
         blockSerial = img.serial();
+        return true;
     }
 
-    // Draws the image sharp on the sphere and returns true, or returns false when the baked texture must draw it.
-    static boolean draw(SkyImage img, VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
-        if (ready == null || blockSerial != img.serial()) return false;
+    // Adds the image of the last prepare on the sphere to a black frame, only where the depth is still the far depth of the clear, and leaves the depth write off.
+    static void draw(VertexBuffer sphere, Matrix4f modelView, Matrix4f projection, float brightness) {
         ready.use(block, SkyClock.seconds(), termTexture, brightness);
         GL20.glUniformMatrix4fv(ready.modelView, false, modelView.get(new float[16]));
         GL20.glUniformMatrix4fv(ready.projection, false, projection.get(new float[16]));
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE);
         RenderSystem.disableCull();
         sphere.bind();
         sphere.draw();
         VertexBuffer.unbind();
         RenderSystem.enableCull();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableBlend();
         release();
-        return true;
     }
 
     // Takes the program out of use through a shader instance, because an instance skips glUseProgram when it thinks that its program is still in use.

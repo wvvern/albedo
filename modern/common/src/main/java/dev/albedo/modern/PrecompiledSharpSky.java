@@ -4,6 +4,7 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -126,7 +127,7 @@ final class PrecompiledSharpSky {
     // The number of pipelines, which gives each pipeline its own name.
     private static int pipelines;
 
-    // The sky on the sphere with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
+    // The sky on the sphere.
     private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE,
             steps -> new Pipeline(pipelines++, SkyShaderSource.SHARP, steps), pipeline -> { });
 
@@ -142,13 +143,14 @@ final class PrecompiledSharpSky {
         }
         // The game warns about a sampler that the program does not use.
         if (terms) b.withSampler("AlbedoTerms");
+        // The sky sphere adds its color to a black frame only where the depth is still the far depth of the clear.
+        if (name.equals(SkyShaderSource.SHARP)) b.withBlend(BlendFunction.ADDITIVE).withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST);
+        else b.withoutBlend().withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST);
         return b.withUniform("AlbedoSky", UniformType.UNIFORM_BUFFER)
                 .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/" + name.replace('/', '_') + "_" + n))
                 .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, name))
                 .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, name + "/" + n))
-                .withoutBlend()
                 .withDepthWrite(false)
-                .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
                 .withCull(false)
                 .withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.TRIANGLES);
     }
@@ -175,11 +177,11 @@ final class PrecompiledSharpSky {
         }
     }
 
-    // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens.
-    static void prepare(SkyImage img) {
+    // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens, and returns true when the sky shader draws this image.
+    static boolean prepare(SkyImage img) {
         Pipeline sharp = ModernSky.wantsSharp(img) ? SHARP.get(img.program().shaderSteps()) : null;
         ready = sharp != null && sharp.ready() ? sharp : null;
-        if (ready == null) return;
+        if (ready == null) return false;
         if (blockSerial != img.serial()) {
             if (block != null) block.close();
             if (terms != null) terms.close();
@@ -188,6 +190,7 @@ final class PrecompiledSharpSky {
             blockSerial = img.serial();
         }
         if (img.program().moves()) writeTime(block, SkyClock.seconds());
+        return true;
     }
 
     // Writes the time of the layers that move into the header of a block, outside a render pass.
@@ -196,9 +199,8 @@ final class PrecompiledSharpSky {
         RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
     }
 
-    // Draws the image sharp in the sky pass and returns true, or returns false when the baked texture must draw it.
-    static boolean draw(RenderPass pass, SkyImage img, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
-        if (ready == null || blockSerial != img.serial()) return false;
+    // Draws the image of the last prepare sharp in a pass that has the depth of the frame.
+    static void draw(RenderPass pass, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
         pass.setPipeline(ready.pipeline);
         RenderSystem.bindDefaultUniforms(pass);
         pass.setUniform("DynamicTransforms", transforms);
@@ -206,7 +208,6 @@ final class PrecompiledSharpSky {
         terms.bind(pass);
         pass.setVertexBuffer(0, sphere);
         pass.draw(0, vertexCount);
-        return true;
     }
 
     // A uniform buffer with the block of a program at a time, which writeTime can change.

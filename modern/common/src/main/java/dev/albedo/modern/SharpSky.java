@@ -12,6 +12,7 @@ import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuQueryPool;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline;
@@ -169,7 +170,7 @@ final class SharpSky {
     private static final int CACHE = 4;
     private static int pipelines;
 
-    // The sky on the sphere with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
+    // The sky on the sphere, added to a black frame only where the depth is still the far depth of the clear, with no cull.
     private static final SkyShaderCache<Pipeline> SHARP = new SkyShaderCache<Pipeline>(CACHE, steps -> new Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(BindGroupLayouts.PROJECTION)
@@ -178,8 +179,8 @@ final class SharpSky {
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_sharp_" + pipelines++))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_sharp"))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/sky_sharp"))
-            .withColorTargetState(ColorTargetState.DEFAULT)
-            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
+            .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
+            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
             .withCull(false)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
@@ -207,10 +208,13 @@ final class SharpSky {
 
     private SharpSky() {}
 
-    /** Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens. */
-    static void prepare(SkyImage img) {
+    /**
+     * Starts the compile and sends the numbers and the term images of a new image to the GPU, before the sky pass opens,
+     * and returns true when the sky shader draws this image.
+     */
+    static boolean prepare(SkyImage img) {
         ready = ModernSky.wantsSharp(img) ? SHARP.get(img.program().shaderSteps()).get() : null;
-        if (ready == null) return;
+        if (ready == null) return false;
         if (blockSerial != img.serial()) {
             if (block != null) block.close();
             if (terms != null) terms.close();
@@ -219,6 +223,12 @@ final class SharpSky {
             blockSerial = img.serial();
         }
         if (img.program().moves()) writeTime(block, SkyClock.seconds());
+        return true;
+    }
+
+    /** True when the sky shader draws the image of the last {@link #prepare}. */
+    static boolean ready() {
+        return ready != null;
     }
 
     /** Writes the time of the layers that move into the header of a block, outside a render pass. */
@@ -227,12 +237,8 @@ final class SharpSky {
         RenderSystem.getDevice().createCommandEncoder().writeToBuffer(target.slice(SkyProgram.TIME * 4L, 4L), TIME_BYTES);
     }
 
-    /**
-     * Draws the image of the last {@link #prepare} sharp in the sky pass, also when a newer image came after it, and returns
-     * true, or returns false when the baked texture must draw it.
-     */
-    static boolean draw(RenderPass pass, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
-        if (ready == null) return false;
+    /** Draws the image of the last {@link #prepare} sharp in a pass that has the depth of the frame, also when a newer image came after it. */
+    static void draw(RenderPass pass, GpuBufferSlice transforms, GpuBuffer sphere, int vertexCount) {
         pass.pushDebugGroup(() -> "Albedo sharp sky");
         pass.setPipeline(ready);
         RenderSystem.bindDefaultUniforms(pass);
@@ -242,7 +248,6 @@ final class SharpSky {
         pass.setVertexBuffer(0, sphere.slice());
         pass.draw(vertexCount, 1, 0, 0);
         pass.popDebugGroup();
-        return true;
     }
 
     /** A uniform buffer with the block of a program at a time, which {@link #writeTime} can change. */

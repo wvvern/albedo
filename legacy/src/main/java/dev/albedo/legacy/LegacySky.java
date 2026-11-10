@@ -14,6 +14,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
@@ -36,6 +37,11 @@ public final class LegacySky {
     private static int sphere = -1;
     /** The matrix of a turning sky for the GL, which each frame fills again. */
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
+    /** The rotation and the brightness of the sharp sky of this frame until the solid world is drawn, else null. */
+    private static SkyTurn waiting;
+    private static float waitingBrightness;
+    /** True after the first call from the solid layers of the world; before it, the sharp sky draws in the sky pass. */
+    private static boolean afterSolidRuns;
 
     private LegacySky() {}
 
@@ -104,29 +110,69 @@ public final class LegacySky {
         SkyImage img = image();
         if (img == null) return false;
         prepare(img);
-        LegacySharpSky.prepare(img);
+        waiting = null;
         float k = brightness(img);
         SkyTurn turn = turn(img);
+        if (LegacySharpSky.prepare(img)) {
+            // The sharp sky adds its color to the frame, so the frame must be black below it.
+            GlStateManager.clearColor(0f, 0f, 0f, 0f);
+            GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT);
+            // The sharp sky waits for the solid world, which then hides a part of it from the shader.
+            if (afterSolidRuns) {
+                waiting = turn;
+                waitingBrightness = k;
+            } else {
+                drawSharp(turn, k);
+            }
+            return true;
+        }
         GlStateManager.pushMatrix();
-        if (!turn.still()) {
-            TURN.clear();
-            TURN.put(turn.matrix()).flip();
-            GL11.glMultMatrix(TURN);
-        }
-        if (!LegacySharpSky.draw(img, sphere, k)) {
-            GlStateManager.enableTexture2D();
-            GlStateManager.disableFog();
-            GlStateManager.disableCull();
-            GlStateManager.color(k, k, k, 1f);
-            GlStateManager.bindTexture(texture.getGlTextureId());
-            GlStateManager.callList(sphere);
-            GlStateManager.enableCull();
-            GlStateManager.enableFog();
-            GlStateManager.disableTexture2D();
-            GlStateManager.color(1f, 1f, 1f, 1f);
-        }
+        turnMatrix(turn);
+        GlStateManager.enableTexture2D();
+        GlStateManager.disableFog();
+        GlStateManager.disableCull();
+        GlStateManager.color(k, k, k, 1f);
+        GlStateManager.bindTexture(texture.getGlTextureId());
+        GlStateManager.callList(sphere);
+        GlStateManager.enableCull();
+        GlStateManager.enableFog();
+        GlStateManager.disableTexture2D();
+        GlStateManager.color(1f, 1f, 1f, 1f);
         GlStateManager.popMatrix();
         return true;
+    }
+
+    /** Multiplies the model view matrix of the GL by the matrix of a sky that turns. */
+    private static void turnMatrix(SkyTurn turn) {
+        if (turn.still()) return;
+        TURN.clear();
+        TURN.put(turn.matrix()).flip();
+        GL11.glMultMatrix(TURN);
+    }
+
+    private static void drawSharp(SkyTurn turn, float brightness) {
+        GlStateManager.pushMatrix();
+        turnMatrix(turn);
+        LegacySharpSky.draw(sphere, brightness);
+        GlStateManager.popMatrix();
+    }
+
+    /** Draws the sharp sky that waits, before the clouds or after the solid world, whose camera matrix is that of the sky. */
+    public static void drawWaiting() {
+        if (waiting == null) return;
+        long start = SkyCpuTime.start();
+        drawSharp(waiting, waitingBrightness);
+        waiting = null;
+        GlStateManager.depthMask(true);
+        // The sky shader left its term texture on the unit of the block textures.
+        Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+        SkyCpuTime.add(start);
+    }
+
+    /** Draws the sharp sky that waits after the solid world, only on the pixels that the world left empty. */
+    public static void afterSolid() {
+        afterSolidRuns = true;
+        drawWaiting();
     }
 
     private static void prepare(SkyImage img) {

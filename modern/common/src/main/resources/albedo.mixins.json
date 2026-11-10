@@ -18,6 +18,7 @@
     "MouseHandlerInvoker",
     "ShadowMixin",
     "SkinTextureMixin",
+    "SkyAfterSolidMixin",
     "SkyLayersMixin",
     "SkyMixin",
     "SodiumAmbientOcclusionMixin",

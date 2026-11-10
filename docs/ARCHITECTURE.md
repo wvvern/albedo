@@ -66,6 +66,7 @@ Traps:
 `sky/SkyGenerator` bakes a `SkyDesign` into an equirectangular `SkyImage` on the CPU (`SkyBaker`, in the background). `sky/SkyProgram` puts the layer numbers into one block of floats. The sky shader (`core/src/main/resources/assets/albedo/shaders`) reads the same block and draws each screen pixel ("Sharp render"). The baked texture is the fallback.
 
 - Each sky gets its own shader. `SkyShaderSource.layerSteps` writes `ALBEDO_LAYER_STEPS`: a direct call of the function of the kind of each layer, with its blend, mask and parts (twinkle, trails, spikes, pulse, dust, jets) as constants. The values stay in the block, so a shader compiles again only when the steps change. Each adapter keeps the shaders of the last skies (`SkyShaderCache`).
+- The sky shader draws only the pixels that the world does not hide. In the sky pass the adapter clears the frame to black, and the vanilla sun, moon and stars draw on it. After the solid world, the sky sphere draws at the far depth with a depth test and adds its color to the frame. The sum is the same as a sky with the sun, the moon and the stars on it. The hook after the solid world is `SkyAfterSolidMixin` (26.x `LevelRenderer.executeSolid`, 1.21.11 `ChunkSectionsToRender.renderGroup`, 1.21.1 `LevelRenderer.renderSectionLayer`) and `RenderGlobal.renderBlockLayer` on 1.8.9. Until this hook runs for the first time, the sphere draws in the sky pass, so a renderer mod that removes the hook only loses the speed. The baked texture always draws in the sky pass.
 - The term texture also holds field images: the smooth noise of each cloud and fractal layer (cloud value, bend of the ridges, pulse noise) that the bake writes at the texel centers. The shader reads them with linear filters, and calculates only the sharp ridges of a fractal for each pixel.
 
 Invariants:
@@ -84,6 +85,8 @@ Traps per version:
 - 26.x: `SharpSky` has its own shader source, because Fabric without Fabric API does not load mod assets.
 - 1.21.11: `PrecompiledSharpSky` precompiles before each sky pass, because a resource reload empties the pipeline cache. The game has no half float format, so the term texture is written again through the GL after a one-texel `writeToTexture` that binds it. Do not cast a `GpuTexture` to the GL class: the NeoForge validation layer gives a wrapper.
 - 1.21.1 (`GlSharpSky`) and 1.8.9 (`LegacySharpSky`) compile their own GL program. 1.8.9 uses GLSL 1.30, else GLSL 1.20 with EXT_gpu_shader4, else the baked image. A failed compile logs one warning and draws the baked image.
+- 1.8.9: below the cloud height the clouds draw before the world and blend with the sky, so the sky sphere draws before them (`RenderGlobal.renderClouds`) and the world hides nothing from the shader. With clouds off, or above the cloud height, the sphere draws after the solid world.
+- Do not draw a thing that blends with the sky, or that has no depth test, between the sky pass and the solid world: it gets a black background.
 - On 1.8.9 with Use VBOs on, vanilla binds its sky buffer before the sky hook, and LWJGL refuses a draw from client memory while a buffer is bound. `LegacySky.drawSky` unbinds it while the custom sky draws. The dev run has VBOs off, so test this case with `useVbo:true` in `legacy/run/options.txt`.
 
 ## OptiFine on 1.8.9
