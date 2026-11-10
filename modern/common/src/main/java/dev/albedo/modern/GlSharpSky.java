@@ -41,7 +41,6 @@ import java.nio.ByteBuffer;
 final class GlSharpSky {
     private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
 
-    // The state of the compile of one program.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     // The block of a sky program as the four uniform arrays of the shader, which set fills again for each draw.
@@ -145,10 +144,9 @@ final class GlSharpSky {
     }
 
     // The programs of each sky that came recently.
-    private static final int CACHE = 4;
-    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(CACHE, steps -> new Program(SkyShaderSource.SHARP, steps),
-            Program::close);
-    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(CACHE,
+    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
+            steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
+    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
             steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
 
     private static final Block BLOCK = new Block();
@@ -305,16 +303,11 @@ final class GlSharpSky {
         return true;
     }
 
-    // Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null.
+    // The SkyImage.quad of a view, or of the whole image for null.
     private static VertexBuffer quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] v = SkyImage.quad(view);
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-        for (int i = 0; i < corners.length; i++) {
-            int c = corner[i] * 3;
-            if (view == null) b.addVertex(0, 0, 0).setUv(corners[i][0], corners[i][1]);
-            else b.addVertex(view[c], view[c + 1], view[c + 2]).setUv(corners[i][0], corners[i][1]);
-        }
+        for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
         VertexBuffer buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
         buffer.bind();
         buffer.upload(b.buildOrThrow());

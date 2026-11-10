@@ -10,14 +10,14 @@ public final class Chroma {
     /** The floats of the turns block of a GPU pass: one for each speed from 0 to {@link #MAX_SPEED}, in whole vec4 values. */
     public static final int TURN_FLOATS = (MAX_SPEED / 4 + 1) * 4;
     /** The time of one turn around the colors at speed 1 and at speed 100, in milliseconds. */
-    static final long SLOWEST_PERIOD_MS = 120_000, FASTEST_PERIOD_MS = 10_000;
+    static final long SLOWEST_PERIOD_MS = 120_000, FASTEST_PERIOD_MS = 2_000;
     public static final Chroma OFF = new Chroma(0, DEFAULT_SPEED, DEFAULT_SATURATION, DEFAULT_BRIGHTNESS);
 
     private final int strength, speed, saturation, brightness;
 
     /**
      * @param strength percent of the rainbow color, where 0 is off
-     * @param speed 0 for still colors, else from 1 (one turn in 120 s) to 100 (one turn in 10 s)
+     * @param speed 0 for still colors, else from 1 (one turn in 120 s) to 100 (one turn in 2 s)
      * @param saturation percent, where 50 is the default strength of the colors
      * @param brightness percent, where 50 is the default lightness of the colors
      */
@@ -49,7 +49,7 @@ public final class Chroma {
         return new Chroma(strength, newSpeed, newSaturation, newBrightness);
     }
 
-    /** The time in milliseconds of one turn around the colors, from 120 s at speed 1 down to 10 s at speed 100 on a log scale. */
+    /** The time in milliseconds of one turn around the colors, from 120 s at speed 1 down to 2 s at speed 100 on a log scale. */
     static double periodMs(int speed) {
         double t = (Math.max(1, Math.min(MAX_SPEED, speed)) - 1) / 99.0;
         return SLOWEST_PERIOD_MS * Math.pow((double) FASTEST_PERIOD_MS / SLOWEST_PERIOD_MS, t);

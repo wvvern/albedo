@@ -102,28 +102,12 @@ final class SkyStars {
     private final float[] axis;
 
     /**
-     * Stars that do not twinkle.
-     *
      * @param amount the count from 0 to 1
      * @param spikes the strength of the spikes from 0 to 2
      * @param scale the layer size, where 1 is 100 percent
-     */
-    SkyStars(float amount, float spikes, float scale, int seed) {
-        this(amount, spikes, scale, seed, 0, 0, new float[] {0, 1, 0});
-    }
-
-    /**
      * @param twinkle how much the stars twinkle, from 0 to 1
      * @param time the seconds of the sky clock, 0 for the bake
      * @param up the unit direction of the sky zenith in the layer frame, which the twinkle uses to find the horizon
-     */
-    SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up) {
-        this(amount, spikes, scale, seed, twinkle, time, up, 0, 0, new float[] {0, 1, 0});
-    }
-
-    /**
-     * Stars with trails.
-     *
      * @param trail the arc of each trail in radians, 0 for no trails
      * @param trailLight the light of the trails from 0 to 1
      * @param axis the unit trail axis in the layer frame, around which a positive angle goes back along the trail

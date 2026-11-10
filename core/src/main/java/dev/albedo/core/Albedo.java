@@ -26,6 +26,8 @@ public final class Albedo {
     public static final String MOD_ID = "albedo";
     public static final String NAME = "Albedo";
     private static final int WATCH_INTERVAL_TICKS = 20;
+    /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
+    private static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
 
     private static volatile Albedo instance;
 
@@ -64,9 +66,6 @@ public final class Albedo {
         this.harness = Harness.fromSystemProperty(platform);
         this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
-
-    /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
-    public static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
 
     /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {
@@ -122,8 +121,6 @@ public final class Albedo {
 
     public Platform platform() { return platform; }
 
-    // ---------------------------------------------------------------- textures
-
     /**
      * Keeps the original of a freshly loaded texture and changes the image in place.
      *
@@ -154,10 +151,15 @@ public final class Albedo {
         }
     }
 
-    /** Changes a biome colormap in the ARGB array that the game reads by reference, now and on each repaint. */
-    public static void processColormap(String location, int[] pixels) {
+    /**
+     * Changes a biome colormap in the ARGB array that the game reads by reference, now and on each repaint.
+     *
+     * @param name the name of the colormap, such as "grass" or "foliage"
+     */
+    public static void processColormap(String name, int[] pixels) {
         if (pixels != null && pixels.length == COLORMAP_SIZE * COLORMAP_SIZE) {
-            processTexture(location, new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels), TextureStore.intoArray(pixels));
+            processTexture("minecraft:textures/colormap/" + name + ".png", new PixelBuffer.Heap(COLORMAP_SIZE, COLORMAP_SIZE, pixels),
+                    TextureStore.intoArray(pixels));
         }
     }
 
@@ -227,8 +229,6 @@ public final class Albedo {
         return store.catalog(category);
     }
 
-    // ---------------------------------------------------------------- tick: keys, file watching, harness
-
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
     public void clientTick(boolean screenOpen) {
         watchServer();
@@ -271,7 +271,7 @@ public final class Albedo {
         apply(config, new Config.State(!effective.enabled(), effective.activeProfileName()));
     }
 
-    public void cycleProfile() {
+    private void cycleProfile() {
         apply(config, new Config.State(true, effective.profileNameAt(1)));
     }
 
@@ -354,8 +354,6 @@ public final class Albedo {
         if (meshes) platform.rebuildChunks();
         return RefreshResult.painted(r.repainted, meshes, (System.nanoTime() - start) / 1000000);
     }
-
-    // ---------------------------------------------------------------- persistence
 
     private void setConfig(Config c) {
         config = c;

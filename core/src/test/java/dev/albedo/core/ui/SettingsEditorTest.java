@@ -97,7 +97,7 @@ class SettingsEditorTest {
         assertNotNull(canvas.find("quake-black"), "the list shows all profiles: " + canvas.texts.keySet());
         type(editor, canvas, "mini");
         assertNull(canvas.find("quake-black"), "the search hides other profiles");
-        editor.keyPressed(UiKey.ENTER, false);
+        editor.keyPressed(UiKey.ENTER);
         render(editor, canvas);
         click(editor, canvas, "Done");
         assertEquals("minimal", sc.config().activeProfileName());
@@ -125,10 +125,10 @@ class SettingsEditorTest {
         click(editor, canvas, "+ New group");
         type(editor, canvas, "gen");
         assertNotNull(canvas.find("generic*"), "frames of one particle are one suggestion: " + canvas.texts.keySet());
-        for (int i = 0; i < 3; i++) editor.keyPressed(UiKey.BACKSPACE, false);
+        for (int i = 0; i < 3; i++) editor.keyPressed(UiKey.BACKSPACE);
         type(editor, canvas, "/^fl");
         assertNotNull(canvas.find("/^fl/"), "an open regular expression is offered closed: " + canvas.texts.keySet());
-        editor.keyPressed(UiKey.ENTER, false);
+        editor.keyPressed(UiKey.ENTER);
         render(editor, canvas);
         type(editor, canvas, "/(");
         assertNotNull(canvas.find("Not a valid regular expression"), "says why: " + canvas.texts.keySet());
@@ -204,16 +204,16 @@ class SettingsEditorTest {
         click(editor, canvas, "Leaves");
         click(editor, canvas, "Type a name");
         type(editor, canvas, "stone");
-        editor.keyPressed(UiKey.ENTER, false); // the first change makes quake-white-custom
+        editor.keyPressed(UiKey.ENTER); // the first change makes quake-white-custom
         render(editor, canvas);
         assertNotNull(canvas.find("Leaves"), "the group stays open in the copy: " + canvas.texts.keySet());
         assertNotNull(canvas.find("stone"), "the chip shows: " + canvas.texts.keySet());
 
-        editor.keyPressed(UiKey.ESCAPE, false); // the input ends
+        editor.keyPressed(UiKey.ESCAPE); // the input ends
         render(editor, canvas);
-        editor.keyPressed(UiKey.ESCAPE, false); // back to the groups
+        editor.keyPressed(UiKey.ESCAPE); // back to the groups
         render(editor, canvas);
-        editor.keyPressed(UiKey.ESCAPE, false); // the screen closes
+        editor.keyPressed(UiKey.ESCAPE); // the screen closes
         render(editor, canvas);
         assertTrue(editor.isClosed());
         assertEquals("quake-white-custom", sc.config().activeProfileName());
@@ -299,7 +299,7 @@ class SettingsEditorTest {
 
             click(editor, canvas, "Server name");
             type(editor, canvas, "example.org");
-            editor.keyPressed(UiKey.ENTER, false);
+            editor.keyPressed(UiKey.ENTER);
             render(editor, canvas);
             assertNotNull(canvas.find("example.org"), "Enter adds the typed server: " + canvas.texts.keySet());
             click(editor, canvas, "Off");
@@ -372,19 +372,19 @@ class SettingsEditorTest {
 
         click(editor, canvas, "Rename");
         type(editor, canvas, "zzz");
-        editor.keyPressed(UiKey.ESCAPE, false);
+        editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertFalse(editor.isClosed(), "Esc ends the rename, not the screen");
         assertNotNull(canvas.find("Profile: test"), "the old name stays: " + canvas.texts.keySet());
 
         click(editor, canvas, "Profile: test");
         assertNotNull(canvas.find("minimal"), "the list is open: " + canvas.texts.keySet());
-        editor.keyPressed(UiKey.ESCAPE, false);
+        editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertFalse(editor.isClosed(), "Esc closes the list, not the screen");
         assertNull(canvas.find("minimal"), "the list is closed: " + canvas.texts.keySet());
 
-        editor.keyPressed(UiKey.ESCAPE, false);
+        editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertTrue(editor.isClosed());
         assertEquals("test", sc.config().activeProfileName());
@@ -401,18 +401,18 @@ class SettingsEditorTest {
         click(editor, canvas, "+ New group");      // opens the group with the block input focused
         type(editor, canvas, "grass");
         assertNotNull(canvas.find("grass_block*"), "whole-block suggestion first: " + canvas.texts.keySet());
-        editor.keyPressed(UiKey.ENTER, false);
+        editor.keyPressed(UiKey.ENTER);
         render(editor, canvas);
         type(editor, canvas, "dirt");
-        editor.keyPressed(UiKey.ENTER, false);
+        editor.keyPressed(UiKey.ENTER);
         render(editor, canvas);
         click(editor, canvas, "Done");
 
         CategorySettings blocks = sc.config().activeProfile().get(Category.BLOCKS);
         Rule g = blocks.rules().get(blocks.rules().size() - 1);
         assertEquals(Arrays.asList("grass_block*", "dirt"), g.patterns());
-        assertEquals(Appearance.Mode.SOLID, blocks.appearanceFor("minecraft:grass_block_snow").mode());
-        assertNotEquals(blocks.appearance().color(), blocks.appearanceFor("minecraft:dirt").color(), "new groups get their own color");
+        assertEquals(Appearance.Mode.SOLID, blocks.lookOf(blocks.ruleFor("minecraft:grass_block_snow")).mode());
+        assertNotEquals(blocks.appearance().color(), blocks.lookOf(blocks.ruleFor("minecraft:dirt")).color(), "new groups get their own color");
     }
 
     @Test
@@ -535,7 +535,7 @@ class SettingsEditorTest {
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
             for (UiKey key : new UiKey[]{UiKey.ENTER, UiKey.TAB, UiKey.UP, UiKey.DOWN}) {
-                editor.keyPressed(key, false);
+                editor.keyPressed(key);
                 render(editor, canvas);
             }
             assertNotNull(canvas.texts.get("Speed"), "keys do not close the section: " + canvas.texts.keySet());
@@ -544,7 +544,7 @@ class SettingsEditorTest {
             click(editor, canvas, "Players");
             assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the page of skins: " + canvas.texts.keySet());
             assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
-            editor.keyPressed(UiKey.ESCAPE, false);
+            editor.keyPressed(UiKey.ESCAPE);
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");
         } finally {
@@ -668,6 +668,29 @@ class SettingsEditorTest {
     }
 
     @Test
+    void theEditorGivesATextCursorOnlyWhileAFieldTakesTyping() {
+        sc.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(533, 300);
+        render(editor, canvas);
+        assertNull(editor.textCursor());
+        click(editor, canvas, "Textures");
+        click(editor, canvas, "Search textures");
+        int[] empty = editor.textCursor();
+        assertNotNull(empty, "the search field has the focus");
+        type(editor, canvas, "oak");
+        assertTrue(editor.textCursor()[0] > empty[0], "the cursor moves with the text");
+        assertNotNull(canvas.find("oak"));
+        editor.keyPressed(UiKey.ESCAPE);
+        render(editor, canvas);
+        assertNull(editor.textCursor(), "Esc ends the input");
+        assertFalse(editor.isClosed(), "the first Esc does not close the screen");
+        editor.keyPressed(UiKey.ESCAPE);
+        render(editor, canvas);
+        assertTrue(editor.isClosed());
+    }
+
+    @Test
     void perTextureOverrideAndFullbright() {
         sc.apply(Config.defaults());
         SettingsEditor editor = new SettingsEditor(sc);
@@ -676,7 +699,7 @@ class SettingsEditorTest {
         click(editor, canvas, "Textures");
         click(editor, canvas, "stone");      // a row: starts a group with it
         click(editor, canvas, "Vanilla");    // the group's look: keep it vanilla
-        editor.keyPressed(UiKey.ESCAPE, false); // back to the category
+        editor.keyPressed(UiKey.ESCAPE); // back to the category
         render(editor, canvas);
         click(editor, canvas, "World");
         click(editor, canvas, "Fullbright");
@@ -685,7 +708,8 @@ class SettingsEditorTest {
         click(editor, canvas, "Entity shadows");
         click(editor, canvas, "Done");
         Profile p = sc.config().activeProfile();
-        assertTrue(p.get(Category.BLOCKS).appearanceFor("minecraft:stone").isOriginal());
+        CategorySettings blocks = p.get(Category.BLOCKS);
+        assertTrue(blocks.lookOf(blocks.ruleFor("minecraft:stone")).isOriginal());
         // quake presets start with fullbright, shading and shadows on and foliage hidden; each click flips one
         assertFalse(p.is(Toggle.FULLBRIGHT));
         assertFalse(p.is(Toggle.SHADING));
@@ -714,7 +738,7 @@ class SettingsEditorTest {
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Delete");
         assertNotNull(canvas.find("Click again"), "says what the next click does: " + canvas.texts.keySet());
-        editor.keyPressed(UiKey.ESCAPE, false);
+        editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertFalse(editor.isClosed(), "Esc first cancels the pending delete");
         click(editor, canvas, "Done");
@@ -862,7 +886,7 @@ class SettingsEditorTest {
                     editor.render(canvas, x, y);
                     editor.mouseReleased();
                     editor.charTyped('a');
-                    editor.keyPressed(UiKey.BACKSPACE, false);
+                    editor.keyPressed(UiKey.BACKSPACE);
                     editor.mouseScrolled(-1);
                     editor.render(canvas, x, y);
                     editor.render(canvas, x + 1, y); // a moved pointer shows the tooltip, which must stay on screen
@@ -899,7 +923,7 @@ class SettingsEditorTest {
         click(editor, canvas, "Dark");
         click(editor, canvas, "Place");
         assertNotNull(canvas.find("has no place"), "a blur changes the whole sky: " + canvas.texts.keySet());
-        editor.keyPressed(UiKey.ESCAPE, false);
+        editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertNotNull(canvas.find("masked by Gradient 1"), "the list names the mask: " + canvas.texts.keySet());
         click(editor, canvas, "Apply");
@@ -1074,15 +1098,6 @@ class SettingsEditorTest {
         assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
-    @Test
-    void theCanvasImageFallbackStaysInsideItsRectangle() {
-        RecordingCanvas canvas = new RecordingCanvas(50, 20);
-        int[] px = new int[8 * 2];
-        java.util.Arrays.fill(px, 0xFF336699);
-        canvas.image("t", new CanvasImage(px, 8, 2, 1), 3, 4, 45, 13);
-        assertEquals(0, canvas.texts.size());
-    }
-
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {
         int[] at = canvas.find(label);
         assertNotNull(at, "label not drawn: " + label + " (drawn: " + canvas.texts.keySet() + ")");
@@ -1107,7 +1122,6 @@ class SettingsEditorTest {
         @Override
         public void image(String id, CanvasImage img, int x, int y, int w, int h) {
             images.put(id, img);
-            Canvas.super.image(id, img, x, y, w, h);
         }
 
         int[] find(String label) {

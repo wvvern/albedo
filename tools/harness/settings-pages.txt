@@ -1,5 +1,5 @@
-# Screenshots of each settings page, for review. Run it after scene-*.txt in place of shots.txt.
-# It does not write the README screenshots. "ui" lines are input for the open settings screen.
+# Screenshots of each settings page, for review. Run it after the scene in place of shots.txt.
+# "ui" lines are input for the open settings screen; "type" and "key" go through the keyboard path of the game.
 wait 60
 profile quake-white
 wait 200
@@ -22,34 +22,34 @@ wait 10
 screenshot p02-groups
 ui click + New group
 wait 10
-ui type grass
+typegrass
 wait 10
 screenshot p03-group-suggestions
-ui key ENTER
+keyENTER
 wait 5
-ui type oak_log
+typeoak_log
 wait 5
-ui key ENTER
+keyENTER
 wait 5
-ui key ESCAPE
+keyESCAPE
 wait 5
 ui pointer off
 wait 10
 screenshot p04-group-chips
-ui key ESCAPE
+keyESCAPE
 wait 10
 ui click Only groups
 wait 10
 ui click x
 wait 20
 screenshot p05-groups-only-armed-delete
-ui key ESCAPE
+keyESCAPE
 wait 5
 ui click Textures
 wait 10
 ui click Search
 wait 5
-ui type oak
+typeoak
 wait 10
 ui pointer off
 wait 10
@@ -72,7 +72,7 @@ screenshot p09-world
 ui click Rename
 wait 10
 screenshot p10-rename
-ui key ESCAPE
+keyESCAPE
 wait 5
 ui click Export
 wait 10
@@ -91,8 +91,8 @@ ui click Servers
 wait 5
 ui click Server name
 wait 5
-ui type hypixel.net
-ui key ENTER
+typehypixel.net
+keyENTER
 wait 5
 ui pointer off
 wait 10

@@ -34,7 +34,7 @@ final class Ui {
     /** Time in ms a delete button stays armed after the first click. */
     private static final int CONFIRM_MS = 3000;
 
-    /** Time in ms a pointer must rest on a widget before its tooltip shows. 0 in tests. */
+    /** Time in ms a pointer must rest on a widget before its tooltip shows. */
     int tipDelay = 400;
 
     enum Style { NORMAL, PRIMARY, DANGER, GHOST }
@@ -43,13 +43,15 @@ final class Ui {
         String get();
     }
 
-    private static final class KeyPress {
+    /** A key press or a typed character, which a text field takes in the order that they came. */
+    private static final class Input {
+        /** The key, or null for a typed character. */
         final UiKey key;
-        final boolean ctrl;
+        final char ch;
 
-        KeyPress(UiKey key, boolean ctrl) {
+        Input(UiKey key, char ch) {
             this.key = key;
-            this.ctrl = ctrl;
+            this.ch = ch;
         }
     }
 
@@ -105,21 +107,19 @@ final class Ui {
     private Rect overlayDrawn;
     /** The area that tooltips stay in: the screen, or the panel that the owner sets each frame. */
     private Rect tipBounds;
-    private final List<KeyPress> keys = new ArrayList<KeyPress>();
-    private final StringBuilder typed = new StringBuilder();
+    private final List<Input> inputs = new ArrayList<Input>();
+    /** The cursor of the focused text field of this frame, or null when no field takes typing. */
+    private Rect cursor;
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
     /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
-    /** True while a harness script runs, the only time that {@link #dragAreas} has a reader. */
-    private boolean recordAreas;
+    /** The text of each text field of this frame by id, which the harness command {@code expect} compares. */
+    private final Map<String, String> fieldTexts = new HashMap<String, String>();
     private final Clipboard clipboard;
 
     Ui(Clipboard clipboard) {
         this.clipboard = clipboard;
     }
-
-    // ---------------------------------------------------------------- events (between frames; the pointer position
-    // comes from each frame's render call)
 
     void mousePressed() {
         pointer.held = true;
@@ -135,15 +135,13 @@ final class Ui {
         wheel += amount > 0 ? 1 : amount < 0 ? -1 : 0;
     }
 
-    void key(UiKey key, boolean ctrl) {
-        keys.add(new KeyPress(key, ctrl));
+    void key(UiKey key) {
+        inputs.add(new Input(key, '\0'));
     }
 
     void typed(char ch) {
-        if (ch >= ' ' && ch != 127) typed.append(ch);
+        if (ch >= ' ' && ch != 127) inputs.add(new Input(null, ch));
     }
-
-    // ---------------------------------------------------------------- frame
 
     void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
@@ -163,33 +161,37 @@ final class Ui {
         focusAtBegin = focus;
         focusDrawn = false;
         dragAreas.clear();
+        fieldTexts.clear();
+        cursor = null;
     }
 
-    /** A copy of the drag areas that this frame drew, by id, while {@link #recordAreas} is on. */
+    /** A copy of the drag areas that this frame drew, by id. */
     Map<String, Rect> dragAreas() {
         return new HashMap<String, Rect>(dragAreas);
     }
 
-    /** Starts or stops keeping the drag areas of each frame for a harness script. */
-    void recordAreas(boolean on) {
-        recordAreas = on;
+    /** A copy of the texts of the text fields that this frame drew, by id. */
+    Map<String, String> fieldTexts() {
+        return new HashMap<String, String>(fieldTexts);
     }
 
     /** Ends the frame: an unclaimed press clears focus and armed buttons, unclaimed input is dropped, and the tooltip draws. */
     void end() {
-        overlay = null;
-        drawingOverlay = false;
+        endOverlay();
         if (pointer.click) {
             focus = null;
             armed = null;
             pointer.click = false;
         }
         if (focus != null && focus.equals(focusAtBegin) && !focusDrawn) focus = null;
+        if (focus == null) cursor = null;
         wheel = 0;
-        typed.setLength(0);
-        keys.clear();
+        inputs.clear();
         tooltip();
     }
+
+    /** The cursor of the text field that takes typing after this frame, or null when no field does. */
+    Rect textCursor() { return cursor; }
 
     /** True when the left button went down since the last frame (before any widget takes the press). */
     boolean clicked() { return pointer.clickedThisFrame; }
@@ -207,7 +209,7 @@ final class Ui {
 
     /** Takes an unclaimed key press (e.g. Escape for the screen itself). */
     boolean takeKey(UiKey key) {
-        for (Iterator<KeyPress> it = keys.iterator(); it.hasNext(); ) {
+        for (Iterator<Input> it = inputs.iterator(); it.hasNext(); ) {
             if (it.next().key == key) {
                 it.remove();
                 return true;
@@ -232,8 +234,6 @@ final class Ui {
     boolean pointerIn(int x, int y, int w, int h) {
         return new Rect(x, y, w, h).contains(pointer.x, pointer.y);
     }
-
-    // ---------------------------------------------------------------- overlay (dropdowns drawn over other widgets)
 
     /** Widgets drawn from now until {@link #beginOverlay()} ignore the pointer inside {@code area}. */
     void reserveOverlay(Rect area) {
@@ -337,8 +337,6 @@ final class Ui {
     private static long now() {
         return System.currentTimeMillis();
     }
-
-    // ---------------------------------------------------------------- drawing helpers
 
     void fill(int x, int y, int w, int h, int color) {
         if (w > 0 && h > 0) c.fill(x, y, x + w, y + h, color);
@@ -455,8 +453,6 @@ final class Ui {
         if ((color >>> 24) < 255) checker(x + 1, y + 1, w - 2, h - 2);
         fill(x + 1, y + 1, w - 2, h - 2, color);
     }
-
-    // ---------------------------------------------------------------- widgets
 
     boolean button(String id, int x, int y, int w, int h, String label, Style style, boolean enabled, String tipText) {
         boolean hovered = enabled && hover(x, y, w, h);
@@ -665,14 +661,13 @@ final class Ui {
      * dragged, otherwise null.
      */
     float[] dragArea(String id, int x, int y, int w, int h) {
-        if (recordAreas) dragAreas.put(id, new Rect(x, y, w, h));
+        dragAreas.put(id, new Rect(x, y, w, h));
         if (!press(id, x, y, w, h) && !dragging(id)) return null;
         float fx = Math.max(0f, Math.min(1f, (pointer.x - x) / (float) Math.max(1, w - 1)));
         float fy = Math.max(0f, Math.min(1f, (pointer.y - y) / (float) Math.max(1, h - 1)));
         return new float[]{fx, fy};
     }
 
-    /** The height of a {@link #slider}. */
     static final int SLIDER_H = 12;
 
     /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
@@ -682,14 +677,8 @@ final class Ui {
 
     /** A slider from 0 to 100 with {@code valueText} at the right in the room of "100%", which returns the value after a click or drag. */
     int slider(String id, int x, int y, int w, int value, String valueText, String tipText) {
-        int textW = width("100%") + 6, trackW = Math.max(10, w - textW);
-        int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * value / 100;
-        fill(x, ty, trackW, 3, CARD);
-        fill(x, ty, knobX - x + 2, 3, ACCENT);
-        round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(valueText, x + trackW + 6, y + 2, MUTED);
-        tip(x, y, w, SLIDER_H, tipText);
-        float[] at = dragArea(id, x, y, trackW, SLIDER_H);
+        int trackW = Math.max(10, w - width("100%") - 6);
+        float[] at = track(id, x, y, w, trackW, x + (trackW - 4) * value / 100, valueText, tipText);
         return at == null ? value : Math.round(at[0] * 100);
     }
 
@@ -697,14 +686,20 @@ final class Ui {
     int rangeSlider(String id, int x, int y, int w, int value, int min, int max, String unit, String tipText) {
         // The same text room for every range, so that sliders on rows below each other line up.
         int textW = Math.max(width("-180%"), Math.max(width(max + unit), width(min + unit))) + 6, trackW = Math.max(10, w - textW);
-        int ty = y + SLIDER_H / 2 - 1, knobX = x + (trackW - 4) * (value - min) / Math.max(1, max - min);
+        int knobX = x + (trackW - 4) * (value - min) / Math.max(1, max - min);
+        float[] at = track(id, x, y, w, trackW, knobX, value + unit, tipText);
+        return at == null ? value : min + Math.round(at[0] * (max - min));
+    }
+
+    /** Draws a slider track with its knob and its text at the right, and returns the {@link #dragArea} of the track. */
+    private float[] track(String id, int x, int y, int w, int trackW, int knobX, String text, String tipText) {
+        int ty = y + SLIDER_H / 2 - 1;
         fill(x, ty, trackW, 3, CARD);
         fill(x, ty, knobX - x + 2, 3, ACCENT);
         round(knobX, y + 1, 4, SLIDER_H - 2, dragging(id) || hover(x, y, trackW, SLIDER_H) ? ACCENT_HOVER : TEXT);
-        text(value + unit, x + trackW + 6, y + 2, MUTED);
+        text(text, x + trackW + 6, y + 2, MUTED);
         tip(x, y, w, SLIDER_H, tipText);
-        float[] at = dragArea(id, x, y, trackW, SLIDER_H);
-        return at == null ? value : min + Math.round(at[0] * (max - min));
+        return dragArea(id, x, y, trackW, SLIDER_H);
     }
 
     /** A single-line text input that returns true when the text changed this frame. */
@@ -722,6 +717,7 @@ final class Ui {
             field.cursor = field.text.length();
         }
         boolean changed = focused && edit(field);
+        fieldTexts.put(id, field.text);
         int tx = x + 4, ty = y + (h - LINE) / 2 + 1, room = w - 8;
         if (field.text.isEmpty() && !focused) {
             text(ellipsize(placeholder, room), tx, ty, FAINT);
@@ -734,29 +730,27 @@ final class Ui {
         while (width(visible) > room && !visible.isEmpty()) visible = visible.substring(0, visible.length() - 1);
         if (focused && field.selectAll && !visible.isEmpty()) fill(tx - 1, ty - 1, width(visible) + 2, LINE + 1, 0xFF2F5FB3);
         text(visible, tx, ty, TEXT);
-        if (focused && (now() / 500) % 2 == 0) {
+        if (focused) {
             int cx = tx + width(shown.substring(start, Math.max(start, field.cursor)));
-            fill(cx, ty - 1, 1, LINE + 1, TEXT);
+            if (id.equals(focus)) cursor = new Rect(cx, ty - 1, 1, LINE + 1);
+            if ((now() / 500) % 2 == 0) fill(cx, ty - 1, 1, LINE + 1, TEXT);
         }
         return changed;
     }
 
-    /** Gives this frame's keys and typing to the focused field, until Esc, Enter or Tab ends the input. */
+    /** Gives this frame's keys and typing to the focused field in their order, until Esc, Enter or Tab ends the input. */
     private boolean edit(TextField field) {
         boolean changed = false;
-        for (Iterator<KeyPress> it = keys.iterator(); it.hasNext(); ) {
-            KeyPress k = it.next();
+        for (Iterator<Input> it = inputs.iterator(); it.hasNext(); ) {
+            Input in = it.next();
             it.remove();
-            if (k.key == UiKey.ESCAPE || k.key == UiKey.ENTER || k.key == UiKey.TAB) {
+            if (in.key == UiKey.ESCAPE || in.key == UiKey.ENTER || in.key == UiKey.TAB) {
                 focus = null;
                 break;
             }
-            if (k.ctrl && k.key == UiKey.V) changed |= field.insert(clipboard.get());
-            else changed |= field.key(k.key, k.ctrl);
-        }
-        if (typed.length() > 0) {
-            changed |= field.insert(typed.toString());
-            typed.setLength(0);
+            if (in.key == null) changed |= field.insert(String.valueOf(in.ch));
+            else if (in.key == UiKey.PASTE) changed |= field.insert(clipboard.get());
+            else changed |= field.key(in.key);
         }
         return changed;
     }
@@ -797,8 +791,6 @@ final class Ui {
     void resetScroll(String id) {
         scrolls.remove(id);
     }
-
-    // ---------------------------------------------------------------- color math
 
     static int hsv(float h, float s, float v) {
         float r, g, b;

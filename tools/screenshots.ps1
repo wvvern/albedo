@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Makes the README screenshots for each target on a hidden desktop.
+Makes the reference screenshots of each target on a hidden desktop.
 Builds a test scene in a superflat world. Takes screenshots of vanilla, each built-in profile,
 night with and without fullbright, and the settings screen.
 
@@ -12,8 +12,8 @@ Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
 ./tools/screenshots.ps1 -Targets fabric-26.3  # one target
-# Store page images:
-./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery-041.txt -GuiScale 2 -OutDir build\gallery-041
+# The gallery images:
+./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
 ./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
 # With Iris (it adds Sodium) and a shader pack zip that you downloaded; without -ShaderPack, Iris has shaders off:
@@ -22,9 +22,9 @@ Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 param(
     [string[]]$Targets = @("fabric-26.3", "neoforge-26.3", "fabric-1.21.11", "neoforge-1.21.11", "fabric-1.21.1", "neoforge-1.21.1", "forge-1.8.9"),
     [int]$TimeoutSeconds = 600,
-    # Folder for the screenshots, relative to the repository root. The default is the README folder.
+    # The folder for the screenshots, relative to the repository root.
     [string]$OutDir = "docs\screenshots",
-    # The shot list in tools/harness/, run after the scene.
+    # The command file in tools/harness/, run after the scene.
     [string]$Shots = "shots.txt",
     # Optional dev-only renderer mod for modern targets, for example sodium or embeddium.
     [string]$Compat = "",
@@ -33,7 +33,9 @@ param(
     # More command files in tools/harness/, added after the scene.
     [string[]]$Extra = @(),
     # The GUI scale, where 0 is auto; 2 gives the settings screen room for the sky preview in the harness window.
-    [int]$GuiScale = 0
+    [int]$GuiScale = 0,
+    # Optional config.json that the game starts with in place of the default config, for example a copy of the config of a player.
+    [string]$Config = ""
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -42,6 +44,7 @@ if ($ShaderPack) {
     if (-not $iris) { throw "-ShaderPack needs -Compat iris" }
     $ShaderPack = (Resolve-Path $ShaderPack).Path
 }
+if ($Config) { $Config = (Resolve-Path $Config).Path }
 
 function Set-Options([string]$runDir) {
     # Turn off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
@@ -91,15 +94,19 @@ foreach ($target in $Targets) {
     Set-Options $runDir
     $irisRun = $iris -and $loader -ne "forge"
     if ($irisRun) { Set-Iris $runDir }
-    # Use the default config and a new world each time, so the screenshots are the same each run.
-    Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
+    # Use the default config (or the -Config file) and a new world each time, so the screenshots are the same each run.
+    $configFile = Join-Path $runDir "config\albedo\config.json"
+    Remove-Item -Force $configFile -ErrorAction SilentlyContinue
+    if ($Config) {
+        New-Item -ItemType Directory -Force (Split-Path $configFile) | Out-Null
+        Copy-Item -Force $Config $configFile
+    }
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
-    # First the scene for this version, then the shots for all versions; a shot list for modern has a copy for 1.8.9.
+    # First the scene of this version, then the command file, where 1.8.9 runs the *-legacy.txt copy of a *-modern.txt file.
     $shotList = if ($loader -eq "forge") { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
-    (Get-Item (Join-Path $harness "commands.txt")).LastWriteTime = (Get-Date).AddSeconds(-5)
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"
@@ -117,7 +124,7 @@ foreach ($target in $Targets) {
         }
     }
     if (Get-Process -Id $gradlePid -ErrorAction SilentlyContinue) {
-        Write-Host "[$target] still running after the scene; stopping it"
+        Write-Host "[$target] still running; stopping it"
         Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape($harness) } |
             ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
         Stop-Process -Id $gradlePid -Force -ErrorAction SilentlyContinue
@@ -132,7 +139,7 @@ foreach ($target in $Targets) {
     Write-Host "[$target] $($pngs.Count) screenshots -> $out"
     if (Test-Path $harnessLog) { Select-String -Path $harnessLog -Pattern "^!" | ForEach-Object { Write-Host "[$target] $($_.Line)" } }
     # Iris turns shaders off when the pack does not load, and the run continues.
-    $gradleText = Get-Content -Raw $log -ErrorAction SilentlyContinue
+    $gradleText = Get-Content -Raw $log
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }

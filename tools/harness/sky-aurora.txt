@@ -1,0 +1,40 @@
+# The Aurora preset toward the north at a field of view of 70 and 30, with shots seconds apart that show the move, the GPU sky compared with the CPU bake at time 0, the GPU time of the sharp sky, and the baked sky. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets neoforge-1.21.1,neoforge-1.21.11,forge-1.8.9 -Shots sky-aurora.txt -OutDir build\sky-aurora
+wait 60
+profile minimal
+run time set 18000
+wait 40
+sky aurora
+wait 160
+# Yaw 180 looks north, pitch -12 looks a little up.
+fov 70
+run tp @p 0 3000 0 180 -12
+wait 40
+screenshot aurora-01-fov70
+wait 60
+screenshot aurora-02-fov70-3s
+wait 200
+screenshot aurora-03-fov70-13s
+fov 30
+run tp @p 0 3000 0 180 -14
+wait 40
+screenshot aurora-04-fov30
+wait 60
+screenshot aurora-05-fov30-3s
+run tp @p 0 3000 0 150 -30
+wait 40
+screenshot aurora-06-fov30-high
+fov 70
+run tp @p 0 3000 0 0 -12
+wait 40
+screenshot aurora-07-fov70-south
+skycompare
+wait 40
+skytime
+wait 40
+skyrender fast
+wait 160
+run tp @p 0 3000 0 180 -12
+wait 40
+screenshot aurora-08-fov70-fast
+quit

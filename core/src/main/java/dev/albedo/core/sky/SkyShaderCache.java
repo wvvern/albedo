@@ -13,6 +13,9 @@ import java.util.function.Function;
  * @param <T> the shader of an adapter
  */
 public final class SkyShaderCache<T> {
+    /** The number of shaders that an adapter keeps for each kind of sky draw. */
+    public static final int SIZE = 4;
+
     private final int size;
     private final Function<String, T> create;
     private final Consumer<T> close;

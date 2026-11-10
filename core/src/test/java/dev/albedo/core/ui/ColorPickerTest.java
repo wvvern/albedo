@@ -45,7 +45,7 @@ class ColorPickerTest {
     @Test
     void theCompactPickerKeepsTheTextTypedInTheFullOne() {
         frame(0xFFFFFFFF, 130, 8, true); // the hex input
-        for (int i = 0; i < 9; i++) ui.key(UiKey.BACKSPACE, false);
+        for (int i = 0; i < 9; i++) ui.key(UiKey.BACKSPACE);
         for (char c : "#12".toCharArray()) ui.typed(c);
         assertEquals(0xFFFFFFFF, frame(0xFFFFFFFF, 130, 8, false), "an incomplete color changes nothing");
         compactFrame(0xFFFFFFFF);

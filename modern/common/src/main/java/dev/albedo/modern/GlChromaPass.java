@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 final class GlChromaPass implements ChromaBackend {
     private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
 
-    // The state of the compile of the program.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     private static Compile state = Compile.NOT_STARTED;
@@ -286,7 +285,7 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public long bytes() {
             long out = 0;
-            for (int level = 0; level < widths.length; level++) out += 2L * 4 * widths[level] * heights[level];
+            for (int level = 0; level < widths.length; level++) out += ChromaTexels.levelBytes(widths[level], heights[level]);
             return out;
         }
 

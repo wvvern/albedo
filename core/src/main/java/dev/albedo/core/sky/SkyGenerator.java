@@ -7,7 +7,6 @@ import dev.albedo.core.config.SkyMask;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 
 /**
@@ -94,26 +93,16 @@ public final class SkyGenerator {
 
     /** Bakes on the calling thread. */
     public static SkyImage bake(SkyDesign design, int w, int h) {
-        return bake(design, w, h, serial(() -> false));
+        return bake(design, w, h, (count, row) -> {
+            for (int i = 0; i < count; i++) row.accept(i);
+            return true;
+        });
     }
 
     /** Bakes with {@code rows}, and returns null when the bake stops because it is out of date. */
     static SkyImage bake(SkyDesign design, int w, int h, Rows rows) {
         return new SkyGenerator(design, w, h, rows).run();
     }
-
-    /** Runs all rows on the calling thread and checks {@code stale} before each row. */
-    static Rows serial(BooleanSupplier stale) {
-        return (count, row) -> {
-            for (int i = 0; i < count; i++) {
-                if (stale.getAsBoolean()) return false;
-                row.accept(i);
-            }
-            return true;
-        };
-    }
-
-    // ---------------------------------------------------------------- the pass over the layers
 
     private SkyImage run() {
         for (int i = 3; i < img.length; i += 4) img[i] = 1f;
@@ -264,8 +253,6 @@ public final class SkyGenerator {
         return soft;
     }
 
-    // ---------------------------------------------------------------- one layer's values
-
     /** What a layer needs for each pixel, computed once for each bake. */
     private static final class Layer {
         final SkyLayer layer;
@@ -311,9 +298,9 @@ public final class SkyGenerator {
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
             float[] up = new float[3];
             local(0, 1, 0, up);
-            // The bake is a still sky, so the stars twinkle as at time 0.
             float[] axis = new float[3];
             for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
+            // The bake is a still sky, so the stars twinkle as at time 0.
             stars = layer.kind() == SkyLayer.Kind.STARS
                     ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up,
                             block[SkyProgram.at(index, SkyProgram.TRAIL)], block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis)
@@ -347,8 +334,6 @@ public final class SkyGenerator {
             out[3] = alpha1 + (alpha2 - alpha1) * t;
         }
     }
-
-    // ---------------------------------------------------------------- generators
 
     /** The color and alpha of a generator in a direction of the layer frame. */
     private void generate(Layer l, float[] p, float[] out) {
@@ -642,8 +627,7 @@ public final class SkyGenerator {
         l.stars.shade(p, texel, l.color1, l.alpha1, out);
     }
 
-    // ---------------------------------------------------------------- filters: each writes its result for all of img into tmp
-
+    /** Runs a filter, which writes its result for all of {@code img} into {@code tmp}. */
     private boolean filter(Layer l) {
         boolean ok;
         switch (l.layer.kind()) {
@@ -781,7 +765,7 @@ public final class SkyGenerator {
     static short half(float v) {
         // This test is also false for NaN, which then gives 0 as a negative value does.
         if (!(v > 0)) return 0;
-        int bits = Float.floatToIntBits(Math.max(0f, Math.min(65504f, v)));
+        int bits = Float.floatToIntBits(Math.min(65504f, v));
         int exp = (bits >>> 23) - 127 + 15;
         int mantissa = bits & 0x7FFFFF;
         if (exp > 0) return (short) (((exp << 10) | (mantissa >> 13)) + ((mantissa >> 12) & 1));
@@ -907,8 +891,6 @@ public final class SkyGenerator {
             tmp[i + 3] = img[i + 3];
         }
     }
-
-    // ---------------------------------------------------------------- geometry
 
     private void dir(int x, int y, float[] out) {
         out[0] = cosEl[y] * sinLon[x];

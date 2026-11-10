@@ -50,14 +50,14 @@ if (-not $CommandLine) {
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
     $CommandLine = "`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg"
 }
-$commandLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
+$cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 
 $si = New-Object HiddenDesktop+STARTUPINFO
 $si.cb = [Runtime.InteropServices.Marshal]::SizeOf($si)
 $si.lpDesktop = $desktopName
 $pi = New-Object HiddenDesktop+PROCESS_INFORMATION
 # CREATE_NO_WINDOW: no console window on the hidden desktop.
-if (-not [HiddenDesktop]::CreateProcess([NullString]::Value, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000,
+if (-not [HiddenDesktop]::CreateProcess([NullString]::Value, $cmdLine, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000,
         [IntPtr]::Zero, $Dir, [ref]$si, [ref]$pi)) {
     throw "CreateProcess failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
 }

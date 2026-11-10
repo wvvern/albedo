@@ -16,6 +16,7 @@
     "FullbrightMixin",
     "GrassColorMixin",
     "ItemIconMixin",
+    "KeyboardHandlerInvoker",
     "MinecraftMixin",
     "MouseHandlerInvoker",
     "ShadowMixin",

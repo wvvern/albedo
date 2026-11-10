@@ -56,11 +56,9 @@ public final class SkyImage {
      */
     public short[] terms() { return terms; }
 
-    /** The width of each term image. */
-    public int termWidth() { return termWidth; }
+    int termWidth() { return termWidth; }
 
-    /** The height of each term image. */
-    public int termHeight() { return termHeight; }
+    int termHeight() { return termHeight; }
 
     /** The width of the texture of all term images, which is 1 when there are no terms, because a sampler needs a texture. */
     public int termTextureWidth() { return program.terms() == 0 ? 1 : termWidth; }
@@ -83,7 +81,6 @@ public final class SkyImage {
 
     public int height() { return height; }
 
-    /** The design this image shows. */
     public SkyDesign design() { return design; }
 
     /** A number that is different for each image, so that an adapter uploads an image only once. */
@@ -95,18 +92,8 @@ public final class SkyImage {
     }
 
     /** The texture coordinate v of an elevation in degrees, from 0 at the top row to 1 at the last row. */
-    public static float v(double elevation) {
+    private static float v(double elevation) {
         return (float) Math.max(0, Math.min(1, (TOP - elevation) / (TOP - BOTTOM)));
-    }
-
-    /**
-     * The sRGB fog color {r, g, b} from 0 to 1 near the horizon in the direction the camera looks.
-     *
-     * @param cameraYaw the Minecraft yaw in degrees, where 0 looks south and 90 looks west
-     * @param brightness the factor of {@link SkyLight#brightness}, or 1
-     */
-    public float[] fogRgb(float cameraYaw, float brightness) {
-        return fogRgb(SkyTurn.STILL, cameraYaw, brightness);
     }
 
     /**
@@ -189,6 +176,24 @@ public final class SkyImage {
         int i0 = Math.floorMod(base, RING), i1 = Math.floorMod(base + 1, RING);
         float f = (float) (at - base);
         for (int c = 0; c < 3; c++) out[c] = ring[i0 * 3 + c] * (1 - f) + ring[i1 * 3 + c] * f;
+    }
+
+    /**
+     * Two triangles over a whole image as x, y, z, u and v for each vertex, with texture coordinates from the top left
+     * corner, at the position 0 or at the sky direction of each corner of a camera view.
+     *
+     * @param view the sky directions of the four corners of a camera view, or null
+     */
+    public static float[] quad(float[] view) {
+        float[][] uv = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
+        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] out = new float[uv.length * 5];
+        for (int i = 0; i < uv.length; i++) {
+            if (view != null) System.arraycopy(view, corner[i] * 3, out, i * 5, 3);
+            out[i * 5 + 3] = uv[i][0];
+            out[i * 5 + 4] = uv[i][1];
+        }
+        return out;
     }
 
     /**

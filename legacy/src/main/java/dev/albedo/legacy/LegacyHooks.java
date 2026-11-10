@@ -165,7 +165,7 @@ public final class LegacyHooks {
     /** Changes the "grass" or "foliage" colormap in the array that the game keeps, so that a repaint can change it again. */
     public static void colormap(String name, int[] pixels) {
         bootstrap();
-        Albedo.processColormap("minecraft:textures/colormap/" + name + ".png", pixels);
+        Albedo.processColormap(name, pixels);
     }
 
     public static float gamma(float setting) {
@@ -187,5 +187,17 @@ public final class LegacyHooks {
     /** @return {r, g, b} in 0..1 or null when the sky is not overridden */
     public static float[] skyRgb() {
         return Albedo.currentPolicy().skyRgb();
+    }
+
+    /** True when the fog code of the game gives the camera the fog of water, lava or blindness, which hides the sky. */
+    public static boolean specialFog(float partialTicks) {
+        Minecraft mc = Minecraft.getMinecraft();
+        net.minecraft.entity.Entity view = mc.getRenderViewEntity();
+        if (view == null || mc.theWorld == null) return false;
+        net.minecraft.block.material.Material material =
+                net.minecraft.client.renderer.ActiveRenderInfo.getBlockAtEntityViewpoint(mc.theWorld, view, partialTicks).getMaterial();
+        if (material == net.minecraft.block.material.Material.water || material == net.minecraft.block.material.Material.lava) return true;
+        return view instanceof net.minecraft.entity.EntityLivingBase
+                && ((net.minecraft.entity.EntityLivingBase) view).isPotionActive(net.minecraft.potion.Potion.blindness);
     }
 }

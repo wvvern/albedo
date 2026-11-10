@@ -35,6 +35,37 @@ class HarnessTest {
     }
 
     @Test
+    void theChromaCompareMeasuresTheMeanAndTheFarOffPixels() {
+        int[] gray = new int[1000];
+        Arrays.fill(gray, 0xFF808080);
+        int[] dithered = gray.clone();
+        for (int i = 0; i < dithered.length; i += 2) dithered[i] = 0xFF818080;
+        double[] d = Harness.chromaDifference(gray, dithered, Harness.CHROMA_FAR_STEP);
+        assertEquals(1 / 6.0, d[0], 1e-9, "one step in one channel of half the pixels");
+        assertEquals(0, d[1], 1e-9);
+        assertTrue(Harness.chromaCompareLine(16, 9, d).startsWith("chromacompare 16x9:"));
+        int[] checker = gray.clone();
+        for (int i = 0; i < checker.length; i += 2) checker[i] = i % 4 == 0 ? 0xFF000000 : 0xFFF0F0F0;
+        double[] far = Harness.chromaDifference(gray, checker, Harness.CHROMA_FAR_STEP);
+        assertEquals(0.5, far[1], 1e-9, "each black or light texel of the checker is far off");
+        assertTrue(Harness.chromaCompareLine(16, 9, far).startsWith("! chromacompare"));
+        int[] fewFar = gray.clone();
+        fewFar[0] = 0xFF000000;
+        assertTrue(Harness.chromaCompareLine(16, 9, Harness.chromaDifference(gray, fewFar, Harness.CHROMA_FAR_STEP)).startsWith("chromacompare"),
+                "one far pixel in a thousand is below the limits");
+        assertTrue(Harness.chromaCompareLine(16, 9, Harness.chromaDifference(gray, new int[2], Harness.CHROMA_FAR_STEP)).startsWith("!"));
+    }
+
+    @Test
+    void theCloudsCommandMarksCloudsInTheWrongState() {
+        assertEquals("clouds hidden", Harness.cloudsLine(false, "hidden"));
+        assertEquals("clouds shown", Harness.cloudsLine(true, "shown"));
+        assertEquals("! clouds shown, expected hidden", Harness.cloudsLine(true, "hidden"));
+        assertEquals("! clouds hidden, expected shown", Harness.cloudsLine(false, "shown"));
+        assertThrows(IllegalArgumentException.class, () -> Harness.cloudsLine(true, "off"));
+    }
+
+    @Test
     void theSkyRenderCommandSetsTheRender() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
         assertEquals(SkyDesign.Render.FAST, Harness.withSkyRender(p, "fast").get(Category.SKY).sky().render());
@@ -53,7 +84,9 @@ class HarnessTest {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
         SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
         assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
-        assertEquals(SkyTurning.DEFAULT, p.get(Category.SKY).sky().turning(), "a preset turns with the default turning");
+        assertEquals(SkyTurning.STILL, p.get(Category.SKY).sky().turning(), "a preset with the default turning stands still");
+        assertEquals(SkyPresets.TRAILS.turning(), Harness.withSky(p, "trails").get(Category.SKY).sky().turning(),
+                "Trails keeps its own turning");
         assertEquals(SkyTurning.STILL, Harness.withSkyTurning(p, new String[]{"0"}).get(Category.SKY).sky().turning());
         assertEquals(SkyTurning.STILL.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
         assertEquals(SkyTurning.STILL.withAmount(100).withTrails(45).withTrailLight(80),
@@ -105,7 +138,7 @@ class HarnessTest {
     void theSkyCommandSetsAPresetOrTheVanillaSky() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
         assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());
-        assertEquals(SkyPresets.NEBULA, p.get(Category.SKY).sky());
+        assertEquals(SkyPresets.NEBULA.withTurning(SkyTurning.STILL), p.get(Category.SKY).sky());
         assertEquals(Appearance.Mode.ORIGINAL, Harness.withSky(p, "off").get(Category.SKY).appearance().mode());
         assertThrows(IllegalArgumentException.class, () -> Harness.withSky(p, "rainbow"));
     }

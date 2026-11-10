@@ -244,15 +244,7 @@ final class ChromaAtlases {
             bytes += e.getValue().bytes();
             atlases.append(atlases.length() == 0 ? "" : ", ").append(e.getKey());
         }
-        int n = TIMES.size();
-        long[] cpu = new long[n], gpuStart = new long[n], gpuEnd = new long[n];
-        for (int i = 0; i < n; i++) {
-            long[] row = TIMES.get(i);
-            cpu[i] = row[0];
-            gpuStart[i] = row[1];
-            gpuEnd[i] = row[2];
-        }
-        Harness.logChromaTimes(cpu, gpuStart, gpuEnd, bytes, atlases.toString());
+        Harness.logChromaTimes(TIMES, bytes, atlases.toString());
         TIMES.clear();
     }
 }

@@ -1,38 +1,34 @@
-# Screenshots for the scene of each version. tools/screenshots.ps1 adds this file after scene-*.txt.
+# One screenshot for each feature on the scene of each version, to find a version where a feature does not work.
+# tools/screenshots.ps1 adds this file after scene-*.txt and writes docs/screenshots/<target>/.
 wait 60
 mod off
 wait 160
 screenshot 01-vanilla
+clouds shown
 profile quake-white
 wait 200
 screenshot 02-quake-white
+clouds hidden
 shading off
-wait 200
-screenshot 03-quake-white-no-shading
-shading on
 shadows off
 wait 200
-screenshot 04-quake-white-no-shadows
+screenshot 03-no-shading-no-shadows
+shading on
 shadows on
-profile quake-black
-wait 200
-screenshot 05-quake-black
 profile minimal
+sky nebula
 wait 200
-screenshot 06-minimal
+screenshot 04-minimal-nebula-sky
 run time set 18000
-mod off
-wait 160
-screenshot 07-night-vanilla
 profile quake-black
 wait 200
-screenshot 08-night-quake-black-fullbright
+screenshot 05-night-quake-black-fullbright
 run time set 6000
 profile quake-white
 wait 200
 settings open
 wait 40
-screenshot 09-settings
+screenshot 06-settings
 settings close
 wait 10
 quit

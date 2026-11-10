@@ -1,5 +1,4 @@
-// Version-agnostic core: plain Java 8, zero Minecraft or loader dependencies.
-// Platform builds compile these sources directly; this project exists to run the unit tests.
+// Plain Java 8 with no game types; the platform builds compile these sources, and this project runs Checkstyle and the tests.
 plugins {
     id 'java-library'
     id 'checkstyle'

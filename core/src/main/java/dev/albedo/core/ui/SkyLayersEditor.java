@@ -72,7 +72,6 @@ final class SkyLayersEditor {
     private static final int TURNED_W = 384;
     /** The seconds between two images of a turning preview. */
     private static final double TURN_STEP_S = 0.05;
-    /** The id of the Motion section in {@link #sections}. */
     private static final String MOTION = "sky.motion";
     private static final String TURNING = "Turning", SPEED = "Speed", FOLLOW_TIME = "Follow time", POLE_HEIGHT = "Pole height",
             DIRECTION = "Direction", POLE = "Pole", TRAILS = "Trails", TRAIL_LIGHT = "Trail light";
@@ -83,8 +82,8 @@ final class SkyLayersEditor {
     private final Runnable relayout;
     private final SkyBaker preview;
     private SkyPage page = SkyPage.LIST;
-    /** The open sections of the list screen; only a click on a section heading changes it. */
-    private Accordion sections = Accordion.of();
+    /** True while the Motion section is open; only a click on its heading changes it. */
+    private boolean motionOpen;
     private CanvasImage shown;
     /** The serial of the image that {@link #shown} comes from, whether it is turned, and the clock time when it was made. */
     private long shownFrom = -1;
@@ -135,7 +134,8 @@ final class SkyLayersEditor {
     void draw(int x, int y, int w, int bottom, int screenH, SkyDesign design, Consumer<SkyDesign> set) {
         labelW = 0;
         for (SkyLayer.Kind k : SkyLayer.Kind.values()) for (SkyLayer.Param p : k.params()) labelW = Math.max(labelW, ui.width(Labels.param(k, p)));
-        for (String l : new String[]{"Blend", "Opacity", "Show", "Mask", "Turn", "Tilt", "Roll", "Size"}) labelW = Math.max(labelW, ui.width(l));
+        for (String l : new String[]{"Blend", "Opacity", "Show", "Mask"}) labelW = Math.max(labelW, ui.width(l));
+        for (Transform.Axis a : Transform.Axis.values()) labelW = Math.max(labelW, ui.width(Labels.axis(a)));
         labelW += 8;
         int index = design.indexOf(page.layerId);
         if (page.screen == Screen.LAYER && index < 0) {
@@ -149,14 +149,11 @@ final class SkyLayersEditor {
         }
     }
 
-    // ---------------------------------------------------------------- preview
-
     /**
      * The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask, where the design keeps
      * its turning, so that a layer page shares the bake of the list and shows the trails.
      */
-    private SkyDesign previewDesign(SkyDesign full, int index) {
-        SkyDesign design = full;
+    private SkyDesign previewDesign(SkyDesign design, int index) {
         if (page.screen != Screen.LAYER || page.source == PreviewSource.RESULT || index < 0) return design;
         SkyLayer layer = design.layers().get(index).withOutput(SkyLayer.Output.SHOW).withMask(SkyMask.NONE).withOpacity(100)
                 .withBlend(SkyLayer.Blend.NORMAL);
@@ -197,7 +194,7 @@ final class SkyLayersEditor {
         ui.fill(x, y, w, 1, 0x66FFFFFF);
         ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, 0xCCFFFFFF);
         ui.tip(x, y, w, ph, "Preview of the sky, with the horizon (line) and the zenith (top). Yellow: the sun path. "
-                + "The sky in the world changes when you push Apply or Done.");
+                + "The sky in the world changes when you click Apply or Done.");
         if (w >= 24) {
             for (int i = 0; i < SkyPreviewGeometry.COMPASS.length; i++) {
                 int cx = SkyPreviewGeometry.x(strip, i * 90);
@@ -227,8 +224,6 @@ final class SkyLayersEditor {
         shownAt = now;
     }
 
-    // ---------------------------------------------------------------- list
-
     private void listScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         int cy = y;
         if (bottom - y >= previewHeight(w) + 3 * ROW + 40 + motionHeight(design)) cy += preview(x, y, w, design, -1) + GAP;
@@ -249,7 +244,6 @@ final class SkyLayersEditor {
                     "Click again to replace all layers with the " + name + " sky")) {
                 // The Motion settings stay, except for a preset with its own turning, such as Trails.
                 set.accept(e.getValue().turning().equals(SkyTurning.DEFAULT) ? e.getValue().withTurning(design.turning()) : e.getValue());
-                relayout.run();
                 return;
             }
             px -= 3;
@@ -307,7 +301,7 @@ final class SkyLayersEditor {
 
     /** The height of the Motion section: its heading, and when it is open the Turning row and, while the sky turns, its options. */
     private int motionHeight(SkyDesign design) {
-        return sections.isOpen(MOTION) ? Ui.H + 2 + ROW * motionRows(design) + GAP : Ui.H + GAP;
+        return motionOpen ? Ui.H + 2 + ROW * motionRows(design) + GAP : Ui.H + GAP;
     }
 
     /** The rows under the open Motion heading: Turning, and its options while the sky turns. */
@@ -321,11 +315,11 @@ final class SkyLayersEditor {
      */
     private int motion(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         SkyTurning t = design.turning();
-        boolean open = sections.isOpen(MOTION);
+        boolean open = motionOpen;
         if (y + Ui.H > bottom) return y; // a very short window has no room for the section
         String tip = (open ? "Hide" : "Show") + " the turning of the sky";
         if (ui.sectionHeader(MOTION, x - 4, y, w + 4, "Motion", Labels.turning(t), open, tip) != open) {
-            sections = sections.toggled(MOTION);
+            motionOpen = !open;
             relayout.run();
         }
         if (!open) return y + Ui.H + GAP;
@@ -338,9 +332,7 @@ final class SkyLayersEditor {
         List<Row> rows = new ArrayList<Row>();
         rows.add(ry -> {
             int amount = turning.slider("sky.turning", ry, TURNING, Labels.TURNING_TIP, t.amount());
-            if (amount == t.amount()) return;
-            set.accept(design.withTurning(t.withAmount(amount)));
-            relayout.run(); // the options show or hide
+            if (amount != t.amount()) set.accept(design.withTurning(t.withAmount(amount)));
         });
         if (t.turns()) rows.addAll(turningOptions(options, design, set));
         if (h < ROW) return top; // no room for one row
@@ -453,8 +445,6 @@ final class SkyLayersEditor {
         return "Cannot move: " + name(design, i) + " uses the layer below it as its mask. A mask must be lower.";
     }
 
-    // ---------------------------------------------------------------- add
-
     private void addScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         if (ui.backButton("sky.back", x, y, "Back to the layers (Esc)")) {
             go(SkyPage.LIST);
@@ -488,8 +478,6 @@ final class SkyLayersEditor {
             cy = by + Ui.H + GAP;
         }
     }
-
-    // ---------------------------------------------------------------- one layer
 
     /** Draws one row of a layer page at y. */
     private interface Row {

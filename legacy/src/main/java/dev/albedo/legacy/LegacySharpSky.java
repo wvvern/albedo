@@ -38,7 +38,6 @@ import javax.imageio.ImageIO;
  * baked texture draws the sky.
  */
 final class LegacySharpSky {
-    /** The state of the compile of one program. */
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     /** The block of a sky program as the four uniform arrays of the shader, which {@link #set} fills again for each draw. */
@@ -148,10 +147,9 @@ final class LegacySharpSky {
     }
 
     /** The programs of each sky that came recently. */
-    private static final int CACHE = 4;
-    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(CACHE, steps -> new Program(SkyShaderSource.SHARP, steps),
-            Program::close);
-    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(CACHE,
+    private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
+            steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
+    private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
             steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
 
     private static final Block BLOCK = new Block();
@@ -316,17 +314,12 @@ final class LegacySharpSky {
         return true;
     }
 
-    /** Two triangles over the whole image, with texture coordinates from the top left corner and the sky directions of a view, or null. */
+    /** Draws the {@link SkyImage#quad} of a view, or of the whole image for null. */
     private static void quad(float[] view) {
-        float[][] corners = {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}};
-        int[] corner = {0, 1, 2, 0, 2, 3};
+        float[] v = SkyImage.quad(view);
         WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
         r.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX);
-        for (int i = 0; i < corners.length; i++) {
-            int c = corner[i] * 3;
-            if (view == null) r.pos(0, 0, 0).tex(corners[i][0], corners[i][1]).endVertex();
-            else r.pos(view[c], view[c + 1], view[c + 2]).tex(corners[i][0], corners[i][1]).endVertex();
-        }
+        for (int i = 0; i < v.length; i += 5) r.pos(v[i], v[i + 1], v[i + 2]).tex(v[i + 3], v[i + 4]).endVertex();
         Tessellator.getInstance().draw();
     }
 }

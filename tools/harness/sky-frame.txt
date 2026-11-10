@@ -1,0 +1,98 @@
+# The cost of the custom sky in a full frame at 3840x2160: the frame rate with the sky off and with Nebula, two times each in turn, in a view with the horizon and in a view full of sky. Run it after the scene:
+# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots sky-frame.txt -OutDir build\sky-frame
+wait 60
+profile minimal
+run time set 6000
+skyclock 30
+run tp @p 0.5 ~ 4.5 180 -10
+wait 40
+window 3840 2160
+wait 40
+sky off
+wait 100
+fps 10
+sky nebula
+wait 160
+fps 10
+skycompare
+wait 20
+skytime 3840 2160
+wait 10
+sky off
+wait 100
+fps 10
+sky nebula
+wait 160
+fps 10
+run tp @p 0.5 ~ 4.5 180 -80
+wait 40
+sky off
+wait 100
+fps 10
+sky nebula
+wait 160
+fps 10
+sky off
+wait 100
+fps 10
+sky nebula
+wait 160
+fps 10
+# The sun by day and the moon and the stars at night must show on the sky, and the world must hide the sky.
+window 1920 1080
+wait 40
+run tp @p 0.5 ~ 4.5 180 -10
+wait 40
+screenshot frame-day-horizon
+run tp @p 0.5 ~ 4.5 180 -80
+wait 40
+screenshot frame-day-up
+run time set 18000
+run tp @p 0.5 ~ 4.5 180 -10
+wait 60
+screenshot frame-night-horizon
+run tp @p 0.5 ~ 4.5 180 -80
+wait 40
+screenshot frame-night-up
+sky dusk
+wait 160
+screenshot frame-night-dusk-up
+run tp @p 0.5 ~ 4.5 180 -10
+wait 40
+screenshot frame-night-dusk-horizon
+run time set 6000
+run tp @p 0.5 ~ 4.5 180 -80
+wait 60
+screenshot frame-day-dusk-up
+sky off
+wait 100
+screenshot frame-day-off-up
+# The GPU sky of each other preset compared with the CPU bake, and the aurora and the meteors in the world.
+run time set 18000
+run tp @p 0.5 ~ 4.5 180 -20
+sky dusk
+wait 160
+skycompare
+wait 20
+sky galaxy
+wait 160
+skycompare
+wait 20
+sky meteors
+wait 160
+skycompare
+wait 20
+screenshot frame-meteors
+sky aurora
+wait 160
+skycompare
+wait 20
+screenshot frame-aurora
+sky trails
+wait 160
+skycompare
+wait 20
+screenshot frame-trails
+# The screenshot writes its file on a thread of its own, which must end before the game stops.
+wait 20
+quit

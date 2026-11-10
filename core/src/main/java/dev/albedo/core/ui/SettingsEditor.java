@@ -37,7 +37,6 @@ public final class SettingsEditor {
     };
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
-    /** The id of the Effects section in {@link #sections}. */
     private static final String EFFECTS = "effects";
     /** The first effect under the Effects heading, which all categories with effects have. */
     private static final String CHROMA_LABEL = "Chroma";
@@ -104,7 +103,6 @@ public final class SettingsEditor {
 
         static Page of(Category c) { return new Page(View.CATEGORY, c, Tab.LOOK, -1); }
 
-        /** A page that is not a category keeps the category, so that the label column keeps its width. */
         Page to(View v) { return new Page(v, category, tab, -1); }
 
         Page withTab(Tab t) { return new Page(View.CATEGORY, category, t, -1); }
@@ -141,8 +139,8 @@ public final class SettingsEditor {
     private Page page = Page.of(Category.BLOCKS);
     private Mode mode = Mode.BROWSE;
     private Toast toast;
-    /** The open sections of the look, kept for all categories and groups; only a click on a section heading changes it. */
-    private Accordion sections = Accordion.of();
+    /** True while the Effects section is open, for all categories and groups; only a click on its heading changes it. */
+    private boolean effectsOpen;
     /** Shown under the scope switch when a switch was refused. */
     private String notice;
     private boolean closed;
@@ -172,23 +170,29 @@ public final class SettingsEditor {
         setDraft(saved);
     }
 
-    // ---------------------------------------------------------------- input from adapters (the pointer position
-    // is taken from each render call)
-
     /** The left button went down, which each adapter finds by its game's own button number because the numbers change between versions. */
     public void mousePressed() { ui.mousePressed(); }
 
-    /** The left button went up. */
     public void mouseReleased() { ui.mouseReleased(); }
 
     public void mouseScrolled(double amount) { ui.scrolled(amount); }
 
-    public void keyPressed(UiKey key, boolean ctrl) { ui.key(key, ctrl); }
+    public void keyPressed(UiKey key) { ui.key(key); }
 
+    /** A typed character, where the editor drops control characters, so that an adapter can pass each character that its game gives. */
     public void charTyped(char c) { ui.typed(c); }
 
     /** The adapter closes its screen once this turns true. */
     public boolean isClosed() { return closed; }
+
+    /**
+     * The cursor {x0, y0, x1, y1} in GUI pixels of the text field that takes typing after the last render, or null when no
+     * field does, for a game that sends text only while it asks the window for text input.
+     */
+    public int[] textCursor() {
+        Rect r = ui.textCursor();
+        return r == null ? null : new int[]{r.x, r.y, r.x + r.w, r.bottom()};
+    }
 
     /** Queues an input for the open screen, from the dev harness (see {@link ScriptedInput}). */
     public static void script(String command) {
@@ -203,11 +207,8 @@ public final class SettingsEditor {
         return ScriptedInput.takeRealClick();
     }
 
-    // ---------------------------------------------------------------- frame
-
     public void render(Canvas canvas, int mouseX, int mouseY) {
         boolean scripted = script.active();
-        ui.recordAreas(scripted);
         if (scripted) canvas = script.beginFrame(canvas, ui);
         int mx = script.x(mouseX), my = script.y(mouseY);
         changed = false;
@@ -305,8 +306,6 @@ public final class SettingsEditor {
         if (otherCategory || next.view != prev.view) skyLayers.reset();
     }
 
-    // ---------------------------------------------------------------- header: title, on/off, profiles
-
     private void header(int x, int y, int w) {
         if (mode == Mode.RENAME && ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) setMode(Mode.BROWSE);
         int bw = ui.buttonWidth("Copy", "Rename", "Delete");
@@ -321,7 +320,7 @@ public final class SettingsEditor {
             tx += titleW;
         }
         boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(),
-                (showTitle ? "" : Albedo.NAME + ". ") + "Turn the mod on or off (" + draft.keys().toggle + ")");
+                "Turn " + Albedo.NAME + " on or off (" + draft.keys().toggle + ")");
         if (on != draft.enabled()) setDraft(draft.withEnabled(on));
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 
@@ -336,7 +335,7 @@ public final class SettingsEditor {
             setMode(Mode.BROWSE);
             return;
         }
-        if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _");
+        if (pw >= 40) ui.textField("rename", rename, px, y, pw, Ui.H, "Profile name", "Letters, digits, - and _, where a space becomes -");
         // Enter or a click elsewhere ends the input; both keep the name.
         if (save || !ui.isFocused("rename")) finishRename();
     }
@@ -382,8 +381,6 @@ public final class SettingsEditor {
         // Reserved before the page is drawn, so that a click on the open list does not also reach the page.
         if (mode == Mode.PICK_PROFILE) ui.reserveOverlay(profileListArea());
     }
-
-    // ---------------------------------------------------------------- profile list: a searchable dropdown
 
     private List<String> profileNames() {
         String q = profileSearch.text.trim().toLowerCase(Locale.ROOT);
@@ -445,8 +442,6 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- sidebar: categories, then World and Servers
-
     private void sidebar(int x, int y, int w, int h) {
         // Rows shrink a little on short windows so that the World and Servers entries always show.
         int pitch = Math.max(10, Math.min(13, (h - 11) / (CATEGORIES.length + 2)));
@@ -500,8 +495,6 @@ public final class SettingsEditor {
         return clicked;
     }
 
-    // ---------------------------------------------------------------- content
-
     private void content(int x, int y, int w, int h) {
         if (page.view == View.WORLD) {
             worldPage(x, y, w, h);
@@ -523,7 +516,7 @@ public final class SettingsEditor {
         }
         String name = Labels.name(category);
         int cy = y + ui.title(x, y, w, name, Labels.description(category));
-        Tab tab = category.hasGroups() ? page.tab : Tab.LOOK;
+        Tab tab = page.tab;
         // A category without groups shows only the Look tab, so that the Style row has the same place on every page.
         String lookTip = category.hasGroups() ? "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group"
                 : "The look of the " + name.toLowerCase(Locale.ROOT);
@@ -630,7 +623,7 @@ public final class SettingsEditor {
             labels[0] = "Global";
             tips[0] = "Use the " + Labels.name(category) + " look";
         } else if (rule != null) {
-            tips[0] = "Do not change these blocks";
+            tips[0] = "Do not change these textures";
         }
         int selected = current;
         List<Column.Item> items = new ArrayList<Column.Item>();
@@ -714,24 +707,25 @@ public final class SettingsEditor {
      * for blocks and fluids.
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
-        boolean edges = page.category.hasEdgeEffects(), open = sections.isOpen(EFFECTS);
+        boolean edges = page.category.hasEdgeEffects(), open = effectsOpen;
         Chroma chroma = target.chroma();
+        boolean more = chroma.isOn() || edges;
         // One item for each group of rows, so that a short window scrolls to each, with one guide line through all of them.
-        int chromaH = chroma.isOn() || edges ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
+        int chromaH = more ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
         int optionsH = edges ? Form.rowsHeight(CHROMA_LABELS.length) : Form.slidersHeight(CHROMA_LABELS.length, false);
         int edgesH = Form.slidersHeight(EFFECT_LABELS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
             String tip = (open ? "Hide" : "Show") + " the effects: " + CHROMA_LABEL + (edges ? ", " + String.join(", ", EFFECT_LABELS) : "");
             if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
-            sections = sections.toggled(EFFECTS);
+            effectsOpen = !open;
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
         items.add(Column.of(chromaH, (x, y, w) -> {
             Form form = form(x, w);
-            form.guide(y, chromaH == Form.rowsHeight(1) ? chromaH : chromaH - GAP);
+            form.guide(y, more ? chromaH : chromaH - GAP);
             int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, CHROMA_TIP, chroma.strength());
             if (strength == chroma.strength()) return false;
             setLook(cs, index, target.withEffects(target.bevel(), target.outline(), chroma.withStrength(strength)));
@@ -772,16 +766,14 @@ public final class SettingsEditor {
         return items;
     }
 
-    // ---------------------------------------------------------------- groups
-
     private void groupsTab(int x, int y, int w, int h, CategorySettings cs) {
         String name = Labels.name(page.category);
         String[] scopes = {"Everything", "Only groups"};
         Form form = form(x, w);
         form.label(y, Ui.H, "Scope", null);
         int scope = ui.segmented("scope", form.lx(), y, form.cw(), scopes, cs.onlyGroups() ? 1 : 0, new String[]{
-                "The " + name + " look applies to all. Groups change their own blocks.",
-                "Only blocks in groups change. All other blocks stay vanilla."});
+                "The " + name + " look applies to all. Groups change their own textures.",
+                "Only textures in groups change. All other textures stay vanilla."});
         int cy = y + ui.segmentedHeight(scopes, form.cw()) + GAP;
         if (scope != (cs.onlyGroups() ? 1 : 0)) {
             Rule blocker = cs.blocksScopeSwitch();
@@ -797,7 +789,7 @@ public final class SettingsEditor {
         if (notice != null) cy += ui.paragraph(notice, x, cy, w, Ui.DANGER) + GAP;
         String newLabel = "+ New group";
         int nw = ui.buttonWidth(newLabel);
-        if (ui.button("group.new", x, cy, nw, Ui.H, newLabel, Ui.Style.PRIMARY, true, "Make a set of blocks with its own look")) {
+        if (ui.button("group.new", x, cy, nw, Ui.H, newLabel, Ui.Style.PRIMARY, true, "Make a set of textures with its own look")) {
             setCategory(cs.withRuleAt(cs.rules().size(), cs.newGroup(freeGroupName(cs), Collections.<String>emptyList())));
             go(page.withGroup(cs.rules().size()));
             ui.focus("add");
@@ -830,9 +822,8 @@ public final class SettingsEditor {
         int room = bx - x - 22;
         int nameW = Math.min(ui.width(r.displayName()), room / 2);
         ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, y + 3, Ui.TEXT);
-        String members = r.patterns().isEmpty() ? "no blocks" : String.join(", ", r.patterns());
+        String members = r.patterns().isEmpty() ? "no textures" : String.join(", ", r.patterns());
         ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, y + 3, Ui.MUTED);
-        // A move keeps drawing the old rows for this frame, so the list does not flicker.
         if (ui.button("group.up." + i, bx, y + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
             setCategory(cs.withRuleMoved(i, -1));
         }
@@ -997,8 +988,6 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- textures
-
     /** Every texture seen in this category; clicking one opens its group, or starts a group with it. */
     private void texturesTab(int x, int y, int w, int h, CategorySettings cs) {
         Category category = page.category;
@@ -1051,12 +1040,10 @@ public final class SettingsEditor {
         go(page.withGroup(0));
     }
 
-    // ---------------------------------------------------------------- servers page
-
     private void serversPage(int x, int y, int w, int h) {
         int cy = y + ui.title(x, y, w, "Servers", "For all profiles") + 1;
-        cy += ui.paragraph("On a server in this list, Albedo uses its profile. F6 or F7 on the server changes it until you leave.",
-                x, cy, w, Ui.FAINT) + GAP;
+        cy += ui.paragraph("On a server in this list, Albedo uses its profile. " + draft.keys().toggle + " or " + draft.keys().cycleProfile
+                + " on the server changes it until you leave.", x, cy, w, Ui.FAINT) + GAP;
         String active = draft.activeProfileName();
         String here = sc.server();
         if (here != null) {
@@ -1126,8 +1113,6 @@ public final class SettingsEditor {
         return r.profile() == null ? "Albedo off" : r.profile();
     }
 
-    // ---------------------------------------------------------------- world page
-
     private void worldPage(int x, int y, int w, int h) {
         int cy = y + ui.title(x, y, w, "World", "These settings apply to all categories") + 3;
         // Each row shows its explanation when all rows fit with it; otherwise the explanation is the tooltip only.
@@ -1144,8 +1129,6 @@ public final class SettingsEditor {
             cy += rh + 4;
         }
     }
-
-    // ---------------------------------------------------------------- footer
 
     private void footer(int x, int y, int w) {
         boolean dirty = !draft.equals(saved);
@@ -1197,7 +1180,7 @@ public final class SettingsEditor {
     private void exportProfile() {
         try {
             File file = sc.exportProfile(profile());
-            say("Saved to profiles/" + file.getName() + " and copied to the clipboard");
+            say("Saved to profiles/" + file.getName() + " and copied to the clipboard.");
         } catch (IOException e) {
             sc.platform().warn("Cannot export the profile", e);
             sayError("Cannot save the file: " + e.getMessage());
@@ -1207,12 +1190,12 @@ public final class SettingsEditor {
     private void importProfile() {
         String text = sc.platform().clipboard();
         if (text == null || text.trim().isEmpty()) {
-            sayError("The clipboard is empty. Copy the text of a profile file, then push Import.");
+            sayError("The clipboard is empty. Copy the text of a profile file, then click Import.");
             return;
         }
         try {
             switchProfile(draft.withImportedProfile(ConfigCodec.decodeProfileFile(text)));
-            say("Added profile " + draft.activeProfileName() + ". Push Apply or Done to keep it.");
+            say("Added profile " + draft.activeProfileName() + ". Click Apply or Done to keep it.");
         } catch (IllegalArgumentException e) {
             sayError("Cannot import: " + e.getMessage());
         }
@@ -1223,7 +1206,7 @@ public final class SettingsEditor {
         // A server rule can make the state in effect differ from the draft, so the screen shows what is in effect.
         saved = sc.config();
         setDraft(saved);
-        say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved");
+        say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved.");
     }
 
     private void done() {
@@ -1242,8 +1225,6 @@ public final class SettingsEditor {
         Config.State shown = draft.state();
         return sc.apply(draft.withState(stored), shown.equals(saved.state()) ? null : shown);
     }
-
-    // ---------------------------------------------------------------- draft editing
 
     private Profile profile() { return draft.activeProfile(); }
 

@@ -50,6 +50,19 @@ final class PrecompiledChromaPass implements ChromaBackend {
             .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
             .build();
 
+    // A draw that copies one mip level, because the texture copy of 1.21.11 copies only the level 0.
+    private static final RenderPipeline COPY = RenderPipeline.builder()
+            .withSampler("AlbedoSource")
+            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA_COPY))
+            .withoutBlend()
+            .withDepthWrite(false)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withCull(false)
+            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .build();
+
     // The state of the compile, which the game does again after each resource reload.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
@@ -68,8 +81,10 @@ final class PrecompiledChromaPass implements ChromaBackend {
     @Override
     public Shader compile() {
         if (state == Compile.FAILED) return Shader.FAILED;
-        // A resource reload empties the pipeline cache, so the pipeline goes to the game in each frame before the pass uses it.
-        if (RenderSystem.getDevice().precompilePipeline(PIPELINE, PrecompiledChromaPass::source).isValid()) {
+        // A resource reload empties the pipeline cache, so the pipelines go to the game in each frame before the pass uses them.
+        var device = RenderSystem.getDevice();
+        if (device.precompilePipeline(PIPELINE, PrecompiledChromaPass::source).isValid()
+                && device.precompilePipeline(COPY, PrecompiledChromaPass::source).isValid()) {
             if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the Chroma shader " + PIPELINE.getLocation());
             state = Compile.READY;
             return Shader.READY;
@@ -122,7 +137,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             int w = live.getWidth(0), h = live.getHeight(0);
             var device = RenderSystem.getDevice();
             pristine = device.createTexture(() -> "Albedo Chroma pristine", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_COPY_SRC
-                    | GpuTexture.USAGE_TEXTURE_BINDING, TextureFormat.RGBA8, w, h, 1, levels);
+                    | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.RGBA8, w, h, 1, levels);
             texels = device.createTexture(() -> "Albedo Chroma texels", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
                     TextureFormat.RGBA8, w, h, 1, levels);
             liveViews = new GpuTextureView[levels];
@@ -164,8 +179,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             encoder.writeToBuffer(turns.slice(), turnBytes);
             GpuSampler nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
             for (int level = 0; level < levels; level++) {
-                int w = live.getWidth(level), h = live.getHeight(level);
-                encoder.copyTextureToTexture(live, pristine, level, 0, 0, 0, 0, w, h);
+                copy(encoder, live, liveViews, pristine, pristineViews, level);
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma", liveViews[level], OptionalInt.empty())) {
                     pass.setPipeline(PIPELINE);
                     pass.setUniform("AlbedoChroma", turns);
@@ -179,15 +193,28 @@ final class PrecompiledChromaPass implements ChromaBackend {
         @Override
         public void restore() {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-            for (int level = 0; level < levels; level++) {
-                encoder.copyTextureToTexture(pristine, live, level, 0, 0, 0, 0, live.getWidth(level), live.getHeight(level));
+            for (int level = 0; level < levels; level++) copy(encoder, pristine, pristineViews, live, liveViews, level);
+        }
+
+        // Copies one mip level into the same level of the other texture, with a draw for each level above 0, because the
+        // texture copy of 1.21.11 copies only the level 0.
+        private static void copy(CommandEncoder encoder, GpuTexture from, GpuTextureView[] fromViews, GpuTexture to,
+                                 GpuTextureView[] toViews, int level) {
+            if (level == 0) {
+                encoder.copyTextureToTexture(from, to, 0, 0, 0, 0, 0, from.getWidth(0), from.getHeight(0));
+                return;
+            }
+            try (RenderPass pass = encoder.createRenderPass(() -> "Albedo Chroma copy", toViews[level], OptionalInt.empty())) {
+                pass.setPipeline(COPY);
+                pass.bindTexture("AlbedoSource", fromViews[level], RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+                pass.draw(0, 3);
             }
         }
 
         @Override
         public long bytes() {
             long out = 0;
-            for (int level = 0; level < levels; level++) out += 2L * 4 * pristine.getWidth(level) * pristine.getHeight(level);
+            for (int level = 0; level < levels; level++) out += ChromaTexels.levelBytes(pristine.getWidth(level), pristine.getHeight(level));
             return out;
         }
 

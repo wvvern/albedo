@@ -11,8 +11,6 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.opengl.GL11;
 
-import java.io.File;
-
 /**
  * A progress bar while a full resource reload blocks the client thread, drawn without LoadingScreenRenderer because
  * Patcher can turn that off.
@@ -26,7 +24,6 @@ final class ReloadScreen {
     private static int steps;
     private static int loads;
     private static long lastFrame;
-    private static boolean screenshot;
 
     private ReloadScreen() {}
 
@@ -36,7 +33,6 @@ final class ReloadScreen {
         step = 0;
         steps = 0;
         loads = 0;
-        screenshot = System.getProperty("albedo.harness") != null;
         draw(true);
         try {
             reload.run();
@@ -111,11 +107,6 @@ final class ReloadScreen {
 
         fb.unbindFramebuffer();
         fb.framebufferRender(mc.displayWidth, mc.displayHeight);
-        if (screenshot && steps > 0 && step >= steps / 2) {
-            screenshot = false; // development harness: one image of the screen for each reload
-            File dir = new File(System.getProperty("albedo.harness"));
-            new LegacyHarnessHost().screenshot(new File(dir, "reload-screen-" + System.currentTimeMillis() + ".png"));
-        }
         mc.updateDisplay();
     }
 }
