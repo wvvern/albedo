@@ -69,6 +69,7 @@ Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the fixed
 - `texture/ChromaTexels` gives each texel one RGBA8 texel: speed in alpha, hue in red and green, OKLab chroma in blue. `ChromaTexels.Atlas` places them in the atlas and makes the mip levels.
 - The adapter (`ChromaAtlases` with `ChromaPass` on 26.x, `PrecompiledChromaPass` on 1.21.11, `GlChromaPass` on 1.21.1, `LegacyChroma` on 1.8.9) hooks the start and the end of each frame. At the start it copies each mip level into a pristine copy and draws the hue of the frame over it (`chroma.fsh`, `chroma_classic.fsh`, `include/chroma.glsl`). At the end it copies the pristine copy back. A texel with speed 0 is discarded.
 - The turn of each speed comes from `Chroma.turns` with `SkyClock.longSeconds()` in double precision, so each frame has its own colors.
+- At speed 100 a frame of 8 ms turns the hue by less than one 8-bit step. The pass adds a 16 x 16 ordered dither below one step at each texel, so that a part of a flat sprite moves in each frame.
 
 Traps:
 
@@ -76,7 +77,7 @@ Traps:
 - The texels are made again only when a texture with moving colors changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture). A change of only the speed changes only the texels.
 - 1.21.11 and later draw each item icon once into an item atlas. While colors move, each item icon counts as animated (`ItemIconMixin`).
 - 1.8.9 with OptiFine Multitexture on draws blocks from a texture of each sprite, so the pass stops and the sprites get still colors.
-- On 26.x the pipeline compiles on the render thread from the inlined text. On 1.21.11 never cast a GPU texture. On 1.21.1 and 1.8.9 the pass puts back each GL state that it changes. The memory is two times the atlas with its mip levels (42.6 MiB for the 2048 x 2048 block atlas).
+- On 26.x the pipeline compiles on the render thread from the inlined text. On 1.21.11 never cast a GPU texture. On 1.21.1 and 1.8.9 the pass puts back each GL state that it changes. On 1.8.9 it pushes and pops the GL attributes while its own framebuffer is bound, because OptiFine Fast Render draws with no framebuffer and the draw buffer `GL_BACK` is not valid for a framebuffer. The memory is two times the atlas with its mip levels (42.6 MiB for the 2048 x 2048 block atlas).
 - If the shader does not compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`. The core paints still Chroma colors again.
 
 ## Custom sky
@@ -108,6 +109,7 @@ Traps per version:
 - Each OptiFine version uses different method names in `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with it. `OptiFineRenderPatch` finds the tint and brightness calls by target and descriptor, not by name.
 - `LegacySkyPatch` finds each draw in `RenderGlobal.renderSky` by the field that it reads, not by order, because OptiFine adds draws. If it does not find all parts, it logs a warning and the sky stays vanilla.
 - With OptiFine Sky off or an OptiFine shader pack, the sky stays vanilla.
+- With OptiFine Fast Render, a `Framebuffer` of the game binds nothing (`OpenGlHelper.isFramebufferEnabled()` is false), so `skycompare` and `skytime` use a framebuffer of their own.
 - The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace.
 - Tested only with OptiFine HD U M6 pre2 and HD U L5 (`tools/optifine.ps1`). OptiFine shaders are not tested.
 

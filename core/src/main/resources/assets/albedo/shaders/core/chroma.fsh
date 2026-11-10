@@ -19,5 +19,5 @@ void main() {
     vec4 texel = texelFetch(AlbedoTexels, at, 0);
     int speed = albedoChromaSpeed(texel);
     if (speed == 0) discard;
-    fragColor = albedoChroma(texelFetch(AlbedoPristine, at, 0), texel, albedoChromaTurn(ChromaTurns[speed / 4], speed));
+    fragColor = albedoChroma(texelFetch(AlbedoPristine, at, 0), texel, albedoChromaTurn(ChromaTurns[speed / 4], speed), gl_FragCoord.xy);
 }

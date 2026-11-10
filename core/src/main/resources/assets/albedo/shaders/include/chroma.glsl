@@ -43,15 +43,30 @@ float albedoChromaTurn(vec4 turns, int speed) {
     return dot(turns, vec4(equal(ivec4(i), ivec4(0, 1, 2, 3))));
 }
 
-// The pixel of the pristine atlas with the hue of its kind at a turn added in OKLab, with the same alpha.
-vec4 albedoChroma(vec4 color, vec4 texel, float turn) {
+// The offset in 8-bit steps of a 16 x 16 ordered dither at a texel, from -0.5 to 0.5, with float math for GLSL 1.20.
+float albedoChromaDither(vec2 at) {
+    vec2 p = floor(at);
+    float level = 0.0;
+    float weight = 64.0;
+    for (int i = 0; i < 4; i++) {
+        vec2 bit = mod(p, 2.0);
+        level += weight * mod(2.0 * bit.x + 3.0 * bit.y, 4.0);
+        weight *= 0.25;
+        p = floor(p * 0.5);
+    }
+    return (level + 0.5) / 256.0 - 0.5;
+}
+
+// The pixel of the pristine atlas with the hue of its kind at a turn added in OKLab, with the same alpha, dithered at the
+// atlas texel so that a flat sprite moves a part of its texels by one 8-bit step in each frame and not all of them at once.
+vec4 albedoChroma(vec4 color, vec4 texel, float turn, vec2 at) {
     if (color.a == 0.0) return color;
     float hue = (floor(texel.r * 255.0 + 0.5) * 256.0 + floor(texel.g * 255.0 + 0.5)) / 65536.0 + turn;
     float angle = 6.283185307 * fract(hue);
     vec3 rgb = vec3(albedoSrgbToLinear(color.r), albedoSrgbToLinear(color.g), albedoSrgbToLinear(color.b));
     vec3 lab = albedoLinearToLab(rgb);
     lab.yz += texel.b * ALBEDO_CHROMA_MAX_AMOUNT * vec2(cos(angle), sin(angle));
-    return vec4(albedoChromaSrgb(lab), color.a);
+    return vec4(albedoChromaSrgb(lab) + albedoChromaDither(at) / 255.0, color.a);
 }
 
 #endif

@@ -7,12 +7,11 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
@@ -223,10 +222,22 @@ final class LegacySharpSky {
      * @return false when the shader cannot compile
      */
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, File png, Harness.SkyDone done) {
-        if (!EQUIRECT.ready()) return false;
+        if (!EQUIRECT.ready() || !OpenGlHelper.framebufferSupported) return false;
+        int framebufferBefore = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        IntBuffer viewport = BufferUtils.createIntBuffer(16);
+        GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
+        // A framebuffer of its own, because a Framebuffer of the game binds nothing while OptiFine Fast Render is on.
+        int color = GlStateManager.generateTexture();
+        GlStateManager.setActiveTexture(GL13.GL_TEXTURE0);
+        GlStateManager.bindTexture(color);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        int target = OpenGlHelper.glGenFramebuffers();
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, target);
+        OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, color, 0);
+        GL11.glViewport(0, 0, width, height);
         int texture = uploadTerms(sky);
-        Framebuffer target = new Framebuffer(width, height, false);
-        target.bindFramebuffer(true);
         GlStateManager.disableBlend();
         GlStateManager.disableDepth();
         GlStateManager.disableCull();
@@ -250,8 +261,10 @@ final class LegacySharpSky {
         GlStateManager.enableAlpha();
         GlStateManager.enableCull();
         GlStateManager.enableDepth();
-        target.deleteFramebuffer();
-        Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(true);
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebufferBefore);
+        GL11.glViewport(viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
+        OpenGlHelper.glDeleteFramebuffers(target);
+        GlStateManager.deleteTexture(color);
         GlStateManager.deleteTexture(texture);
         // The GL rows go from the bottom up.
         int[] argb = new int[width * height];
