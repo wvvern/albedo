@@ -122,8 +122,6 @@ public final class Albedo {
 
     public Platform platform() { return platform; }
 
-    // ---------------------------------------------------------------- textures
-
     /**
      * Keeps the original of a freshly loaded texture and changes the image in place.
      *
@@ -226,8 +224,6 @@ public final class Albedo {
     public Map<String, Integer> catalog(Category category) {
         return store.catalog(category);
     }
-
-    // ---------------------------------------------------------------- tick: keys, file watching, harness
 
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
     public void clientTick(boolean screenOpen) {
@@ -354,8 +350,6 @@ public final class Albedo {
         if (meshes) platform.rebuildChunks();
         return RefreshResult.painted(r.repainted, meshes, (System.nanoTime() - start) / 1000000);
     }
-
-    // ---------------------------------------------------------------- persistence
 
     private void setConfig(Config c) {
         config = c;

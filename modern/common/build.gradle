@@ -5,7 +5,7 @@ architectury {
 }
 
 dependencies {
-    // Only for Fabric's @Environment annotations; no other Fabric Loader classes are used in common.
+    // Gives the common code the Mixin classes; it uses no Fabric Loader classes.
     add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
     // MixinExtras ships inside both Fabric Loader and NeoForge; compile against it only.
     compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'

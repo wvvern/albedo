@@ -113,8 +113,6 @@ public final class SkyGenerator {
         };
     }
 
-    // ---------------------------------------------------------------- the pass over the layers
-
     private SkyImage run() {
         for (int i = 3; i < img.length; i += 4) img[i] = 1f;
         List<SkyLayer> layers = design.layers();
@@ -264,8 +262,6 @@ public final class SkyGenerator {
         return soft;
     }
 
-    // ---------------------------------------------------------------- one layer's values
-
     /** What a layer needs for each pixel, computed once for each bake. */
     private static final class Layer {
         final SkyLayer layer;
@@ -311,9 +307,9 @@ public final class SkyGenerator {
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
             float[] up = new float[3];
             local(0, 1, 0, up);
-            // The bake is a still sky, so the stars twinkle as at time 0.
             float[] axis = new float[3];
             for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
+            // The bake is a still sky, so the stars twinkle as at time 0.
             stars = layer.kind() == SkyLayer.Kind.STARS
                     ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up,
                             block[SkyProgram.at(index, SkyProgram.TRAIL)], block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis)
@@ -347,8 +343,6 @@ public final class SkyGenerator {
             out[3] = alpha1 + (alpha2 - alpha1) * t;
         }
     }
-
-    // ---------------------------------------------------------------- generators
 
     /** The color and alpha of a generator in a direction of the layer frame. */
     private void generate(Layer l, float[] p, float[] out) {
@@ -642,8 +636,7 @@ public final class SkyGenerator {
         l.stars.shade(p, texel, l.color1, l.alpha1, out);
     }
 
-    // ---------------------------------------------------------------- filters: each writes its result for all of img into tmp
-
+    /** Runs a filter, which writes its result for all of {@code img} into {@code tmp}. */
     private boolean filter(Layer l) {
         boolean ok;
         switch (l.layer.kind()) {
@@ -907,8 +900,6 @@ public final class SkyGenerator {
             tmp[i + 3] = img[i + 3];
         }
     }
-
-    // ---------------------------------------------------------------- geometry
 
     private void dir(int x, int y, float[] out) {
         out[0] = cosEl[y] * sinLon[x];

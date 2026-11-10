@@ -1,5 +1,4 @@
-// Minecraft 1.8.9 Forge. Uses Essential's fork of Architectury Loom, the maintained toolchain for legacy Forge.
-// The version-agnostic core (../core) is compiled straight into this jar.
+// Minecraft 1.8.9 Forge with Essential's fork of Architectury Loom; the core (../core) compiles into this jar.
 plugins {
     idea
     java
@@ -105,8 +104,7 @@ tasks.shadowJar {
 
 tasks.assemble.get().dependsOn(tasks.remapJar)
 
-// Loom 0.10's own runClient trips Gradle 8's task validation. This runs the identical launch
-// (dev-launch-injector reading Loom's generated launch.cfg) as a plain JavaExec on Java 8.
+// Loom 0.10's own runClient fails Gradle 8's task validation, so this runs the same launch.cfg as a plain JavaExec on Java 8.
 tasks.register<JavaExec>("runClientDev") {
     group = "minecraft"
     description = "Starts the 1.8.9 Forge dev client."

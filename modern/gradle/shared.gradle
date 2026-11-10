@@ -37,7 +37,6 @@ dependencies {
 }
 
 if (loader == 'common') {
-    // The version-agnostic core is compiled straight into common (it has no Minecraft types).
     sourceSets.main.java.srcDir rootProject.file('../core/src/main/java')
     // The core resources (the sky shaders) go into the jar next to the core classes.
     sourceSets.main.resources.srcDir rootProject.file('../core/src/main/resources')
@@ -62,8 +61,7 @@ if (loader in ['fabric', 'neoforge']) {
     }
 }
 
-// -Pcompat=sodium (or embeddium, iris, or a comma list) adds that renderer mod to the dev run only, to test compatibility.
-// The release jars and normal builds do not change. The versions are in versions/<v>/gradle.properties.
+// -Pcompat=sodium (or embeddium, iris, or a comma list) adds that mod to the dev run only, from versions/<v>/gradle.properties.
 if (loader in ['fabric', 'neoforge'] && project.hasProperty('compat')) {
     def mods = (project.property('compat') as String).toLowerCase().split(',')*.trim().findAll { it }
     if ('iris' in mods) {

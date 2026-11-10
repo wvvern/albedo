@@ -38,7 +38,6 @@ import javax.imageio.ImageIO;
  * baked texture draws the sky.
  */
 final class LegacySharpSky {
-    /** The state of the compile of one program. */
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     /** The block of a sky program as the four uniform arrays of the shader, which {@link #set} fills again for each draw. */

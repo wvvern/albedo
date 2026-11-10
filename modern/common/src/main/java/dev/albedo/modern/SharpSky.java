@@ -55,7 +55,6 @@ import java.util.concurrent.Executor;
  * view, when the design, the setting and the GPU permit; else the baked texture draws it.
  */
 final class SharpSky {
-    /** The state of the compile of one pipeline. */
     private enum Compile { NOT_STARTED, RUNNING, READY, FAILED }
 
     /**

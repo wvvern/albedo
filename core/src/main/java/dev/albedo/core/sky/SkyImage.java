@@ -56,10 +56,8 @@ public final class SkyImage {
      */
     public short[] terms() { return terms; }
 
-    /** The width of each term image. */
     public int termWidth() { return termWidth; }
 
-    /** The height of each term image. */
     public int termHeight() { return termHeight; }
 
     /** The width of the texture of all term images, which is 1 when there are no terms, because a sampler needs a texture. */
@@ -83,7 +81,6 @@ public final class SkyImage {
 
     public int height() { return height; }
 
-    /** The design this image shows. */
     public SkyDesign design() { return design; }
 
     /** A number that is different for each image, so that an adapter uploads an image only once. */

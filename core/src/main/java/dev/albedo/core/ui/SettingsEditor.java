@@ -104,7 +104,6 @@ public final class SettingsEditor {
 
         static Page of(Category c) { return new Page(View.CATEGORY, c, Tab.LOOK, -1); }
 
-        /** A page that is not a category keeps the category, so that the label column keeps its width. */
         Page to(View v) { return new Page(v, category, tab, -1); }
 
         Page withTab(Tab t) { return new Page(View.CATEGORY, category, t, -1); }
@@ -172,13 +171,9 @@ public final class SettingsEditor {
         setDraft(saved);
     }
 
-    // ---------------------------------------------------------------- input from adapters (the pointer position
-    // is taken from each render call)
-
     /** The left button went down, which each adapter finds by its game's own button number because the numbers change between versions. */
     public void mousePressed() { ui.mousePressed(); }
 
-    /** The left button went up. */
     public void mouseReleased() { ui.mouseReleased(); }
 
     public void mouseScrolled(double amount) { ui.scrolled(amount); }
@@ -202,8 +197,6 @@ public final class SettingsEditor {
     public static int[] takeRealClick() {
         return ScriptedInput.takeRealClick();
     }
-
-    // ---------------------------------------------------------------- frame
 
     public void render(Canvas canvas, int mouseX, int mouseY) {
         boolean scripted = script.active();
@@ -305,8 +298,6 @@ public final class SettingsEditor {
         if (otherCategory || next.view != prev.view) skyLayers.reset();
     }
 
-    // ---------------------------------------------------------------- header: title, on/off, profiles
-
     private void header(int x, int y, int w) {
         if (mode == Mode.RENAME && ui.isFocused("rename") && ui.takeKey(UiKey.ESCAPE)) setMode(Mode.BROWSE);
         int bw = ui.buttonWidth("Copy", "Rename", "Delete");
@@ -383,8 +374,6 @@ public final class SettingsEditor {
         if (mode == Mode.PICK_PROFILE) ui.reserveOverlay(profileListArea());
     }
 
-    // ---------------------------------------------------------------- profile list: a searchable dropdown
-
     private List<String> profileNames() {
         String q = profileSearch.text.trim().toLowerCase(Locale.ROOT);
         List<String> names = new ArrayList<String>();
@@ -445,8 +434,6 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- sidebar: categories, then World and Servers
-
     private void sidebar(int x, int y, int w, int h) {
         // Rows shrink a little on short windows so that the World and Servers entries always show.
         int pitch = Math.max(10, Math.min(13, (h - 11) / (CATEGORIES.length + 2)));
@@ -499,8 +486,6 @@ public final class SettingsEditor {
         ui.text(shown, x + 18, y + (h - Ui.LINE) / 2 + 1, active || bright ? Ui.TEXT : Ui.MUTED);
         return clicked;
     }
-
-    // ---------------------------------------------------------------- content
 
     private void content(int x, int y, int w, int h) {
         if (page.view == View.WORLD) {
@@ -772,8 +757,6 @@ public final class SettingsEditor {
         return items;
     }
 
-    // ---------------------------------------------------------------- groups
-
     private void groupsTab(int x, int y, int w, int h, CategorySettings cs) {
         String name = Labels.name(page.category);
         String[] scopes = {"Everything", "Only groups"};
@@ -832,7 +815,6 @@ public final class SettingsEditor {
         ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, y + 3, Ui.TEXT);
         String members = r.patterns().isEmpty() ? "no blocks" : String.join(", ", r.patterns());
         ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, y + 3, Ui.MUTED);
-        // A move keeps drawing the old rows for this frame, so the list does not flicker.
         if (ui.button("group.up." + i, bx, y + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
             setCategory(cs.withRuleMoved(i, -1));
         }
@@ -997,8 +979,6 @@ public final class SettingsEditor {
         }
     }
 
-    // ---------------------------------------------------------------- textures
-
     /** Every texture seen in this category; clicking one opens its group, or starts a group with it. */
     private void texturesTab(int x, int y, int w, int h, CategorySettings cs) {
         Category category = page.category;
@@ -1050,8 +1030,6 @@ public final class SettingsEditor {
         setCategory(cs.withRuleAt(0, cs.newGroup(shortId(id), Collections.singletonList(shortId(id)))));
         go(page.withGroup(0));
     }
-
-    // ---------------------------------------------------------------- servers page
 
     private void serversPage(int x, int y, int w, int h) {
         int cy = y + ui.title(x, y, w, "Servers", "For all profiles") + 1;
@@ -1126,8 +1104,6 @@ public final class SettingsEditor {
         return r.profile() == null ? "Albedo off" : r.profile();
     }
 
-    // ---------------------------------------------------------------- world page
-
     private void worldPage(int x, int y, int w, int h) {
         int cy = y + ui.title(x, y, w, "World", "These settings apply to all categories") + 3;
         // Each row shows its explanation when all rows fit with it; otherwise the explanation is the tooltip only.
@@ -1144,8 +1120,6 @@ public final class SettingsEditor {
             cy += rh + 4;
         }
     }
-
-    // ---------------------------------------------------------------- footer
 
     private void footer(int x, int y, int w) {
         boolean dirty = !draft.equals(saved);
@@ -1242,8 +1216,6 @@ public final class SettingsEditor {
         Config.State shown = draft.state();
         return sc.apply(draft.withState(stored), shown.equals(saved.state()) ? null : shown);
     }
-
-    // ---------------------------------------------------------------- draft editing
 
     private Profile profile() { return draft.activeProfile(); }
 

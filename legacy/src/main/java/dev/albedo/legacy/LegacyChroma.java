@@ -37,7 +37,6 @@ import java.util.Locale;
  * frame the atlas gets back the colors that Albedo painted, so that the game and Albedo always write into those colors.
  */
 public final class LegacyChroma {
-    /** The state of the compile of the program. */
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     private static Compile state = Compile.NOT_STARTED;

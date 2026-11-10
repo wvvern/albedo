@@ -61,7 +61,6 @@ public final class Colors {
             if (s.length() == 6) return 0xFF000000 | Integer.parseInt(s, 16);
             if (s.length() == 8) return (int) Long.parseLong(s, 16);
         } catch (NumberFormatException ignored) {
-            // fall through
         }
         throw new IllegalArgumentException("Not a color: '" + text + "' (use #RGB, #RRGGBB, #AARRGGBB or a name)");
     }

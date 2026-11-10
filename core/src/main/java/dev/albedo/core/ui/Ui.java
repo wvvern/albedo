@@ -34,7 +34,7 @@ final class Ui {
     /** Time in ms a delete button stays armed after the first click. */
     private static final int CONFIRM_MS = 3000;
 
-    /** Time in ms a pointer must rest on a widget before its tooltip shows. 0 in tests. */
+    /** Time in ms a pointer must rest on a widget before its tooltip shows. */
     int tipDelay = 400;
 
     enum Style { NORMAL, PRIMARY, DANGER, GHOST }
@@ -118,9 +118,6 @@ final class Ui {
         this.clipboard = clipboard;
     }
 
-    // ---------------------------------------------------------------- events (between frames; the pointer position
-    // comes from each frame's render call)
-
     void mousePressed() {
         pointer.held = true;
         pointer.click = true;
@@ -142,8 +139,6 @@ final class Ui {
     void typed(char ch) {
         if (ch >= ' ' && ch != 127) typed.append(ch);
     }
-
-    // ---------------------------------------------------------------- frame
 
     void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
@@ -232,8 +227,6 @@ final class Ui {
     boolean pointerIn(int x, int y, int w, int h) {
         return new Rect(x, y, w, h).contains(pointer.x, pointer.y);
     }
-
-    // ---------------------------------------------------------------- overlay (dropdowns drawn over other widgets)
 
     /** Widgets drawn from now until {@link #beginOverlay()} ignore the pointer inside {@code area}. */
     void reserveOverlay(Rect area) {
@@ -337,8 +330,6 @@ final class Ui {
     private static long now() {
         return System.currentTimeMillis();
     }
-
-    // ---------------------------------------------------------------- drawing helpers
 
     void fill(int x, int y, int w, int h, int color) {
         if (w > 0 && h > 0) c.fill(x, y, x + w, y + h, color);
@@ -455,8 +446,6 @@ final class Ui {
         if ((color >>> 24) < 255) checker(x + 1, y + 1, w - 2, h - 2);
         fill(x + 1, y + 1, w - 2, h - 2, color);
     }
-
-    // ---------------------------------------------------------------- widgets
 
     boolean button(String id, int x, int y, int w, int h, String label, Style style, boolean enabled, String tipText) {
         boolean hovered = enabled && hover(x, y, w, h);
@@ -797,8 +786,6 @@ final class Ui {
     void resetScroll(String id) {
         scrolls.remove(id);
     }
-
-    // ---------------------------------------------------------------- color math
 
     static int hsv(float h, float s, float v) {
         float r, g, b;

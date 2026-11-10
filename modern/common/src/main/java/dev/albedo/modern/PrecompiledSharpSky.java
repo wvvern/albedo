@@ -49,7 +49,6 @@ import java.util.OptionalLong;
 // Draws the custom sky with the sky shader for each screen pixel on 1.21.11, so that it is sharp at each resolution and
 // field of view, from pipelines that the game compiles from the complete shader text of the mod.
 final class PrecompiledSharpSky {
-    // The state of the compile of one pipeline.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     // A pipeline whose shaders come from the jar of the mod, because the game does not load the shaders of a mod as resources.

@@ -149,8 +149,6 @@ final class SkyLayersEditor {
         }
     }
 
-    // ---------------------------------------------------------------- preview
-
     /**
      * The design the preview bakes: the full sky, or one layer alone, also a layer that is only a mask, where the design keeps
      * its turning, so that a layer page shares the bake of the list and shows the trails.
@@ -226,8 +224,6 @@ final class SkyLayersEditor {
         shownTurned = turned;
         shownAt = now;
     }
-
-    // ---------------------------------------------------------------- list
 
     private void listScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         int cy = y;
@@ -453,8 +449,6 @@ final class SkyLayersEditor {
         return "Cannot move: " + name(design, i) + " uses the layer below it as its mask. A mask must be lower.";
     }
 
-    // ---------------------------------------------------------------- add
-
     private void addScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         if (ui.backButton("sky.back", x, y, "Back to the layers (Esc)")) {
             go(SkyPage.LIST);
@@ -488,8 +482,6 @@ final class SkyLayersEditor {
             cy = by + Ui.H + GAP;
         }
     }
-
-    // ---------------------------------------------------------------- one layer
 
     /** Draws one row of a layer page at y. */
     private interface Row {

@@ -8,7 +8,7 @@ import dev.albedo.core.sky.SkyImage;
  * north at the left and east to the right.
  */
 final class SkyPreviewGeometry {
-    /** The compass labels and their azimuths in degrees. */
+    /** The compass labels from north, one each 90 degrees. */
     static final String[] COMPASS = {"N", "E", "S", "W"};
     /** The azimuths of the sunrise and the sunset, where the vanilla sun path crosses the horizon on its way through the zenith. */
     static final int SUNRISE = 90, SUNSET = 270;

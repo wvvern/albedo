@@ -41,7 +41,6 @@ import java.nio.ByteBuffer;
 final class GlSharpSky {
     private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
 
-    // The state of the compile of one program.
     private enum Compile { NOT_STARTED, READY, FAILED }
 
     // The block of a sky program as the four uniform arrays of the shader, which set fills again for each draw.

@@ -6,7 +6,7 @@ plugins {
     id 'com.gradleup.shadow' apply false
 }
 
-// The version whose code is active (uncommented) in src/. "Set active project to X" tasks rewrite this line.
+// The version whose code is active (uncommented) in src/, which the "Set active project to X" tasks rewrite.
 stonecutter.active '26.3'
 
 stonecutter.parameters {
@@ -14,7 +14,6 @@ stonecutter.parameters {
     swaps.put('minecraft', "\"${current.version}\";")
 }
 
-// One folder with the release jar of every loader and Minecraft version: build/libs/.
 tasks.register('collectJars', Copy) {
     group = 'build'
     description = 'Builds every loader x Minecraft version release jar and copies them to build/libs.'
