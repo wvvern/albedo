@@ -8,10 +8,15 @@ night with and without fullbright, and the settings screen.
 The game runs with the test harness (core/src/main/java/dev/albedo/core/dev/Harness.java).
 Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
+Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
+A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
+that starts with ! and no DIFFERENT, each screenshot command made its image, and the run folder has config/albedo/config.json.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
 ./tools/screenshots.ps1 -Targets fabric-26.3  # one target
+# From a different shell, give a list of targets through -Command, because -File makes one string of it:
+pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3,neoforge-26.3"
 # The gallery images:
 ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
@@ -44,17 +49,43 @@ if ($ShaderPack) {
 }
 
 function Set-Options([string]$runDir) {
-    # Turn off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
+    # A new file each run, so that no option of an earlier run changes the screenshots.
+    # It turns off sound and the first-start onboarding (it can start the narrator) before the game reads the options.
     New-Item -ItemType Directory -Force $runDir | Out-Null
-    $file = Join-Path $runDir "options.txt"
-    $options = [ordered]@{}
-    if (Test-Path $file) {
-        foreach ($line in Get-Content $file) { $i = $line.IndexOf(':'); if ($i -gt 0) { $options[$line.Substring(0, $i)] = $line.Substring($i + 1) } }
+    $options = [ordered]@{ onboardAccessibility = "false"; narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false";
+                           tutorialStep = "none"; skipMultiplayerWarning = "true"; joinedFirstServer = "true"; fullscreen = "false"; guiScale = "$GuiScale" }
+    ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii (Join-Path $runDir "options.txt")
+}
+
+function Set-EarlyWindow([string]$runDir) {
+    # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
+    $config = Join-Path $runDir "config"
+    New-Item -ItemType Directory -Force $config | Out-Null
+    $file = Join-Path $config "fml.toml"
+    $lines = @(if (Test-Path $file) { Get-Content $file | Where-Object { $_ -notmatch "^\s*earlyWindowControl\s*=" } })
+    @("earlyWindowControl = false") + $lines | Set-Content -Encoding ascii $file
+}
+
+function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir) {
+    # The reasons why a run is not PASS, from the harness folder, the game log and the run folder.
+    if (-not (Test-Path (Join-Path $runDir "config\albedo\config.json"))) { "the run folder does not have config/albedo/config.json" }
+    $harnessLog = Join-Path $harness "log.txt"
+    $harnessText = @(if (Test-Path $harnessLog) { Get-Content $harnessLog })
+    $gameText = if (Test-Path $gradleLog) { Get-Content -Raw $gradleLog } else { "" }
+    if (-not ($harnessText -match "^> quit")) { "the game did not get to quit" }
+    if ($gameText -notmatch "Albedo ready") { "the game log does not have 'Albedo ready'" }
+    if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
+    $harnessText -match "^!" | ForEach-Object { "harness error: $_" }
+    $harnessText -cmatch "DIFFERENT" | ForEach-Object { "harness compare: $_" }
+    # The harness renames commands.txt to commands.taken when it reads it.
+    foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
+        $words = @($line.Trim() -split "\s+")
+        if ($words[0] -eq "screenshot" -and -not (Test-Path (Join-Path $harness "$($words[1] -replace '\.png$', '').png"))) {
+            "no image for: $line"
+        } elseif ($words[0] -eq "frames" -and @(Get-ChildItem $harness -Filter "$($words[2])-*.png").Count -lt [int]$words[1]) {
+            "not all images for: $line"
+        }
     }
-    $wanted = @{ onboardAccessibility = "false"; narrator = "0"; soundCategory_master = "0.0"; pauseOnLostFocus = "false";
-                 tutorialStep = "none"; skipMultiplayerWarning = "true"; joinedFirstServer = "true"; fullscreen = "false"; guiScale = "$GuiScale" }
-    foreach ($k in $wanted.Keys) { $options[$k] = $wanted[$k] }
-    ($options.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) | Set-Content -Encoding ascii $file
 }
 
 function Set-Iris([string]$runDir) {
@@ -75,9 +106,12 @@ function Set-Iris([string]$runDir) {
     $lines | Set-Content -Encoding ascii (Join-Path $config "iris.properties")
 }
 
+$failed = @()
 foreach ($target in $Targets) {
     $loader, $version = $target -split "-", 2
-    if ($loader -eq "forge") {
+    # The legacy build has the Forge targets with MCP names; all other Forge targets are in the modern build.
+    $legacy = $target -in @("forge-1.8.9", "forge-1.12.2")
+    if ($legacy) {
         $dir = Join-Path $root "legacy"; $task = "runClientDev"; $runDir = Join-Path $dir "run"; $scene = "scene-legacy.txt"
     } else {
         $dir = Join-Path $root "modern"; $task = ":${loader}:${version}:runClient"
@@ -89,13 +123,14 @@ foreach ($target in $Targets) {
     # Images that the commands load, for example the test skin of skins.txt.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
-    $irisRun = $iris -and $loader -ne "forge"
+    if (-not $legacy -and $loader -ne "fabric") { Set-EarlyWindow $runDir }
+    $irisRun = $iris -and -not $legacy
     if ($irisRun) { Set-Iris $runDir }
     # Use the default config and a new world each time, so the screenshots are the same each run.
     Remove-Item -Force (Join-Path $runDir "config\albedo\config.json") -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force (Join-Path $runDir "saves\AlbedoTest") -ErrorAction SilentlyContinue
-    # First the scene of this version, then the command file, where 1.8.9 runs the *-legacy.txt copy of a *-modern.txt file.
-    $shotList = if ($loader -eq "forge") { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
+    # First the scene of this version, then the command file, where a legacy target runs the *-legacy.txt copy of a *-modern.txt file.
+    $shotList = if ($legacy) { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
     Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
@@ -135,4 +170,11 @@ foreach ($target in $Targets) {
     if ($ShaderPack -and $irisRun -and ($gradleText -notmatch "Using shaderpack" -or $gradleText -match "disabling shaders")) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
+    $failures = @(Get-Failures $harness $log $runDir)
+    $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
+    @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
+        Set-Content -Encoding ascii (Join-Path $out "result.txt")
+    Write-Host "[$target] $result"
+    if ($failures.Count -gt 0) { $failed += $target }
 }
+if ($failed.Count -gt 0) { Write-Host "FAIL: $($failed -join ', ')"; exit 1 }

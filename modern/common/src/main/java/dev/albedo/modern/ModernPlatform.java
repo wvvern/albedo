@@ -21,6 +21,12 @@ final class ModernPlatform implements Platform {
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
 
     private final Map<String, Integer> keyCodes = new HashMap<>();
+    private final File loaderConfigDir;
+
+    /** Takes the config folder of the loader, or null when a mixin starts the mod before the loader entrypoint. */
+    ModernPlatform(File loaderConfigDir) {
+        this.loaderConfigDir = loaderConfigDir;
+    }
 
     @Override
     public String describe() {
@@ -39,6 +45,7 @@ final class ModernPlatform implements Platform {
 
     @Override
     public File configDir() {
+        if (loaderConfigDir != null) return loaderConfigDir;
         Minecraft mc = Minecraft.getInstance();
         return mc != null && mc.gameDirectory != null ? new File(mc.gameDirectory, "config") : new File("config");
     }

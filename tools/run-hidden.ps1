@@ -48,7 +48,8 @@ if (-not $CommandLine) {
     $gradlew = Join-Path $Dir "gradlew.bat"
     # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
-    $CommandLine = "`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg"
+    # --configure-on-demand: Loom mixes the mappings of the modern nodes when one run configures all of them.
+    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg"
 }
 $cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 

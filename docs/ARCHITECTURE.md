@@ -131,10 +131,17 @@ Traps per version:
 You need JDK 21 and JDK 25. If JDK 8 is missing, Gradle gets it for 1.8.9.
 
 ```bash
-cd modern && ./gradlew collectJars   # Fabric and NeoForge jars -> modern/build/libs/
-cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
+pwsh tools/build-all.ps1                                                    # all jars -> build/libs/
+cd modern && ./gradlew :fabric:26.3:releaseJar :neoforge:26.3:releaseJar    # the jars of one node
+cd legacy && ./gradlew build                                                # 1.8.9 Forge jar -> legacy/build/libs/
 ```
 
+- A node is one folder in `modern/versions/`. `modern/settings.gradle` has three node lists: `nodes` (common and Fabric), `forgeNodes` and `neoforgeNodes`.
+- Build only one node in each Gradle run of `modern/`. `modern/gradle.properties` sets configure on demand, and the scripts also give `--configure-on-demand`. When one run configures all nodes, Loom can give a Forge node the mappings of a different node and write a bad jar to the shared cache. Loom does not repair it.
+  - Symptoms: `cannot access Screen` in the compile, or `NoClassDefFoundError: gjp$a` in the dev game.
+  - Repair: stop all Gradle processes. Delete `~/.gradle/caches/fabric-loom/<mc>/loom.mappings.*forge-<mc>-<forge>*`, `~/.gradle/caches/fabric-loom/<mc>/forge/<mc>-<forge>` and `~/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/forge-<mc>-<forge>-minecraft-merged*`. Then build that node alone.
+- The build writes the `client` list of `albedo.mixins.json` from the compiled mixin classes of the node, and `compatibilityLevel` from its Java version (`JAVA_21` at most). Do not write mixin names in the file.
+- `-Pmc_override=<version>` builds a node for a different Minecraft version, to examine a minor version of its range.
 - Dev client: `./gradlew :fabric:26.3:runClient` in `modern/` (any loader or version), `./gradlew runClientDev` in `legacy/`.
 - Add `-Pcompat=sodium`, `embeddium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`. Iris works only on Fabric 26.3 and Fabric 1.21.11; on the other targets you get only Sodium.
 - In `modern/`, Stonecutter comments (`//? if >=26.1 {` ... `//?} else {` ... `//?}`) mark the version differences. They are only in mixin and adapter files, never in the core.
@@ -142,16 +149,19 @@ cd legacy && ./gradlew build         # 1.8.9 Forge jar -> legacy/build/libs/
 
 ## Add a Minecraft version (modern)
 
-1. Add `modern/versions/<v>/gradle.properties`, and `modern/neoforge/versions/<v>/gradle.properties` with `loom.platform=neoforge`.
-2. Add `<v>` to the `versions` list in `modern/settings.gradle` and a line to the `modern` matrix in `.github/workflows/ci.yml`.
+1. Add `modern/versions/<v>/gradle.properties`. For Forge or NeoForge, also add `modern/<loader>/versions/<v>/gradle.properties` with `loom.platform=forge` or `loom.platform=neoforge`.
+2. Add `<v>` to `nodes` in `modern/settings.gradle`, and to `forgeNodes` or `neoforgeNodes`. Add a row to the `modern` matrix in `.github/workflows/ci.yml`. `tools/lint.sh` compares the row with the lists and with the node file.
 3. Run `./gradlew :fabric:<v>:build :neoforge:<v>:build` in `modern/`. The compile errors show the hooks that moved. Fix each one with a `//? if` branch.
 4. Examine the condition boundaries (`>=1.21.2`, `>=1.21.4`, ... `>=26.1`). The project tests them only on the built versions.
-5. Run `./gradlew :fabric:<v>:runClient`. The log must show `Albedo ready` and `Flattened N textures`.
+5. Run `tools/screenshots.ps1 -Targets fabric-<v>`. Its `result.txt` must start with `PASS`.
 
 ## Check and test
 
 - Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`. A command file runs on all targets, except that 1.8.9 runs the `*-legacy.txt` copy of a `*-modern.txt` file.
+- The script writes `result.txt` for each target, next to the screenshots. The first line is `PASS` or `FAIL`, and the next lines give the reasons for a `FAIL`. The exit code is 1 when a target fails.
+- `tools/compare-jars.ps1 -Old <folder> -New build\libs` compares each entry of the built jars with reference jars, with no game. The reference is the 7 jars of commit `8c24411`: build them from a worktree of that commit (`./gradlew --configure-on-demand :fabric:<v>:releaseJar :neoforge:<v>:releaseJar` for each version, and `./gradlew build` in `legacy/`). `tools/jar-changes.txt` gives the reason for each entry that can be different. The script fails for all other differences.
+- `bash tools/check-jar.sh <jar> <loader> <node>` examines the mixin list, the Java level and the version ranges of a modern jar. CI runs it for each jar.
 - With no `-Shots`, the script writes `docs/screenshots/<target>/` from `shots.txt`: one image for each feature, to find a version where a feature does not work. Make them again when a change affects what a player sees.
 - Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `fps [seconds]` (frame rate), `window <width> <height>`, `skyclock <s>|run` and `skypartial` (hold the time for screenshots), `fov <degrees>`, `ui click <label>`, `ui slide <percent> <id>`, `quit`.
 - Chroma harness commands (`tools/harness/chroma.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).

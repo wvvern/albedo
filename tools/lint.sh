@@ -33,4 +33,34 @@ git ls-files -z -- '*Mixin.java' | xargs -0 awk '
     }
     END { exit bad }' || fail=1
 
+# The active Stonecutter version stays 26.3, because a different one changes the comment state of each version branch in src/.
+grep -qx "stonecutter.active '26.3'" modern/stonecutter.gradle || { echo "modern/stonecutter.gradle: error: stonecutter.active must be '26.3'"; fail=1; }
+
+# Each row of the CI matrix agrees with modern/settings.gradle and with the gradle.properties of its node.
+ci=.github/workflows/ci.yml
+node_list() { sed -n "s/^def $1 = \[\(.*\)\]$/\1/p" modern/settings.gradle | tr -d "' "; }
+at_most() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ]; }
+rows=$(grep -E "^ +- \{ node: '" "$ci")
+[ "$(sed -n "s/.*node: '\([^']*\)'.*/\1/p" <<<"$rows" | paste -sd, -)" = "$(node_list nodes)" ] \
+    || { echo "$ci: error: the node rows are not the list nodes of modern/settings.gradle"; fail=1; }
+while IFS= read -r row; do
+    node=$(sed -n "s/.*node: '\([^']*\)'.*/\1/p" <<<"$row")
+    props=modern/versions/$node/gradle.properties
+    [ -f "$props" ] || continue
+    prop() { grep -m1 "^$1=" "$props" | cut -d= -f2- | tr -d '\r'; }
+    row_error() { echo "$ci: error: the row of node $node $1"; fail=1; }
+    [ "$(sed -n "s/.*mc: '\([^']*\)'.*/\1/p" <<<"$row")" = "$(prop minecraft_version)" ] || row_error 'does not have the minecraft_version of the node'
+    [ "$(sed -n 's/.*java: \([0-9]*\).*/\1/p' <<<"$row")" = "$(prop java_version)" ] || row_error 'does not have the java_version of the node'
+    loaders=fabric
+    for loader in forge neoforge; do
+        case ",$(node_list "${loader}Nodes")," in *",$node,"*) loaders="$loaders,$loader" ;; esac
+    done
+    [ "$(sed -n 's/.*loaders: \[\([^]]*\)\].*/\1/p' <<<"$row" | tr -d ' ')" = "$loaders" ] || row_error "must have the loaders [$loaders]"
+    read -r lower upper <<<"$(prop minecraft_range_fabric | tr -d '>=<')"
+    for version in $(sed -n "s/.*game_versions: [\"']\(.*\)[\"'] }.*/\1/p" <<<"$row" | sed 's/\\n/ /g'); do
+        { at_most "$lower" "$version" && at_most "$version" "$upper" && [ "$version" != "$upper" ]; } \
+            || row_error "has the game version $version, which is not in minecraft_range_fabric"
+    done
+done <<<"$rows"
+
 exit $fail

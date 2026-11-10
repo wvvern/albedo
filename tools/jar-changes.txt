@@ -1,0 +1,11 @@
+# The jar entries that can be different from the reference jars, for tools/compare-jars.ps1.
+# The reference is the 7 jars of commit 8c24411, the start of the branch compat-060 (docs/ARCHITECTURE.md, "Check and test").
+# Format: <entry wildcard> <reason>. Add a line in the commit that changes the entry.
+architectury_inject_* The Architectury transformer puts a random id in this folder name in each build.
+mixins.albedo.refmap.json The Mixin annotation processor of the 1.8.9 build writes the mixins in a different sequence in each build.
+albedo.mixins.json The build writes the client list from the mixin classes of the node, in ASCII sequence.
+fabric.mod.json The Fabric jar asks for Fabric Loader 0.15.0, the first version with MixinExtras, not for the version of the build.
+dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of Fabric Loader to the mod.
+dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
+dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader.
+dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none.
