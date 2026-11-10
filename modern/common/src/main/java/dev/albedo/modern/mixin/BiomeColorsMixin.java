@@ -13,6 +13,7 @@ public abstract class BiomeColorsMixin {
     /** Takes no target arguments, so that their types (which moved package in 26.x) do not matter. */
     @Inject(method = "getAverageWaterColor", at = @At("HEAD"), cancellable = true)
     private static void albedo$water(CallbackInfoReturnable<Integer> cir) {
-        if (ModernHooks.removeFluidTint()) cir.setReturnValue(0xFFFFFF);
+        // Opaque white, because the 26.x fluid renderer uses the alpha of the tint and older versions ignore it.
+        if (ModernHooks.removeFluidTint()) cir.setReturnValue(0xFFFFFFFF);
     }
 }

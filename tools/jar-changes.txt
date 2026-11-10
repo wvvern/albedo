@@ -12,7 +12,8 @@ dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of th
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
 dev/albedo/core/sky/SkyShaderSource.class The constant BAKED names the program of the baked sky.
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
-dev/albedo/core/dev/Harness.class The harness has the command hooks.
+dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe and framechanged.
+dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white, because 26.x uses its alpha; 1.21.x reads only its red, green and blue.
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput.class A ui command whose label or slider the screen does not show logs "! no such control".

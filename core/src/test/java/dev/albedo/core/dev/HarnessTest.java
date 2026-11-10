@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,6 +64,16 @@ class HarnessTest {
         assertEquals("! clouds shown, expected hidden", Harness.cloudsLine(true, "hidden"));
         assertEquals("! clouds hidden, expected shown", Harness.cloudsLine(false, "shown"));
         assertThrows(IllegalArgumentException.class, () -> Harness.cloudsLine(true, "off"));
+    }
+
+    @Test
+    void theFrameChangedCheckLooksAtTheMiddleOfTheFrame() {
+        int[] frame = new int[10 * 5];
+        Arrays.fill(frame, 0xFF000000);
+        frame[2 * 10 + 4] = 0xFFFFFFFF;
+        assertArrayEquals(new int[]{0xFFFFFFFF, 0xFF000000}, Harness.middle(frame, 10, 5), "two by one pixels at the middle");
+        assertEquals("framechanged water: mean 20.0 steps (limit 8.0)", Harness.frameChangedLine("water", 20));
+        assertEquals("! framechanged water: mean 0.3 steps (limit 8.0): the frame did not change", Harness.frameChangedLine("water", 0.3));
     }
 
     @Test
