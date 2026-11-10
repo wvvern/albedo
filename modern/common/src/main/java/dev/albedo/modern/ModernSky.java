@@ -54,8 +54,8 @@ public final class ModernSky {
         return img.drawsSharp() && !shaderPackInUse();
     }
 
-    /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture. */
-    private static boolean shaderPackInUse() {
+    /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture, or stays vanilla in the GL families. */
+    static boolean shaderPackInUse() {
         if (!irisLooked) {
             irisLooked = true;
             try {

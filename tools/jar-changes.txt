@@ -23,13 +23,13 @@ dev/albedo/legacy/mixin/SimpleTextureMixin.class The handler counts its runs.
 dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL draw reads and puts back.
 dev/albedo/modern/GlProgram*.class A new class compiles and links the GL programs of the mod.
 dev/albedo/modern/GlMesh.class A new class holds a vertex array and a buffer of the mod.
-dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod.
-dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game.
+dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla.
+dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does.
 dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram and GlState.
 dev/albedo/modern/PearlSky.class A new class has the 26.3 part of ModernSky.
 dev/albedo/modern/PrecompiledSky.class A new class has the 1.21.11 part of ModernSky.
 dev/albedo/modern/ModernSky.class The class keeps only the parts that all versions share.
-dev/albedo/modern/mixin/SkyLayersMixin.class The handlers call the sky class of the family.
+dev/albedo/modern/mixin/SkyLayersMixin.class The handlers call the sky class of the family, and on 1.21.1 the other sky parts follow the result of the sky draw.
 dev/albedo/modern/mixin/SkyAfterSolidMixin.class The handler calls the sky class of the family and counts its runs.
 dev/albedo/modern/SettingsScreen*.class The canvas and its images are classes of their own.
 dev/albedo/modern/ExtractorCanvas.class A new class has the canvas of 26.x.

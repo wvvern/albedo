@@ -66,7 +66,7 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 - **Sodium and Embeddium:** all features operate.
 - **OptiFine on 1.8.9:** all features operate. The custom sky shows when the OptiFine setting Sky is on. With an OptiFine shader pack, the sky stays vanilla.
-- **Iris:** with shaders off, all features operate. Many shader packs draw their own sky, light and shadows.
+- **Iris:** with shaders off, all features operate. Many shader packs draw their own sky, light and shadows. On 1.21.1 with a shader pack, the sky stays vanilla.
 
 ## Known limits
 

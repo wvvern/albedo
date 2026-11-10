@@ -81,21 +81,21 @@ public abstract class SkyLayersMixin {
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$stars(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                               net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!ModernSky.hidesStars()) buffer.drawWithShader(modelView, projection, shader);
+        if (!dev.albedo.modern.GlSky.hidesStars()) buffer.drawWithShader(modelView, projection, shader);
     }
 
     @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 2,
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$darkDisc(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                                  net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!ModernSky.active()) buffer.drawWithShader(modelView, projection, shader);
+        if (!dev.albedo.modern.GlSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
     }
 
     // The first mesh that renderSky uploads is the sunrise fan.
     @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lcom/mojang/blaze3d/vertex/BufferUploader;drawWithShader(Lcom/mojang/blaze3d/vertex/MeshData;)V"))
     private void albedo$sunrise(com.mojang.blaze3d.vertex.MeshData mesh) {
-        if (ModernSky.active()) mesh.close();
+        if (dev.albedo.modern.GlSky.replacedDisc()) mesh.close();
         else com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
     }
 }
