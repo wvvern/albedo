@@ -5,6 +5,7 @@
 - feat: Make the highest Chroma speed 5 times faster
 - feat: Make the Chroma colors of the pastel profile move faster
 - fix: Keep the vanilla fog color under water, in lava and in powder snow with a custom or flat sky
+- fix: Hide or show the clouds at once on 1.21.11 and 26.3 when you change the profile
 
 ## 0.5.0
 
