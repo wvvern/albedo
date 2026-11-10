@@ -40,18 +40,21 @@ public final class LegacySky {
     /** The rotation of the sharp sky of the sky pass, which waits for the clouds or the solid world with its brightness. */
     private static final SkyDefer<SkyTurn> DEFER = new SkyDefer<SkyTurn>();
     private static float waitingBrightness;
+    /** True in a frame where the fog of water, lava or blindness hides the sky, so that the fogged vanilla sky draws. */
+    private static boolean fogHidesSky;
 
     private LegacySky() {}
 
-    /** Starts a frame, which forgets the sharp sky of the last frame that still waits. */
-    public static void frameStart() {
+    /** Starts a frame, which forgets the sharp sky of the last frame that still waits and reads the fog of the camera. */
+    public static void frameStart(float partialTicks) {
         DEFER.frameStart();
+        fogHidesSky = LegacyHooks.specialFog(partialTicks);
     }
 
-    /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack). */
+    /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack) or the fog hides the sky. */
     public static SkyImage image() {
         SkyImage img = Albedo.skyImage();
-        return img == null || !LegacySkyPatch.hooked() || !OptiFine.drawsSky() ? null : img;
+        return img == null || fogHidesSky || !LegacySkyPatch.hooked() || !OptiFine.drawsSky() ? null : img;
     }
 
     public static boolean active() {
