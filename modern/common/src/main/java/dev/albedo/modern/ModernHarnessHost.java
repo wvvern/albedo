@@ -3,7 +3,9 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
+import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.modern.mixin.KeyboardHandlerInvoker;
 import dev.albedo.modern.mixin.MouseHandlerInvoker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
@@ -119,11 +121,7 @@ final class ModernHarnessHost implements Harness.Host {
         double x = (guiX + 0.5) * window.getScreenWidth() / window.getGuiScaledWidth();
         double y = (guiY + 0.5) * window.getScreenHeight() / window.getGuiScaledHeight();
         int action = down ? InputConstants.PRESS : InputConstants.RELEASE;
-        //? if >=1.21.11 {
-        long handle = window.handle();
-        //?} else {
-        /*long handle = window.getWindow();
-        *///?}
+        long handle = handle();
         //? if >=26.1 {
         mouse.albedo$onMove(handle, x, y, 0, 0);
         //?} else {
@@ -135,6 +133,54 @@ final class ModernHarnessHost implements Harness.Host {
         /*mouse.albedo$onPress(handle, InputConstants.MOUSE_BUTTON_LEFT, action, 0);
         *///?}
         return true;
+    }
+
+    /** Calls the keyboard handler as the key event of the window does, with the codes of the key in this version. */
+    @Override
+    public boolean key(Keys.Key key, boolean down, boolean ctrl) {
+        var keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
+        int code = InputConstants.getKey(key.minecraftName).getValue();
+        int action = down ? InputConstants.PRESS : InputConstants.RELEASE;
+        int modifiers = ctrl ? InputConstants.MOD_CONTROL : 0;
+        //? if >=26.1 {
+        // The SDL event gives the scancode and the key code of the keyboard layout.
+        int keycode = org.lwjgl.sdl.SDLKeyboard.SDL_GetKeyFromScancode(code, (short) 0, false);
+        keyboard.albedo$keyPress(handle(), action, new net.minecraft.client.input.KeyEvent(code, keycode, modifiers));
+        //?} elif >=1.21.9 {
+        /*int scancode = org.lwjgl.glfw.GLFW.glfwGetKeyScancode(code);
+        keyboard.albedo$keyPress(handle(), action, new net.minecraft.client.input.KeyEvent(code, scancode, modifiers));
+        *///?} else {
+        /*keyboard.albedo$keyPress(handle(), code, org.lwjgl.glfw.GLFW.glfwGetKeyScancode(code), action, modifiers);
+        *///?}
+        return true;
+    }
+
+    /** Calls the keyboard handler as the text event of the window does; SDL sends no text while the game has not started text input. */
+    @Override
+    public boolean character(char c) {
+        var keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
+        //? if >=26.1 {
+        if (!org.lwjgl.sdl.SDLKeyboard.SDL_TextInputActive(handle())) return false;
+        keyboard.albedo$textInput(handle(), String.valueOf(c));
+        //?} elif >=1.21.9 {
+        /*keyboard.albedo$charTyped(handle(), new net.minecraft.client.input.CharacterEvent(c, 0));
+        *///?} else {
+        /*keyboard.albedo$charTyped(handle(), c, 0);
+        *///?}
+        return true;
+    }
+
+    @Override
+    public boolean settingsOpen() {
+        return ModernPlatform.currentScreen() instanceof SettingsScreen;
+    }
+
+    private static long handle() {
+        //? if >=1.21.11 {
+        return Minecraft.getInstance().getWindow().handle();
+        //?} else {
+        /*return Minecraft.getInstance().getWindow().getWindow();
+        *///?}
     }
 
     @Override

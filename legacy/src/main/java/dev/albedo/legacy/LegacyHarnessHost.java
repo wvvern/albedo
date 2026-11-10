@@ -1,6 +1,7 @@
 package dev.albedo.legacy;
 
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
+import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.SoundCategory;
@@ -12,12 +13,15 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.IntBuffer;
 import javax.imageio.ImageIO;
 import java.nio.file.Files;
@@ -102,6 +106,56 @@ final class LegacyHarnessHost implements Harness.Host {
     @Override
     public boolean mouseButton(int guiX, int guiY, boolean down) {
         return false;
+    }
+
+    /**
+     * Calls the handler of the key messages of the LWJGL 2 window, as Windows does, where LWJGL keeps the state of
+     * Control itself; the LWJGL 2 key code is the scancode, with 0x80 for an extended key.
+     */
+    @Override
+    public boolean key(Keys.Key key, boolean down, boolean ctrl) {
+        int virtualKey = virtualKey(key.lwjgl2);
+        if (virtualKey < 0) return false;
+        long lParam = 1L | (long) (key.lwjgl2 & 0x7F) << 16 | (key.lwjgl2 >= 0x80 ? 1L << 24 : 0L) | (down ? 0L : 3L << 30);
+        return windowMessage("handleKeyButton", virtualKey, lParam);
+    }
+
+    /** Calls the handler of the character messages of the LWJGL 2 window, as Windows does after a key goes down. */
+    @Override
+    public boolean character(char c) {
+        return windowMessage("handleChar", c, 1L);
+    }
+
+    @Override
+    public boolean settingsOpen() {
+        return Minecraft.getMinecraft().currentScreen instanceof GuiSettings;
+    }
+
+    private static boolean windowMessage(String handler, long wParam, long lParam) {
+        try {
+            Field field = Display.class.getDeclaredField("display_impl");
+            field.setAccessible(true);
+            Object display = field.get(null);
+            Method method = display.getClass().getDeclaredMethod(handler, long.class, long.class, long.class);
+            method.setAccessible(true);
+            method.invoke(display, wParam, lParam, Minecraft.getSystemTime());
+            return true;
+        } catch (ReflectiveOperationException e) {
+            Harness.log("! the LWJGL 2 window has no Windows key messages: " + e);
+            return false;
+        }
+    }
+
+    /** The Windows virtual key that LWJGL 2 maps to the key code, or -1. */
+    private static int virtualKey(int lwjglCode) {
+        try {
+            Method map = Class.forName("org.lwjgl.opengl.WindowsKeycodes").getDeclaredMethod("mapVirtualKeyToLWJGLCode", int.class);
+            map.setAccessible(true);
+            for (int vk = 1; vk < 256; vk++) if ((Integer) map.invoke(null, vk) == lwjglCode) return vk;
+        } catch (ReflectiveOperationException e) {
+            Harness.log("! LWJGL 2 has no Windows key codes: " + e);
+        }
+        return -1;
     }
 
     @Override

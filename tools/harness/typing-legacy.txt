@@ -1,0 +1,165 @@
+# The copy of typing-modern.txt for 1.8.9, with "ui click" for "ui realclick", because 1.8.9 cannot do "ui realclick".
+# The keys and the typing go through the key messages of the LWJGL 2 window. Run it after scene-legacy.txt:
+# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots typing-modern.txt -OutDir build\typing
+wait 60
+profile quake-white
+wait 100
+settings open
+wait 20
+# Esc with no focused field closes the screen.
+key ESCAPE
+wait 10
+expect closed
+settings open
+wait 20
+# Texture search: letters, digits, Backspace, the arrow keys, Home, End and Delete.
+ui click Textures
+wait 10
+ui click Search textures
+wait 10
+type oak2
+wait 5
+ui expect search oak2
+wait 3
+key BACKSPACE
+key LEFT
+key LEFT
+type x
+key HOME
+type y
+key END
+type z
+key HOME
+key DELETE
+key RIGHT
+key BACKSPACE
+wait 5
+ui expect search xakz
+ui pointer off
+wait 5
+screenshot t01-search
+# Ctrl+A selects all and the next letter replaces it; E is the inventory key and F6, F7 and F9 are the keys of Albedo.
+keydown LEFT_CONTROL
+wait 2
+key A
+wait 2
+keyup LEFT_CONTROL
+type e
+key F6
+key F7
+key F9
+wait 5
+ui expect search e
+wait 3
+expect open
+# Esc in a field ends the input and keeps the screen open, then a second Esc closes it.
+key ESCAPE
+wait 5
+expect open
+key ESCAPE
+wait 10
+expect closed
+settings open
+wait 20
+# Group patterns: Enter adds the typed pattern and keeps the field for the next one.
+ui click Groups
+wait 10
+ui click + New group
+wait 10
+type grass_block*
+wait 5
+ui expect add grass_block*
+wait 3
+key ENTER
+wait 5
+ui expect add
+wait 3
+type oak_log
+wait 5
+ui expect add oak_log
+wait 3
+key ENTER
+wait 5
+key ESCAPE
+wait 5
+ui pointer off
+wait 5
+screenshot t02-group-patterns
+# Group name: Ctrl+A, then a new name.
+ui click Group 2
+wait 10
+keydown LEFT_CONTROL
+wait 2
+key A
+wait 2
+keyup LEFT_CONTROL
+type Logs 2
+wait 5
+ui expect group.name Logs 2
+wait 3
+key ENTER
+wait 5
+key ESCAPE
+wait 10
+# The hex field of a color.
+ui click Look
+wait 10
+ui click #FFFFFF
+wait 10
+keydown LEFT_CONTROL
+wait 2
+key A
+wait 2
+keyup LEFT_CONTROL
+type #3a6ea5
+wait 5
+ui expect look.hex #3a6ea5
+ui pointer off
+wait 5
+screenshot t03-color-hex
+key ENTER
+wait 5
+# Profile search, then the name of a copy of the profile, where the name starts selected.
+ui click Profile:
+wait 10
+type quake
+wait 5
+ui expect profiles.search quake
+ui pointer off
+wait 5
+screenshot t04-profile-search
+key ESCAPE
+wait 10
+ui click Copy
+wait 10
+ui click Rename
+wait 10
+type my white
+wait 5
+ui expect rename my white
+ui pointer off
+wait 5
+screenshot t05-rename
+key ENTER
+wait 10
+# Server name.
+ui click Servers
+wait 10
+ui click Server name
+wait 10
+type hypixel.net
+wait 5
+ui expect server.name hypixel.net
+ui pointer off
+wait 5
+screenshot t06-server-name
+# Enter adds the server and keeps the field; Esc ends the input, and a second Esc saves and closes the screen.
+key ENTER
+wait 10
+key ESCAPE
+wait 5
+expect open
+key ESCAPE
+wait 10
+expect closed
+quit

@@ -110,6 +110,8 @@ final class Ui {
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
     /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
+    /** The text of each text field of this frame by id, which the harness command {@code expect} compares. */
+    private final Map<String, String> fieldTexts = new HashMap<String, String>();
     private final Clipboard clipboard;
 
     Ui(Clipboard clipboard) {
@@ -156,11 +158,17 @@ final class Ui {
         focusAtBegin = focus;
         focusDrawn = false;
         dragAreas.clear();
+        fieldTexts.clear();
     }
 
     /** A copy of the drag areas that this frame drew, by id. */
     Map<String, Rect> dragAreas() {
         return new HashMap<String, Rect>(dragAreas);
+    }
+
+    /** A copy of the texts of the text fields that this frame drew, by id. */
+    Map<String, String> fieldTexts() {
+        return new HashMap<String, String>(fieldTexts);
     }
 
     /** Ends the frame: an unclaimed press clears focus and armed buttons, unclaimed input is dropped, and the tooltip draws. */
@@ -702,6 +710,7 @@ final class Ui {
             field.cursor = field.text.length();
         }
         boolean changed = focused && edit(field);
+        fieldTexts.put(id, field.text);
         int tx = x + 4, ty = y + (h - LINE) / 2 + 1, room = w - 8;
         if (field.text.isEmpty() && !focused) {
             text(ellipsize(placeholder, room), tx, ty, FAINT);
