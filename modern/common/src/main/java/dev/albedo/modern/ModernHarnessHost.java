@@ -78,6 +78,33 @@ final class ModernHarnessHost implements Harness.Host {
         *///?}
     }
 
+    @Override
+    public void framePixels(Harness.FramePixels done) {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=26.1 {
+        RenderTarget target = mc.gameRenderer.mainRenderTarget();
+        //?} else {
+        /*RenderTarget target = mc.getMainRenderTarget();
+        *///?}
+        //? if >=1.21.5 {
+        Screenshot.takeScreenshot(target, image -> pixels(image, done));
+        //?} else {
+        /*pixels(Screenshot.takeScreenshot(target), done);
+        *///?}
+    }
+
+    private static void pixels(NativeImage image, Harness.FramePixels done) {
+        try (NativeImage owned = image) {
+            NativeImagePixels pixels = new NativeImagePixels(owned);
+            int w = pixels.width(), h = pixels.height();
+            int[] argb = new int[w * h];
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) argb[y * w + x] = pixels.getArgb(x, y);
+            }
+            done.accept(w, h, argb);
+        }
+    }
+
     private static void save(NativeImage image, File png) {
         new Thread(() -> {
             try (NativeImage owned = image) {
