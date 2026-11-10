@@ -7,7 +7,6 @@ import dev.albedo.core.ui.SettingsEditor;
 import dev.albedo.core.ui.UiKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 /**
  * Hosts the version-agnostic {@link SettingsEditor}: the life cycle and the input of the settings screen, which draws
@@ -19,7 +18,7 @@ public final class SettingsScreen extends Screen {
     private final CanvasImages images = new CanvasImages();
 
     public SettingsScreen(Screen parent) {
-        super(Component.literal(Albedo.NAME));
+        super(ModernPlatform.text(Albedo.NAME));
         this.parent = parent;
         ModernHooks.bootstrap();
         this.editor = new SettingsEditor(Albedo.get());

@@ -199,8 +199,12 @@ public final class ModernHooks {
         *///?}
         if (!(entity instanceof net.minecraft.world.entity.LivingEntity)) return false;
         net.minecraft.world.entity.LivingEntity living = (net.minecraft.world.entity.LivingEntity) entity;
+        //? if >=1.19 {
         return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
                 || living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS);
+        //?} else {
+        /*return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
+        *///?}
     }
 
     //? if >=1.19 {

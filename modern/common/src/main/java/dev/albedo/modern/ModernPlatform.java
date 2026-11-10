@@ -28,6 +28,15 @@ final class ModernPlatform implements Platform {
         this.loaderConfigDir = loaderConfigDir;
     }
 
+    /** A plain text component. */
+    static Component text(String text) {
+        //? if >=1.19 {
+        return Component.literal(text);
+        //?} else {
+        /*return new net.minecraft.network.chat.TextComponent(text);
+        *///?}
+    }
+
     @Override
     public String describe() {
         String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge"
@@ -87,9 +96,9 @@ final class ModernPlatform implements Platform {
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {
-        if (mc.player != null) mc.player.sendOverlayMessage(Component.literal(message));
+        if (mc.player != null) mc.player.sendOverlayMessage(text(message));
         //?} else {
-        /*mc.gui.setOverlayMessage(Component.literal(message), false);
+        /*mc.gui.setOverlayMessage(text(message), false);
         *///?}
     }
 

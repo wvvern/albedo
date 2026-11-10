@@ -1,7 +1,6 @@
 package dev.albedo.modern;
 
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 /** Development-only: shows one texture large on a gray square, so that a harness screenshot shows a skin. */
 final class TextureScreen extends Screen {
@@ -16,7 +15,7 @@ final class TextureScreen extends Screen {
 
     /** @param id the texture, for example "minecraft:skins/<sha1>" */
     TextureScreen(String id) {
-        super(Component.literal("Texture"));
+        super(ModernPlatform.text("Texture"));
         this.texture = HarnessSkins.id(id);
     }
 
