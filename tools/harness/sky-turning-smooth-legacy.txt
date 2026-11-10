@@ -7,6 +7,7 @@ wait 40
 fov 70
 run tp @p 0 3000 0 -45 -46
 sky galaxy
+skyturn 0
 wait 160
 skycompare
 wait 40

@@ -157,7 +157,7 @@ final class SkyLayersEditor {
      */
     private SkyDesign previewDesign(SkyDesign full, int index) {
         if (page.screen != Screen.LAYER) return full;
-        SkyDesign design = full.withTurning(SkyTurning.NONE);
+        SkyDesign design = full.withTurning(SkyTurning.STILL);
         if (page.source == PreviewSource.RESULT || index < 0) return design;
         SkyLayer layer = design.layers().get(index).withOutput(SkyLayer.Output.SHOW).withMask(SkyMask.NONE).withOpacity(100)
                 .withBlend(SkyLayer.Blend.NORMAL);
@@ -247,8 +247,8 @@ final class SkyLayersEditor {
             px -= bw;
             if (ui.confirmButton("sky.preset." + e.getKey(), px, cy, bw, Ui.H, name, "Start from the " + name + " sky",
                     "Click again to replace all layers with the " + name + " sky")) {
-                // The Motion settings stay, except for a preset that turns, such as Trails.
-                set.accept(e.getValue().turning().turns() ? e.getValue() : e.getValue().withTurning(design.turning()));
+                // The Motion settings stay, except for a preset with its own turning, such as Trails.
+                set.accept(e.getValue().turning().equals(SkyTurning.DEFAULT) ? e.getValue().withTurning(design.turning()) : e.getValue());
                 relayout.run();
                 return;
             }

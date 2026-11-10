@@ -363,10 +363,10 @@ public final class Harness {
 
     /**
      * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]},
-     * where a missing option keeps its default ({@code skyturn 100 speed 10 trails 45 real}).
+     * where a missing option keeps its value in {@link SkyTurning#STILL} ({@code skyturn 100 speed 10 trails 45 real}).
      */
     static Profile withSkyTurning(Profile profile, String[] args) {
-        SkyTurning t = SkyTurning.NONE.withAmount(Integer.parseInt(args[0]));
+        SkyTurning t = SkyTurning.STILL.withAmount(Integer.parseInt(args[0]));
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("reverse")) t = t.withDirection(SkyTurning.Direction.REVERSE);
             else if (args[i].equals("real")) t = t.withClock(SkyTurning.Clock.REAL);

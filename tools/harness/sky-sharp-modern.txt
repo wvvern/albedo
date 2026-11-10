@@ -5,6 +5,7 @@ profile minimal
 run time set 6000
 wait 40
 sky dusk
+skyturn 0
 wait 160
 # Yaw 90 looks west (the Dusk glow), pitch -60 looks up to the stars.
 fov 30
@@ -37,12 +38,14 @@ wait 40
 screenshot sharp-06-off-stars-fov70
 skyrender sharp
 sky nebula
+skyturn 0
 wait 160
 run tp @p 0 3000 0 180 -60
 wait 40
 screenshot sharp-07-nebula-on-fov70
 # The generators of Galaxy and Nebula with no filters, so that the shader draws them. Yaw -45 and pitch -40 look at the galaxy.
 sky galaxy 4
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 -45 -40
@@ -53,6 +56,7 @@ wait 40
 skytime
 wait 40
 sky nebula 3
+skyturn 0
 wait 160
 run tp @p 0 3000 0 180 -60
 wait 40
@@ -65,6 +69,7 @@ skyrender fast
 wait 160
 screenshot sharp-10-nebula-off-fov30
 sky galaxy 4
+skyturn 0
 skyrender fast
 wait 160
 run tp @p 0 3000 0 -45 -40
@@ -72,6 +77,7 @@ wait 40
 screenshot sharp-11-galaxy-off-fov30
 # The full Galaxy, where the shader adds the glow of the bloom from its term image.
 sky galaxy
+skyturn 0
 skyrender sharp
 wait 160
 run tp @p 0 3000 0 -45 -40
@@ -86,6 +92,7 @@ wait 160
 screenshot sharp-13-galaxy-bloom-off-fov30
 # The full Nebula, where the shader mixes in the blur and the bloom from their term images and turns the hue for each pixel.
 sky nebula
+skyturn 0
 skyrender sharp
 wait 160
 run tp @p 0 3000 0 180 -60
@@ -101,6 +108,7 @@ screenshot sharp-15-nebula-full-off-fov30
 # Each other filter over Dusk: the shader calculates posterize and vignette for each pixel, and pixelate, crystallize and swirl are terms.
 skyrender sharp
 sky dusk
+skyturn 0
 skyadd posterize
 wait 160
 run tp @p 0 3000 0 90 -5
@@ -109,6 +117,7 @@ screenshot sharp-16-dusk-posterize-on-fov30
 skycompare
 wait 40
 sky dusk
+skyturn 0
 skyadd vignette
 wait 160
 run tp @p 0 3000 0 90 -40
@@ -117,16 +126,19 @@ screenshot sharp-17-dusk-vignette-on-fov30
 skycompare
 wait 40
 sky dusk
+skyturn 0
 skyadd pixelate
 wait 160
 skycompare
 wait 40
 sky dusk
+skyturn 0
 skyadd crystallize
 wait 160
 skycompare
 wait 40
 sky dusk
+skyturn 0
 skyadd swirl
 wait 160
 run tp @p 0 3000 0 0 -60

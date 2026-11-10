@@ -54,9 +54,9 @@ public final class SkyDesign {
         this(layers, celestial, light, extent, Render.SHARP);
     }
 
-    /** A design that does not turn. */
+    /** A design with the default turning. */
     public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent, Render render) {
-        this(layers, celestial, light, extent, render, SkyTurning.NONE);
+        this(layers, celestial, light, extent, render, SkyTurning.DEFAULT);
     }
 
     public SkyDesign(List<SkyLayer> layers, Celestial celestial, Light light, Extent extent, Render render, SkyTurning turning) {

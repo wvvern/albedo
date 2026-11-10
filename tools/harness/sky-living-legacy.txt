@@ -5,6 +5,7 @@ profile minimal
 run time set 18000
 wait 40
 sky nebula
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 135.4 -42.9
@@ -52,6 +53,7 @@ wait 10
 screenshot living-10-nebula-pulse0-3s
 # Stars near the horizon twinkle more than stars high in the sky.
 sky galaxy
+skyturn 0
 wait 160
 run tp @p 0 3000 0 90 -4
 wait 40
@@ -69,14 +71,17 @@ wait 40
 skytime
 wait 40
 sky meteors
+skyturn 0
 wait 160
 skytime
 wait 40
 sky aurora
+skyturn 0
 wait 160
 skytime
 wait 40
 sky dusk
+skyturn 0
 wait 160
 skytime
 wait 40
