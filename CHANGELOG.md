@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- feat: Make the highest Chroma speed 5 times faster
+- feat: Make the Chroma colors of the pastel profile move faster
+- fix: Keep the vanilla fog color under water, in lava and in powder snow with a custom or flat sky
+
 ## 0.5.0
 
 - feat: Add the Chroma effect again, with colors that move smoothly in each frame on all versions

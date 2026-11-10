@@ -188,4 +188,16 @@ public final class LegacyHooks {
     public static float[] skyRgb() {
         return Albedo.currentPolicy().skyRgb();
     }
+
+    /** True when the fog code of the game gives the camera the fog of water, lava or blindness, which hides the sky. */
+    public static boolean specialFog(float partialTicks) {
+        Minecraft mc = Minecraft.getMinecraft();
+        net.minecraft.entity.Entity view = mc.getRenderViewEntity();
+        if (view == null || mc.theWorld == null) return false;
+        net.minecraft.block.material.Material material =
+                net.minecraft.client.renderer.ActiveRenderInfo.getBlockAtEntityViewpoint(mc.theWorld, view, partialTicks).getMaterial();
+        if (material == net.minecraft.block.material.Material.water || material == net.minecraft.block.material.Material.lava) return true;
+        return view instanceof net.minecraft.entity.EntityLivingBase
+                && ((net.minecraft.entity.EntityLivingBase) view).isPotionActive(net.minecraft.potion.Potion.blindness);
+    }
 }

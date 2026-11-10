@@ -143,12 +143,28 @@ public final class ModernHooks {
     }
 
     /** The flat sky color, or the custom sky near the horizon where the camera looks, so that the fog meets the sky. */
-    public static void overrideFog(Vector4f color) {
+    public static void overrideFog(net.minecraft.client.Camera camera, Vector4f color) {
+        if (specialFog(camera)) return;
         SkyImage img = Albedo.skyImage();
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
         if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
         float[] rgb = img != null ? img.fogRgb(ModernSky.turn(img), ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
         if (rgb != null && color != null) color.set(rgb[0], rgb[1], rgb[2], color.w);
+    }
+
+    /** True when the fog code of the game gives the camera the fog of a fluid, blindness or darkness, which hides the sky. */
+    private static boolean specialFog(net.minecraft.client.Camera camera) {
+        net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
+        if (fluid == net.minecraft.world.level.material.FogType.WATER || fluid == net.minecraft.world.level.material.FogType.LAVA
+                || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
+        //? if >=1.21.6 {
+        net.minecraft.world.entity.Entity entity = camera.entity();
+        //?} else {
+        /*net.minecraft.world.entity.Entity entity = camera.getEntity();
+        *///?}
+        return entity instanceof net.minecraft.world.entity.LivingEntity living
+                && (living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
+                || living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS));
     }
 
     /** Only the brightness option is changed; the mixin wraps every option read in the lightmap code. */

@@ -1,0 +1,65 @@
+# The fog under water, in lava, in powder snow and with blindness and darkness, with the custom sky off, with Dusk and with a flat sky. Run it after scene-modern.txt, for example with sky-frame.txt:
+# ./tools/screenshots.ps1 -Targets fabric-26.3 -Extra fog-modern.txt -Shots sky-frame.txt -OutDir build\fog
+wait 60
+profile minimal
+run time set 6000
+skyclock 30
+run effect clear @p
+run fill 30 -61 -8 46 -50 8 glass
+run fill 31 -60 -7 45 -51 7 water
+run fill 50 -61 -4 58 -55 4 glass
+run fill 51 -60 -3 57 -56 3 lava
+run fill 62 -61 -4 70 -55 4 glass
+run fill 63 -60 -3 69 -56 3 powder_snow
+sky off
+run tp @p 38.5 -57 0.5 90 0
+# The water vision of the player is at its maximum after 600 ticks in water.
+wait 600
+run tp @p 38.5 -57 0.5 90 0
+wait 10
+screenshot fog-water-off-side
+run tp @p 38.5 -57 0.5 90 -60
+wait 10
+screenshot fog-water-off-up
+sky dusk
+wait 160
+run tp @p 38.5 -57 0.5 90 0
+wait 10
+screenshot fog-water-dusk-side
+run tp @p 38.5 -57 0.5 90 -60
+wait 10
+screenshot fog-water-dusk-up
+profile pastel
+wait 100
+run tp @p 38.5 -57 0.5 90 0
+wait 10
+screenshot fog-water-flat-side
+run tp @p 38.5 -57 0.5 90 -60
+wait 10
+screenshot fog-water-flat-up
+profile minimal
+sky dusk
+wait 160
+run tp @p 54.5 -58 0.5 90 -30
+wait 20
+screenshot fog-lava-dusk
+run tp @p 66.5 -58 0.5 90 -30
+wait 20
+screenshot fog-snow-dusk
+run tp @p 0.5 -60 4.5 180 -10
+wait 20
+screenshot fog-air-dusk
+run effect give @p minecraft:blindness 60 0 true
+wait 40
+screenshot fog-blindness-dusk
+run effect clear @p
+run effect give @p minecraft:darkness 60 0 true
+wait 40
+screenshot fog-darkness-dusk
+run effect clear @p
+wait 40
+screenshot fog-air-dusk-after
+sky off
+run fill 30 -61 -8 70 -50 8 air
+run fill 30 -61 -8 70 -61 8 grass_block
+wait 40
