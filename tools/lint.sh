@@ -20,13 +20,13 @@ git ls-files -z -- '*Mixin.java' | xargs -0 awk '
     FNR == 1 { p = 0; d = 0 }
     {
         s = $0; gsub(/"[^"]*"/, "", s)
-        t = s; sub(/^[ \t]*(\/\*)?[ \t]*/, "", t)
+        t = s; sub(/^[ \t]*(\/[*^])?[ \t]*/, "", t)
         n = gsub(/\(/, "(", s) - gsub(/\)/, ")", s)
     }
     d > 0 { d += n; next }
     t ~ /^@(Inject|Redirect|ModifyArg|ModifyArgs|ModifyVariable|ModifyConstant|ModifyExpressionValue|ModifyReturnValue|WrapOperation|WrapWithCondition)\(/ { p = 1; d = n; next }
     p && t ~ /^@/ { d = n; next }
-    p && (t ~ /^$/ || t ~ /^(\*\/)?\/\/\?/ || t ~ /^\*\/$/) { next }
+    p && (t ~ /^$/ || t ~ /^([*^]\/)?\/\/\?/ || t ~ /^\*\/$/) { next }
     p {
         if (s !~ /albedo\$[A-Za-z0-9_]*[ \t]*\(/) { print FILENAME ":" FNR ": error: a handler name must start with albedo$"; bad = 1 }
         p = 0
@@ -35,6 +35,12 @@ git ls-files -z -- '*Mixin.java' | xargs -0 awk '
 
 # The active Stonecutter version stays 26.3, because a different one changes the comment state of each version branch in src/.
 grep -qx "stonecutter.active '26.3'" modern/stonecutter.gradle || { echo "modern/stonecutter.gradle: error: stonecutter.active must be '26.3'"; fail=1; }
+
+# Each version in a Stonecutter condition is a boundary in the table of docs/ARCHITECTURE.md, so that no condition has a version that nobody examined.
+for version in $(git grep -hE '//\?.*(if|elif) ' -- 'modern/*.java' | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -u); do
+    grep -qF "| \`$version\` |" docs/ARCHITECTURE.md \
+        || { echo "docs/ARCHITECTURE.md: error: the version $version of a Stonecutter condition is not in the boundary table"; fail=1; }
+done
 
 # Each row of the CI matrix agrees with modern/settings.gradle and with the gradle.properties of its node.
 ci=.github/workflows/ci.yml
