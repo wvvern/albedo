@@ -57,6 +57,7 @@ jobs:
         # game_versions: the released versions in minecraft_range_fabric of the node, with one value per line for mc-publish.
         target: &modern
           - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1" }
+          - { node: '1.21.8', mc: '1.21.8', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.8' }
           - { node: '1.21.10', mc: '1.21.10', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.10' }
           - { node: '1.21.11', mc: '1.21.11', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.11' }
           - { node: '26.3', mc: '26.3', java: 25, loaders: [fabric, neoforge], game_versions: '26.3' }
