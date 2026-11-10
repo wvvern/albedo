@@ -19,7 +19,7 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 
 - **Layers:** stack gradients, glows, clouds, stars, galaxies, meteors and auroras, with filters such as blur and bloom.
 - **Presets:** Dusk, Nebula, Galaxy, Meteors, Aurora and Trails.
-- **Real stars:** star colors from real star classes, with soft glow, fine spikes and twinkle.
+- **Stars:** the colors of real stars, from blue-white to orange, with a soft glow, fine spikes and twinkle.
 - **Motion:** the sky turns around a pole like the real night sky, with optional star trails.
 - **Sharp:** your graphics card draws each pixel, so the sky stays sharp at all zoom levels.
 
