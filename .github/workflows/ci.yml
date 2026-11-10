@@ -49,31 +49,54 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # To add a Minecraft version, see "Add a Minecraft version" in docs/ARCHITECTURE.md.
+        # To add a Minecraft version, see "Add a Minecraft version" in docs/ARCHITECTURE.md; tools/lint.sh compares the rows with modern/.
+        # node: the folder in modern/versions.
+        # mc: minecraft_version of the node, which is the end of the jar name.
+        # java: java_version of the node.
+        # loaders: the lists in modern/settings.gradle that have the node, as a YAML list, because contains() on a string finds forge in neoforge.
+        # game_versions: the released versions in minecraft_range_fabric of the node, with one value per line for mc-publish.
         target: &modern
-          # mc-publish reads one game version per line.
-          - { mc: '1.21.1', game_versions: "1.21\n1.21.1" }
-          - { mc: '1.21.11', game_versions: '1.21.11' }
-          - { mc: '26.3', game_versions: '26.3' }
+          - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1" }
+          - { node: '1.21.11', mc: '1.21.11', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.11' }
+          - { node: '26.3', mc: '26.3', java: 25, loaders: [fabric, neoforge], game_versions: '26.3' }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
+          # The tool chain of the node, then 25, which runs Gradle.
           java-version: |
-            21
+            ${{ matrix.target.java }}
             25
       - uses: gradle/actions/setup-gradle@v5
+        with:
+          # The entries of all node jobs together are larger than the cache limit of the repository, so only Check and the legacy job write.
+          cache-read-only: true
       - name: Build
         working-directory: modern
         env:
+          NODE: ${{ matrix.target.node }}
           MC: ${{ matrix.target.mc }}
-        # Configure on demand so that Gradle sets up only the projects of this version.
+          JAVA: ${{ matrix.target.java }}
+          LOADERS: ${{ join(matrix.target.loaders, ' ') }}
+        # Configure on demand so that Gradle sets up only the projects of this node.
         run: |
-          ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64 \
-            ${TAG:+-Pmod_version=${TAG#v}} :fabric:$MC:releaseJar :neoforge:$MC:releaseJar
+          tasks=""
+          for loader in $LOADERS; do tasks="$tasks :$loader:$NODE:releaseJar"; done
+          ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_${JAVA}_X64,JAVA_HOME_25_X64 \
+            ${TAG:+-Pmod_version=${TAG#v}} $tasks
           mkdir -p ../dist
-          cp {fabric,neoforge}/versions/$MC/build/libs/albedo-*+$MC.jar ../dist/
+          for loader in $LOADERS; do
+            cp "$loader/versions/$NODE/build/libs/albedo-$loader-"*"+$MC.jar" ../dist/
+          done
+      - name: Examine the jars
+        env:
+          NODE: ${{ matrix.target.node }}
+          LOADERS: ${{ join(matrix.target.loaders, ' ') }}
+        run: |
+          for loader in $LOADERS; do
+            bash tools/check-jar.sh dist/albedo-$loader-*.jar "$loader" "$NODE"
+          done
       - uses: actions/upload-artifact@v7
         with:
           name: jars-${{ matrix.target.mc }}
@@ -136,7 +159,7 @@ jobs:
           gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "Albedo ${TAG#v}" --notes-file notes.md
 
   modrinth:
-    name: Modrinth ${{ matrix.loader }} ${{ matrix.target.mc }}
+    name: Modrinth ${{ matrix.target.mc }}
     # Needs the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN.
     if: vars.MODRINTH_PROJECT_ID != ''
     needs: [check, release]
@@ -145,21 +168,47 @@ jobs:
       fail-fast: false
       matrix:
         target: *modern
-        loader: [fabric, neoforge]
         include:
-          - { target: { mc: '1.8.9', game_versions: '1.8.9' }, loader: forge }
+          - { target: { mc: '1.8.9', loaders: [forge], game_versions: '1.8.9' } }
     steps:
       - uses: actions/download-artifact@v8
         with:
           name: jars-${{ matrix.target.mc }}
           path: dist
-      - uses: Kir-Antipov/mc-publish@v3
+      # Each loader has its own step, which also runs when the step of a different loader failed.
+      - name: Fabric
+        if: ${{ !cancelled() && contains(matrix.target.loaders, 'fabric') }}
+        uses: Kir-Antipov/mc-publish@v3
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: dist/albedo-${{ matrix.loader }}-*.jar
-          name: Albedo ${{ env.TAG }} for ${{ matrix.loader }} ${{ matrix.target.mc }}
-          version: ${{ env.TAG }}+${{ matrix.loader }}-${{ matrix.target.mc }}
-          loaders: ${{ matrix.loader }}
+          files: dist/albedo-fabric-*.jar
+          name: Albedo ${{ env.TAG }} for fabric ${{ matrix.target.mc }}
+          version: ${{ env.TAG }}+fabric-${{ matrix.target.mc }}
+          loaders: fabric
+          game-versions: ${{ matrix.target.game_versions }}
+          changelog: ${{ needs.check.outputs.notes }}
+      - name: Forge
+        if: ${{ !cancelled() && contains(matrix.target.loaders, 'forge') }}
+        uses: Kir-Antipov/mc-publish@v3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: dist/albedo-forge-*.jar
+          name: Albedo ${{ env.TAG }} for forge ${{ matrix.target.mc }}
+          version: ${{ env.TAG }}+forge-${{ matrix.target.mc }}
+          loaders: forge
+          game-versions: ${{ matrix.target.game_versions }}
+          changelog: ${{ needs.check.outputs.notes }}
+      - name: NeoForge
+        if: ${{ !cancelled() && contains(matrix.target.loaders, 'neoforge') }}
+        uses: Kir-Antipov/mc-publish@v3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: dist/albedo-neoforge-*.jar
+          name: Albedo ${{ env.TAG }} for neoforge ${{ matrix.target.mc }}
+          version: ${{ env.TAG }}+neoforge-${{ matrix.target.mc }}
+          loaders: neoforge
           game-versions: ${{ matrix.target.game_versions }}
           changelog: ${{ needs.check.outputs.notes }}
