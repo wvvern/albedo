@@ -68,6 +68,13 @@ public final class SkyTurn {
         return out;
     }
 
+    /** Writes the three rows of the rotation as vec4 values from index {@code at}, and leaves the fourth float of each row as it is. */
+    void rows(float[] out, int at) {
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) out[at + row * 4 + col] = (float) m[row * 3 + col];
+        }
+    }
+
     /** Writes into {@code out} the design direction that shows at a world direction. */
     void toDesign(double x, double y, double z, double[] out) {
         out[0] = m[0] * x + m[3] * y + m[6] * z;

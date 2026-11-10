@@ -50,6 +50,8 @@ public final class Albedo {
     private int ticks;
     /** A worker thread recorded a texture while the policy changed, so the next client tick repaints it. */
     private volatile boolean stale;
+    /** True after the adapter stopped its GPU pass of Chroma. */
+    private volatile boolean chromaStill;
     private final AtomicInteger transformedSinceSummary = new AtomicInteger();
     /** The size of the downloaded textures that the log last showed. */
     private long loggedDownloadedBytes;
@@ -136,13 +138,14 @@ public final class Albedo {
             Policy policy = sc.policy;
             Layout layout = Layout.of(location);
             List<Appearance> looks = layout.looks(policy);
-            sc.store.record(location, layout, image, upload, looks);
+            boolean kept = sc.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
             if (sc.policy != policy) {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            boolean changed = layout.paint(looks, image);
+            // The GPU pass has texels only for a kept texture, so a texture over the budget keeps its hue on the CPU.
+            boolean changed = layout.paint(looks, image, kept && upload.gpuHue());
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
@@ -170,6 +173,53 @@ public final class Albedo {
     public static boolean repainting() {
         Albedo sc = instance;
         return sc != null && sc.store.repainting();
+    }
+
+    /** A number that changes after each change to a kept texture with moving Chroma colors, so that an adapter reads {@link #chromaTexels}. */
+    public static int texturePaints() {
+        Albedo sc = instance;
+        return sc == null ? 0 : sc.store.paints();
+    }
+
+    /**
+     * Puts the texels of one frame of an atlas sprite for the GPU pass of Chroma into {@code out}.
+     *
+     * @param location the sprite name with its folder, as the adapter gave it to {@link #processTexture}
+     * @return false when the colors of the sprite do not move on the GPU, which leaves {@code out} as it is
+     */
+    public static boolean chromaTexels(String location, int w, int h, int[] out) {
+        Albedo sc = instance;
+        return sc != null && sc.store.chromaTexels(location, w, h, out);
+    }
+
+    /**
+     * Starts or stops the GPU pass of Chroma, and paints the atlas sprites again on the next client tick, because a
+     * stopped pass needs still Chroma colors in the sprites in place of the hue that the pass adds.
+     */
+    public void chromaGpu(boolean running) {
+        if (chromaStill != running) return;
+        chromaStill = !running;
+        store.invalidateGpuHue();
+        stale = true;
+    }
+
+    /** Whether the GPU pass of Chroma is stopped, so that moving Chroma colors stay still. */
+    public boolean chromaStill() {
+        return chromaStill;
+    }
+
+    /** Whether some textures of a category keep still Chroma colors, because the GPU pass does not reach them. */
+    public boolean chromaStill(Category category) {
+        return chromaStill || store.stillChroma(category);
+    }
+
+    /**
+     * Tells the harness that a frame is drawn, on the render thread at the end of each frame.
+     *
+     * @param seconds the clock time that the Chroma colors of this frame have
+     */
+    public void frameDrawn(double seconds) {
+        if (harness != null) harness.frame(seconds);
     }
 
     /** Ids seen in a category in name order, each with its original average color, for the client thread. */

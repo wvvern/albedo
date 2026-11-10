@@ -6,6 +6,7 @@ run time set 6000
 run tp @p 0 3000 0 0 -60
 wait 40
 sky meteors
+skyturn 0
 wait 160
 fov 70
 meteor

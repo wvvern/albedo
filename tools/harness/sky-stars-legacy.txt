@@ -5,6 +5,7 @@ profile minimal
 run time set 6000
 wait 40
 sky dusk
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 122.5 -68.7
@@ -22,6 +23,7 @@ wait 160
 screenshot stars-03-dusk-fast-fov70
 skyrender sharp
 sky nebula
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 135.4 -42.9
@@ -35,6 +37,7 @@ wait 40
 skytime
 wait 40
 sky galaxy
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 162.3 -46.6
@@ -52,6 +55,7 @@ skytime
 wait 40
 # The three lowest layers of Galaxy (sky, dust and stars) at the zenith, where many edges of the star cells meet.
 sky galaxy 3
+skyturn 0
 wait 160
 fov 30
 run tp @p 0 3000 0 0 -90

@@ -34,8 +34,10 @@ public final class SkyTurning {
         public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
-    /** A sky that does not turn, which is also the value of a design from before turning existed. */
-    public static final SkyTurning NONE = new SkyTurning(0, 1, Clock.WORLD, 45, Direction.NORMAL, 0);
+    /** A sky that does not turn, which is also the turning that the bake reads when the sky has no trails. */
+    public static final SkyTurning STILL = new SkyTurning(0, 1, Clock.WORLD, 45, Direction.NORMAL, 0);
+    /** The turning of a new custom sky: one slow turn in each Minecraft day of real time. */
+    public static final SkyTurning DEFAULT = new SkyTurning(100, 1, Clock.REAL, 45, Direction.NORMAL, 0);
 
     private final int amount, speed, poleHeight, pole, trails, trailLight;
     private final Clock clock;
@@ -95,9 +97,9 @@ public final class SkyTurning {
     /** True when the bright stars draw trails, which only a sky that turns has. */
     public boolean showsTrails() { return turns() && trails > 0; }
 
-    /** The part of the turning that the bake reads: the trails with their pole and direction, or {@link #NONE} with no trails. */
+    /** The part of the turning that the bake reads: the trails with their pole and direction, or {@link #STILL} with no trails. */
     public SkyTurning baked() {
-        return showsTrails() ? new SkyTurning(100, 1, Clock.WORLD, poleHeight, direction, pole, trails, trailLight) : NONE;
+        return showsTrails() ? new SkyTurning(100, 1, Clock.WORLD, poleHeight, direction, pole, trails, trailLight) : STILL;
     }
 
     /** The turns of the sky in one Minecraft day. */

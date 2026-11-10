@@ -5,6 +5,7 @@ profile minimal
 run time set 18000
 wait 40
 sky aurora
+skyturn 0
 wait 160
 # Yaw 180 looks north, pitch -12 looks a little up.
 fov 70

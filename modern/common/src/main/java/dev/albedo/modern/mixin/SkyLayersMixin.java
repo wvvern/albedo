@@ -16,7 +16,7 @@ public abstract class SkyLayersMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void albedo$upload(com.mojang.renderpearl.api.buffers.GpuBufferSlice fog,
                                net.minecraft.client.renderer.state.level.SkyRenderState state, CallbackInfo ci) {
-        ModernSky.beforePass();
+        ModernSky.beforePass(state.skybox == net.minecraft.world.level.dimension.DimensionType.Skybox.OVERWORLD);
     }
 
     @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)

@@ -37,36 +37,56 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void theCloudsPulseSlowlyAndGentlyInSomeRegionsOnly() {
-        int still = 0, pulsing = 0;
+    void theCloudsPulseSmoothlyInMostRegions() {
+        int still = 0, strong = 0;
         for (int i = 0; i < 400; i++) {
             double az = i * 0.7, el = (i % 17) * 0.09 - 0.7;
             float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
             assertEquals(1f, SkyGenerator.pulse(0, 1, 7, p, 1, 5), "a pulse of 0 keeps the clouds still");
-            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(1, 1, 7, p, 1, 0);
+            float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(0.5f, 1, 7, p, 1, 0);
             for (int t = 0; t <= 60 * 30; t++) {
-                float k = SkyGenerator.pulse(1, 1, 7, p, 1, t / 60f);
+                float k = SkyGenerator.pulse(0.5f, 1, 7, p, 1, t / 60f);
                 min = Math.min(min, k);
                 max = Math.max(max, k);
                 step = Math.max(step, Math.abs(k - last));
                 last = k;
             }
-            assertTrue(min >= 0.25f && max <= 1.75f, "a pulse of 100 percent from " + min + " to " + max);
-            assertTrue(step < 0.01f, "a slow pulse, with a step of " + step + " in a frame");
-            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 903), 1e-4f, "the waves repeat in 900 s");
+            assertTrue(min >= 0.5f && max <= 2f, "a pulse of 50 percent from " + min + " to " + max);
+            assertTrue(step < 0.03f, "a smooth pulse, with a step of " + step + " in a frame");
+            float full = SkyGenerator.pulse(1, 1, 7, p, 1, 2);
+            assertTrue(full > 0.09f && full < 11.1f, "a pulse of 100 percent of " + full);
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 3), SkyGenerator.pulse(1, 1, 7, p, 1, 183), 1e-3f, "the waves repeat in 180 s");
+            assertEquals(SkyGenerator.pulse(1, 1, 7, p, 1, 0), SkyGenerator.pulse(1, 1, 7, p, 1, 3600), 1e-3f, "no jump at the hour");
             if (max - min < 1e-6f) still++;
-            else if (max - min > 0.1f) pulsing++;
+            else if (max / min > 1.5f) strong++;
         }
-        assertTrue(still > 80 && pulsing > 80, still + " still and " + pulsing + " pulsing places");
+        assertTrue(still > 10 && strong > 120, still + " still and " + strong + " strong places");
+    }
+
+    @Test
+    void aBrighterCloudKeepsItsHueAndStopsSmoothlyAtThePeak() {
+        float[] pink = {1f, 0.16f, 0.43f};
+        SkyGenerator.brighten(5, pink);
+        assertArrayEquals(new float[] {1f, 0.16f, 0.43f}, pink, 2e-4f, "a peak of 1 cannot get brighter");
+        float[] dim = {0.4f, 0.1f, 0.2f};
+        SkyGenerator.brighten(5, dim);
+        assertTrue(dim[0] < 1 && dim[0] > 0.9f, "the peak goes up to 1 but not over it: " + dim[0]);
+        assertEquals(0.25f, dim[1] / dim[0], 1e-4f, "the hue stays");
+        float[] small = {0.4f, 0.1f, 0.2f}, smaller = {0.4f, 0.1f, 0.2f};
+        SkyGenerator.brighten(1.001f, small);
+        SkyGenerator.brighten(0.999f, smaller);
+        assertEquals(small[0] - 0.4f, 0.4f - smaller[0], 1e-5f, "the curve has no corner at a factor of 1");
+        SkyGenerator.brighten(0.1f, smaller);
+        assertTrue(smaller[0] > 0, "a darker cloud stays above black");
     }
 
     @Test
     void thePresetsKeepTheirPixels() {
         assertEquals(1164738102, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
-        assertEquals(1238737692, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
+        assertEquals(-1992624876, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
         assertEquals(2083471237, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
         assertEquals(-1617945180, Arrays.hashCode(SkyGenerator.bake(SkyPresets.METEORS, 256, 128).argb()), "meteors");
-        assertEquals(-1710622170, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
+        assertEquals(934053435, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
         assertEquals(-1457549582, Arrays.hashCode(SkyGenerator.bake(SkyPresets.TRAILS, 256, 128).argb()), "trails");
     }
 
@@ -91,7 +111,7 @@ class SkyGeneratorTest {
         assertSame(sharp.argb(), baker.image().argb());
         assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
         assertFalse(baker.image().drawsSharp());
-        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.NONE.withAmount(50));
+        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.STILL.withAmount(50));
         baker.request(turning);
         assertTrue(baker.current(), "a new turning also keeps the pixels");
         assertSame(sharp.argb(), baker.image().argb());
@@ -343,13 +363,12 @@ class SkyGeneratorTest {
         int w = 128, h = 64;
         SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
         SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4)), w, h);
-        assertEquals(0, below.terms().length);
-        assertEquals(1, below.termTextureWidth() * below.termTextureHeight(), "one texel for the sampler");
+        assertEquals(w / 2 * h / 2 * 4, below.terms().length, "the field image of the noise");
         assertEquals(w / 2, full.termTextureWidth());
-        assertEquals(h / 2, full.termTextureHeight());
+        assertEquals(h, full.termTextureHeight(), "the bloom term over the field image");
         assertEquals(w / 2, full.termWidth());
         assertEquals(h / 2, full.termHeight());
-        assertEquals(w / 2 * h / 2 * 4, full.terms().length, "one term image of half float RGBA");
+        assertEquals(w / 2 * h / 2 * 4 * 2, full.terms().length, "two images of half float RGBA");
         double error = 0, glow = 0;
         int count = 0;
         for (int y = 0; y < h; y++) {
@@ -370,7 +389,39 @@ class SkyGeneratorTest {
 
     static float fromHalf(short bits) {
         int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
-        return exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
+        float v = exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
+        return (bits & 0x8000) != 0 ? -v : v;
+    }
+
+    @Test
+    void theFieldImagesHoldTheSmoothNoiseAtTheTexelCenters() {
+        int w = 64, h = 32;
+        SkyLayer clouds = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.PULSE, 50);
+        SkyLayer fractal = layer(2, SkyLayer.Kind.FRACTAL);
+        SkyImage img = SkyGenerator.bake(of(clouds, fractal), w, h);
+        assertEquals(0, img.program().termSlot(0));
+        assertEquals(1, img.program().termSlot(1));
+        int tw = img.termWidth(), th = img.termHeight();
+        boolean negative = false;
+        for (int ty = 0; ty < th; ty += 5) {
+            for (int tx = 0; tx < tw; tx += 7) {
+                // The texel center in the mapping of albedoField, where the layers have no turn.
+                double el = Math.toRadians(90 - (ty + 0.5) * 180 / th), lon = (tx + 0.5) / tw * 2 * Math.PI;
+                float x = (float) (Math.cos(el) * Math.sin(lon)), y = (float) Math.sin(el), z = (float) (-Math.cos(el) * Math.cos(lon));
+                int noise = (ty * tw + tx) * 4, bend = ((th + ty) * tw + tx) * 4;
+                float coarse = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, 0, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES);
+                assertEquals(coarse * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f, "the coarse octaves of the clouds");
+                float fine = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES,
+                        SkyGenerator.CLOUD_OCTAVES);
+                assertEquals(Noise.fbm(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_OCTAVES), coarse + fine, 1e-5f, "the parts add up");
+                assertEquals(Noise.noise(x * 2.2f, y * 2.2f, z * 2.2f, 1 + 71), fromHalf(img.terms()[noise + 1]), 1e-3f, "the pulse noise");
+                float bendX = Noise.fbm(x * 1.6f + 5.2f, y * 1.6f + 1.3f, z * 1.6f + 2.8f, 1 + 11, 4);
+                assertEquals(bendX, fromHalf(img.terms()[bend]), 2e-3f, "the bend of the fractal");
+                assertEquals(0f, fromHalf(img.terms()[bend + 3]), "a fractal with no pulse");
+                negative |= bendX < -0.01f;
+            }
+        }
+        assertTrue(negative, "a bend can be negative");
     }
 
     @Test

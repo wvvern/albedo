@@ -12,7 +12,7 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 
 - **Profiles:** start from `quake-white`, `quake-black`, `minimal` or `pastel`, or make your own. Export and import them as files.
 - **Looks:** give each category (blocks, fluids, mobs, players, particles, sky and more) a flat color, a recolor, the average color, gray, or hide it.
-- **Effects:** Bevel shades the edges of each block, and Outline draws a line around it.
+- **Effects:** Bevel shades the edges of each block, Outline draws a line around it, and Chroma moves its colors through all hues.
 - **Groups:** give a set of textures their own look, for example dirt, grass and gravel in one color.
 
 ### Build your sky

@@ -1,9 +1,14 @@
 package dev.albedo.core.sky;
 
+import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,18 +16,67 @@ import static org.junit.jupiter.api.Assertions.*;
 class SkyShaderSourceTest {
     @Test
     void eachClassicShaderIsOneTextWithItsVersionFirst() throws IOException {
+        String steps = SkyShaderSource.layerSteps(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program());
         for (SkyShaderSource.Dialect dialect : SkyShaderSource.Dialect.values()) {
             for (String name : new String[] {SkyShaderSource.SHARP, SkyShaderSource.EQUIRECT}) {
                 for (boolean vertex : new boolean[] {true, false}) {
-                    String text = SkyShaderSource.classic(name, vertex, dialect);
+                    String text = SkyShaderSource.classic(name, vertex, dialect, steps);
                     String what = dialect + " " + name + (vertex ? ".vsh" : ".fsh");
                     assertTrue(text.startsWith("#version "), what);
                     assertEquals(1, count(text, "#version"), what);
                     assertFalse(text.contains("#include"), what + " has no include step");
                     assertEquals(!vertex, text.contains("vec3 albedoSky(vec3 dir, float footprint)"), what);
+                    assertEquals(!vertex, text.contains(steps), what + " has the layer steps");
                 }
             }
         }
+    }
+
+    @Test
+    void theLayerStepsHaveTheStructureOfEachLayerThatShowsOrMasksAsConstants() {
+        // Nebula: gradient, fractal with pulse, noise as a mask, blur and hue shift through the mask, stars that twinkle, bloom.
+        String steps = SkyShaderSource.layerSteps(SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program());
+        assertTrue(steps.startsWith("#define ALBEDO_LAYER_STEPS ") && steps.endsWith("\n") && count(steps, "\n") == 1, steps);
+        assertEquals(7, count(steps, " s = "), steps);
+        assertEquals(6, count(steps, "img = albedoShow("), "the noise only masks: " + steps);
+        String gradient = " s = albedoGradient(0, albedoFrame(0, dir)); img = albedoShow(img, s, 0, 0, -1, false);";
+        assertTrue(steps.contains(gradient), steps);
+        String fractal = " s = albedoFractal(1, albedoFrame(1, dir), albedoField(2, dir), 8); img = albedoShow(img, s, 1, 1, -1, false);";
+        assertTrue(steps.contains(fractal), "the fractal reads its field image, pulses and adds: " + steps);
+        assertTrue(steps.contains(" s = albedoClouds(2, albedoFrame(2, dir), albedoField(3, dir), 0); albedoMaskSource(2, s);"), steps);
+        SkyLayer[] clouds = new SkyLayer[SkyDesign.MAX_LAYERS];
+        for (int i = 0; i < clouds.length; i++) clouds[i] = SkyLayer.of(i + 1, SkyLayer.Kind.NOISE);
+        SkyDesign many = new SkyDesign(Arrays.asList(clouds), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
+        String last = SkyShaderSource.layerSteps(SkyGenerator.bake(many, 64, 32).program());
+        assertTrue(last.contains(" s = albedoClouds(7, albedoFrame(7, dir), albedoCloudsField(7, albedoFrame(7, dir), 0), 0);"),
+                "a layer with no field image: " + last);
+        assertTrue(steps.contains(" s = albedoTermFilter(3, dir); img = albedoShow(img, s, 3, 0, 2, false);"), "the blur in the light: " + steps);
+        assertTrue(steps.contains(" s = vec4(albedoHueShift(4, img), 1.0); img = albedoShow(img, s, 4, 0, 2, true);"), "the hue shift in the dark");
+        assertTrue(steps.contains(" s = albedoStars(5, albedoFrame(5, dir), footprint, 5);"), "the stars twinkle with spikes: " + steps);
+        assertTrue(steps.contains(" s = albedoBloom(6, img, dir);"), steps);
+        // Dusk: its third layer masks the stars, and a mask that no layer uses has no step.
+        SkyProgram dusk = SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program();
+        assertEquals(4, count(SkyShaderSource.layerSteps(dusk), " s = "));
+        assertFalse(SkyShaderSource.readsTerms(dusk.shaderSteps()), "dusk has no term or field image");
+        assertTrue(SkyShaderSource.readsTerms(steps), "nebula has both");
+        SkyProgram bloom = SkyGenerator.bake(SkyPresets.DUSK.withAdded(SkyLayer.Kind.BLOOM), 64, 32).program();
+        assertTrue(SkyShaderSource.readsTerms(bloom.shaderSteps()), "a bloom term");
+        SkyProgram lower = SkyGenerator.bake(SkyPresets.DUSK.withLayers(SkyPresets.DUSK.layers().subList(0, 3)), 64, 32).program();
+        assertEquals(2, count(SkyShaderSource.layerSteps(lower), " s = "));
+        assertSame(dusk.shaderSteps(), dusk.shaderSteps(), "the program keeps its steps");
+    }
+
+    @Test
+    void theShaderCacheKeepsTheLastShadersAndClosesTheOldest() {
+        List<String> closed = new ArrayList<String>();
+        SkyShaderCache<String> cache = new SkyShaderCache<String>(2, steps -> "shader " + steps, closed::add);
+        String a = cache.get("a");
+        assertSame(a, cache.get("a"));
+        cache.get("b");
+        cache.get("a");
+        cache.get("c");
+        assertEquals(Arrays.asList("shader b"), closed, "the least recently used shader goes");
+        assertSame(a, cache.get("a"));
     }
 
     @Test
@@ -37,7 +91,7 @@ class SkyShaderSourceTest {
     @Test
     void aMissingFileIsAnError() {
         assertThrows(IOException.class, () -> SkyShaderSource.read("core/none.fsh"));
-        assertThrows(IOException.class, () -> SkyShaderSource.readInclude("minecraft:projection.glsl"));
+        assertThrows(IOException.class, () -> SkyShaderSource.readInclude("minecraft:projection.glsl", ""));
     }
 
     @Test
@@ -64,7 +118,7 @@ class SkyShaderSourceTest {
         game.put("minecraft:projection.glsl", "uniform Projection;\n");
         for (String path : new String[] {"core/sky_sharp.vsh", "core/sky_sharp.fsh", "core/sky_equirect.vsh", "core/sky_equirect.fsh"}) {
             String text = SkyShaderSource.inline(SkyShaderSource.read(path),
-                    id -> game.containsKey(id) ? game.get(id) : SkyShaderSource.readInclude(id));
+                    id -> game.containsKey(id) ? game.get(id) : SkyShaderSource.readInclude(id, "#define ALBEDO_LAYER_STEPS\n"));
             assertFalse(text.contains("#include"), path);
             assertEquals(path.endsWith(".fsh"), text.contains("vec3 albedoSky(vec3 dir, float footprint)"), path);
         }

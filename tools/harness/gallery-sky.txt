@@ -8,6 +8,7 @@ run setblock 0 -59 -6 lantern
 wait 40
 # Nebula over the scene, looking up a little.
 sky nebula
+skyturn 0
 wait 160
 run tp @p 0.5 -60 6.5 180 -14
 wait 40
@@ -17,6 +18,7 @@ wait 40
 screenshot s01-nebula-b
 # Galaxy: high in the south-east, so the camera stands north-west of the scene with the mobs in front of it.
 sky galaxy
+skyturn 0
 run kill @e[type=!player]
 wait 5
 run kill @e[type=item]
@@ -36,6 +38,7 @@ wait 40
 screenshot s02-galaxy-c
 # Dusk: the sun sets in the west, so the camera stands east of the scene with the mobs facing it.
 sky dusk
+skyturn 0
 run kill @e[type=!player]
 wait 5
 run kill @e[type=item]
@@ -66,6 +69,7 @@ run summon villager 1 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
 run summon cow 3 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
 run tp @p 0.5 -60 4.5 180 -10
 sky nebula
+skyturn 0
 wait 160
 settings open
 wait 20
@@ -82,6 +86,7 @@ screenshot s04-editor-nebula-scrolled
 settings close
 wait 10
 sky galaxy
+skyturn 0
 wait 160
 settings open
 wait 20

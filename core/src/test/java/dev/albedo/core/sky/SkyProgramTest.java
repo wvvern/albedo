@@ -24,7 +24,7 @@ class SkyProgramTest {
     @Test
     void theBlockIsAWholeNumberOfVec4Values() {
         assertEquals(0, SkyProgram.FLOATS % 4);
-        assertEquals(4 + SkyDesign.MAX_LAYERS * SkyProgram.LAYER_VEC4S * 4 + SkyImage.RING * 4, SkyProgram.FLOATS);
+        assertEquals(4 + 12 + SkyDesign.MAX_LAYERS * SkyProgram.LAYER_VEC4S * 4 + SkyImage.RING * 4, SkyProgram.FLOATS);
         assertEquals(SkyProgram.LAYER_VEC4S * 4, SkyProgram.LOCAL + 12, "the rotation rows end the layer");
     }
 
@@ -41,7 +41,8 @@ class SkyProgramTest {
             "METEOR_CHANNELS " + SkyMeteors.CHANNELS, "METEOR_SLOTS_BACK " + SkyMeteors.SLOTS_BACK,
             "BLEND_NORMAL " + SkyProgram.BLEND_NORMAL, "BLEND_ADD " + SkyProgram.BLEND_ADD, "BLEND_SCREEN " + SkyProgram.BLEND_SCREEN,
             "BLEND_MULTIPLY " + SkyProgram.BLEND_MULTIPLY, "USE_NONE " + SkyProgram.USE_NONE, "USE_MASK " + SkyProgram.USE_MASK,
-            "USE_SHOW " + SkyProgram.USE_SHOW};
+            "USE_SHOW " + SkyProgram.USE_SHOW, "CLOUD_OCTAVES " + SkyGenerator.CLOUD_OCTAVES,
+            "CLOUD_FIELD_OCTAVES " + SkyGenerator.CLOUD_FIELD_OCTAVES};
         for (String d : defines) assertTrue(glsl.contains("#define ALBEDO_" + d + "\n"), d);
         // The shader reads the values of a layer from these vec4 slots.
         assertEquals(4, SkyProgram.MASK_DARK);
@@ -52,15 +53,59 @@ class SkyProgramTest {
         assertEquals(20, SkyProgram.LAB_1);
         assertEquals(24, SkyProgram.LAB_2);
         assertEquals(28, SkyProgram.LOCAL);
-        assertTrue(glsl.contains("albedoLayer(i, 7)"), "the rotation starts at slot 7");
+        assertTrue(glsl.contains("dot(albedoLayer(layer, 7).xyz, dir)"), "the rotation starts at slot 7");
         // The meteors read their speed, length and shower from the last value of slots 4, 5 and 6, and the aurora reads its speed there too.
         assertEquals(4 * 4 + 3, SkyProgram.SPEED);
-        assertTrue(glsl.contains("float t = max(SkyHeader.w, 0.0) * albedoLayer(layer, 4).w * 2.0;"), "the aurora reads the header time");
         assertFalse(glsl.contains("albedoTime"), "the sky has one time, in the header");
         assertEquals(5 * 4 + 3, SkyProgram.LENGTH);
+        assertEquals(SkyProgram.LENGTH, SkyProgram.CLOCK);
+        assertTrue(glsl.contains("float t = albedoLayer(layer, 5).w;"), "the aurora reads its clock from the last value of slot 5");
+        assertTrue(glsl.contains("const float ALBEDO_AURORA_PERIOD = " + Aurora.PERIOD + ";"));
+        assertTrue(glsl.contains("#define ALBEDO_METEOR_PERIOD_SLOTS " + SkyMeteors.PERIOD_SLOTS + "\n"));
+        // The header is one vec4 and the turn of the sky three more, before the layers.
+        assertEquals(4, SkyProgram.WORLD);
+        assertTrue(glsl.contains("vec4 SkyHeader;\n    // The rows of the turn") && glsl.contains("vec4 SkyWorld[3];\n    vec4 SkyLayers["));
         assertEquals(6 * 4 + 3, SkyProgram.SHOWER);
         assertTrue(glsl.contains("const float ALBEDO_METEOR_SLOT = " + SkyMeteors.SLOT + ";"));
         assertTrue(glsl.contains("const float ALBEDO_METEOR_TRAIL_END = " + SkyMeteors.TRAIL_END + ";"));
+    }
+
+    @Test
+    void aSmallStarsLayerHasShorterTrailsSoThatAPixelReadsNoMoreCells() {
+        SkyDesign trails = SkyPresets.TRAILS.withTurning(new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 40, SkyTurning.Direction.NORMAL, 0,
+                SkyTurning.MAX_TRAILS, 60));
+        int stars = 0;
+        while (trails.layers().get(stars).kind() != SkyLayer.Kind.STARS) stars++;
+        SkyLayer layer = trails.layers().get(stars);
+        SkyLayer small = layer.withTransform(layer.transform().with(Transform.Axis.SCALE, 25));
+        float full = arc(trails, stars), quarter = arc(trails.withLayer(stars, small), stars);
+        assertEquals(Math.toRadians(SkyTurning.MAX_TRAILS), full, 1e-6);
+        assertEquals(Math.toRadians(SkyTurning.MAX_TRAILS) * 0.25, quarter, 1e-6, "the arc in cells is never longer than at size 100");
+    }
+
+    private static float arc(SkyDesign design, int layer) {
+        return SkyProgram.of(design, new float[SkyImage.RING * 3]).block()[SkyProgram.at(layer, SkyProgram.TRAIL)];
+    }
+
+    @Test
+    void theBlockOfAFrameHasTheTimeTheAuroraClockAndTheTurn() {
+        SkyProgram aurora = SkyProgram.of(SkyPresets.AURORA, new float[SkyImage.RING * 3]);
+        float[] still = aurora.block();
+        assertEquals(SkyProgram.STILL, still[SkyProgram.TIME]);
+        assertArrayEquals(new float[] {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
+                Arrays.copyOfRange(still, SkyProgram.WORLD, SkyProgram.LAYERS), "a still sky does not turn");
+        SkyTurn turn = SkyTurn.of(SkyPresets.TRAILS.turning(), 0.25);
+        float[] frame = aurora.at(3600 + 12.5, turn);
+        assertEquals(12.5f, frame[SkyProgram.TIME], "the header time wraps after one period of the clock");
+        int layer = 0;
+        while ((int) still[SkyProgram.at(layer, SkyProgram.KIND)] != SkyProgram.KIND_AURORA) layer++;
+        float speed = still[SkyProgram.at(layer, SkyProgram.SPEED)];
+        assertEquals(Aurora.clock(3612.5, speed), frame[SkyProgram.at(layer, SkyProgram.CLOCK)]);
+        float[] m = turn.matrix();
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) assertEquals(m[col * 4 + row], frame[SkyProgram.WORLD + row * 4 + col], 1e-6f);
+        }
+        assertEquals(0f, still[SkyProgram.at(layer, SkyProgram.CLOCK)], "the bake draws the aurora at clock 0");
     }
 
     @Test
@@ -98,7 +143,7 @@ class SkyProgramTest {
         assertEquals(4 * 4 + 3, SkyProgram.TWINKLE);
         assertEquals(4 * 4 + 3, SkyProgram.PULSE);
         String glsl = skyLayersSource();
-        assertTrue(glsl.contains("float twinkle = albedoLayer(layer, 4).w"));
+        assertTrue(glsl.contains("float twinkle = (flags & ALBEDO_FLAG_TWINKLE) != 0 ? albedoLayer(layer, 4).w : 0.0"));
         assertTrue(glsl.contains("float amount = albedoLayer(layer, 4).w"));
     }
 
@@ -127,8 +172,7 @@ class SkyProgramTest {
         assertEquals(6 * 4 + 3, SkyProgram.TRAIL_LIGHT);
         assertEquals(7 * 4 + 3, SkyProgram.TRAIL_AXIS);
         String glsl = skyLayersSource();
-        assertTrue(glsl.contains("vec4 trail = vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, "
-                + "albedoLayer(layer, 5).w);"));
+        assertTrue(glsl.contains("? vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w)"));
         assertTrue(glsl.contains("seed, trail, albedoLayer(layer, 6).w);"));
     }
 
@@ -156,11 +200,13 @@ class SkyProgramTest {
         assertEquals(0, dusk.terms());
         SkyProgram nebula = SkyGenerator.bake(SkyPresets.NEBULA, 64, 32).program();
         assertTrue(nebula.drawsSharp(), "the blur and the bloom are terms, the hue shift is calculated for each pixel");
-        assertEquals(2, nebula.terms());
+        assertEquals(4, nebula.terms(), "two terms and two field images");
         assertEquals(0, nebula.termSlot(3), "the blur");
         assertEquals(-1, nebula.termSlot(4), "the hue shift");
         assertEquals(-1, nebula.termSlot(5), "the stars over the blur");
         assertEquals(1, nebula.termSlot(6), "the bloom");
+        assertEquals(2, nebula.termSlot(1), "the field image of the fractal comes after the terms");
+        assertEquals(3, nebula.termSlot(2), "the field image of the noise mask");
         assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(4, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_STARS, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
         SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
@@ -168,10 +214,14 @@ class SkyProgramTest {
         assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.at(3, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.at(4, SkyProgram.KIND)]);
-        assertEquals(1, galaxy.terms());
-        assertEquals(1, galaxy.block()[2], "the header has the term count");
+        assertEquals(2, galaxy.terms());
+        assertEquals(2, galaxy.block()[2], "the header has the count of term and field images");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(0, galaxy.termSlot(4));
+        assertEquals(1, galaxy.termSlot(1), "the field image of the noise");
+        SkyLayer[] clouds = new SkyLayer[SkyDesign.MAX_LAYERS];
+        for (int i = 0; i < clouds.length; i++) clouds[i] = SkyLayer.of(i + 1, SkyLayer.Kind.NOISE);
+        assertEquals(SkyProgram.MAX_SLOTS, program(clouds).terms(), "the field images stop at the largest number of images");
         SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
         assertTrue(aurora.drawsSharp(), "gradient, glow, stars and aurora");
         assertEquals(0, aurora.terms());
@@ -256,6 +306,18 @@ class SkyProgramTest {
         assertEquals(SkyProgram.Path.BAKED, p.path(SkyProgram.MAX_TERMS + 1));
         assertEquals(-1, p.termSlot(SkyProgram.MAX_TERMS + 1));
         assertFalse(p.drawsSharp());
+    }
+
+    @Test
+    void aSkyThatCannotDrawSharpHasNoFieldImages() {
+        List<SkyLayer> layers = new ArrayList<SkyLayer>();
+        layers.add(SkyLayer.of(1, SkyLayer.Kind.NOISE));
+        for (int i = 0; i <= SkyProgram.MAX_TERMS; i++) layers.add(SkyLayer.of(i + 2, SkyLayer.Kind.BLOOM));
+        SkyImage img = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(layers), 64, 32);
+        assertFalse(img.program().drawsSharp());
+        assertEquals(-1, img.program().termSlot(0), "the clouds");
+        assertEquals(SkyProgram.MAX_TERMS, img.program().terms(), "only the term images of the blooms");
+        assertEquals(32 * 16 * 4 * SkyProgram.MAX_TERMS, img.terms().length);
     }
 
     @Test

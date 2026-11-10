@@ -49,7 +49,7 @@ final class SkyCodec {
         SkyDesign.Extent extent = choice(category, "extent", SkyDesign.Extent.HORIZON, where);
         SkyDesign.Render render = choice(category, "render", SkyDesign.Render.SHARP, where);
         SkyTurning turning = category.containsKey("turning")
-                ? turning(where + ".turning", object(category.get("turning"), where + ".turning", TURNING_KEYS)) : SkyTurning.NONE;
+                ? turning(where + ".turning", object(category.get("turning"), where + ".turning", TURNING_KEYS)) : SkyTurning.DEFAULT;
         Object raw = category.get("layers");
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         if (raw != null) {
@@ -69,9 +69,9 @@ final class SkyCodec {
         return new SkyDesign(layers, celestial, light, extent, render, turning);
     }
 
-    /** The turning of a design, where each missing key keeps the value of {@link SkyTurning#NONE}. */
+    /** The turning of a design, where each missing key keeps the value of {@link SkyTurning#STILL}, as in older files. */
     private static SkyTurning turning(String at, Map<String, Object> map) {
-        SkyTurning d = SkyTurning.NONE;
+        SkyTurning d = SkyTurning.STILL;
         return new SkyTurning(
                 number(map, "amount", 0, 100, d.amount(), at),
                 number(map, "speed", 1, SkyTurning.MAX_SPEED, d.speed(), at),
@@ -149,15 +149,15 @@ final class SkyCodec {
         if (design.light() != SkyDesign.Light.FIXED) out.put("light", design.light().key());
         if (design.extent() != SkyDesign.Extent.HORIZON) out.put("extent", design.extent().key());
         if (design.render() != SkyDesign.Render.SHARP) out.put("render", design.render().key());
-        if (!design.turning().equals(SkyTurning.NONE)) out.put("turning", encode(design.turning()));
+        if (!design.turning().equals(SkyTurning.DEFAULT)) out.put("turning", encode(design.turning()));
         List<Object> layers = new ArrayList<Object>();
         for (SkyLayer l : design.layers()) layers.add(encode(l));
         out.put("layers", layers);
     }
 
-    /** The keys of a turning whose values differ from {@link SkyTurning#NONE}. */
+    /** The keys of a turning whose values differ from {@link SkyTurning#STILL}, which the decoder reads back the same. */
     private static Map<String, Object> encode(SkyTurning t) {
-        SkyTurning d = SkyTurning.NONE;
+        SkyTurning d = SkyTurning.STILL;
         Map<String, Object> m = new LinkedHashMap<String, Object>();
         if (t.amount() != d.amount()) m.put("amount", t.amount());
         if (t.speed() != d.speed()) m.put("speed", t.speed());
@@ -184,7 +184,7 @@ final class SkyCodec {
             m.put("mask", mask);
         }
         for (SkyLayer.Param p : l.kind().params()) {
-            // A layer with no twinkle or pulse leaves the key out, so that a version without these keys can read the file.
+            // A layer with no twinkle or pulse leaves the key out, so that the file stays short, which does not let an older version read it.
             if ((p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE) && l.param(p) == 0) continue;
             m.put(p.key, p.isColor() ? (Object) Colors.format(l.param(p)) : l.param(p));
         }

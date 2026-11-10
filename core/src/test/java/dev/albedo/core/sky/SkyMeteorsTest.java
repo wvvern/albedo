@@ -25,6 +25,26 @@ class SkyMeteorsTest {
     }
 
     @Test
+    void theMeteorsInTheSkyGoOnAcrossTheWrapOfTheClock() {
+        int period = SkyMeteors.PERIOD_SLOTS, found = 0;
+        assertEquals(SkyClock.PERIOD_MS / 1000, period * (long) SkyMeteors.SLOT, "the slots fill one period of the clock");
+        for (int back = 1; back <= 600; back++) {
+            for (int channel = 0; channel < SkyMeteors.CHANNELS; channel++) {
+                SkyMeteors.Meteor before = SkyMeteors.of(PROGRAM.block(), LAYER, period - back, channel);
+                SkyMeteors.Meteor after = SkyMeteors.of(PROGRAM.block(), LAYER, -back, channel);
+                assertEquals(before == null, after == null, "slot " + -back + " has the meteor of slot " + (period - back));
+                if (before == null) continue;
+                found++;
+                // The clock goes back by one period at the wrap, so a meteor in flight is at the same place after it.
+                assertEquals(before.birth - period * SkyMeteors.SLOT, after.birth, 1e-3f);
+                assertArrayEquals(before.start, after.start);
+                assertArrayEquals(before.motion, after.motion);
+            }
+        }
+        assertTrue(found > 0);
+    }
+
+    @Test
     void aMeteorIsAShortThinStreakHighInTheSky() {
         int count = 0, fireballs = 0;
         float low = (float) Math.sin(Math.toRadians(19.9));

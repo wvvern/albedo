@@ -39,8 +39,13 @@ final class Form {
 
     /** A labelled percent slider on its own row, which returns the value after a click or drag. */
     int slider(String id, int y, String label, String tip, int value) {
+        return slider(id, y, label, tip, value, value + "%");
+    }
+
+    /** A labelled 0 to 100 slider on its own row with {@code valueText} at its right, which returns the value after a click or drag. */
+    int slider(String id, int y, String label, String tip, int value, String valueText) {
         label(y, Ui.SLIDER_H, label, tip);
-        return ui.slider(id, lx(), y, cw(), value, tip);
+        return ui.slider(id, lx(), y, cw(), value, valueText, tip);
     }
 
     /** A labelled switch on its own row, where a click on the label flips it too, which returns the new state. */
@@ -61,8 +66,8 @@ final class Form {
         return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
     }
 
-    /** The height of {@code n} sliders on their own rows, without the gap after the last. */
-    private static int rowsHeight(int n) {
+    /** The height of {@code n} sliders on their own rows, with the small gap after each but not the gap below a group. */
+    static int rowsHeight(int n) {
         return n * (Ui.SLIDER_H + 3);
     }
 
