@@ -48,6 +48,8 @@ public final class SkyShaderSource {
     public static final String SHARP = "core/sky_sharp_classic";
     /** The fragment shader that draws black on the sky sphere of {@link #SHARP} for the classic GL programs. */
     public static final String BLACK = "core/sky_black_classic";
+    /** The vertex and fragment shaders that draw the baked sky image on the sky sphere, only for {@link Dialect#UNIFORMS_150}. */
+    public static final String BAKED = "core/sky_baked_classic";
     /** The vertex and fragment shaders that draw the sky into an equirectangular image for the classic GL programs. */
     public static final String EQUIRECT = "core/sky_equirect_classic";
     /** The vertex and fragment shaders of the GPU pass of Chroma, which turns the colors of an atlas, for the classic GL programs. */
