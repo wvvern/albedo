@@ -10,7 +10,8 @@ Sound and narrator are off. The game does not pause when it loses focus.
 Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
 Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures", the harness log has no line
-that starts with ! and no DIFFERENT, each screenshot command made its image, and the run folder has config/albedo/config.json.
+that starts with ! and no DIFFERENT, each skycompare logged "same", each screenshot command made its image, the hooks line shows
+that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
@@ -78,18 +79,25 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     $harnessText -match "^!" | ForEach-Object { "harness error: $_" }
     $harnessText -cmatch "DIFFERENT" | ForEach-Object { "harness compare: $_" }
     # The command "hooks" logs how many times each optional hook ran, and an optional hook with a wrong target name never runs.
-    foreach ($line in $harnessText -match "^hooks:") {
+    $hookLines = @($harnessText -match "^hooks:")
+    if ($hookLines.Count -eq 0) { "the harness log does not have a hooks line" }
+    foreach ($line in $hookLines) {
         $hooks | Where-Object { $line -notmatch "\b$_=[1-9]" } | ForEach-Object { "the hook $_ did not run: $line" }
     }
     # The harness renames commands.txt to commands.taken when it reads it.
+    $compares = 0
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
+        if ($words[0] -eq "skycompare") { $compares++ }
         if ($words[0] -eq "screenshot" -and -not (Test-Path (Join-Path $harness "$($words[1] -replace '\.png$', '').png"))) {
             "no image for: $line"
         } elseif ($words[0] -eq "frames" -and @(Get-ChildItem $harness -Filter "$($words[2])-*.png").Count -lt [int]$words[1]) {
             "not all images for: $line"
         }
     }
+    # A skycompare logs its result in a later frame, so a run can get to quit with no result.
+    $same = @($harnessText -match "^skycompare .*: same$").Count
+    if ($same -lt $compares) { "$compares skycompare commands gave only $same results with 'same'" }
 }
 
 function Set-Iris([string]$runDir) {
@@ -123,6 +131,8 @@ foreach ($target in $Targets) {
     }
     $harness = Join-Path $env:TEMP "albedo-harness\$target"
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
+    # A process of an earlier run can hold the folder, and its old log and images would then count for this run.
+    if (Test-Path $harness) { throw "cannot delete $harness; stop the process that uses it" }
     New-Item -ItemType Directory -Force $harness | Out-Null
     # Images that the commands load, for example the test skin of skins.txt.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
@@ -136,7 +146,8 @@ foreach ($target in $Targets) {
     # First the scene of this version, then the command file, where a legacy target runs the *-legacy.txt copy of a *-modern.txt file.
     $shotList = if ($legacy) { $Shots -replace "-modern\.txt$", "-legacy.txt" } else { $Shots }
     $files = @("harness\$scene") + ($Extra | ForEach-Object { "harness\$_" }) + @("harness\$shotList")
-    Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) |
+    # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
+    Get-Content ($files | ForEach-Object { Join-Path $PSScriptRoot $_ }) | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"
@@ -175,7 +186,7 @@ foreach ($target in $Targets) {
         Write-Host "[$target] Iris did not load the shader pack; see $log"
     }
     # A renderer mod replaces the terrain draw, so only the hooks that it does not touch must run.
-    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow") }
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") } elseif ($Compat) { @("fullbright", "shadow") }
              else { @("afterSolid", "tint", "fullbright", "shadow") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
