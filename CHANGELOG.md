@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- fix: Stop the crash on 26.2 with the Vulkan graphics backend when Chroma colors move
+- fix: Draw the sharp sky on 26.2 with the Vulkan graphics backend
+
 ## 0.6.0
 
 This update adds many Minecraft versions, each with its own jar.
