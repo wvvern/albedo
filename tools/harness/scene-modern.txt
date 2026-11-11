@@ -1,4 +1,4 @@
-# Test scene for 1.21+ (superflat: grass at y=-61, player stands at y=-60). tools/screenshots.ps1 runs this file.
+# Test scene (superflat: grass at y=-61, player stands at y=-60; tools/screenshots.ps1 moves it up by 64 before 1.18). The script runs this file.
 # Let the first resource load finish before opening a world.
 wait 200
 world AlbedoTest
@@ -46,6 +46,10 @@ run fill -6 -61 -4 -4 -61 -3 water
 run fill 4 -61 -4 6 -61 -3 lava
 run setblock -2 -60 -2 short_grass
 run setblock 2 -60 -2 poppy
+# A wall of glass and leaves behind the camera: it is in front of the sky when the camera looks south, and not in the views of shots.txt.
+run fill -4 -60 9 4 -50 11 air
+run fill -3 -60 10 -1 -56 10 glass
+run fill 1 -60 10 3 -56 10 oak_leaves[persistent=true]
 # Mobs facing the camera
 run summon pig -3 -60 -1 {NoAI:1b,Rotation:[0f,0f]}
 run summon sheep -1 -60 -1 {NoAI:1b,Color:14,Rotation:[0f,0f]}

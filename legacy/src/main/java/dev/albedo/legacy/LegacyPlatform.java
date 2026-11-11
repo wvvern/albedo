@@ -6,7 +6,7 @@ import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.MathHelper;
+import net.minecraftforge.common.ForgeVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
@@ -18,13 +18,12 @@ final class LegacyPlatform implements Platform {
 
     @Override
     public String describe() {
-        return "Forge 1.8.9";
+        return "Forge " + ForgeVersion.mcVersion;
     }
 
     @Override
     public File configDir() {
-        Minecraft mc = Minecraft.getMinecraft();
-        return mc != null && mc.mcDataDir != null ? new File(mc.mcDataDir, "config") : new File("config");
+        return Minecraft.getMinecraft() != null && Game.gameDir() != null ? new File(Game.gameDir(), "config") : new File("config");
     }
 
     @Override public void info(String message) { LOG.info(message); }
@@ -56,14 +55,13 @@ final class LegacyPlatform implements Platform {
         Entity view = mc.getRenderViewEntity();
         if (mc.renderGlobal == null || view == null) return;
         int r = (mc.gameSettings.renderDistanceChunks + 1) * 16;
-        int x = MathHelper.floor_double(view.posX), z = MathHelper.floor_double(view.posZ);
+        int x = Game.floor(view.posX), z = Game.floor(view.posZ);
         mc.renderGlobal.markBlockRangeForRenderUpdate(x - r, 0, z - r, x + r, 255, z + r);
     }
 
     @Override
     public void showMessage(String message) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc.ingameGUI != null) mc.ingameGUI.setRecordPlaying(message, false); // the 1.8 action bar
+        Game.showMessage(message);
     }
 
     @Override
@@ -74,7 +72,7 @@ final class LegacyPlatform implements Platform {
     @Override
     public String currentServer() {
         Minecraft mc = Minecraft.getMinecraft();
-        return mc.theWorld == null || mc.isSingleplayer() ? null : LegacyHooks.connectedHost();
+        return Game.world() == null || mc.isSingleplayer() ? null : LegacyHooks.connectedHost();
     }
 
     @Override

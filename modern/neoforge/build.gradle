@@ -9,21 +9,12 @@ repositories {
     maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
 }
 
-configurations {
-    common { canBeResolved = true; canBeConsumed = false }
-    compileClasspath.extendsFrom common
-    runtimeClasspath.extendsFrom common
-    developmentNeoForge.extendsFrom common
-    shadowBundle { canBeResolved = true; canBeConsumed = false }
-}
-
-def commonNode = ":common:${stonecutter.current.project}"
-
 dependencies {
     neoForge "net.neoforged:neoforge:$project.neoforge_version"
-    common(commonNamed(commonNode)) { transitive false }
-    shadowBundle project(path: commonNode, configuration: 'transformProductionNeoForge')
 }
+
+// NeoForge 1.20.4 reads META-INF/mods.toml and pack.mcmeta, and later versions read only META-INF/neoforge.mods.toml.
+def newToml = stonecutter.eval(stonecutter.current.version, '>=1.20.5')
 
 processResources {
     def props = [
@@ -32,14 +23,11 @@ processResources {
             version        : project.version,
             minecraft_range: project.minecraft_range_neoforge,
             neoforge_range : project.neoforge_range,
+            pack_format    : project.findProperty('pack_format') ?: '',
     ]
     inputs.properties props
-    filesMatching('META-INF/neoforge.mods.toml') { expand props }
-}
-
-jar { archiveClassifier = 'raw' }
-
-shadowJar {
-    configurations = [project.configurations.shadowBundle]
-    mergeServiceFiles()
+    if (newToml) exclude 'pack.mcmeta' else rename 'neoforge.mods.toml', 'mods.toml'
+    filesMatching(['META-INF/*.toml', 'pack.mcmeta']) { expand props }
+    // Only NeoForge 1.20.4 reads displayTest, which keeps a server without the mod compatible in the server list.
+    if (!newToml) filesMatching('META-INF/*.toml') { filter { String line -> line.startsWith('displayName') ? line + '\ndisplayTest = "IGNORE_ALL_VERSION"' : line } }
 }

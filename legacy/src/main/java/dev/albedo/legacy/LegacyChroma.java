@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Moves the Chroma colors of the block atlas in each frame on 1.8.9 with an OpenGL 2.0 program and a framebuffer: at the
+ * Moves the Chroma colors of the block atlas in each frame on 1.8.9 and 1.12.2 with an OpenGL 2.0 program and a framebuffer: at the
  * start of a frame the pass draws the hue of each moving texel into each mip level of the atlas, and at the end of the
  * frame the atlas gets back the colors that Albedo painted, so that the game and Albedo always write into those colors.
  */

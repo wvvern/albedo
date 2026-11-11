@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0
+
+This update adds many Minecraft versions, each with its own jar.
+
+- fix: Show the flat sky color on NeoForge 1.21.11 in the pastel and quake-white profiles
+- fix: Show the water surface on 26.3 in the pastel profile
+- compat: Add Fabric jars for Minecraft 1.16.5, 1.17.1, 1.18.2, 1.19.2 and 1.19.4
+- compat: Add Fabric jars for Minecraft 1.20.1, 1.20.4, 1.20.6, 1.21.3 and 1.21.4
+- compat: Add Fabric jars for Minecraft 1.21.5, 1.21.8, 1.21.10, 26.1 and 26.2
+- compat: Add Forge jars for Minecraft 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1 and 1.20.4
+- compat: Add NeoForge jars for Minecraft 1.20.4, 1.20.6, 1.21.3, 1.21.4 and 1.21.5
+- compat: Add NeoForge jars for Minecraft 1.21.8, 1.21.10, 26.1 and 26.2
+- compat: Add a Forge jar for Minecraft 1.12.2
+- compat: Run the Fabric jars on the minor versions next to them, for example 1.19.1, 1.20 and 26.1.1
+- compat: Let the Fabric jars run on Fabric Loader 0.15.0 and newer
+- compat: Keep the vanilla sky and fog color on 1.21.1 when an Iris shader pack runs
+
 ## 0.5.1
 
 - feat: Make the highest Chroma speed 5 times faster

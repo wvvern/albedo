@@ -1,0 +1,48 @@
+apply from: rootProject.file('gradle/shared.gradle')
+
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+// Before 1.19 the jar has mixins for the light pipeline of Forge, with their own config.
+def lightPipeline = stonecutter.eval(stonecutter.current.version, '<1.19')
+
+loom {
+    forge {
+        mixinConfig "${rootProject.mod_id}.mixins.json"
+        if (lightPipeline) mixinConfig 'albedo.forge.mixins.json'
+    }
+}
+
+// Only a Gradle run of runClient alone with -Pharness adds the mixin of forge/dev-1.16.5, which the dev game of Forge 1.16.5 needs, so no jar has it.
+def harnessRun = project.hasProperty('harness') && !gradle.startParameter.taskNames.isEmpty() && gradle.startParameter.taskNames.every { it.endsWith('runClient') }
+if (project.minecraft_version == '1.16.5' && harnessRun) {
+    sourceSets.main.java.srcDir rootProject.file('forge/dev-1.16.5/java')
+    sourceSets.main.resources.srcDir rootProject.file('forge/dev-1.16.5/resources')
+    loom { forge { mixinConfig "${rootProject.mod_id}.dev.mixins.json" } }
+}
+
+// The bootstrap of Forge 1.20.4 makes a module of each classpath jar, so the dev run keeps only the transformed copy of the common jar.
+if (stonecutter.eval(stonecutter.current.version, '>=1.20.4')) {
+    tasks.named('runClient') { classpath = files(classpath.from.toList()).minus(configurations.common) }
+}
+
+dependencies {
+    forge "net.minecraftforge:forge:$project.minecraft_version-$project.forge_version"
+}
+
+processResources {
+    def props = [
+            mod_id             : rootProject.mod_id,
+            mod_name           : rootProject.mod_name,
+            version            : project.version,
+            minecraft_range    : project.minecraft_range_forge,
+            forge_range        : project.forge_range,
+            pack_format        : project.pack_format,
+            compatibility_level: "JAVA_${Math.min((project.java_version as String).toInteger(), 21)}".toString(),
+    ]
+    inputs.properties props
+    if (!lightPipeline) exclude 'albedo.forge.mixins.json'
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'albedo.forge.mixins.json']) { expand props }
+}

@@ -27,6 +27,7 @@ public abstract class ReloadListenersMixin {
     @Inject(method = "notifyReloadListeners", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/resources/IResourceManagerReloadListener;onResourceManagerReload(Lnet/minecraft/client/resources/IResourceManager;)V"))
     private void albedo$step(CallbackInfo ci) {
+        LegacyHooks.RELOAD_STEP.run();
         LegacyHooks.reloadStep();
     }
 }

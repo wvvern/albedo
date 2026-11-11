@@ -31,14 +31,32 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 
 ## Install
 
-Put the jar for your Minecraft version and loader in your `mods/` folder. On Fabric you need only Fabric Loader, not Fabric API.
+Put the jar for your Minecraft version and loader in your `mods/` folder. On Fabric you need only Fabric Loader 0.15.0 or newer, not Fabric API.
 
 | Minecraft | Fabric | NeoForge | Forge |
 |-----------|:------:|:--------:|:-----:|
 | 1.8.9     |        |          | Yes   |
+| 1.12.2    |        |          | Yes   |
+| 1.16.5    | Yes    |          | Yes   |
+| 1.17.1    | Yes    |          | Yes   |
+| 1.18.2    | Yes    |          | Yes   |
+| 1.19.2    | Yes    |          | Yes   |
+| 1.19.4    | Yes    |          | Yes   |
+| 1.20.1    | Yes    |          | Yes   |
+| 1.20.4    | Yes    | Yes      | Yes   |
+| 1.20.6    | Yes    | Yes      |       |
 | 1.21.1    | Yes    | Yes      |       |
+| 1.21.3    | Yes    | Yes      |       |
+| 1.21.4    | Yes    | Yes      |       |
+| 1.21.5    | Yes    | Yes      |       |
+| 1.21.8    | Yes    | Yes      |       |
+| 1.21.10   | Yes    | Yes      |       |
 | 1.21.11   | Yes    | Yes      |       |
+| 26.1      | Yes    | Yes      |       |
+| 26.2      | Yes    | Yes      |       |
 | 26.3      | Yes    | Yes      |       |
+
+Each jar is for the version in the table. A Fabric jar also runs on these versions: 1.19 and 1.19.1 (jar 1.19.2), 1.19.3 (jar 1.19.4), 1.20 (jar 1.20.1), 1.20.3 (jar 1.20.4), 1.20.5 (jar 1.20.6), 1.21 (jar 1.21.1), 1.21.2 (jar 1.21.3), 1.21.6 and 1.21.7 (jar 1.21.8), 1.21.9 (jar 1.21.10), 26.1 and 26.1.1 (jar 26.1). Forge and NeoForge jars run only on their own version. Other versions are not tested. The jar for 26.1 is for 26.1.2.
 
 ## Config file
 
@@ -64,14 +82,17 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 ## Compatibility
 
-- **Sodium and Embeddium:** all features operate.
+- **Sodium and Embeddium:** all features operate on 1.20.1 and on 1.21.1 and later. On the other versions Albedo has no hook for them, so some block tints can stay.
 - **OptiFine on 1.8.9:** all features operate. The custom sky shows when the OptiFine setting Sky is on. With an OptiFine shader pack, the sky stays vanilla.
-- **Iris:** with shaders off, all features operate. Many shader packs draw their own sky, light and shadows.
+- **OptiFine on other versions:** not supported.
+- **Iris:** with shaders off, all features operate. Many shader packs draw their own sky, light and shadows. On 1.17.1 to 1.21.5 with a shader pack, the custom sky and its fog color stay vanilla.
 
 ## Known limits
 
 - On 1.21.2 and later, you can only hide clouds, not color them.
 - Hidden foliage also hides the items of those plants.
+- On 26.2 the sharp sky needs the OpenGL graphics backend. With the Vulkan backend the sky is drawn from a baked image.
+- Key presses and the config buttons of the loaders have no automatic test.
 
 ## Contributing
 

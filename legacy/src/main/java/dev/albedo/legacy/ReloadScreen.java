@@ -5,9 +5,6 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.WorldRenderer;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.opengl.GL11;
 
@@ -59,7 +56,7 @@ final class ReloadScreen {
 
     private static void draw(boolean force) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!active || !mc.isCallingFromMinecraftThread() || mc.fontRendererObj == null) return;
+        if (!active || !mc.isCallingFromMinecraftThread() || Game.font() == null) return;
         long now = Minecraft.getSystemTime();
         if (!force && now - lastFrame < FRAME_MS) return;
         lastFrame = now;
@@ -86,17 +83,9 @@ final class ReloadScreen {
         GlStateManager.enableAlpha();
         GlStateManager.color(1f, 1f, 1f, 1f);
 
-        mc.getTextureManager().bindTexture(Gui.optionsBackground);
-        Tessellator tessellator = Tessellator.getInstance();
-        WorldRenderer wr = tessellator.getWorldRenderer();
-        wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
-        wr.pos(0, h, 0).tex(0, h / 32.0).color(64, 64, 64, 255).endVertex();
-        wr.pos(w, h, 0).tex(w / 32.0, h / 32.0).color(64, 64, 64, 255).endVertex();
-        wr.pos(w, 0, 0).tex(w / 32.0, 0).color(64, 64, 64, 255).endVertex();
-        wr.pos(0, 0, 0).tex(0, 0).color(64, 64, 64, 255).endVertex();
-        tessellator.draw();
+        Game.drawBackground(w, h);
 
-        FontRenderer font = mc.fontRendererObj;
+        FontRenderer font = Game.font();
         font.drawStringWithShadow(TITLE, (w - font.getStringWidth(TITLE)) / 2f, h / 2f - 20, 0xFFFFFF);
         String detail = steps > 0 ? "Step " + Math.max(1, step) + " of " + steps : "Starting";
         font.drawStringWithShadow(detail, (w - font.getStringWidth(detail)) / 2f, h / 2f - 6, 0xA0A0A0);

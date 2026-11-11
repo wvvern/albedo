@@ -12,10 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexBuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
@@ -26,7 +23,7 @@ import org.lwjgl.opengl.GL12;
 import java.nio.FloatBuffer;
 
 /**
- * Draws the custom sky on a sphere in place of the 1.8.9 sky disc, with {@link LegacySharpSky} when it can, else from
+ * Draws the custom sky on a sphere in place of the legacy sky disc, with {@link LegacySharpSky} when it can, else from
  * one texture of a fixed size that is uploaded on the render thread only when the core has a new image.
  */
 public final class LegacySky {
@@ -48,7 +45,7 @@ public final class LegacySky {
     /** Starts a frame, which forgets the sharp sky of the last frame that still waits and reads the fog of the camera. */
     public static void frameStart(float partialTicks) {
         DEFER.frameStart();
-        fogHidesSky = LegacyHooks.specialFog(partialTicks);
+        fogHidesSky = Game.specialFog(partialTicks);
     }
 
     /** The custom sky to draw, or null, also when OptiFine does not draw the sky (Sky off or a shader pack) or the fog hides the sky. */
@@ -68,7 +65,7 @@ public final class LegacySky {
 
     /** The factor of the sky and fog colors for the time of day and the weather. */
     static float brightness(SkyImage img) {
-        World world = Minecraft.getMinecraft().theWorld;
+        World world = Game.world();
         if (world == null) return 1f;
         return SkyLight.of(img.design(), world.getWorldTime(), world.getRainStrength(1f), world.getThunderStrength(1f));
     }
@@ -77,14 +74,14 @@ public final class LegacySky {
     public static float[] fogRgb() {
         SkyImage img = image();
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
-        World world = Minecraft.getMinecraft().theWorld;
+        World world = Game.world();
         if (img == null || view == null || world == null || !world.provider.isSurfaceWorld()) return null;
         return img.fogRgb(turn(img), view.rotationYaw, brightness(img));
     }
 
     /** Records the day time at the end of each client tick, for the frames until the next tick. */
     static void tick() {
-        World world = Minecraft.getMinecraft().theWorld;
+        World world = Game.world();
         if (world != null) SkyDayTime.tick(world.getWorldTime());
     }
 
@@ -92,7 +89,7 @@ public final class LegacySky {
     private static SkyTurn turn(SkyImage img) {
         Minecraft mc = Minecraft.getMinecraft();
         float partialTick = ((MinecraftAccessor) mc).albedo$timer().renderPartialTicks;
-        return SkyTurn.at(img.design().turning(), mc.theWorld == null ? 0 : SkyDayTime.at(partialTick));
+        return SkyTurn.at(img.design().turning(), Game.world() == null ? 0 : SkyDayTime.at(partialTick));
     }
 
     /**
@@ -174,7 +171,7 @@ public final class LegacySky {
         drawSharp(waiting, waitingBrightness);
         GlStateManager.depthMask(true);
         // The sky shader left its term texture on the unit of the block textures.
-        Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+        Minecraft.getMinecraft().getTextureManager().bindTexture(Game.blocksTexture());
     }
 
     private static void prepare(SkyImage img) {
@@ -197,11 +194,7 @@ public final class LegacySky {
         if (sphere < 0) {
             sphere = GLAllocation.generateDisplayLists(1);
             GL11.glNewList(sphere, GL11.GL_COMPILE);
-            float[] v = SkyImage.sphere(RADIUS);
-            WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
-            r.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX);
-            for (int i = 0; i < v.length; i += 5) r.pos(v[i], v[i + 1], v[i + 2]).tex(v[i + 3], v[i + 4]).endVertex();
-            Tessellator.getInstance().draw();
+            Game.drawTriangles(SkyImage.sphere(RADIUS));
             GL11.glEndList();
         }
     }
@@ -242,8 +235,7 @@ public final class LegacySky {
             tessellator.draw();
             return;
         }
-        tessellator.getWorldRenderer().finishDrawing();
-        tessellator.getWorldRenderer().reset();
+        Game.discardMesh(tessellator);
     }
 
     /** Whether the sky of an OptiFine resource pack hides the stars, which it does not when the custom sky replaces it. */

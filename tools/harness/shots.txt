@@ -1,6 +1,8 @@
 # One screenshot for each feature on the scene of each version, to find a version where a feature does not work.
 # tools/screenshots.ps1 adds this file after scene-*.txt and writes docs/screenshots/<target>/.
 wait 60
+# The harness game must not clip the cursor of the player, in the world and again after the settings screen closes.
+cursorfree
 mod off
 wait 160
 screenshot 01-vanilla
@@ -30,5 +32,19 @@ settings open
 wait 40
 screenshot 06-settings
 settings close
+wait 10
+cursorfree
+# Pastel water must hide the floor under it: the middle of the frame changes when the water goes, with the Chroma colors held.
+profile pastel
+skyclock 0
+# The water pit of the scene; the height of ~ is the player on 1.8.9 and the world spawn on modern versions, both on the grass.
+run tp @p -4.5 ~ 0.5 180 28
+wait 100
+keepframe
+wait 10
+run fill -6 ~-1 -4 -4 ~-1 -3 minecraft:air
+wait 60
+framechanged water
+skyclock run
 wait 10
 quit

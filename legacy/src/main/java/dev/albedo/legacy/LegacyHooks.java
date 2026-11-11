@@ -3,26 +3,43 @@ package dev.albedo.legacy;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Policy;
+import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ThreadDownloadImageData;
-import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.ITextureObject;
 import net.minecraft.client.renderer.texture.SimpleTexture;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.data.AnimationMetadataSection;
 import net.minecraft.util.ResourceLocation;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
-/** What the 1.8.9 mixins call: thin translations from 1.8.9 types to the core. */
+/** What the mixins call: thin translations from the game types to the core. */
 public final class LegacyHooks {
+    public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
+    public static final HookCounter BEFORE_CLOUDS = new HookCounter("beforeClouds");
+    /** The block tint hook of the light pipeline that draws the blocks: Forge or vanilla. */
+    public static final HookCounter TINT = new HookCounter("tint");
+    /** The face shade hook of the light pipeline that draws the blocks: Forge or vanilla. */
+    public static final HookCounter SHADE = new HookCounter("shade");
+    public static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
+    public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
+    /** The skipped LWJGL calls of the mouse grab and release, which only a harness game skips. */
+    private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
+    /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD, MOUSE_GRAB);
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 
     private LegacyHooks() {}
+
+    /** Whether the LWJGL calls of the mouse grab and release must not run, which is so only with the test harness. */
+    public static boolean skipMouseGrab() {
+        return Harness.skip(MOUSE_GRAB);
+    }
 
     public static void connecting(String host) {
         connectedHost = host;
@@ -42,16 +59,19 @@ public final class LegacyHooks {
         if (sc != null) sc.clientTick(Minecraft.getMinecraft().currentScreen != null);
     }
 
-    /** Changes the animation strip {@code images[0]} of a block atlas sprite before loadSprite makes frames and mip levels from it. */
-    public static void processSprite(TextureAtlasSprite sprite, BufferedImage[] images, AnimationMetadataSection meta) {
+    /**
+     * Changes the animation strip of a block atlas sprite before the game makes frames and mip levels from it.
+     *
+     * @return the changed strip, or the input when nothing changes
+     */
+    static BufferedImage processSprite(String name, BufferedImage strip, TextureStore.Upload upload) {
         bootstrap();
-        // A repaint calls loadSprite with pixels that are already done: nothing to keep or change.
-        if (Albedo.repainting() || images == null || images.length == 0 || images[0] == null) return;
+        // A repaint loads the sprite with pixels that are already done: nothing to keep or change.
+        if (strip == null || Albedo.repainting()) return strip;
         ReloadScreen.load();
-        String name = sprite.getIconName();
         // OptiFine "Multitexture": the parent sprite loads this copy from the same, already changed, images.
-        if (name.endsWith(".spriteSingle")) return;
-        images[0] = process(name, images[0], new SpriteUpload(sprite, images, meta));
+        if (name.endsWith(".spriteSingle")) return strip;
+        return process(name, strip, upload);
     }
 
     /**
@@ -70,11 +90,6 @@ public final class LegacyHooks {
         return process(String.valueOf(location), image, upload);
     }
 
-    /** The skin cache folder of SkinManager, which SkinManagerMixin gives. */
-    public interface SkinCache {
-        File albedo$skinCacheDir();
-    }
-
     /** The folder of the texture that SkinManager.loadSkin loads on this thread now ("skins" or "capes"), or null. */
     private static final ThreadLocal<String> LOADING_SKIN = new ThreadLocal<String>();
 
@@ -89,8 +104,8 @@ public final class LegacyHooks {
         String folder = LOADING_SKIN.get();
         if (folder == null || !(texture instanceof ThreadDownloadImageData)) return;
         LOADING_SKIN.remove(); // one texture for each loadSkin call
-        String path = location.getResourcePath(); // "skins/<hash>" for skins and capes alike
-        String name = location.getResourceDomain() + ":" + folder + path.substring(path.indexOf('/'));
+        String id = location.toString(); // "<domain>:skins/<hash>" for skins and capes alike
+        String name = id.substring(0, id.indexOf(':') + 1) + folder + id.substring(id.indexOf('/'));
         ((DownloadedTextureUpload.State) texture).albedo$tag(location, name);
     }
 
@@ -131,8 +146,8 @@ public final class LegacyHooks {
     }
 
     /** Removes the face shade that every model has from a quad when shading is off, so that a shading change needs no model reload. */
-    public static void addQuad(WorldRenderer renderer, int[] vertexData) {
-        renderer.addVertexData(shading() ? vertexData : FaceShade.remove(vertexData));
+    static int[] quad(int[] vertexData) {
+        return shading() ? vertexData : FaceShade.remove(vertexData);
     }
 
     /** The same for Forge's block lighting pipeline: one vertex color, 0..1, before tint and smooth lighting. */
@@ -187,17 +202,5 @@ public final class LegacyHooks {
     /** @return {r, g, b} in 0..1 or null when the sky is not overridden */
     public static float[] skyRgb() {
         return Albedo.currentPolicy().skyRgb();
-    }
-
-    /** True when the fog code of the game gives the camera the fog of water, lava or blindness, which hides the sky. */
-    public static boolean specialFog(float partialTicks) {
-        Minecraft mc = Minecraft.getMinecraft();
-        net.minecraft.entity.Entity view = mc.getRenderViewEntity();
-        if (view == null || mc.theWorld == null) return false;
-        net.minecraft.block.material.Material material =
-                net.minecraft.client.renderer.ActiveRenderInfo.getBlockAtEntityViewpoint(mc.theWorld, view, partialTicks).getMaterial();
-        if (material == net.minecraft.block.material.Material.water || material == net.minecraft.block.material.Material.lava) return true;
-        return view instanceof net.minecraft.entity.EntityLivingBase
-                && ((net.minecraft.entity.EntityLivingBase) view).isPotionActive(net.minecraft.potion.Potion.blindness);
     }
 }

@@ -15,7 +15,7 @@ public interface KeyboardHandlerInvoker {
     void albedo$keyPress(long handle, int key, int scancode, int action, int modifiers);
     *///?}
 
-    //? if >=26.1 {
+    //? if >=26.3 {
     @Invoker("textInput")
     void albedo$textInput(long handle, String text);
     //?} elif >=1.21.9 {

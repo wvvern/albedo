@@ -1,5 +1,6 @@
 package dev.albedo.modern.mixin;
 
+//? if >=1.20.5 {
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.albedo.modern.ModernHooks;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
@@ -8,7 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 
 /**
  * Where vanilla chunk meshing applies block tints (grass, leaves, vines, redstone...), with require = 0 because other
- * renderers (e.g. Sodium) may replace this method and the colormap hooks still apply then.
+ * renderers (e.g. Sodium) may replace this method and the colormap hooks still apply then; the versions before 1.20.5
+ * use {@code BlockTintRedirectMixin}.
  */
 @Mixin(ModelBlockRenderer.class)
 public abstract class BlockTintMixin {
@@ -23,3 +25,4 @@ public abstract class BlockTintMixin {
         return ModernHooks.blockTint(original);
     }
 }
+//?}

@@ -10,14 +10,11 @@ public final class SkyDayTime {
 
     private static long previous;
     private static long current;
-    /** The partial tick that the harness holds, or NaN when the frames move between the ticks. */
-    private static float held = Float.NaN;
 
     private SkyDayTime() {}
 
     /** Records the day time of the world at the end of each client tick, which the frames until the next tick move to. */
     public static void tick(long dayTime) {
-        if (!Float.isNaN(held)) return;
         previous = current;
         current = dayTime;
     }
@@ -28,19 +25,7 @@ public final class SkyDayTime {
      * @param partialTick the part of a tick from the last tick to this frame, from 0 to 1
      */
     public static double at(float partialTick) {
-        float h = held;
-        double part = Float.isNaN(h) ? partialTick : h;
         long step = current - previous;
-        return step < 0 || step > MAX_STEP ? current : previous + step * part;
-    }
-
-    /** Holds the partial tick and the two day times still, so that screenshots show frames between the same two ticks. */
-    public static void hold(float partialTick) {
-        held = partialTick;
-    }
-
-    /** Lets the frames move between the ticks again after {@link #hold}. */
-    public static void run() {
-        held = Float.NaN;
+        return step < 0 || step > MAX_STEP ? current : previous + step * (double) partialTick;
     }
 }

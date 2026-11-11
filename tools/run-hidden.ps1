@@ -47,8 +47,9 @@ $Dir = (Resolve-Path $Dir).Path
 if (-not $CommandLine) {
     $gradlew = Join-Path $Dir "gradlew.bat"
     # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
+    # --configure-on-demand: with all version projects configured, Loom can write the files of one version into the cache of a different one.
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
-    $CommandLine = "`"$gradlew`" --no-daemon $Task `"-Pharness=$Harness`"$compatArg"
+    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg"
 }
 $cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 
@@ -61,4 +62,8 @@ if (-not [HiddenDesktop]::CreateProcess([NullString]::Value, $cmdLine, [IntPtr]:
         [IntPtr]::Zero, $Dir, [ref]$si, [ref]$pi)) {
     throw "CreateProcess failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
 }
+# Safety net: when the game ends or is killed, a cursor clip that it leaves on the visible desktop is freed (tools/free-cursor.ps1).
+$watchArgs = @("-NoProfile", "-File", "`"$(Join-Path $PSScriptRoot 'free-cursor.ps1')`"", "-WaitPid", $pi.dwProcessId, "-Log", "`"$Log.cursor`"")
+if ($Harness) { $watchArgs += @("-Harness", "`"$Harness`"") }
+Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $watchArgs -WindowStyle Hidden
 $pi.dwProcessId

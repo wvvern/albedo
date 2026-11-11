@@ -1,17 +1,12 @@
 package dev.albedo.legacy;
 
-import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.audio.SoundCategory;
 import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.WorldSettings;
-import net.minecraft.world.WorldType;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
@@ -24,26 +19,21 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.IntBuffer;
 import javax.imageio.ImageIO;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** Development-only: what the test harness needs from 1.8.9 (see {@link Harness}). */
+/** Development-only: what the test harness needs from the game (see {@link Harness}). */
 final class LegacyHarnessHost implements Harness.Host {
     /** The Windows virtual key of a typed character that has no key of its own. */
     private static final int VK_PACKET = 0xE7;
 
     @Override
     public boolean inWorld() {
-        Minecraft mc = Minecraft.getMinecraft();
-        return mc.theWorld != null && mc.thePlayer != null;
+        return Game.world() != null && Game.player() != null;
     }
 
     @Override
     public void openWorld(String name) {
-        // Loads the save if it exists; the settings are only used to create it.
-        WorldSettings settings = new WorldSettings(42L, WorldSettings.GameType.CREATIVE, false, false, WorldType.FLAT).enableCommands();
-        Minecraft.getMinecraft().launchIntegratedServer(name, name, settings);
+        Game.openFlatWorld(name);
     }
 
     @Override
@@ -56,7 +46,7 @@ final class LegacyHarnessHost implements Harness.Host {
         server.addScheduledTask(new Runnable() {
             @Override
             public void run() {
-                List<EntityPlayerMP> players = server.getConfigurationManager().playerEntityList;
+                List<EntityPlayerMP> players = Game.players(server);
                 if (players.isEmpty()) Harness.log("! no player for: " + command);
                 else server.getCommandManager().executeCommand(players.get(0), command);
             }
@@ -189,32 +179,9 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public String loadSkin(File png, String hash, boolean cape) throws IOException {
-        Minecraft mc = Minecraft.getMinecraft();
-        File cache = ((LegacyHooks.SkinCache) mc.getSkinManager()).albedo$skinCacheDir();
-        File file = new File(new File(cache, hash.substring(0, 2)), hash);
-        Files.createDirectories(file.getParentFile().toPath());
-        Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        // The hash is the last part of the URL, which the game does not read because the cache file exists.
-        MinecraftProfileTexture texture = new MinecraftProfileTexture("http://127.0.0.1:9/" + hash, null);
-        return mc.getSkinManager().loadSkin(texture, cape ? MinecraftProfileTexture.Type.CAPE : MinecraftProfileTexture.Type.SKIN).toString();
-    }
-
-    @Override
-    public void releaseTexture(String id) {
-        Minecraft.getMinecraft().getTextureManager().deleteTexture(new ResourceLocation(id));
-    }
-
-    @Override
-    public void showTexture(String id) {
-        ResourceLocation texture = id.equals("steve") ? DefaultPlayerSkin.getDefaultSkinLegacy() : new ResourceLocation(id);
-        Minecraft.getMinecraft().displayGuiScreen(new GuiTexture(texture));
-    }
-
-    @Override
     public void quiet() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);
+        Game.mute();
         mc.gameSettings.pauseOnLostFocus = false;
         // The view bobbing of 1.8.9 tilts the camera of a falling player by up to 10 degrees, so that the camera does not look where the harness aims.
         mc.gameSettings.viewBobbing = false;
@@ -226,49 +193,14 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public void look(float yaw, float pitch) {
-        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
-        if (player == null) return;
-        player.rotationYaw = player.prevRotationYaw = yaw;
-        player.rotationPitch = player.prevRotationPitch = pitch;
-    }
-
-    @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
         return LegacySharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
     }
 
     @Override
-    public int framesPerSecond() {
-        return Minecraft.getDebugFPS();
-    }
-
-    @Override
-    public void uncapFrameRate() {
-        Minecraft mc = Minecraft.getMinecraft();
-        // The option value 260 is "Unlimited".
-        mc.gameSettings.limitFramerate = 260;
-        mc.gameSettings.enableVsync = false;
-        org.lwjgl.opengl.Display.setVSyncEnabled(false);
-    }
-
-    @Override
-    public void resizeWindow(int width, int height) {
-        Minecraft mc = Minecraft.getMinecraft();
-        try {
-            org.lwjgl.opengl.Display.setLocation(0, 0);
-            org.lwjgl.opengl.Display.setDisplayMode(new org.lwjgl.opengl.DisplayMode(width, height));
-        } catch (org.lwjgl.LWJGLException e) {
-            Harness.log("! cannot resize the window: " + e);
-        }
-        ((dev.albedo.legacy.mixin.MinecraftAccessor) mc).albedo$resize(org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
-    }
-
-    @Override
-    public int[] frameSize() {
-        Minecraft mc = Minecraft.getMinecraft();
-        return new int[]{mc.displayWidth, mc.displayHeight};
+    public List<dev.albedo.core.dev.HookCounter> hookCounters() {
+        return LegacyHooks.COUNTERS;
     }
 
     /** Reads the clouds texture back from the GPU, because a hidden look makes all of its pixels transparent. */

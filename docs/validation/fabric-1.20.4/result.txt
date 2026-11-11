@@ -1,0 +1,4 @@
+PASS
+target: fabric-1.20.4
+commands: scene-modern.txt, shots.txt
+screenshots: 6

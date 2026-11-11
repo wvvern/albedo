@@ -8,8 +8,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
+//? if >=1.18 {
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+//?} else {
+/*import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+*///?}
 
 import java.io.File;
 import java.util.HashMap;
@@ -18,13 +23,34 @@ import java.util.Map;
 /** The {@link Platform} for Minecraft 1.21 and later on all loaders, which keeps loader code in the entrypoints. */
 final class ModernPlatform implements Platform {
     static final String MINECRAFT = /*$ minecraft*/ "26.3";
+    //? if >=1.18 {
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
+    //?} else {
+    /*// The game before 1.18 logs with Log4j and has no SLF4J provider in the Forge dev run.
+    private static final Logger LOG = LogManager.getLogger("albedo");
+    *///?}
 
     private final Map<String, Integer> keyCodes = new HashMap<>();
+    private final File loaderConfigDir;
+
+    /** Takes the config folder of the loader, or null when a mixin starts the mod before the loader entrypoint. */
+    ModernPlatform(File loaderConfigDir) {
+        this.loaderConfigDir = loaderConfigDir;
+    }
+
+    /** A plain text component. */
+    static Component text(String text) {
+        //? if >=1.19 {
+        return Component.literal(text);
+        //?} else {
+        /*return new net.minecraft.network.chat.TextComponent(text);
+        *///?}
+    }
 
     @Override
     public String describe() {
-        String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge" : "Fabric";
+        String loader = classExists("net.neoforged.fml.loading.FMLLoader") ? "NeoForge"
+                : classExists("net.minecraftforge.fml.loading.FMLLoader") ? "Forge" : "Fabric";
         return loader + " " + MINECRAFT;
     }
 
@@ -39,6 +65,7 @@ final class ModernPlatform implements Platform {
 
     @Override
     public File configDir() {
+        if (loaderConfigDir != null) return loaderConfigDir;
         Minecraft mc = Minecraft.getInstance();
         return mc != null && mc.gameDirectory != null ? new File(mc.gameDirectory, "config") : new File("config");
     }
@@ -68,7 +95,7 @@ final class ModernPlatform implements Platform {
     @Override
     public void rebuildChunks() {
         // The same step as after a resource reload, which Sodium replaces with its own rebuild.
-        //? if >=26.1 {
+        //? if >=26.2 {
         Minecraft.getInstance().levelExtractor.allChanged();
         //?} else {
         /*Minecraft.getInstance().levelRenderer.allChanged();
@@ -79,9 +106,9 @@ final class ModernPlatform implements Platform {
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {
-        if (mc.player != null) mc.player.sendOverlayMessage(Component.literal(message));
+        if (mc.player != null) mc.player.sendOverlayMessage(text(message));
         //?} else {
-        /*mc.gui.setOverlayMessage(Component.literal(message), false);
+        /*mc.gui.setOverlayMessage(text(message), false);
         *///?}
     }
 
@@ -90,7 +117,7 @@ final class ModernPlatform implements Platform {
         Integer code = keyCodes.get(key.minecraftName);
         if (code == null) {
             try {
-                // Resolved by name: GLFW codes on 1.21.x, SDL scancodes on 26.x.
+                // Resolved by name: GLFW codes before 26.3, SDL scancodes from 26.3.
                 code = InputConstants.getKey(key.minecraftName).getValue();
             } catch (RuntimeException e) {
                 code = -1;
@@ -98,7 +125,7 @@ final class ModernPlatform implements Platform {
             keyCodes.put(key.minecraftName, code);
         }
         if (code < 0) return false;
-        //? if >=26.1 {
+        //? if >=26.3 {
         return InputConstants.isKeyDown(code);
         //?} elif >=1.21.9 {
         /*return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), code);
@@ -135,7 +162,7 @@ final class ModernPlatform implements Platform {
     }
 
     static Screen currentScreen() {
-        //? if >=26.1 {
+        //? if >=26.2 {
         return Minecraft.getInstance().gui.screen();
         //?} else {
         /*return Minecraft.getInstance().screen;
@@ -143,7 +170,7 @@ final class ModernPlatform implements Platform {
     }
 
     static void setScreen(Screen screen) {
-        //? if >=26.1 {
+        //? if >=26.2 {
         Minecraft.getInstance().gui.setScreen(screen);
         //?} else {
         /*Minecraft.getInstance().setScreen(screen);

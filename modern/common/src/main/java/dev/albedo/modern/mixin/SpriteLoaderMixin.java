@@ -1,5 +1,6 @@
 package dev.albedo.modern.mixin;
 
+//? if >=1.19.3 {
 import dev.albedo.modern.ModernHooks;
 import net.minecraft.client.renderer.texture.SpriteContents;
 import net.minecraft.client.renderer.texture.SpriteLoader;
@@ -28,6 +29,7 @@ public abstract class SpriteLoaderMixin {
     @Inject(method = "stitch", at = @At("HEAD"))
     private void albedo$flatten(List<SpriteContents> sprites, int mipLevel, Executor executor,
                                      CallbackInfoReturnable<SpriteLoader.Preparations> cir) {
-        for (SpriteContents sprite : sprites) ModernHooks.processSprite(location, sprite);
+        for (SpriteContents sprite : sprites) ModernHooks.processSprite(location, new dev.albedo.modern.SpriteAccess(sprite));
     }
 }
+//?}

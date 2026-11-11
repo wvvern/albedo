@@ -2,6 +2,7 @@ pluginManagement {
     repositories {
         maven { url "https://maven.fabricmc.net/" }
         maven { url "https://maven.architectury.dev/" }
+        maven { url "https://maven.minecraftforge.net/" }
         maven { url "https://maven.neoforged.net/releases" }
         maven { url "https://maven.kikugie.dev/releases" }
         gradlePluginPortal()
@@ -26,17 +27,24 @@ rootProject.name = 'albedo-modern'
 include 'core'
 project(':core').projectDir = file('../core')
 
+// Each node needs versions/<node>/gradle.properties, and a Forge or NeoForge node also <loader>/versions/<node>/gradle.properties with loom.platform.
+// tools/build-all.ps1 reads these three lists, so keep each list on one line; common and fabric build all nodes.
+def nodes = ['1.16.5', '1.17.1', '1.18.2', '1.19.2', '1.19.4', '1.20.1', '1.20.4', '1.20.6', '1.21.1', '1.21.3', '1.21.4', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.1', '26.2', '26.3']
+def forgeNodes = ['1.16.5', '1.17.1', '1.18.2', '1.19.2', '1.19.4', '1.20.1', '1.20.4']
+def neoforgeNodes = ['1.20.4', '1.20.6', '1.21.1', '1.21.3', '1.21.4', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26.1', '26.2', '26.3']
+
 stonecutter {
     kotlinController = false
     centralScript = 'build.gradle'
 
     create(getRootProject()) {
-        // Each node needs versions/<version>/gradle.properties.
-        versions '1.21.1', '1.21.11', '26.3'
+        versions(nodes as String[])
         vcsVersion = '26.3'
 
         branch 'common'
         branch 'fabric'
-        branch 'neoforge'
+        // Stonecutter does not accept a branch with no versions.
+        if (forgeNodes) branch('forge') { versions(forgeNodes as String[]) }
+        branch('neoforge') { versions(neoforgeNodes as String[]) }
     }
 }

@@ -142,8 +142,6 @@ key ESCAPE
 wait 10
 ui click Copy
 wait 10
-ui click Rename
-wait 10
 type my white
 wait 5
 ui expect rename my white

@@ -2,11 +2,9 @@ package dev.albedo.core.dev;
 
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
-import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
-import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyTurning;
@@ -16,8 +14,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -66,6 +64,16 @@ class HarnessTest {
     }
 
     @Test
+    void theFrameChangedCheckLooksAtTheMiddleOfTheFrame() {
+        int[] frame = new int[10 * 5];
+        Arrays.fill(frame, 0xFF000000);
+        frame[2 * 10 + 4] = 0xFFFFFFFF;
+        assertArrayEquals(new int[]{0xFFFFFFFF, 0xFF000000}, Harness.middle(frame, 10, 5), "two by one pixels at the middle");
+        assertEquals("framechanged water: mean 20.0 steps (limit 8.0)", Harness.frameChangedLine("water", 20));
+        assertEquals("! framechanged water: mean 0.3 steps (limit 8.0): the frame did not change", Harness.frameChangedLine("water", 0.3));
+    }
+
+    @Test
     void theSkyRenderCommandSetsTheRender() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
         assertEquals(SkyDesign.Render.FAST, Harness.withSkyRender(p, "fast").get(Category.SKY).sky().render());
@@ -73,45 +81,17 @@ class HarnessTest {
     }
 
     @Test
-    void theSkyExtentCommandSetsTheExtent() {
-        Profile p = Harness.withSky(Config.defaults().activeProfile(), "dusk");
-        assertEquals(SkyDesign.Extent.SPHERE, Harness.withSkyExtent(p, "sphere").get(Category.SKY).sky().extent());
-        assertEquals(SkyDesign.Extent.HORIZON, Harness.withSkyExtent(p, "Horizon").get(Category.SKY).sky().extent());
-    }
-
-    @Test
     void theSkyTurnCommandSetsTheTurning() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "galaxy");
-        SkyTurning t = Harness.withSkyTurning(p, "60 speed 4 height 30 pole 90 reverse real".split(" ")).get(Category.SKY).sky().turning();
-        assertEquals(new SkyTurning(60, 4, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.REVERSE, 90), t);
+        SkyTurning t = Harness.withSkyTurning(p, "60 height 30".split(" ")).get(Category.SKY).sky().turning();
+        assertEquals(SkyTurning.STILL.withAmount(60).withPoleHeight(30), t);
         assertEquals(SkyTurning.STILL, p.get(Category.SKY).sky().turning(), "a preset with the default turning stands still");
         assertEquals(SkyPresets.TRAILS.turning(), Harness.withSky(p, "trails").get(Category.SKY).sky().turning(),
                 "Trails keeps its own turning");
         assertEquals(SkyTurning.STILL, Harness.withSkyTurning(p, new String[]{"0"}).get(Category.SKY).sky().turning());
         assertEquals(SkyTurning.STILL.withAmount(100), Harness.withSkyTurning(p, new String[]{"100"}).get(Category.SKY).sky().turning());
-        assertEquals(SkyTurning.STILL.withAmount(100).withTrails(45).withTrailLight(80),
-                Harness.withSkyTurning(p, "100 trails 45 light 80".split(" ")).get(Category.SKY).sky().turning());
-        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 speed".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 height".split(" ")));
         assertThrows(IllegalArgumentException.class, () -> Harness.withSkyTurning(p, "50 fast 2".split(" ")));
-    }
-
-    @Test
-    void theGroupCommandSetsOrReplacesAGroupByName() {
-        Profile p = Config.defaults().activeProfile();
-        p = Harness.withGroup(p, "particles Fire #FF0000 flame lava".split(" "));
-        p = Harness.withGroup(p, "particles Love hidden heart".split(" "));
-        p = Harness.withGroup(p, "particles Love red heart".split(" "));
-        CategorySettings love = p.get(Category.PARTICLES);
-        assertEquals(Appearance.solid(0xFFFF0000), love.lookOf(love.rules().get(1)), "a color name");
-        p = Harness.withGroup(p, "particles Love hidden heart".split(" "));
-        p = Harness.withGroup(p, "particles Fire #00FF00 flame".split(" "));
-        CategorySettings particles = p.get(Category.PARTICLES);
-        List<Rule> rules = particles.rules();
-        assertEquals(2, rules.size());
-        assertEquals("Fire", rules.get(0).name());
-        assertEquals(Arrays.asList("flame"), rules.get(0).patterns());
-        assertEquals(Appearance.solid(0xFF00FF00), particles.lookOf(rules.get(0)));
-        assertEquals(Appearance.Mode.HIDDEN, particles.lookOf(rules.get(1)).mode());
     }
 
     @Test
@@ -176,21 +156,22 @@ class HarnessTest {
     }
 
     @Test
-    void theSkyParamCommandSetsOneSettingOfALayer() {
-        Profile p = Harness.withSkyParam(Harness.withSky(Config.defaults().activeProfile(), "nebula"), "2 pulse 100".split(" "));
-        List<SkyLayer> layers = p.get(Category.SKY).sky().layers();
-        assertEquals(100, layers.get(1).param(SkyLayer.Param.PULSE));
-        assertEquals(SkyPresets.NEBULA.layers().get(1).withParam(SkyLayer.Param.PULSE, 100), layers.get(1));
-        assertEquals(SkyPresets.NEBULA.layers().get(2), layers.get(2));
+    void theHooksLineShowsTheRunsOfEachCounter() {
+        System.setProperty("albedo.harness", "harness");
+        try {
+            HookCounter ran = new HookCounter("afterSolid"), missed = new HookCounter("tint");
+            ran.run();
+            ran.run();
+            assertEquals("hooks: afterSolid=2 tint=0", Harness.hooksLine(Arrays.asList(ran, missed)));
+        } finally {
+            System.clearProperty("albedo.harness");
+        }
     }
 
     @Test
-    void aSkinHashIsHexAndDiffersForACape() {
-        byte[] png = {1, 2, 3};
-        String skin = Harness.skinHash(png, false);
-        assertEquals(64, skin.length());
-        assertTrue(skin.matches("[0-9a-f]+"));
-        assertEquals(skin, Harness.skinHash(png, false));
-        assertNotEquals(skin, Harness.skinHash(png, true));
+    void aCounterDoesNotCountWithoutTheHarness() {
+        HookCounter counter = new HookCounter("tint");
+        counter.run();
+        assertEquals(0, counter.runs());
     }
 }

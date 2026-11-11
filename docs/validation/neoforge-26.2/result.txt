@@ -1,0 +1,4 @@
+PASS
+target: neoforge-26.2
+commands: scene-modern.txt, shots.txt
+screenshots: 6

@@ -13,6 +13,7 @@ import org.spongepowered.asm.lib.tree.MethodNode;
  */
 final class OptiFineRenderPatch {
     private static final String HOOKS = "dev/albedo/legacy/LegacyHooks";
+    private static final String GAME = "dev/albedo/legacy/Game";
     private static final String WORLD_RENDERER = "net/minecraft/client/renderer/WorldRenderer";
     private static final String COLOR_MULTIPLIER_DESC = "(Lnet/minecraft/world/IBlockAccess;Lnet/minecraft/util/BlockPos;I)I";
     private static final String FACE_BRIGHTNESS_DESC = "(Lnet/minecraft/util/EnumFacing;)F";
@@ -20,7 +21,7 @@ final class OptiFineRenderPatch {
     private OptiFineRenderPatch() {}
 
     /**
-     * Sends each found call through a LegacyHooks method that takes the same stack and gives the same type, so that
+     * Sends each found call through a LegacyHooks or Game method that takes the same stack and gives the same type, so that
      * the frames stay valid.
      */
     static void apply(ClassNode target) {
@@ -31,7 +32,7 @@ final class OptiFineRenderPatch {
                 if (!(insn instanceof MethodInsnNode)) continue;
                 MethodInsnNode call = (MethodInsnNode) insn;
                 if (!fluid && isAddVertexData(call)) {
-                    method.instructions.set(call, hook("addQuad", "(L" + WORLD_RENDERER + ";[I)V"));
+                    method.instructions.set(call, new MethodInsnNode(Opcodes.INVOKESTATIC, GAME, "addQuad", "(L" + WORLD_RENDERER + ";[I)V", false));
                     count++;
                 } else if (fluid && isFaceBrightness(call)) {
                     method.instructions.insert(call, hook("faceBrightness", "(F)F"));
