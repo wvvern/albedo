@@ -115,6 +115,15 @@ class HarnessTest {
     }
 
     @Test
+    void theLookCommandSetsOneColorForACategory() {
+        Profile p = Harness.withLook(Config.defaults().activeProfile(), "entities solid #C83232".split(" "));
+        assertEquals(Appearance.solid(0xFFC83232), p.get(Category.ENTITIES).appearance());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withLook(p, "entities solid red".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withLook(p, "mobs solid #C83232".split(" ")));
+        assertThrows(IllegalArgumentException.class, () -> Harness.withLook(p, "entities average #C83232".split(" ")));
+    }
+
+    @Test
     void theSkyCommandSetsAPresetOrTheVanillaSky() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
         assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());

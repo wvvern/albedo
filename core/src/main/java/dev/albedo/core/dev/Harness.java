@@ -284,6 +284,7 @@ public final class Harness {
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
+        else if (verb.equals("look")) sc.apply(config.withProfile(withLook(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
@@ -392,6 +393,17 @@ public final class Harness {
         boolean open = host.settingsOpen();
         if (open == state.equals("open")) log("PASS the settings screen is " + state);
         else log("! the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
+    }
+
+    /** Sets the look of a category to one color from {@code <category> solid #RRGGBB}. */
+    static Profile withLook(Profile profile, String[] args) {
+        if (args.length != 3 || !args[1].equals("solid") || !args[2].matches("#[0-9A-Fa-f]{6}")) {
+            throw new IllegalArgumentException("look <category> solid #RRGGBB");
+        }
+        Category category = Category.byKey(args[0]);
+        if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
+        CategorySettings settings = profile.get(category);
+        return profile.with(category, settings.withAppearance(Appearance.solid(0xFF000000 | Integer.parseInt(args[2].substring(1), 16))));
     }
 
     /**

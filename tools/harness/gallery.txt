@@ -279,14 +279,14 @@ wait 200
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
 screenshot g06-bevel-outline
-# 7. The minimal profile on the shops.
-profile minimal
-sky off
+# 7. quake-white with red mobs on the shops.
+profile quake-white
+look entities solid #C83232
 run tp @p -39.5 -60 10.5 180 -4
 wait 100
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 160
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
-screenshot g07-minimal
+screenshot g07-quake-white
 quit
