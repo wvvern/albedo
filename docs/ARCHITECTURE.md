@@ -1,33 +1,27 @@
 # Architecture
 
-Albedo uses ports and adapters. The core has almost all of the code and no Minecraft types. Each Minecraft era has a small adapter.
+Albedo is ports and adapters. The core holds almost all the code and no Minecraft types; each Minecraft era has a small adapter. To build and test, see [BUILDING.md](BUILDING.md).
 
 | Module | Contents |
 |--------|----------|
-| `core/` | Plain Java 8, no Minecraft types. Config, `Policy`, texture classification and pixel math, the custom sky (bake and shaders), the settings screen (`ui/`) and the harness (`dev/Harness`). It compiles into every jar. It has unit tests. |
-| `modern/` | The nodes in `modern/settings.gradle` (1.16.5 to 26.3), Fabric and NeoForge (and Forge on 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1 and 1.20.4), with Mojang names. Stonecutter 0.9, Architectury Loom 1.17, Gradle 9.8. `common/` has the adapter and the mixins. `fabric/` and `neoforge/` have only the entrypoint and the config button. |
-| `legacy/` | 1.8.9 and 1.12.2 Forge, with MCP names. Essential Loom 0.10, Mixin 0.7.11, Gradle 8.8. Gradle runs on JDK 21, the game on Java 8. |
+| `core/` | Plain Java 8. Config, `Policy`, texture classification and pixel math, the custom sky (bake and shaders), the settings screen (`ui/`) and the test harness (`dev/Harness`). Compiled into every jar. Unit tests. |
+| `modern/` | 1.16.5 to 26.3 on Fabric, NeoForge and Forge (up to 1.20.4), Mojang names, Stonecutter. `common/` has the adapter and the mixins; the loader folders have only the entrypoint and the config button. |
+| `legacy/` | 1.8.9 and 1.12.2 on Forge, MCP names. Shared code in `legacy/src`; per version, `legacy/versions/<mc>/` holds `Game` (static wrappers for renamed game members), `SpriteUpload` and the mixins whose targets changed. |
 
-One tool chain cannot build both 1.8.9 Forge and 26.x, so there are two builds. Both compile `core/src`.
-
-The legacy versions share `legacy/src/main/java`. Each version has its own `legacy/versions/<mc>/src/main/java` with:
-
-- `Game`: the same static methods on each version for the game members whose names changed (world, player, font, tessellator draws, chat message, fog of the camera, world creation).
-- The classes whose target or descriptor changed: `RenderGlobalMixin` (`BlockRenderLayer`, `renderClouds(FIDDD)V` on 1.12.2), `BlockModelRendererVanillaMixin` (`renderQuadsSmooth`, `renderQuadsFlat` and `BlockColors.colorMultiplier` on 1.12.2), `TextureAtlasSpriteMixin` and `SpriteUpload`.
-- The atlas sprite hook: 1.8.9 changes the strip in `loadSprite(BufferedImage[], AnimationMetadataSection)`. 1.12.2 reads the pixels in `loadSpriteFrames` (`loadSprite` reads only the size), so its hook redirects `TextureUtil.readBufferedImage` there and gives the whole strip to the core, as 1.8.9 does. A repaint on 1.12.2 cuts the strip into frames at the places that `loadSpriteFrames` uses, then calls `generateMipmaps`.
-- The build writes the `client` list of `mixins.albedo.json` from the mixin classes of the shared source and of the version, in ASCII order.
+No single toolchain builds both 1.8.9 Forge and 26.x, so there are two Gradle builds. Both compile `core/src`.
 
 ## Ports and adapters
 
-- The core makes all decisions: config, groups, matching, colors, pixel math, presets, keys and config reload. `Policy` holds all render decisions from one config snapshot.
-- `Platform` is the port for the game: config folder, log, resource reload, chunk rebuild, end of a repaint, messages, key state, clipboard, settings screen and harness host.
-- `ui/Canvas` is the port for drawing: `width`, `height`, `fill`, `text`, `textWidth` and `image`. The settings screen is an immediate-mode UI in the core. The screen class of each version only forwards draws and input.
-- Each adapter (`ModernPlatform`, `LegacyPlatform`) implements the ports, puts pixels in a `PixelBuffer` (`NativeImagePixels`, `BufferedImagePixels`) and sends plain values from the mixins to `ModernHooks` or `LegacyHooks`. A mixin handler has no game logic.
-- The mod uses no loader API. Mixins do the tick, keys and config work, so Fabric does not need Fabric API.
+- The core makes every decision: config, groups, matching, colors, pixel math, presets, keys, config reload. `Policy` holds all render decisions for one config snapshot.
+- `Platform` is the port to the game (config folder, log, resource reload, chunk rebuild, repaint upload, messages, keys, clipboard, settings screen, harness host).
+- `ui/Canvas` is the port for drawing (`fill`, `text`, `image`, sizes). The settings screen is an immediate-mode UI in core; each version's screen class only forwards draws and input.
+- Each adapter (`ModernPlatform`, `LegacyPlatform`) implements the ports, wraps pixels in a `PixelBuffer`, and its mixins call `ModernHooks` or `LegacyHooks`.
+- No loader API is used. Mixins drive tick, keys and config, so Fabric API is not needed.
+- The build generates the mixin list of each jar from the compiled classes in the `mixin` package whose names end in `Mixin`, `Accessor` or `Invoker`. Do not list mixins by hand, and do not put other classes in that package; `tools/check-jar.sh` fails the jar.
 
 ## Hooks
 
-The adapters change data at stable points, not in the renderers. The core processes decoded pixels, so the source of a texture (vanilla, resource pack or mod) is not important.
+The adapters change data at stable points, not inside the renderers. The core works on decoded pixels, so it does not matter whether a texture comes from vanilla, a resource pack or a mod.
 
 | Point | Modern hook | 1.8.9 and 1.12.2 hook |
 |-------|-------------|------------|
@@ -47,150 +41,128 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
 - The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
-- Foliage has no hook. The texture hooks set the alpha of plant textures to zero.
+- Foliage has no hook: the texture hooks make plant textures transparent. `core/texture/Foliage` finds plants by texture name, so a modded plant with another name stays visible.
+- An optional (`require = 0`) hook that misses its target fails silently. `HookCounter` counts each one, and the harness `hooks` check turns a zero count into a FAIL.
+- 1.12.2 reads sprite pixels in `loadSpriteFrames`, not `loadSprite`, so its hook redirects `TextureUtil.readBufferedImage` there and passes the whole strip to the core like 1.8.9. A repaint cuts the strip into frames where `loadSpriteFrames` does, then calls `generateMipmaps`.
+- Forge 1.16.5 has an optional light pipeline (`experimentalForgeLightPipelineEnabled` in `forge-client.toml`, off by default) that calls neither `BlockColors.getColor` nor `ClientLevel.getShade`. `ForgeBlockInfoMixin` and `ForgeLightUtilMixin` cover it, from their own config `albedo.forge.mixins.json` in the Forge jars before 1.19. Test with the option on; without them the `tint` counter stays 0.
 
 ## Settings changes
 
-A change (screen, key, harness or config file) goes to `Albedo.apply`. It saves the config, makes a new `Policy` and calls `Albedo.refresh`:
+Every change (screen, key, harness, config file) goes to `Albedo.apply`, which saves the config, builds a new `Policy` and calls `Albedo.refresh`:
 
-1. Sky, fog, fullbright, shadows and clouds read the policy in each frame.
-2. `TextureStore.repaint` makes new pixels from the original of each texture whose look changed, and calls its `Upload`.
-3. `Platform.finishRepaint` sends the collected uploads to the GPU.
-4. If tints or shading change, `Platform.rebuildChunks` rebuilds the chunk meshes.
-5. Only if an upload fails or the store is over its memory budget, `Platform.reloadResources` reloads all resources.
+1. Sky, fog, fullbright, shadows and clouds read the policy each frame.
+2. `TextureStore.repaint` repaints each texture whose look changed from its kept original.
+3. `Platform.finishRepaint` uploads the results.
+4. If tints or shading changed, `Platform.rebuildChunks` rebuilds the chunk meshes.
+5. Only if an upload fails or the store is over its memory budget does `Platform.reloadResources` reload everything.
 
 Traps:
 
-- A resource reload replaces sprites and textures. Each upload first finds the current object. If it is not the object that the hook saw, the upload returns false and the store forgets the texture.
-- `TextureStore` keeps textures by name, because some textures share a key (OptiFine connected textures).
-- Downloaded skins do not count toward the memory budget, and a failed upload does not reload resources, because a reload cannot load them again.
-- A repaint of the block atlas takes about 20 ms, which is too slow for each frame. Moving Chroma colors use a GPU pass (see Animated Chroma).
+- A resource reload replaces sprites and textures. Each upload first looks up the current object; if it is not the one the hook saw, the upload returns false and the store drops the texture.
+- `TextureStore` keys textures by name, because some textures share a key (OptiFine connected textures).
+- Downloaded skins do not count toward the memory budget, and their failed upload does not trigger a reload, because a reload cannot fetch them again.
 - A sky edit does not repaint textures (`Policy.sameTextures`).
-- Do not read the policy in a resource reload listener, for example `CloudRenderer.prepare`. A settings change does not reload resources, so the game shows the change only after the next reload.
+- Never read the policy in a resource reload listener (for example `CloudRenderer.prepare`): settings changes do not reload resources, so the change would show only after the next reload.
 - On 1.8.9, `rebuildChunks` uses `markBlockRangeForRenderUpdate`, not `loadRenderers`: with Patcher, Essential or OptiFine L5, chunks can stay empty after `loadRenderers`.
 
 ## Animated Chroma
 
-Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the fixed pipeline of 1.8.9), but all renderers sample the atlas. Thus a GPU pass changes the colors of the atlas texture itself in each frame.
+Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9 fixed pipeline), but every renderer samples the atlas. So a GPU pass recolors the atlas texture itself each frame. Repainting the block atlas on the CPU takes about 20 ms, too slow per frame.
 
-- The CPU paints a sprite with moving Chroma colors without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites that the store keeps get this. All other textures get still Chroma colors at the time 0, and the Effects section tells when only some textures of a category move (`TextureStore.stillChroma`).
-- `texture/ChromaTexels` gives each texel one RGBA8 texel: speed in alpha, hue in red and green, OKLab chroma in blue. `ChromaTexels.Atlas` places them in the atlas and makes the mip levels.
-- The adapter (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` from 1.21.11 to 26.2, `GlChromaPass` from 1.17.1 to 1.21.10, `FixedChromaPass` on 1.16.5, `LegacyChroma` on 1.8.9) hooks the start and the end of each frame. At the start it copies each mip level into a pristine copy and draws the hue of the frame over it (`chroma.fsh`, `chroma_classic.fsh`, `include/chroma.glsl`). At the end it copies the pristine copy back. A texel with speed 0 is discarded.
-- The turn of each speed comes from `Chroma.turns` with `SkyClock.longSeconds()` in double precision, so each frame has its own colors.
-- At speed 100 a frame of 8 ms turns the hue by less than one 8-bit step. The pass adds a 16 x 16 ordered dither below one step at each texel, so that a part of a flat sprite moves in each frame.
+- The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps get this; everything else gets still Chroma colors at time 0 (`TextureStore.stillChroma` tells the Effects section which categories are affected).
+- `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels.
+- The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
+- The hue comes from `Chroma.turns` on `SkyClock.longSeconds()` in double precision. An ordered 16 x 16 dither below one 8-bit step keeps slow hues moving smoothly.
+- Memory cost is twice the atlas with mips (42.6 MiB for a 2048 x 2048 block atlas).
 
 Traps:
 
-- Between frames the atlas has the painted colors, so the game and Albedo always write into them. A repaint or a reload in the middle of a frame first copies the pristine copy back (`restore`). If the end of the last frame did not run, the start first gives back the painted colors, so the hue never goes into the pristine copy.
-- The texels are made again only when a texture with moving colors changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture). A change of only the speed changes only the texels.
-- 1.21.8 and later draw each item icon once into an item atlas. While colors move, each item icon counts as animated (`ItemIconMixin`).
-- 1.8.9 with OptiFine Multitexture on draws blocks from a texture of each sprite, so the pass stops and the sprites get still colors.
-- On 1.21.11 and NeoForge 26.3, `CommandEncoder.copyTextureToTexture` copies only the mip level 0, whatever level it gets. Thus the pass copies the other mip levels with a draw (`chroma_copy.fsh`, `chroma_copy_classic.fsh`). Without it, the hue goes into the pristine copy in each frame and the sprites in the top left of the atlas get a checker of extreme colors.
-- On 26.x the pipeline compiles on the render thread from the inlined text. On 1.21.11 never cast a GPU texture. On 1.21.1 and 1.8.9 the pass puts back each GL state that it changes. On 1.8.9 it pushes and pops the GL attributes while its own framebuffer is bound, because OptiFine Fast Render draws with no framebuffer and the draw buffer `GL_BACK` is not valid for a framebuffer. The memory is two times the atlas with its mip levels (42.6 MiB for the 2048 x 2048 block atlas).
-- If the shader does not compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`. The core paints still Chroma colors again.
+- Between frames the atlas holds the painted colors, so the game and Albedo always write into those. A repaint or reload mid-frame restores the pristine copy first (`restore`). If the previous frame's end did not run, the next start restores first, so the hue never leaks into the pristine copy.
+- Texels are rebuilt only when a moving texture changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture).
+- 1.21.8 and later bake item icons into an item atlas once; while colors move, each icon is marked animated (`ItemIconMixin`).
+- 1.8.9 with OptiFine Multitexture draws blocks from per-sprite textures, so the pass stops and sprites get still colors.
+- On 1.21.11 and NeoForge 26.3, `CommandEncoder.copyTextureToTexture` copies only mip level 0 whatever level it is given, so the other levels are copied with a draw (`chroma_copy.fsh`). Without it, sprites at the top left of the atlas turn into a checker of extreme colors.
+- 1.21.5 to 1.21.10: a render pass draws only into mip level 0 and the atlas cannot be a render target, so these versions use `GlChromaPass` on the atlas GL name, unwrapping the NeoForge validation layer (`getRealTexture`).
+- On 1.8.9 the pass pushes and pops GL attributes while its own framebuffer is bound: OptiFine Fast Render draws with no framebuffer, and `GL_BACK` is not a valid draw buffer for one.
+- If the shader fails to compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`; the core goes back to still colors.
 
 ## Custom sky
 
-`sky/SkyGenerator` bakes a `SkyDesign` into an equirectangular `SkyImage` on the CPU (`SkyBaker`, in the background). `sky/SkyProgram` puts the layer numbers into one block of floats. The sky shader (`core/src/main/resources/assets/albedo/shaders`) reads the same block and draws each screen pixel ("Sharp render"). The baked texture is the fallback.
+`SkyGenerator` bakes a `SkyDesign` into an equirectangular `SkyImage` on the CPU, in the background (`SkyBaker`). `SkyProgram` packs the layer parameters into one float block. The sky shader (`core/src/main/resources/assets/albedo/shaders`) reads the same block and draws every screen pixel ("Sharp"); the baked texture is the fallback.
 
-- Each sky gets its own shader. `SkyShaderSource.layerSteps` writes `ALBEDO_LAYER_STEPS`: a direct call of the function of the kind of each layer, with its blend, mask and parts (twinkle, trails, spikes, pulse, dust, jets) as constants. The values stay in the block, so a shader compiles again only when the steps change. Each adapter keeps the shaders of the last skies (`SkyShaderCache`), and 1.21.11 keeps them all (see the traps).
-- The sky shader draws only the pixels that the world does not hide.
-  - In the sky pass the adapter draws black on the sphere at the far depth. It uses a depth test and no blend.
-  - Only the pixels that still have the far depth of the clear become black. A portal mod that draws a second view of the level keeps the rest of the frame.
-  - The vanilla sun, moon and stars draw on the black.
-  - After the solid world, the sky sphere draws at the far depth with a depth test and adds its color to the frame. The sum is the same as a sky with the sun, the moon and the stars on it.
-  - The baked texture always draws in the sky pass.
-- The hook after the solid world depends on the version:
-  - 26.3: `SkyAfterSolidMixin` on `LevelRenderer.executeSolid`.
-  - 1.21.6 to 26.2: `SkyAfterSolidMixin` on `Lighting.setupFor` for the level. It follows the solid terrain also when Sodium draws it.
-  - 1.20.5 to 1.21.5: `SkyAfterSolidMixin` on `LevelRenderer.renderSectionLayer`.
-  - 1.19.4 to 1.20.4: `SkyAfterChunkLayerMixin`.
-  - 1.16.5: `FixedSkyMixin` on `LevelRenderer.renderChunkLayer`, after the cutout layer.
-  - 1.17 to 1.19.2: `MojangMathSkyMixin` on `LevelRenderer.renderChunkLayer`, after the cutout layer.
-  - 1.8.9 and 1.12.2: `RenderGlobal.renderBlockLayer`.
-- `sky/SkyDefer` decides where the sphere draws. The sphere waits for the hook only when the hook ran in the frame before, else it draws in the sky pass. Thus a renderer mod that removes the hook only loses the speed, and a frame that skips the hook gives at most one frame of black sky. A sphere that waits goes at the start of each frame, so a frame with no sky pass (lava, powder snow, blindness, darkness) draws no sky after the solid world.
-- The term texture also holds field images: the smooth noise of each cloud and fractal layer that the bake writes at the texel centers. A cloud field holds only the coarse octaves of the cloud value (`SkyGenerator.CLOUD_FIELD_OCTAVES`), because the fine octaves are smaller than a texel at the half size of the bake. The shader reads the fields with linear filters, and calculates the fine cloud octaves and the sharp ridges of a fractal for each pixel. A sky that cannot draw sharp gets no field images.
+- Each sky compiles its own shader: `SkyShaderSource.layerSteps` emits `ALBEDO_LAYER_STEPS`, a direct call per layer with its blend, mask and parts as constants. Values stay in the block, so a shader recompiles only when the steps change. `SkyShaderCache` keeps recent shaders.
+- The sharp sky draws only where the world does not cover it. In the sky pass the adapter draws black on the far-depth pixels (depth test, no blend), and vanilla sun, moon and stars draw on the black. After the solid world, the sky sphere draws at far depth and adds its color. The result equals a sky with the sun, moon and stars on it. Only pixels still at the clear depth turn black, so a portal mod's second view survives.
+- The after-solid hook: 26.3 `LevelRenderer.executeSolid`; 1.21.6 to 26.2 `Lighting.setupFor` for the level (also fires when Sodium draws the terrain); 1.20.5 to 1.21.5 `renderSectionLayer`; 1.19.4 to 1.20.4 `SkyAfterChunkLayerMixin`; 1.16.5 to 1.19.2 `renderChunkLayer` after the cutout layer (`FixedSkyMixin`, `MojangMathSkyMixin`); legacy `RenderGlobal.renderBlockLayer`.
+- `SkyDefer` makes the sphere wait for that hook only if the hook ran in the previous frame; otherwise it draws in the sky pass. A renderer mod that removes the hook costs speed, not the sky, and a skipped hook gives at most one black frame.
+- The term texture also holds field images: the coarse cloud and fractal noise baked at texel centers (`SkyGenerator.CLOUD_FIELD_OCTAVES`). The shader filters them linearly and adds the fine octaves per pixel.
+- At most `SkyProgram.MAX_TERMS` term filters (blur, bloom, pixelate, crystallize, swirl); more than that draws the baked image. Field images take the free slots up to `MAX_SLOTS`; a layer without one computes its noise per pixel.
 
 Invariants:
 
-- The CPU bake and the GPU shader must give the same sky. They use the same integer hashes and noise. Java copies of the shader parts (`SkyStars`, `SkyMeteors`, `Aurora`) must change together with the GLSL. The harness command `skycompare` draws the shader sky into an image and logs `DIFFERENT` when its mean OKLab distance from the bake is at or above `Harness.COMPARE_LIMIT`. Run it after each sky change.
-- `SkyGeneratorTest.thePresetsKeepTheirPixels` keeps a hash of the bake of each preset. If a change of the pixels is intentional, update the hashes in the same commit. Else, find the change.
-- One shared clock, `sky/SkyClock`, drives all layers that move. `seconds()` wraps each hour, so a float keeps its precision; a wave must repeat a whole number of times in the hour. `longSeconds()` has no wrap, for the turning. The bake, the preview and `skycompare` draw a still sky (`SkyProgram.STILL`). Meteors draw only in the shader. The meteor hashes use the slot modulo 3600, so a meteor in flight goes on across the wrap.
-- The aurora has its own clock (`Aurora.clock`): `longSeconds()` times 2 times its speed, in double precision on the CPU, with a wrap at `Aurora.PERIOD` (7200 s). Each aurora wave and the ray noise repeat a whole number of times in this period.
-- The lower edge, the height and the presence of an aurora curtain are functions of the azimuth of the view, so each curtain has one smooth lower edge, also where its sheet folds. The folded sheet gives only the rays and their light.
-- For each frame of a sky that moves or turns, the adapter writes the block from `SkyProgram.at` (time, aurora clocks and the turn in `SkyWorld`). A still sky that does not turn keeps `SkyProgram.block`, so `skycompare` and the bake agree.
-- The meteors and the aurora are in the air, so their layer steps take the world direction (`world` in `albedoSky`) and they do not turn with the sky. The bake does not know the turn, so the baked texture turns its aurora with the sky.
-- A design has a maximum of `SkyProgram.MAX_TERMS` term filters (blur, bloom, pixelate, crystallize, swirl). A design with more draws from the baked image. Field images use the free slots up to `SkyProgram.MAX_SLOTS`; a cloud or fractal layer with no slot calculates its noise for each pixel.
-- Do not let a layer step dispatch on its kind at run time. The NVIDIA compiler inlines before it removes the dead kinds, and with seven or more such steps it stops to inline and the sky gets about 60 percent slower. Do not index a constant array with a value that changes for each pixel: the compiler puts the array in local memory for each pixel. Measure a shader change with `skytime 3840 2160` on 26.3; the shader of 26.x goes through SPIR-V, so its speed can differ from the GL programs of the other versions.
-- A change of only the render mode or the turning does not bake again (`SkyDesign.baked`), except the star trails, which the bake draws.
+- The CPU bake and the shader must produce the same sky: same integer hashes and noise. The Java twins of shader code (`SkyStars`, `SkyMeteors`, `Aurora`) change together with the GLSL. Harness `skycompare` checks it; run it after every sky change.
+- `SkyGeneratorTest.thePresetsKeepTheirPixels` pins a hash of each preset's bake. Update it in the same commit when a pixel change is intended.
+- `SkyClock.seconds()` wraps every hour to keep float precision, so every wave must repeat a whole number of times per hour. `longSeconds()` does not wrap and drives the turning. Meteor hashes use the slot modulo 3600, so meteors in flight cross the wrap. `Aurora.clock` wraps at `Aurora.PERIOD` (7200 s) instead.
+- The bake, the preview and `skycompare` draw a still sky (`SkyProgram.STILL`); meteors exist only in the shader. A moving or turning sky writes the block each frame from `SkyProgram.at`.
+- Meteors and aurora live in world space and do not turn with the sky. The bake does not know the turn, so the baked texture turns its aurora with the sky.
+- A render mode or turning change does not rebake (`SkyDesign.baked`), except star trails, which the bake draws.
+- Never dispatch on the layer kind at run time in a layer step: the NVIDIA compiler stops inlining at about seven such steps and the sky gets about 60 percent slower. Never index a constant array with a per-pixel value: it moves to local memory. Measure shader changes with `skytime 3840 2160` on 26.3 (and note that 26.x goes through SPIR-V).
 
-Traps per version:
+Traps by version:
 
-- 26.x: a texture write is not allowed in a render pass, so uploads go before the sky pass.
-- 26.x: the shader source is read and its includes are inlined on the render thread (`SkyShaderSource.inline`) before the compile goes to a background thread. If shaderc resolves an include, it calls back into Java. On Windows with Java 25 that call can write below the guard page of the deep worker stack, and the JVM stops with no `hs_err` file. The baked texture pipeline compiles on the render thread.
-- 26.x: `SharpSky` has its own shader source, because Fabric without Fabric API does not load mod assets.
-- 1.21.8 to 26.2: `PrecompiledSharpSky` precompiles before each sky pass, because a resource reload empties the pipeline cache. The game has no half float format before 26.2, so the term texture is written again through the GL after a one-texel `writeToTexture` that binds it. Do not cast a `GpuTexture` to the GL class: the NeoForge validation layer gives a wrapper. `DeviceApi` has the device calls that changed at 1.21.10, 1.21.11, 26.1 and 26.2; before 1.21.11 the filters are on the texture, not in a sampler, and `skytime` uses a GL time query.
-- 26.2: the term texture has the half float format, but the GL device sends the bytes of a write as unsigned bytes, so on the OpenGL backend the GL sends them again as half floats after the write that binds the texture. The Vulkan backend copies the bytes as they are, and `DeviceApi.isGl()` keeps all raw GL calls away from it. The depth buffer is reversed, so the pipelines test `GREATER_THAN_OR_EQUAL` against the far depth 0 and `DeviceApi.dialect()` gives the shader text with the far clip z `-w`, or 0 when the clip volume starts at 0 (`ALBEDO_REVERSED_DEPTH`).
-- 26.2 on Vulkan: a pipeline that has a depth state gets no variant for a pass with no depth view, and a draw with it crashes the driver (`vkCmdBindPipeline` with a null pipeline). Thus a pipeline for such a pass (the Chroma passes and the image of `skycompare`) has no depth state (`DeviceApi.colorOnly`). Vulkan also fails to compile a pipeline that does not declare a sampler that its shader text declares, so a sharp sky pipeline always declares `AlbedoTerms`.
-- 1.21.5 to 1.21.10: a render pass draws only into the mip level 0 of a texture, also through a view of a different level, and the atlas texture cannot be a render target. Thus the Chroma pass of these versions is `GlChromaPass` with the GL name of the atlas texture; it takes the real texture under the wrapper of the NeoForge validation layer (`getRealTexture`).
-- 1.17.1 to 1.21.5 (`GlSharpSky`) and 1.8.9 (`LegacySharpSky`) compile their own GL program. 1.8.9 uses GLSL 1.30, else GLSL 1.20 with EXT_gpu_shader4, else the baked image. A failed compile logs one warning and draws the baked image.
-- 1.8.9: below the cloud height the clouds draw before the world and blend with the sky, so the sky sphere draws before them (`RenderGlobal.renderClouds`) and the world hides nothing from the shader. With clouds off, or above the cloud height, the sphere draws after the solid world.
-- Do not draw a thing that blends with the sky, or that has no depth test, between the sky pass and the solid world: it gets a black background.
-- Known limit: other mods can draw in this gap, for example at the NeoForge stages `AFTER_SKY`, `AFTER_SOLID_BLOCKS` and `AFTER_CUTOUT_MIPPED_BLOCKS`. A translucent thing that such a mod draws there over the sky blends with black.
-- 26.x: the sky pass prepares the custom sky only for the overworld skybox, the only one that it replaces. A pipeline that closes while it compiles frees its result on the render thread when the compile ends.
-- 1.21.11: the device frees a compiled pipeline only when a resource reload empties its whole cache. Thus each sky keeps its pipeline and its id by its layer steps, and a sky that comes back compiles nothing.
-- 1.8.9 draws the black sphere with the fixed pipeline of the game at the depth range 1 to 1. The game never changes the depth range.
-- 1.17.1 to 1.21.5 use no vertex or shader class of the game. `GlSky` draws the baked image and `GlSharpSky` draws the sharp sky and the black sphere, each with a vertex array (`GlMesh`) and programs (`GlProgram`) of the mod. The vertex shader of the black sphere writes the far depth, so the depth range does not change.
-- 1.21.2 to 1.21.5 draw the sky in the sky pass of the frame graph: `GlSky.drawDisc` takes the model view and projection matrices of `RenderSystem`, which the game also gives its sky disc. The `SkyRenderer` handlers of 1.21.2 to 1.21.11 take no parameters, because the parameters change between these versions.
-- 1.21.5 uses the same GL classes as 1.21.1. The game leaves no framebuffer bound between its render passes, so `GlSky` opens an empty render pass of the device, which binds the main target, for its draws in the sky pass and after the solid world.
-- Lava, powder snow, blindness and darkness: from 1.18 the game skips the sky pass, so no sky draws. 1.17 draws its sky, so `GlSky.drawSphere` leaves the sky vanilla when `ModernHooks.skySkipped` is true. `FixedSky.drawSphere` (1.16.5) uses `ModernHooks.fogHidesSky`, which adds water, and the fog color follows the same rule.
-- 1.17.1 to 1.21.5 with an Iris shader pack: the sky stays vanilla, because the framebuffer of the pack needs the programs of the pack. When `GlSky.draw` returns false, the game draws its sky disc, dark disc, sunrise and stars. `ModernSky.vanillaWithPack` is the rule for the sky and for the fog color, so the fog stays vanilla with the sky.
-- Each raw GL draw of `GlSky`, `GlSharpSky` and `GlChromaPass` reads the state that it changes with `glGet` and puts it back (`GlState`). `GlState.ofDraw` holds the program, the vertex array, the active texture unit, the texture of unit 0, the depth test, function and mask, the blend state and the cull state. `GlState.ofAll` adds the array buffer, the two framebuffers, the viewport, the texture of unit 1 and the scissor test. The restore goes through `GlStateManager`, so that the copy of the state in the game stays correct.
-- 1.16.5 draws the sky with the fixed pipeline, as 1.8.9 does. It has a port of the three legacy classes with Mojang names and LWJGL 3: `FixedSky`, `FixedSharpSky` and `FixedChromaPass`.
-  - `FixedSharpSky` uses GLSL 1.30, else GLSL 1.20 with EXT_gpu_shader4, else the baked image.
-  - The legacy classes cannot be shared. They call MCP names, the LWJGL 2 capability and buffer calls and the `Game` shim. The shader text, the programs of the sky and the texels are the same classes of the core.
-  - The sky sphere is a display list.
-  - `FixedSkyMixin` redirects the three `VertexBuffer.draw` calls of `renderSky`. It gets the camera matrix of the sky disc, which the game multiplies on the GL matrix itself. A sky that waits for the solid world keeps a copy of that matrix.
-  - The sunrise fan is a `BufferUploader.end` call. The redirect takes the mesh out of the builder when the custom sky draws.
-  - A GL draw of `FixedSharpSky` reads and puts back its state as `GlState` does. `FixedChromaPass` pushes and pops all GL attributes while its framebuffer is bound.
-- Forge 1.16.5 has a light pipeline that is off by default. The option is `experimentalForgeLightPipelineEnabled` in `forge-client.toml`, and `ForgeBlockModelRenderer.renderModelFlat` and `renderModelSmooth` read it. The vanilla hooks work in a default game.
-  - With the option on, the blocks draw through `VertexLighterFlat`. It calls neither `BlockColors.getColor` nor `ClientLevel.getShade`.
-  - `ForgeBlockInfoMixin` then hooks the tint (`BlockInfo.getColorMultiplier`).
-  - `ForgeLightUtilMixin` hooks the face shade (`LightUtil.diffuseLight(FFF)F`, which `VertexLighterFlat.processQuad` calls for a flat and a smooth quad).
-  - The two mixins have their own config `albedo.forge.mixins.json`, which only the Forge jars before 1.19 have.
-  - Test them with the option on in `modern/forge/versions/1.16.5/run/config/forge-client.toml`. Without the two mixins the `tint` counter stays 0.
-- On 1.8.9 with Use VBOs on, vanilla binds its sky buffer before the sky hook, and LWJGL refuses a draw from client memory while a buffer is bound. `LegacySky.drawSky` unbinds it while the custom sky draws. VBOs are off by default on 1.8.9 and on by default on 1.12.2, so test the other case with `-OptionLines useVbo:true` or `-OptionLines useVbo:false` (`tools/screenshots.ps1`, `tools/optifine.ps1`).
+- 26.x: no texture writes inside a render pass, so uploads happen before the sky pass. The sky pass prepares only the overworld skybox.
+- 26.x: shader includes are inlined on the render thread (`SkyShaderSource.inline`) before compiling on a worker. If shaderc resolves an include itself it calls back into Java, which on Windows with Java 25 can overrun the worker's stack guard and kill the JVM without an `hs_err` file. `SharpSky` carries its own shader source because Fabric without Fabric API does not load mod assets.
+- 1.21.8 to 26.2: `PrecompiledSharpSky` precompiles before each sky pass, because a resource reload empties the pipeline cache. Never cast a `GpuTexture` to the GL class: the NeoForge validation layer hands out a wrapper. `DeviceApi` absorbs the device API changes of 1.21.10, 1.21.11, 26.1 and 26.2.
+- The device API has no half-float format before 26.2, so on the device path the term texture is rewritten through GL after a one-texel `writeToTexture` that binds it. On 26.2 with OpenGL the device still sends half-float writes as bytes, so the same GL rewrite applies; on Vulkan the bytes copy correctly and `DeviceApi.isGl()` keeps raw GL away.
+- 26.2 reverses the depth buffer: pipelines test `GREATER_THAN_OR_EQUAL` against far depth 0, and `DeviceApi.dialect()` sets `ALBEDO_REVERSED_DEPTH`.
+- 26.2 on Vulkan: a pipeline with a depth state used in a pass with no depth view crashes the driver, so the Chroma pass and the `skycompare` image use `DeviceApi.colorOnly`. Vulkan also rejects a pipeline that does not declare every sampler its shader declares, so the sharp sky always declares `AlbedoTerms`.
+- 1.21.11: the device frees a compiled pipeline only when a reload empties the whole cache, so each sky keeps its pipeline by its layer steps and a returning sky compiles nothing.
+- 1.17.1 to 1.21.5 (`GlSky`, `GlSharpSky`, `GlMesh`, `GlProgram`) and 1.8.9 (`LegacySharpSky`) compile their own GL programs: GLSL 1.30, else 1.20 with `EXT_gpu_shader4`, else the baked image. Each raw GL draw saves and restores the state it touches through `GlState`, which goes through `GlStateManager` so the game's state cache stays right.
+- 1.21.2 to 1.21.5 draw in the frame-graph sky pass with the matrices from `RenderSystem`. The `SkyRenderer` handlers of 1.21.2 to 1.21.11 take no parameters because the signatures keep changing. 1.21.5 leaves no framebuffer bound between passes, so `GlSky` opens an empty device render pass to bind the main target.
+- 1.17.1 to 1.21.5 with an Iris shader pack: the pack's framebuffer needs the pack's programs, so the sky and fog color stay vanilla (`ModernSky.vanillaWithPack`).
+- Lava, powder snow, blindness and darkness: from 1.18 the game skips the sky pass. 1.17 does not, so `GlSky` checks `ModernHooks.skySkipped`; 1.16.5 uses `ModernHooks.fogHidesSky`, which adds water. The fog color follows the same rule.
+- 1.16.5 uses the fixed pipeline like 1.8.9, through ports of the legacy classes (`FixedSky`, `FixedSharpSky`, `FixedChromaPass`); they cannot be shared because legacy uses MCP names, LWJGL 2 and the `Game` shim. `FixedSkyMixin` redirects the three `VertexBuffer.draw` calls of `renderSky` to get the sky disc's camera matrix, and the sunrise fan's `BufferUploader.end`.
+- 1.8.9: below cloud height the clouds draw before the world and blend with the sky, so the sphere draws before them (`RenderGlobal.renderClouds`). The black sphere uses the depth range 1 to 1.
+- 1.8.9 with Use VBOs (off by default; on by default on 1.12.2): vanilla binds its sky buffer before the hook and LWJGL refuses client-memory draws while it is bound, so `LegacySky.drawSky` unbinds it. Test both settings.
+- Nothing that blends with the sky or skips the depth test may draw between the sky pass and the solid world: it gets a black background. Other mods can draw there (for example NeoForge `AFTER_SKY`), and their translucent pixels blend with black. This is a known limit.
 
 ## OptiFine on 1.8.9
 
-- Each OptiFine version uses different method names in `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`. `MixinPlugin` finds OptiFine and selects the mixins: `*VanillaMixin` only without OptiFine, `OptiFine*Mixin` only with it. `OptiFineRenderPatch` finds the tint and brightness calls by target and descriptor, not by name.
-- `LegacySkyPatch` finds each draw in `RenderGlobal.renderSky` by the field that it reads, not by order, because OptiFine adds draws. If it does not find all parts, it logs a warning and the sky stays vanilla.
-- With OptiFine Sky off or an OptiFine shader pack, the sky stays vanilla.
-- With OptiFine Fast Render, a `Framebuffer` of the game binds nothing (`OpenGlHelper.isFramebufferEnabled()` is false), so `skycompare` and `skytime` use a framebuffer of their own.
-- The classifier gives OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) the category of the vanilla texture that they replace.
-- Tested only with OptiFine HD U M6 pre2 and HD U L5 (`tools/optifine.ps1`). OptiFine shaders are not tested.
-- OptiFine on 1.12.2 is not supported and has no test. The same `MixinPlugin` rule applies, so with OptiFine the vanilla tint and shade mixins do not apply.
+- Every OptiFine version renames methods in `BlockModelRenderer`, `BlockFluidRenderer` and `FaceBakery`. `MixinPlugin` detects OptiFine and applies either the `*VanillaMixin` or the `OptiFine*Mixin` set. `OptiFineRenderPatch` finds the tint and brightness calls by target and descriptor, not by name.
+- `LegacySkyPatch` finds each draw in `RenderGlobal.renderSky` by the field it reads, not by order, because OptiFine adds draws. If a part is missing, it logs a warning and the sky stays vanilla.
+- With OptiFine Sky off or a shader pack, the sky stays vanilla. With Fast Render, game framebuffers bind nothing, so the harness uses its own.
+- The classifier maps OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) to the category of the texture they replace.
+- Tested with HD U M6 pre2 and HD U L5 (`tools/optifine.ps1`). OptiFine on 1.12.2 is unsupported: `MixinPlugin` still turns off the vanilla mixins there, and `OptiFineRenderPatch` targets 1.8.9 names.
 
-## Build
+## Version conditions (modern)
 
-You need JDK 21 and JDK 25. If JDK 8 is missing, Gradle gets it for 1.8.9.
+`//? if` comments mark version differences in `modern/` only, never in core. A class that only one rendering family can compile has a condition around the whole file. The families are constants in `modern/stonecutter.gradle`: `gl_fixed` (before 1.17), `gl_core` (1.17 to 1.21.1), `frame_graph` (1.21.2 to 1.21.4), `gpu_device` (1.21.5 to 26.2), `renderpearl` (26.3), plus `gl_sky` (raw GL sky to 1.21.5) and `gl_chroma` (raw GL Chroma to 1.21.10). Shared classes call the family class: `ModernSky` calls `PearlSky`, `PrecompiledSky`, `FixedSky` or `GlSky`; `TextureUploads` calls `DeviceAtlasUpload` or `GlAtlasUpload`.
 
-```bash
-pwsh tools/build-all.ps1                                                    # all 39 jars -> build/libs/
-cd modern && ./gradlew :fabric:26.3:releaseJar :neoforge:26.3:releaseJar    # the jars of one node
-cd legacy && ./gradlew build                                                # Forge jars -> legacy/versions/<mc>/build/libs/
-```
+A condition may only use a version from this table (`tools/lint.sh` checks). `tools/boundaries.sh` prints the shape of every member in `tools/boundaries.txt` on every node, from the Mojang-named jars; use it to place a boundary. Only the nodes are read, so a boundary between two nodes is not checked against the minor versions in between. With only 1.21.1 and 1.21.11 as nodes on either side, not every `>=1.21.11` is a true boundary; recheck when adding a node there. To add a Minecraft version, see "Add a Minecraft version" in [BUILDING.md](BUILDING.md).
 
-- A node is one folder in `modern/versions/`. `modern/settings.gradle` has three node lists: `nodes` (common and Fabric), `forgeNodes` and `neoforgeNodes`.
-- Forge nodes (1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4) use `modern/forge/build.gradle`, and NeoForge 1.20.4 uses the `mods.toml` branch of `modern/neoforge/build.gradle`. Java 8 builds 1.16.5 with the tool chain only, because javac 8 has no `--release` option.
-- The dev run of Forge 1.16.5 with `-Pharness` adds the mixin of `modern/forge/dev-1.16.5`, because Architectury Loom keeps the SRG names of two Forge-patched calls in `Transformation` (`NoSuchMethodError: Transformation.func_227987_b_()` when the game loads the models). `tools/check-jar.sh` fails for a jar that has it. The dev run of Forge 1.20.4 takes the common jar from the transformed copy only, because its bootstrap makes a module of each jar on the class path.
-- `modern/common/build.gradle` compiles the common code against the annotations of Mixin 0.8.5. Mixin 0.8.7 writes the `at` of a redirect as an array, and MixinExtras before 0.5 (NeoForge 1.20.6, Fabric Loader 0.15, Forge packs) cannot read that.
-- Build only one node in each Gradle run of `modern/`. `modern/gradle.properties` sets configure on demand, and the scripts also give `--configure-on-demand`. When one run configures all nodes, Loom can give a Forge node the mappings of a different node and write a bad jar to the shared cache. Loom does not repair it.
-  - Symptoms: `cannot access Screen` in the compile, or `NoClassDefFoundError: gjp$a` in the dev game.
-  - Repair: stop all Gradle processes. Delete `~/.gradle/caches/fabric-loom/<mc>/loom.mappings.*forge-<mc>-<forge>*`, `~/.gradle/caches/fabric-loom/<mc>/forge/<mc>-<forge>` and `~/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/forge-<mc>-<forge>-minecraft-merged*`. Then build that node alone.
-- The build writes the `client` list of `albedo.mixins.json` from the compiled mixin classes of the node, and `compatibilityLevel` from its Java version (`JAVA_21` at most). Do not write mixin names in the file. The list has the classes of the package `mixin` whose names end in `Mixin`, `Accessor` or `Invoker`. Do not put a different class in that package: `tools/check-jar.sh` fails for it.
-- `-Pmc_override=<version>` builds a node for a different Minecraft version, to examine a minor version of its range. It changes only the dependency: the Stonecutter swap `minecraft` and the conditions keep the version of the node.
-- Dev client: `./gradlew :fabric:26.3:runClient` in `modern/` (any loader or version), `./gradlew --configure-on-demand :1.12.2:runClientDev` in `legacy/` (or `:1.8.9:`).
+| Boundary | Main API change |
+|----------|-----------------|
+| `1.17` | Shader pipeline (`ShaderInstance`, `drawWithShader`), vertex arrays; before it the fixed pipeline |
+| `1.18` | `renderSky` takes a `Camera`; Forge `fmllegacy`/`fmlclient` packages renamed; SLF4J logging |
+| `1.19` | `OptionInstance`, `Component.literal`, `ConfigScreenHandler` |
+| `1.19.3` | `SpriteContents`, `SpriteLoader`; JOML replaces `com.mojang.math` |
+| `1.20` | `GuiGraphics` |
+| `1.20.2` | `mouseScrolled` with 4 numbers; `Screen.render` draws the background |
+| `1.20.3` | `renderSectionLayer` with a `PoseStack` |
+| `1.20.5` | `renderSectionLayer` with two matrices; MixinExtras on all loaders |
+| `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `DeltaTracker` |
+| `1.21.2` | `SkyRenderer`, frame graph, `CloudRenderer`, static `computeFogColor` |
+| `1.21.4` | `TextureContents.load`, `ReloadableTexture`; no `SimpleTexture.doLoad` or `HttpTexture` |
+| `1.21.5` | `GpuDevice`, `RenderPass`, `RenderPipeline`; no `VertexBuffer` |
+| `1.21.6` | `GpuTextureView`, `fog.FogRenderer`, `Lighting.setupFor`, uniform buffers |
+| `1.21.9` | Input event objects (`KeyEvent`, `MouseButtonEvent`), `extractShadow` |
+| `1.21.10` | `writeToTexture` with a `ByteBuffer`; `grabOrReleaseMouse` takes a `Window` |
+| `1.21.11` | `Identifier`, `GpuSampler`, render pass into mip levels above 0, padded atlas sprites |
+| `26.1` | Render state extraction, `CardinalLighting`, new pipeline builder states |
+| `26.2` | `Gui.screen()`, `GpuFormat`, `GpuQueryPool`, reversed depth buffer |
+| `26.3` | `com.mojang.renderpearl.api`, `executeSolid`, SDL window and input |
+
+## Compat mods in the dev run
+
 - Add `-Pcompat=sodium`, `embeddium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
   - Iris works only on Fabric 26.3, 26.2, 26.1, 1.21.11, 1.21.5 and 1.21.4. On 1.21.4 it is Sodium 0.6.13 and Iris 1.8.8, the versions of the owner instances. On the other targets you get only Sodium.
   - Sodium 0.6.13 does not start in the NeoForge 1.21.5 dev run, because it needs the Fabric rendering API.
@@ -199,66 +171,3 @@ cd legacy && ./gradlew build                                                # Fo
   - NeoForge 1.21.1 gets Sodium 0.6.13, the version of the owner's pack, because its dev run loads the 0.8.13 jar only as a library.
   - NeoForge from 1.20.5 and 26.x get the mod jar with no remap, because a remap drops the jar-in-jar list from which Sodium loads its mod.
   - With `-Compat`, `tools/screenshots.ps1` turns off the Blaze3D check of the NeoForge dev run (`enableB3DValidationLayer`). Sodium 0.8.14 on NeoForge 1.21.11 casts a texture that the check wraps.
-- In `modern/`, Stonecutter comments (`//? if >=26.1 {` ... `//?} else {` ... `//?}`) mark the version differences. They are only in mixin and adapter files, never in the core.
-- A class that only one rendering family can compile has a condition around the whole file. `modern/stonecutter.gradle` names the families: `gl_fixed` (before 1.17), `gl_core` (1.17 to 1.21.1), `frame_graph` (1.21.2 to 1.21.4), `gpu_device` (1.21.5 to 26.2) and `renderpearl` (26.3). Two more constants cover the raw GL classes that go past their families: `gl_sky` and `gl_chroma`. The shared class calls the family class: `ModernSky` calls `PearlSky`, `PrecompiledSky`, `FixedSky` or `GlSky`, `TextureUploads` calls `DeviceAtlasUpload` or `GlAtlasUpload`, and `SettingsScreen` draws on an `ExtractorCanvas` or a `GraphicsCanvas`. The sky classes `GlSky`, `GlSharpSky` and `GlMesh` go to 1.21.5 (`gl_sky`), and `GlChromaPass`, `GlState`, `GlProgram` and `GlAtlasUpload` to 1.21.10 (`gl_chroma`): before 1.21.11 the GPU device has no render pass into a mip level above 0, and each sprite uploads its own pixels.
-- `legacy/` has one subproject for each Minecraft version in `legacy/versions/<mc>`, and `legacy/version.gradle.kts` builds each of them. The mod version comes from `mod_version` in `modern/gradle.properties`, or from `-PmodVersion`.
-- CI (`.github/workflows/ci.yml`) has one `modern` job for each node, with the loaders of the node in a YAML list, and one `legacy` job for 1.8.9 and 1.12.2. Each job builds one node in one Gradle run with `--configure-on-demand`. The jobs of the nodes only read the Gradle cache, because the cache entries of all nodes together are larger than the limit of the repository. `tools/check-jar.sh` and `tools/check-legacy-jar.sh` examine each jar. The `release` job needs 39 jars.
-- Releases: see [RELEASING.md](RELEASING.md). `docs/TESTED.md` has one row for each jar, which the validation run before a release fills.
-
-## Version boundaries (modern)
-
-A Stonecutter condition uses only the versions of this table. `tools/boundaries.sh` reads each member with `javap` from the Mojang-named jar of each node, and `tools/boundaries.txt` lists the members. Where the mark says "minor open", the two nodes on each side are read, but no jar of the minor version itself. `tools/lint.sh` fails when a condition has a version that is not in this table.
-
-| Boundary | API change | Files with the condition | Mark |
-|----------|------------|--------------------------|------|
-| `1.17` | `ShaderInstance`, `VertexBuffer.drawWithShader`, `Screenshot.takeScreenshot(RenderTarget)`, vertex array calls in `GlStateManager`, `renderChunkLayer` with a `Matrix4f`; before it the fixed pipeline with `RenderSystem.pushMatrix` and `multMatrix`, the key codes only in GLFW, `Screen` binds a texture with the `TextureManager`, `Camera.getFluidInCamera` gives a `FluidState`, no `TextureAtlasSprite.getX`, `LocalPlayer.yRot` and `xRot` fields | `GlProgram`, `GlState`, `GlChromaPass`, `GlAtlasUpload` (first version of the file), `FixedSky`, `FixedSharpSky`, `FixedChromaPass`, `FixedSkyMixin`, `KeyCodes`, `PoseStackCanvas`, `HarnessShots`, `ModernHooks`, `ModernHarnessHost`, `SpriteAccess`, `SpriteMainImageAccessor`, `ModernSky`, `ChromaAtlases`, `MojangMathSkyMixin` | javap |
-| `1.18` | `renderSky` with a `Camera`, `RegistryAccess.BUILTIN` and `FlatLevelSource` with a `StructureSet` registry (before it `RegistryAccess.builtin()`), `network.NetworkConstants` and `client.ConfigGuiHandler` (before them `fmllegacy` and `fmlclient`), the game logs with Log4j and not SLF4J (before it) | `HarnessWorldsOld`, `AlbedoForge`, `ModernPlatform` | javap, minor open |
-| `1.19` | `OptionInstance` (before it the option fields), `Component.literal` (before it `TextComponent`), `MobEffects.DARKNESS`, `performPrefixedCommand`, `WorldOpenFlows`, `BufferUploader.drawWithShader(RenderedBuffer)` (before it `BufferUploader.end(BufferBuilder)`), `ConfigScreenHandler` | `ModernHooks`, `ModernPlatform`, `ModernHarnessHost`, `HarnessOptions`, `HarnessWorlds`, `HarnessWorldsOld`, `FullbrightRedirectMixin`, `ShadowRedirectMixin`, `SkySunriseMixin`, `AlbedoForge` | javap, minor open |
-| `1.19.3` | `SpriteContents`, `SpriteLoader` (before it `TextureAtlasSprite` keeps `mainImage`, and `TextureAtlas.load` makes it), JOML in all signatures (before it `com.mojang.math`), `Options.getSoundSourceOptionInstance`, `WorldDataConfiguration`, `WorldOptions` and `createFreshLevel` with a `WorldOptions` | `SpriteAccess`, `SpriteLoaderMixin`, `SpriteContentsAccessor`, `TextureAtlasMixin`, `SpriteMainImageAccessor`, `MojangMath`, `MojangMathSkyMixin`, `MojangMathFogMixin`, `SkyLayersMixin`, `SkyAfterChunkLayerMixin`, `FogMixin`, `ModernHooks`, `ModernHarnessHost`, `HarnessWorlds` | javap, minor open |
-| `1.20` | `GuiGraphics`; before it the screens draw with a `PoseStack` and `GuiComponent` | `GraphicsCanvas`, `PoseStackCanvas`, `SettingsScreen` | javap, minor open |
-| `1.20.2` | `mouseScrolled` with 4 numbers, `Screen.render` draws the background | `SettingsScreen` | javap, minor open |
-| `1.20.3` | `renderSectionLayer` with a `PoseStack`, `WorldOpenFlows.checkForBackupAndLoad`, `createFreshLevel` with a parent screen | `SkyAfterChunkLayerMixin`, `HarnessWorlds` | javap, minor open |
-| `1.20.5` | `renderSectionLayer` with two matrices, `WorldOpenFlows.openWorld`, `@Mod(dist)` and a `ModContainer` on NeoForge, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and their `*RedirectMixin` classes, `SkyAfterSolidMixin`, `HarnessWorlds`, `AlbedoNeoForge` | javap, minor open |
-| `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `GameRenderer.render(DeltaTracker, boolean)`, `Minecraft.getTimer` | `SkySunriseMixin`, `CanvasImages`, `ModernSky` | javap, minor open |
-| `1.21.2` | `SkyRenderer`, `LevelRenderer.addSkyPass`, `CloudRenderer`, `LevelRenderer.getCloudRenderer`, `NativeImage.getPixel` and `setPixel`, `Minecraft.getDeltaTracker()`, `GameRules(FeatureFlagSet)`, static `FogRenderer.computeFogColor`, `blit` with a `RenderType` function | `SkyMixin`, `SkyLayersMixin`, `GlSkyLayersMixin`, `FogMixin`, `StaticFogMixin`, `NativeImagePixels`, `ModernHarnessHost`, `ModernSky`, `HarnessWorlds`, `GraphicsCanvas` | javap, minor open |
-| `1.21.4` | `TextureContents.load`, `ReloadableTexture.doLoad(NativeImage, boolean, boolean)`, no `SimpleTexture.doLoad`, no `HttpTexture` | `TextureLoadMixin`, `SkinTextureMixin`, `TextureManagerMixin`, `TextureUploadInvoker`, `ModernHooks`, `TextureUploads` | javap |
-| `1.21.5` | `GpuDevice`, `RenderPass`, `RenderPipeline`, no `VertexBuffer`, `uploadFirstFrame(GpuTexture)`, `Screenshot.takeScreenshot(RenderTarget, Consumer)`, `DryFoliageColor`, `DynamicTexture(Supplier<String>, NativeImage)`, `CommandEncoder.writeToTexture(GpuTexture, NativeImage)`, `GlStateManager` in `com.mojang.blaze3d.opengl` with no `_glDeleteVertexArrays`, `GlTexture.glId()`, no framebuffer bound between the render passes | `HarnessShots`, `CanvasImages`, `TextureUploads`, `GlAtlasUpload`, `GlState`, `GlChromaPass`, `GlSky`, `GlSharpSky`, `GlMesh` | javap |
-| `1.21.6` | `GpuTextureView`, `fog.FogRenderer`, `Lighting.setupFor(Entry)`, no `renderSectionLayer`, `ItemStackRenderState.isAnimated`, `blit` with a `RenderPipeline`, uniform buffers (`DynamicUniforms`), `SkyRenderer` methods whose parameters change at 1.21.10 and 1.21.11. The `FogCameraMixin` (1.21.6 to 1.21.10) and `SkyLayersMixin` handlers take no parameters of the target, because 1.21.8 and 1.21.10 have one more `boolean` in `computeFogColor` | `FogMixin`, `FogCameraMixin`, `StaticFogMixin`, `SkyLayersMixin`, `GlSkyLayersMixin`, `SkyAfterSolidMixin`, `GlSky`, `GlSharpSky`, `GlMesh` (last version of the file), `PrecompiledSky`, `PrecompiledSharpSky`, `DeviceApi`, `ModernSky`, `ModernHarnessHost`, `GraphicsCanvas` | javap, minor open |
-| `1.21.9` | `EntityRenderer.extractShadow`, `MouseButtonEvent`, `KeyEvent`, `CharacterEvent`, `MouseHandler.onButton`, `KeyboardHandler.keyPress` and `charTyped` with an event, `InputConstants.isKeyDown(Window, int)`, `Window.handle()`, no `Minecraft.ON_OSX` | `ShadowMixin`, `MouseHandlerInvoker`, `KeyboardHandlerInvoker`, `SettingsScreen`, `HarnessMouse`, `HarnessKeyboard`, `HarnessWindow`, `ModernPlatform` | javap, minor open |
-| `1.21.10` | `writeToTexture` with a `ByteBuffer`, `InputConstants.grabOrReleaseMouse` with a `Window` in place of the window handle | `DeviceApi`, `MouseGrabMixin` | javap |
-| `1.21.11` | `Identifier`, `GpuSampler`, `precompilePipeline(RenderPipeline, ShaderSource)`, `timerQueryBegin`, `ReloadableTexture.doLoad(NativeImage)`, `uploadFirstFrame(GpuTexture, int)`, `Camera.entity()`, `writeTransform` with 4 parameters, `gamerules.GameRules`, the atlas sprites with padding and an animation texture of their own, a render pass into a mip level above 0 | most adapter files, among them `DeviceApi`, `ChromaAtlases`, `GlChromaPass`, `DeviceAtlasUpload`, `GlAtlasUpload`, `TextureUploads`, `TextureUploadInvoker`, `SkinTextureMixin`, `HarnessWorlds` | javap |
-| `26.1` | `LightmapRenderStateExtractor`, `ModelBlockRenderer(boolean, boolean, BlockColors)`, `computeTintColor`, `CardinalLighting.byFace`, `computeFogColor` with a `Vector4f` parameter, `Screen.extractRenderState`, `Level.getOverworldClockTime`, `LocalPlayer.sendOverlayMessage`, `Options.getCloudStatus`, `CharacterEvent(int)`, `withColorTargetState` and `withDepthStencilState` in the pipeline builder in place of `withBlend`, `withoutBlend`, `withDepthWrite` and `withDepthTestFunction` | `AmbientOcclusionMixin`, `BlockTintMixin`, `FaceShadeMixin`, `FogMixin`, `FullbrightMixin`, `CloudsMixin`, `ModernSky`, `ModernPlatform`, `ModernHarnessHost`, `HarnessWorlds`, `HarnessKeyboard`, `SettingsScreen`, `ExtractorCanvas`, `GraphicsCanvas`, `DeviceApi` | javap |
-| `26.2` | `Gui.screen()`, `Gui.overlay()` and `Gui.setScreen`, `GameRenderer.mainRenderTarget()` and `mainCamera()`, `LevelRenderer.cloudRenderer()`, `Minecraft.levelExtractor`, `Hud`, `writeToTexture` with 4 numbers, `withBindGroupLayout`, `withVertexBinding`, `withPrimitiveTopology`, `GpuQueryPool`, `GpuFormat`, `PrimitiveTopology`, `Optional<Vector4fc>` for the clear color of a pass, `setVertexBuffer(int, GpuBufferSlice)`, `draw` with 4 numbers, a reversed depth buffer (`DepthStencilState.DEFAULT` passes `GREATER_THAN_OR_EQUAL`), no `DefaultVertexFormat.EMPTY`, `getModelViewMatrixCopy` | `ModernPlatform`, `ModernHarnessHost`, `HarnessShots`, `ModernSky`, `DeviceAtlasUpload`, `DeviceApi`, `PrecompiledSharpSky` | javap |
-| `26.3` | `com.mojang.renderpearl.api`, `SkyRenderer.render` with a `RenderPass`, `LevelRenderer.executeSolid`, `MouseHandler.onMove` with 5 parameters, `InputConstants.isKeyDown(int)`, `KeyboardHandler.textInput`, `TextInputManager.startTextInput(Object)`, `InputConstants.grabMouse` and `releaseMouse` in place of `grabOrReleaseMouse`, the SDL window | `MouseGrabMixin`, `SharpSky`, `ChromaPass`, `ChromaAtlases`, `ModernSky`, `SkyLayersMixin`, `SkyAfterSolidMixin`, `MouseHandlerInvoker`, `KeyboardHandlerInvoker`, `HarnessMouse`, `HarnessKeyboard`, `HarnessWindow`, `SettingsScreen`, `ModernPlatform`, `ModernHarnessHost` | javap |
-
-The conditions `>=1.21.11` in the code of today are not all true boundaries, because 1.21.1 and 1.21.11 are the only nodes on each side. Examine each one with `tools/boundaries.sh` when you add a node between them.
-
-## Add a Minecraft version (modern)
-
-1. Add `modern/versions/<v>/gradle.properties`. For Forge or NeoForge, also add `modern/<loader>/versions/<v>/gradle.properties` with `loom.platform=forge` or `loom.platform=neoforge`.
-2. Add `<v>` to `nodes` in `modern/settings.gradle`, and to `forgeNodes` or `neoforgeNodes`. Add a row to the `modern` matrix in `.github/workflows/ci.yml`. `tools/lint.sh` compares the row with the lists and with the node file.
-3. Run `./gradlew :fabric:<v>:build :neoforge:<v>:build` in `modern/`. The compile errors show the hooks that moved. Fix each one with a `//? if` branch.
-4. Examine the condition boundaries (`>=1.21.2`, `>=1.21.4`, ... `>=26.1`). The project tests them only on the built versions.
-5. Run `tools/screenshots.ps1 -Targets fabric-<v>`. Its `result.txt` must start with `PASS`.
-
-## Check and test
-
-- Before you push: `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
-- `tools/screenshots.ps1` runs each target on a hidden desktop through `core/dev/Harness`. Do not start a visible game for tests. Useful parameters: `-Targets`, `-Shots <file>` (a command file in `tools/harness/`), `-Extra`, `-OutDir`, `-Compat`, `-ShaderPack`, `-Config <file>` (a config.json for the start in place of the default config). A command file runs on all targets, except that 1.8.9 and 1.12.2 run the `*-legacy.txt` copy of a `*-modern.txt` file. The legacy files use the commands of 1.8.9; for 1.12.2 the script writes `summon` with the entity id in lower case, `type=!player`, and leaves out `achievement`. `-Backend vulkan` (or `opengl`) forces the graphics backend of 26.2 and 26.3 with the launch argument `--graphicsBackend`, and the target fails when the game log has no `Using graphics backend Vulkan` line; add `-VulkanValidation` for the validation layers. Example: `pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3 -Backend vulkan -OutDir build\vulkan"`. `-OptionLines <key:value>` adds lines to `options.txt`. The scene files give the coordinates of a world with the ground at y=-61, so the script moves each y below 0 up by 64 blocks for the versions before 1.18, and the harness runs no command while the loading screen shows. A relative `tp @p ~ ~ ~` starts from the player on these versions, because the server stands at the world spawn, which is not at 0 0 there.
-- The script writes `result.txt` for each target, next to the screenshots. The first line is `PASS` or `FAIL`, and the next lines give the reasons for a `FAIL`. A line of the harness log that starts with `!` is a reason, also `! unknown command` for an error in the command file and `! no such control` for a `ui` command whose label the screen does not show. A screenshot that is not 1600 x 900 is a reason. A `skycompare` with no line `same` in the log is a reason, and the script stops when it cannot delete the harness folder of an earlier run. The exit code is 1 when a target fails.
-- `tools/compare-jars.ps1 -Old <folder> -New build\libs` compares each entry of the built jars with reference jars, with no game. The reference is the 7 jars of the tag `v0.5.1`, the last release: build them from a worktree of that tag (`./gradlew --configure-on-demand :fabric:<v>:releaseJar :neoforge:<v>:releaseJar` for each version, and `./gradlew build` in `legacy/`). `tools/jar-changes.txt` gives the reason for each entry that can be different. The script fails for all other differences, and for a jar that is in only one of the two folders.
-- `bash tools/check-jar.sh <jar> <loader> <node>` examines the mixin list, the Java level and the version ranges of a modern jar. CI runs it for each jar. `bash tools/check-legacy-jar.sh <jar> <minecraft version>` does the same for the legacy jars (Forge metadata, Mixin manifest, mixin list and Java 8 class files).
-- With no `-Shots`, the script writes `docs/screenshots/<target>/` from `shots.txt`: one image for each feature, to find a version where a feature does not work. Make them again when a change affects what a player sees.
-- The command files in `tools/harness/` are these suites: `shots.txt` (each built-in profile, the mod on and off, the `hooks` line, the window size and `cursorfree`), `sky-sharp.txt` (`skycompare` for the presets), `chroma.txt` with `pastel.txt` (the Chroma colors move and match the still colors), `typing-modern.txt` and `typing-legacy.txt` (key input in the text fields), `settings-pages.txt` (each page of the settings screen) and `gallery.txt` (the images in `docs/gallery`). `scene-modern.txt`, `scene-legacy.txt` and `scene-compat.txt` are the scenes.
-- Key harness commands: `sky <preset> [layers]` (a preset with the default turning stands still until `skyturn`), `skycompare`, `skytime [width height [yaw pitch fov]]` (GPU time of the sharp sky in a view full of sky), `skyclock <s>|run` (hold the time for screenshots), `fov <degrees>`, `clouds shown|hidden` (logs `! clouds` when the next frame does not draw the clouds as expected), `ui click <label>`, `keepframe` and `framechanged <name>` (logs `! framechanged` when the middle fifth of the frame is the same as at `keepframe`; `shots.txt` uses it to find water that does not show), `hooks`, `quit`.
-- `hooks` logs how many times each optional hook (`require = 0`) ran, for example `hooks: afterSolid=1807 tint=100562`. An optional hook with a wrong target name does not stop the game, so its counter stays 0. `tools/screenshots.ps1` adds `hooks` before `quit` in each run. It fails a target when the log has no `hooks` line or a hook of the game did not run: `afterSolid`, `tint`, `fullbright`, `shadow`, `skyPass` and `mouseGrab` on a modern target, `fullbright`, `shadow`, `skyPass`, `sodiumTint` and `mouseGrab` with `-Compat`, and `afterSolid`, `beforeClouds`, `tint`, `shade`, `reloadStep`, `textureUpload` and `mouseGrab` on 1.8.9 and 1.12.2. On 1.8.9 and 1.12.2, `tint` and `shade` count the hooks of the light pipeline that draws the blocks (Forge or vanilla), not the OptiFine hooks. `skyPass` counts the calls of the flat sky hook `SkyMixin`, which goes into each `addSkyPass` overload because NeoForge 1.21.11 adds one and calls only that one. The other counters depend on the version: `clouds` counts the reads of the cloud option, `dryFoliage` runs from 1.21.5 and `itemIcon` from 1.21.6 with an item in the hotbar and the HUD on.
-- Chroma harness commands (`tools/harness/chroma.txt`): `effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]`, `frames <count> <name>` (a screenshot at the end of each frame), `chromagpu off|on` (compare the GPU colors with the still CPU colors at the time 0), `chromacompare` (logs `! chromacompare` when a frame with the GPU colors at the time 0 is not the same as a frame with the still CPU colors) and `chromatime [frames]` (GPU and CPU time and GPU memory of the pass).
-- `ui realclick` tests the input path of the adapter. Only the adapter knows the number of the left mouse button (26.x uses 1). 1.8.9 cannot do `realclick`, because LWJGL 2 reads the mouse from the system.
-- Keyboard commands go through the input path of the adapter, as the window sends a key: `type <text>`, `key <name>`, `keydown <name>` and `keyup <name>` (names as in the config, for example `BACKSPACE`, `LEFT_CONTROL`, `F9`). Modern targets call the entry points of `KeyboardHandler` that the window events call. On 26.x, `type` logs `!` when SDL would drop the text, because SDL sends text only after the game starts text input. 1.8.9 calls the handlers of the key messages of the LWJGL 2 window. `ui expect <field id> <text>` and `expect open|closed` log `PASS` or `!`. `typing-modern.txt` types into each text field of the settings screen.
-- A harness game never grabs the mouse, because a grab clips the cursor (Win32 `ClipCursor`) of the whole window station, so it also confines the cursor on the visible desktop. With `-Dalbedo.harness` set (`Harness.active()`), `MouseGrabMixin` skips the window calls of the grab and the release: the redirect of `InputConstants.grabOrReleaseMouse` in `MouseHandler.grabMouse` and `releaseMouse` (26.3: `InputConstants.grabMouse` and `releaseMouse`, which set the SDL relative mode), and on 1.8.9 and 1.12.2 the redirect of `Mouse.setGrabbed` and `Mouse.setCursorPosition` in `MouseHelper.grabMouseCursor` and `ungrabMouseCursor`. The game state of the grab stays the same. The hook counter `mouseGrab` counts the skipped calls, so that the `hooks` check shows a redirect that missed its target. `cursorfree` reads the clip with `tools/harness/files/clip.ps1` and logs `!` when the clip is smaller than the virtual screen; the clip is global, so a different game that clips at the same time also fails it. `shots.txt` calls it after the world loads and after the settings screen closes. `tools/free-cursor.ps1` (started by `tools/run-hidden.ps1`) frees a clip that a killed game leaves, only when no harness game and no game of the player runs. `tools/clipwatch.ps1 -Log <file>` logs the clip each second, without a change to the cursor.
-- After `quit`, the modern JVM stops when the game thread ends, because the Architectury dev run keeps non-daemon thread pools. Without this, 26.x writes a "Client shutdown from post-main" crash report.
-
-## Known gaps
-
-- Clouds on 1.21.2 and later support only `original` and `hidden`.
-- `core/texture/Foliage` finds plants by texture name. A modded plant with a different name stays visible.

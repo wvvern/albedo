@@ -9,10 +9,59 @@ repositories {
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }
 }
 
+// -Pquilt runs the dev game on Quilt Loader in place of Fabric Loader, which is the way to test a jar on Quilt (tools/screenshots.ps1 -Loader quilt).
+def quilt = project.hasProperty('quilt')
+if (quilt) {
+    repositories { maven { name = 'Quilt'; url = 'https://maven.quiltmc.org/repository/release/' } }
+}
+
 dependencies {
-    add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
+    // Loom reads the main class and the libraries of the loader from the Fabric Loader jar, so Quilt Loader runs next to it as the launcher.
+    add(quilt ? (project.unobfuscated ? 'compileOnly' : 'modCompileOnly') : project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
+    if (quilt) {
+        runtimeOnly "org.quiltmc:quilt-loader:$rootProject.quilt_loader_version"
+        // The pom of Quilt Loader lists no libraries; these two are the ones of quilt_installer.json that Fabric Loader does not have (Loom adds the rest).
+        runtimeOnly 'org.quiltmc:quilt-json5:1.0.4+final'
+        runtimeOnly 'org.quiltmc:quilt-config:1.3.3'
+        runtimeOnly 'io.github.llamalad7:mixinextras-fabric:0.5.5'
+    }
     // Optional: only the "Configure" button in Mod Menu uses it; the mod runs without Mod Menu.
     add(project.unobfuscated ? 'compileOnly' : 'modCompileOnly', "com.terraformersmc:modmenu:$project.modmenu_version") { transitive = false }
+}
+
+if (quilt) {
+    loom.runs.named('client') { property 'fabric.dli.main', 'org.quiltmc.loader.impl.launch.knot.KnotClient' }
+    // The mod is the classes and resources of this node and of the common node, which Quilt Loader reads as one mod through the group of these paths.
+    def nodeName = stonecutter.current.project
+    def ownBuild = project.layout.buildDirectory.get().asFile.toPath()
+    def commonBuild = rootProject.file("common/versions/${nodeName}/build").toPath()
+    if (project.hasProperty('quiltJar')) {
+        // -PquiltJar runs the release jar of this node as a mod, with none of the classes of the node on the class path.
+        def jarTask = tasks.named(project.unobfuscated ? 'shadowJar' : 'remapJar')
+        def modsDir = file('run/mods')
+        def installJar = tasks.register('installQuiltJar', Copy) {
+            from jarTask
+            into modsDir
+            doFirst { delete fileTree(modsDir) { include 'albedo-*.jar' } }
+        }
+        def jarRun = sourceSets.create('quiltJar')
+        jarRun.runtimeClasspath = sourceSets.main.runtimeClasspath.filter { !it.toPath().startsWith(ownBuild) && !it.toPath().startsWith(commonBuild) }
+        loom.runs.named('client') { source(jarRun) }
+        tasks.matching { it.name == 'runClient' }.configureEach { dependsOn installJar }
+    } else {
+        // Quilt Loader needs folders here, so the class and resource folders of both nodes join the class path next to the dev jar of the common node.
+        def own = [ownBuild, commonBuild].collectMany { [it.resolve('classes/java/main'), it.resolve('resources/main')] }.collect { it.toFile() }
+        dependencies { runtimeOnly files(own) }
+        loom.runs.named('client') { property 'loader.classPathGroups', own.collect { it.absolutePath }.join(File.pathSeparator) }
+    }
+    // Quilt Loader reads the loader.* names of the properties that Fabric Loader reads as fabric.*.
+    tasks.matching { it.name == 'generateDLIConfig' }.configureEach {
+        doLast {
+            def file = outputs.files.singleFile
+            def renamed = ~/^(\s*)fabric\.(development|defaultMixinRemapType|remapClasspathFile|classPathGroups)=/
+            file.text = file.readLines().collectMany { line -> line =~ renamed ? [line, line.replaceFirst(renamed, '$1loader.$2=')] : [line] }.join('\n') + '\n'
+        }
+    }
 }
 
 processResources {

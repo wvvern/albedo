@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- compat: Support Quilt on 1.16.5 to 1.21.11 with the Fabric jar
+
 ## 0.6.1
 
 - fix: Stop the crash on 26.2 with the Vulkan graphics backend when Chroma colors move
