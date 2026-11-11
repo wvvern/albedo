@@ -78,6 +78,9 @@ if (loader != 'common') {
                 property('albedo.harness', new File(project.property('harness') as String).absolutePath)
                 programArgs('--width', '1600', '--height', '900')
             }
+            // -Pbackend=vulkan|opengl forces the graphics backend of 26.2 and later; -PvulkanValidation turns on the Vulkan validation layers.
+            if (project.hasProperty('backend')) programArgs('--graphicsBackend', project.property('backend') as String)
+            if (project.hasProperty('vulkanValidation')) programArgs('--vulkanValidation')
         }
         named('server') { displayName.set("Server:${loader}:${stonecutter.current.version}") }
     }

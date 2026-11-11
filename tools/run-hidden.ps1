@@ -15,7 +15,11 @@ param(
     [string]$CommandLine,
     [string]$Log = "$env:TEMP\albedo-hidden.log",
     # Optional. Adds a renderer mod to the dev run (-Pcompat, see modern/gradle/shared.gradle), for example sodium.
-    [string]$Compat = ""
+    [string]$Compat = "",
+    # Optional. Forces the graphics backend of 26.2 and later (-Pbackend, see modern/gradle/shared.gradle).
+    [string]$Backend = "",
+    # Optional. Turns on the Vulkan validation layers (-PvulkanValidation).
+    [switch]$VulkanValidation
 )
 
 Add-Type @"
@@ -49,7 +53,9 @@ if (-not $CommandLine) {
     # --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
     # --configure-on-demand: with all version projects configured, Loom can write the files of one version into the cache of a different one.
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
-    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg"
+    $backendArg = if ($Backend) { " `"-Pbackend=$Backend`"" } else { "" }
+    $validationArg = if ($VulkanValidation) { " -PvulkanValidation" } else { "" }
+    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg$backendArg$validationArg"
 }
 $cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 

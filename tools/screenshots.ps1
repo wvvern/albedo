@@ -24,6 +24,8 @@ pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3,neoforge-26.3"
 ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # With VBOs off (the default of 1.12.2 is on):
 pwsh -Command "& ./tools/screenshots.ps1 -Targets forge-1.12.2 -OptionLines useVbo:false -OutDir build\vbo-off"
+# The Vulkan backend (26.2 and 26.3; the game log has "Using graphics backend Vulkan"):
+pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3 -Backend vulkan -OutDir build\vulkan"
 # With Sodium in the dev run, and more blocks for the renderer mods (lily pad, swamp grass):
 ./tools/screenshots.ps1 -Targets fabric-1.21.11 -Compat sodium -Extra scene-compat.txt -OutDir build\compat-sodium
 # With Iris (it adds Sodium) and a shader pack zip that you downloaded; without -ShaderPack, Iris has shaders off:
@@ -47,7 +49,11 @@ param(
     # Optional config.json that the game starts with in place of the default config, for example a copy of the config of a player.
     [string]$Config = "",
     # More options.txt lines, for example useVbo:false. Not $Options: PowerShell names are not case-sensitive.
-    [string[]]$OptionLines = @()
+    [string[]]$OptionLines = @(),
+    # The graphics backend of 26.2 and later, forced with the launch argument --graphicsBackend; 26.1 and older have only OpenGL.
+    [ValidateSet("", "opengl", "vulkan")][string]$Backend = "",
+    # The Vulkan validation layers of the game (--vulkanValidation), for a run with -Backend vulkan.
+    [switch]$VulkanValidation
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -87,13 +93,15 @@ function Get-PngSize([string]$file) {
     "$([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 16))) x $([Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 20)))"
 }
 
-function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [string[]]$hooks) {
+function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [string[]]$hooks, [string]$forced) {
     # The reasons why a run is not PASS, from the harness folder, the game log and the run folder.
     if (-not (Test-Path (Join-Path $runDir "config\albedo\config.json"))) { "the run folder does not have config/albedo/config.json" }
     $harnessLog = Join-Path $harness "log.txt"
     $harnessText = @(if (Test-Path $harnessLog) { Get-Content $harnessLog })
     $gameText = if (Test-Path $gradleLog) { Get-Content -Raw $gradleLog } else { "" }
     if (-not ($harnessText -match "^> quit")) { "the game did not get to quit" }
+    # The game falls back to the other backend when the forced one does not start, which would hide the test of the wrong backend.
+    if ($forced -and $gameText -notmatch "(?i)Using graphics backend $forced\b") { "the game log does not have 'Using graphics backend $forced'" }
     if ($gameText -notmatch "Albedo ready") { "the game log does not have 'Albedo ready'" }
     if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
     # With no other mod, each texture repaints in place; a failed upload reloads all resources, which hides the failure in the images.
@@ -234,7 +242,9 @@ foreach ($target in $Targets) {
 
     Write-Host "[$target] launching hidden"
     $log = Join-Path $harness "gradle.log"
-    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log -Compat $Compat
+    # Only 26.2 and later have the launch argument; the OpenGL game of an older version has no backend line to check.
+    $forcedBackend = if ($legacy -or [version]$version -lt [version]"26.2") { "" } else { $Backend }
+    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log -Compat $Compat -Backend $forcedBackend -VulkanValidation:$VulkanValidation
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $harnessLog = Join-Path $harness "log.txt"
     while ((Get-Date) -lt $deadline) {
@@ -274,7 +284,7 @@ foreach ($target in $Targets) {
     $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload", "mouseGrab") }
              elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint", "mouseGrab") }
              else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass", "mouseGrab") }
-    $failures = @(Get-Failures $harness $log $runDir $hooks)
+    $failures = @(Get-Failures $harness $log $runDir $hooks $forcedBackend)
     if ($irisFailed) { $failures += "Iris did not load the shader pack" }
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
     @($result, "target: $target", "commands: $(@($files | Split-Path -Leaf) -join ', ')", "screenshots: $($pngs.Count)") + $failures |
