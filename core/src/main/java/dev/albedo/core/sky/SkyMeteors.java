@@ -36,13 +36,6 @@ public final class SkyMeteors {
         final float[] start = new float[3];
         /** The unit direction of the motion at the start, at a right angle to it. */
         final float[] motion = new float[3];
-
-        /** The direction of the head at a time, which stops where the meteor goes out. */
-        void head(float time, float[] out) {
-            float angle = speed * Math.max(0f, Math.min(duration, time - birth));
-            float c = (float) Math.cos(angle), s = (float) Math.sin(angle);
-            for (int i = 0; i < 3; i++) out[i] = start[i] * c + motion[i] * s;
-        }
     }
 
     private SkyMeteors() {}
@@ -102,37 +95,5 @@ public final class SkyMeteors {
 
     private static float unit(int slot, int channel, int value, int seed) {
         return Noise.unit(Noise.hash(Math.floorMod(slot, PERIOD_SLOTS), channel, value, seed));
-    }
-
-    /**
-     * The first time after {@code from} at which a meteor of the first shown meteors layer is at its brightest above
-     * {@code minElevation} degrees, with the direction of its head.
-     *
-     * @return {time, x, y, z} in world directions, or null when the program has no meteors in the next ten minutes
-     */
-    public static float[] nextPeak(SkyProgram program, float from, float minElevation) {
-        int layer = -1;
-        float[] block = program.block();
-        for (int i = 0; i < (int) block[0] && layer < 0; i++) {
-            if ((int) block[SkyProgram.at(i, SkyProgram.KIND)] == SkyProgram.KIND_METEORS
-                    && (int) block[SkyProgram.at(i, SkyProgram.USE)] == SkyProgram.USE_SHOW) {
-                layer = i;
-            }
-        }
-        if (layer < 0) return null;
-        float low = (float) Math.sin(Math.toRadians(minElevation));
-        float[] head = new float[3];
-        int first = (int) Math.floor(from / SLOT);
-        for (int slot = first; slot < first + 600; slot++) {
-            for (int channel = 0; channel < CHANNELS; channel++) {
-                Meteor m = of(block, layer, slot, channel);
-                if (m == null) continue;
-                float peak = m.birth + 0.7f * m.duration;
-                if (peak <= from) continue;
-                m.head(peak, head);
-                if (head[1] >= low) return new float[]{peak, head[0], head[1], head[2]};
-            }
-        }
-        return null;
     }
 }

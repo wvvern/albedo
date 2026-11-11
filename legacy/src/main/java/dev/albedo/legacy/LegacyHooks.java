@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.util.ResourceLocation;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -89,11 +88,6 @@ public final class LegacyHooks {
         else if (texture instanceof ThreadDownloadImageData) upload = null; // a skin placeholder must not replace the default skin
         else upload = TextureStore.RELOAD_ONLY; // a texture type from a different mod
         return process(String.valueOf(location), image, upload);
-    }
-
-    /** The skin cache folder of SkinManager, which SkinManagerMixin gives. */
-    public interface SkinCache {
-        File albedo$skinCacheDir();
     }
 
     /** The folder of the texture that SkinManager.loadSkin loads on this thread now ("skins" or "capes"), or null. */

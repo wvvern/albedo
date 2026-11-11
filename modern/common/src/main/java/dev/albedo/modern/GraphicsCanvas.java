@@ -45,20 +45,5 @@ final class GraphicsCanvas implements Canvas {
         /^g.blit(location, x, y, w, h, 0f, 0f, img.width(), img.height(), img.width(), img.height());
         ^///?}
     }
-
-    // Draws all of a square texture of the game, for example a skin, as a square of size pixels.
-    //? if >=1.21.11 {
-    static void texture(GuiGraphics g, net.minecraft.resources.Identifier texture, int x, int y, int size, int textureSize) {
-        g.blit(texture, x, y, x + size, y + size, 0f, 1f, 0f, 1f);
-    }
-    //?} elif >=1.21.2 {
-    /^static void texture(GuiGraphics g, net.minecraft.resources.ResourceLocation texture, int x, int y, int size, int textureSize) {
-        g.blit(TEXTURED, texture, x, y, 0f, 0f, size, size, textureSize, textureSize, textureSize, textureSize);
-    }
-    ^///?} else {
-    /^static void texture(GuiGraphics g, net.minecraft.resources.ResourceLocation texture, int x, int y, int size, int textureSize) {
-        g.blit(texture, x, y, size, size, 0f, 0f, textureSize, textureSize, textureSize, textureSize);
-    }
-    ^///?}
 }
 *///?}

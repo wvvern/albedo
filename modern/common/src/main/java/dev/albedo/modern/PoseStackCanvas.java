@@ -36,7 +36,7 @@ final class PoseStackCanvas implements Canvas {
         texture(pose, CanvasImages.id(images.prepare(id, img)), x, y, w, h, img.width(), img.height());
     }
 
-    // Draws all of a texture of the game, for example a skin, into a box of w by h pixels.
+    // Draws all of a texture into a box of w by h pixels.
     static void texture(PoseStack pose, net.minecraft.resources.ResourceLocation texture, int x, int y, int w, int h, int textureWidth, int textureHeight) {
         //? if >=1.17 {
         RenderSystem.setShaderTexture(0, texture);

@@ -15,11 +15,11 @@ assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky
 dev/albedo/core/sky/SkyShaderSource*.class The constant BAKED names the program of the baked sky, and two dialects of 26.2 have a reversed depth buffer.
 assets/albedo/shaders/core/sky_sharp_classic.vsh The far depth of a reversed depth buffer is a define that only 26.2 sets.
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
-dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe and framechanged, and runs no command while the loading screen shows.
+dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe and framechanged, and runs no command while the loading screen shows; the commands group, skin, release, overlay, skyparam, skyextent, skypartial, meteor, fps and window are gone.
 dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white on 26.x, because 26.x uses its alpha; 1.21.x reads only its red, green and blue and keeps the old value.
-dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows.
+dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows, and has no methods for skins, textures, the camera, the frame rate or the window size.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
-dev/albedo/core/ui/ScriptedInput*.class A ui command whose label or slider the screen does not show logs "! no such control".
+dev/albedo/core/ui/ScriptedInput*.class A ui command whose label the screen does not show logs "! no such control", and the ui command slide is gone.
 dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
 dev/albedo/legacy/LegacyHarnessHost*.class The host gives the hook counters and reads the world, the player, the sound and the world creation through Game.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs, and a quad goes through Game.addQuad.
@@ -52,7 +52,7 @@ dev/albedo/modern/mixin/SkyLayersMixin.class The handlers call the sky class of 
 dev/albedo/modern/mixin/SkyAfterSolidMixin.class The handler calls the sky class of the family and counts its runs.
 dev/albedo/modern/SettingsScreen*.class The canvas and its images are classes of their own, the key table is a Java 8 switch, the title comes from ModernPlatform.text, and the start of text input is a method that runs only on 26.3.
 dev/albedo/modern/ExtractorCanvas.class A new class has the canvas of 26.x.
-dev/albedo/modern/GraphicsCanvas.class A new class has the canvas of the versions before 26.1, and the texture draw of TextureScreen.
+dev/albedo/modern/GraphicsCanvas.class A new class has the canvas of the versions before 26.1.
 dev/albedo/modern/CanvasImages.class A new class has the images of the canvas.
 dev/albedo/modern/TextureUploads*.class The sprite upload of each family is a class of its own, and the load step of a stand-alone texture is a method with a variant for 1.21.4 to 1.21.10, which ReloadableTextureUpload has.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change on 1.21.1, because the file has a variant for 1.21.4 to 1.21.10.
@@ -62,8 +62,15 @@ dev/albedo/modern/SpriteAccess.class A new class gives the pixels and the name o
 dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAccess and makes its backend in a method.
 dev/albedo/modern/mixin/SpriteLoaderMixin.class The handler gives a SpriteAccess to the hook.
 dev/albedo/modern/ModernHarnessHost.class The host is split by topic, gives the hook counters and tells the harness while the loading screen shows.
-dev/albedo/modern/Harness*.class New classes have the worlds, options, window, mouse, keyboard, screenshots, frame pixels and skins of the harness host, and the game rules of a new world come from a method with a variant for each version.
-dev/albedo/modern/TextureScreen.class The title comes from ModernPlatform.text, the texture id comes from HarnessSkins, and before 26.1 GraphicsCanvas draws the texture, with a blit that takes GraphicsCanvas.TEXTURED from 1.21.2.
+dev/albedo/modern/Harness*.class New classes have the worlds, options, window handle, mouse, keyboard, screenshots and frame pixels of the harness host, and the game rules of a new world come from a method with a variant for each version; HarnessSkins is gone with the harness commands skin, release and overlay.
+dev/albedo/modern/TextureScreen.class The class is gone with the harness command overlay, which was its only user.
+dev/albedo/modern/mixin/MinecraftFpsAccessor.class The class is gone with the harness command fps, which was its only user.
+dev/albedo/core/sky/SkyDayTime.class The hold and run methods are gone with the harness command skypartial.
+dev/albedo/core/sky/SkyMeteors*.class The nextPeak method and the head method of Meteor are gone with the harness command meteor.
+dev/albedo/legacy/GuiTexture.class The class is gone with the harness command overlay, which was its only user.
+dev/albedo/legacy/LegacyHooks$SkinCache.class The interface is gone with the harness command skin, which was its only user.
+dev/albedo/legacy/mixin/SkinManagerMixin.class The mixin no longer gives the skin cache folder, which only the harness command skin read.
+dev/albedo/legacy/mixin/MinecraftAccessor.class The accessor no longer has the resize invoker, which only the harness command window used.
 dev/albedo/modern/mixin/BlockTintMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/FullbrightMixin.class Only the line numbers change, because the file has a condition around it.
 dev/albedo/modern/mixin/ShadowMixin.class Only the line numbers change, because the file has a condition around it; 1.21.2 to 1.21.8 have a selector that takes each method with a name that starts with render.

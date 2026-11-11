@@ -12,7 +12,7 @@ Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FA
 A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures" (and, with no -Compat, no
 reason for a resource reload), the harness log has no line
 that starts with ! and no DIFFERENT, each skycompare logged "same", each framechanged logged its result, each screenshot command made its image at the window size
-(1600 x 900, or the size of the last window command), the hooks line shows
+(1600 x 900), the hooks line shows
 that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
 
 .EXAMPLE
@@ -113,14 +113,13 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     $compares = 0
     $frameChecks = 0
     $cursorChecks = 0
-    # The game starts at the size of the run task, and the command "window" changes it.
+    # The game starts at the size of the run task.
     $size = "1600 x 900"
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
         if ($words[0] -eq "skycompare") { $compares++ }
         if ($words[0] -eq "framechanged") { $frameChecks++ }
         if ($words[0] -eq "cursorfree") { $cursorChecks++ }
-        if ($words[0] -eq "window") { $size = "$($words[1]) x $($words[2])" }
         $images = @()
         if ($words[0] -eq "screenshot") {
             $images = @(Get-Item (Join-Path $harness "$($words[1] -replace '\.png$', '').png") -ErrorAction SilentlyContinue)

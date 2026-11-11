@@ -592,7 +592,7 @@ class SettingsEditorTest {
             RecordingCanvas canvas = new RecordingCanvas(960, 540);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
-            script(editor, canvas, "slide 0 effects.chromaSpeed");
+            pressTrackStart(editor, canvas, "effects.chromaSpeed");
             assertNotNull(canvas.texts.get("Still"), "speed 0 shows as Still: " + canvas.texts.keySet());
             script(editor, canvas, "click Apply");
             assertEquals(0, sc.storedConfig().activeProfile().get(Category.BLOCKS).appearance().chroma().speed());
@@ -998,12 +998,24 @@ class SettingsEditorTest {
         assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
         assertEquals(t, savedSky().turning(), "a preset keeps the turning");
 
-        // The harness presses the left end of the track by the id of the slider, which stops the sky and hides the options.
-        script(editor, canvas, "slide 0 sky.turning");
+        // A press at the left end of the turning track stops the sky and hides the options.
+        pressTrackStart(editor, canvas, "sky.turning");
         assertNull(canvas.texts.get("Speed"), "a still sky shows no options: " + canvas.texts.keySet());
         script(editor, canvas, "click Apply");
         assertEquals(0, savedSky().turning().amount());
         assertEquals(SkyTurning.Direction.REVERSE, savedSky().turning().direction(), "the other options stay");
+    }
+
+    /** Presses the left end of the track of the slider with this widget id and releases it. */
+    private static void pressTrackStart(SettingsEditor editor, RecordingCanvas canvas, String id) {
+        Rect track = editor.ui.dragAreas().get(id);
+        assertNotNull(track, "slider not drawn: " + id);
+        int y = track.y + track.h / 2;
+        editor.mousePressed();
+        editor.render(canvas, track.x, y);
+        editor.mouseReleased();
+        canvas.texts.clear();
+        editor.render(canvas, track.x, y);
     }
 
     /** Runs one harness command: a frame records the labels, the next runs the command and the last shows the result. */
@@ -1090,11 +1102,10 @@ class SettingsEditorTest {
         editor.render(canvas, 0, 0);
         script(editor, canvas, "click No such label");
         script(editor, canvas, "realclick No such label");
-        script(editor, canvas, "slide 50 no.such.slider");
         script(editor, canvas, "click Average");
         List<String> log = Files.readAllLines(new File(harness, "log.txt").toPath(), StandardCharsets.UTF_8);
-        assertEquals(Arrays.asList("! no such control: No such label", "! no such control: No such label",
-                "! no such control: no.such.slider"), log, "a drawn label logs nothing");
+        assertEquals(Arrays.asList("! no such control: No such label", "! no such control: No such label"), log,
+                "a drawn label logs nothing");
         assertNull(SettingsEditor.takeRealClick());
     }
 

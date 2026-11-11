@@ -32,20 +32,4 @@ final class HarnessOptions {
         /*Minecraft.getInstance().options.fov = degrees;
         *///?}
     }
-
-    static void uncapFrameRate() {
-        Options o = Minecraft.getInstance().options;
-        // The option value 260 is "Unlimited".
-        //? if >=1.19 {
-        o.framerateLimit().set(260);
-        o.enableVsync().set(false);
-        //?} else {
-        /*o.framerateLimit = 260;
-        o.enableVsync = false;
-        Minecraft.getInstance().getWindow().updateVsync(false);
-        *///?}
-        //? if >=1.21.2 {
-        o.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
-        //?}
-    }
 }
