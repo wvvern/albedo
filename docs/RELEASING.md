@@ -24,5 +24,6 @@ Pushing a tag such as `v1.2.0` makes CI build all 39 jars, create a GitHub relea
 - `modern` (one per node) and `legacy`: build, run `tools/check-jar.sh` or `tools/check-legacy-jar.sh`, upload `jars-<minecraft version>`.
 - `release`: on a tag, checks for 39 jars, adds a build attestation to each, creates the GitHub release.
 - `modrinth`: one upload per loader and jar group. The Fabric upload also lists `quilt` for the rows with `fabric_loaders` in the matrix. If an upload fails, delete the partial version on Modrinth and run `.github/workflows/modrinth.yml`.
+- `modrinth-description`: sets the Modrinth project description to `docs/modrinth.md`. The token needs the scope "Write projects". To run it without a release: `gh workflow run modrinth-description.yml`.
 
 Jar names are `albedo-<loader>-<version>+<minecraft version>.jar`; the `26.1` node builds `+26.1.2`.

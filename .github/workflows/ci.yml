@@ -248,3 +248,9 @@ jobs:
           loaders: neoforge
           game-versions: ${{ matrix.target.game_versions }}
           changelog: ${{ needs.check.outputs.notes }}
+
+  modrinth-description:
+    name: Modrinth description
+    needs: [release]
+    uses: ./.github/workflows/modrinth-description.yml
+    secrets: inherit
