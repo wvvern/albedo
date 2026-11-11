@@ -3,14 +3,14 @@
 Compares the built jars with the jars of a release, entry by entry, with no game.
 
 .DESCRIPTION
-For each jar in -New and in -Old, the script finds the jar with the same name in the other folder and compares the entry list and the SHA-256 of each entry.
+For each jar in -New and in -Old, the script finds the jar with the same name in the other folder, apart from the mod version in the name, and compares the entry list and the SHA-256 of each entry.
 tools/jar-changes.txt lists the entries that can be different, each with its reason.
 The exit code is 1 when an entry that is not in that list is different, added or removed, or when a jar has no partner.
 
 .EXAMPLE
-gh release download v0.5.0 --repo wvvern/albedo --dir build\v0.5.0
+gh release download v0.5.1 --repo wvvern/albedo --dir build\v0.5.1
 ./tools/build-all.ps1
-./tools/compare-jars.ps1 -Old build\v0.5.0 -New build\libs
+./tools/compare-jars.ps1 -Old build\v0.5.1 -New build\libs
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Old,
@@ -35,14 +35,17 @@ function Get-EntryHashes([string]$jar) {
     $hashes
 }
 
+# The name of a jar without its mod version, so that a jar of 0.6.0 finds its partner of 0.5.1.
+function Get-JarKey([string]$name) { $name -replace "-\d+\.\d+\.\d+\+", "-VERSION+" }
+
 $patterns = @(Get-Content $Explained | Where-Object { $_.Trim() -and -not $_.StartsWith("#") } | ForEach-Object { ($_.Trim() -split "\s+", 2)[0] })
 $failed = $false
 $jars = @(Get-ChildItem $New -Filter *.jar | Sort-Object Name)
 if ($jars.Count -eq 0) { throw "no jars in $New" }
 foreach ($jar in $jars) {
-    $partner = Join-Path $Old $jar.Name
-    if (-not (Test-Path $partner)) { Write-Host "$($jar.Name): FAIL, no jar with this name in $Old"; $failed = $true; continue }
-    $oldHashes = Get-EntryHashes (Resolve-Path $partner).Path
+    $partner = Get-ChildItem $Old -Filter *.jar | Where-Object { (Get-JarKey $_.Name) -eq (Get-JarKey $jar.Name) } | Select-Object -First 1
+    if (-not $partner) { Write-Host "$($jar.Name): FAIL, no jar with this name in $Old"; $failed = $true; continue }
+    $oldHashes = Get-EntryHashes $partner.FullName
     $newHashes = Get-EntryHashes $jar.FullName
     $lines = @()
     foreach ($name in (@($oldHashes.Keys) + @($newHashes.Keys) | Sort-Object -Unique)) {
@@ -57,7 +60,7 @@ foreach ($jar in $jars) {
     $lines | ForEach-Object { Write-Host $_ }
 }
 foreach ($jar in Get-ChildItem $Old -Filter *.jar | Sort-Object Name) {
-    if ($jars.Name -notcontains $jar.Name) { Write-Host "$($jar.Name): FAIL, no jar with this name in $New"; $failed = $true }
+    if (@($jars | Where-Object { (Get-JarKey $_.Name) -eq (Get-JarKey $jar.Name) }).Count -eq 0) { Write-Host "$($jar.Name): FAIL, no jar with this name in $New"; $failed = $true }
 }
 if ($failed) { Write-Host "FAIL"; exit 1 }
 Write-Host "PASS"
