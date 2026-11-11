@@ -1,5 +1,5 @@
 # The images of modrinth/gallery, all with a level camera: a split of vanilla, the turned Galaxy and quake-white, the
-# star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with red mobs:
+# star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with colored mobs and particles:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # Then put the three split shots side by side with tools/split.py and frame all images with tools/gallery.py.
 wait 60
@@ -279,9 +279,13 @@ wait 200
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
 screenshot g06-bevel-outline
-# 7. quake-white with red mobs on the shops.
+# 7. quake-white on the shops, with red mobs and blue particles (the petals of the cherry tree).
 profile quake-white
 look entities solid #C83232
+look particles solid #3C78DC
+# The light of the lanterns makes yellow shadows on the white walls.
+run setblock -41 -59 -2 air
+run setblock -39 -59 -2 air
 # The game multiplies the wool dye with the mob color, so white wool keeps the sheep red.
 run data merge entity @e[type=sheep,x=-46,y=-60,z=3,distance=..2,limit=1] {Color:0}
 run data merge entity @e[type=sheep,x=-33.5,y=-60,z=3.5,distance=..2,limit=1] {Color:0}
