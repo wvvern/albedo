@@ -31,7 +31,7 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 
 ## Install
 
-Put the jar for your Minecraft version and loader in your `mods/` folder. On Fabric you need only Fabric Loader 0.15.0 or newer, not Fabric API.
+Put the jar for your Minecraft version and loader in your `mods/` folder. On Fabric you need only Fabric Loader 0.15.0 or newer, not Fabric API. The Fabric jars also run on Quilt Loader 0.30.2, tested on every Minecraft version in the Fabric column.
 
 | Minecraft | Fabric | NeoForge | Forge |
 |-----------|:------:|:--------:|:-----:|

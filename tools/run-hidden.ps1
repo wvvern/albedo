@@ -19,7 +19,11 @@ param(
     # Optional. Forces the graphics backend of 26.2 and later (-Pbackend, see modern/gradle/shared.gradle).
     [string]$Backend = "",
     # Optional. Turns on the Vulkan validation layers (-PvulkanValidation).
-    [switch]$VulkanValidation
+    [switch]$VulkanValidation,
+    # Optional. Runs a Fabric node on Quilt Loader (-Pquilt, see modern/fabric/build.gradle).
+    [switch]$Quilt,
+    # With -Quilt: runs the release jar of the node as a mod (-PquiltJar), not the classes of the dev run.
+    [switch]$QuiltJar
 )
 
 Add-Type @"
@@ -55,7 +59,8 @@ if (-not $CommandLine) {
     $compatArg = if ($Compat) { " `"-Pcompat=$Compat`"" } else { "" }
     $backendArg = if ($Backend) { " `"-Pbackend=$Backend`"" } else { "" }
     $validationArg = if ($VulkanValidation) { " -PvulkanValidation" } else { "" }
-    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg$backendArg$validationArg"
+    $quiltArg = if ($Quilt) { " -Pquilt" + $(if ($QuiltJar) { " -PquiltJar" }) } else { "" }
+    $CommandLine = "`"$gradlew`" --no-daemon --configure-on-demand $Task `"-Pharness=$Harness`"$compatArg$backendArg$validationArg$quiltArg"
 }
 $cmdLine = "cmd.exe /s /c `"$CommandLine > `"$Log`" 2>&1`""
 

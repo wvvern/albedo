@@ -14,7 +14,7 @@ To build all of them on your computer, run `pwsh tools/build-all.ps1`. It builds
 - `modern` has one job for each row of the matrix in `.github/workflows/ci.yml`. A job builds all loaders of its node in one Gradle run, runs `tools/check-jar.sh` on each jar, and uploads the artifact `jars-<minecraft version>`.
 - `legacy` builds the jars of 1.8.9 and 1.12.2 and uploads `jars-1.8.9` and `jars-1.12.2`.
 - `release` runs on a tag. It checks that there are 39 jars, signs each jar with a build attestation, and makes the GitHub release.
-- `modrinth` has one job for each jar group. Each loader has its own upload step with the game versions of the row. Quilt is not listed. If an upload fails, delete the incomplete version on Modrinth and run `.github/workflows/modrinth.yml`.
+- `modrinth` has one job for each jar group. Each loader has its own upload step with the game versions of the row. The Fabric step also lists the loader `quilt` for each row with `fabric_loaders` in the matrix, which are the nodes that passed on Quilt (`docs/TESTED.md`). If an upload fails, delete the incomplete version on Modrinth and run `.github/workflows/modrinth.yml`.
 
 ## Steps
 

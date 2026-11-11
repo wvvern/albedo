@@ -220,7 +220,10 @@ jobs:
           files: dist/albedo-fabric-*.jar
           name: Albedo ${{ env.TAG }} for fabric ${{ matrix.target.mc }}
           version: ${{ env.TAG }}+fabric-${{ matrix.target.mc }}
-          loaders: fabric
+          # The Fabric jar of every node passed on Quilt Loader (docs/TESTED.md), so a new node needs its own Quilt run before it ships.
+          loaders: |
+            fabric
+            quilt
           game-versions: ${{ matrix.target.fabric_game_versions || matrix.target.game_versions }}
           changelog: ${{ needs.check.outputs.notes }}
       - name: Forge

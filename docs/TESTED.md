@@ -37,6 +37,17 @@ This file has one row for each of the 39 jars. A row is filled by the validation
 | Fabric | 26.2 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: sharp sky and Chroma run, skycompare and chromacompare same (2026-11-11). |
 | Fabric | 26.3 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: all five suites PASS (2026-11-11). |
 
+## Quilt
+
+The Fabric jars run on Quilt Loader 0.30.2 (the latest release on 2026-11-11), and no jar of its own is needed. The runs use `tools/screenshots.ps1 -Loader quilt`: the release jar of the node is a mod in the `mods` folder of a dev run, and the game log has the line `Loading Minecraft <version> with Quilt Loader 0.30.2` and the jar in the mod table. Quilt Loader reports Fabric Loader 0.19.5, so the `fabricloader` rule of the jar (`>=0.15.0`) passes on every node. On 26.1.2, 26.2 and 26.3 the entry point of the jar ran on Quilt Loader 0.30.2 (the game log has `Albedo ready`). Quilt remaps the intermediary jar to the names of the dev game when it starts, so the release jar was not tested in a game with intermediary names.
+
+| Minecraft | Suites | Notes |
+|-----------|--------|-------|
+| 1.16.5, 1.17.1, 1.19.2, 1.20.4, 1.20.6, 1.21.3, 1.21.4, 1.21.5, 1.21.8, 1.21.10, 26.1.2, 26.2 | Shots PASS | |
+| 1.18.2, 1.19.4, 1.20.1, 1.21.1, 1.21.11, 26.3 | all five PASS | |
+
+A first run of 1.18.2, 1.19.4, 1.20.1 and 1.21.11 gave screenshots of 1220 x 900 pixels, and so a FAIL for the window size only. Fabric Loader on 1.21.11 gave the same size on the same day, and a second run of these nodes, one game at a time, gave PASS.
+
 ## Forge
 
 | Loader | Minecraft | Tier | Shots | Sky sharp | Chroma | Typing | Settings pages | Release jar | Date | Notes |

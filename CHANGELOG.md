@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- compat: Run the Fabric jars on Quilt Loader 0.30.2
+
 ## 0.6.1
 
 - fix: Stop the crash on 26.2 with the Vulkan graphics backend when Chroma colors move

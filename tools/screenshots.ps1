@@ -53,7 +53,10 @@ param(
     # The graphics backend of 26.2 and later, forced with the launch argument --graphicsBackend; 26.1 and older have only OpenGL.
     [ValidateSet("", "opengl", "vulkan")][string]$Backend = "",
     # The Vulkan validation layers of the game (--vulkanValidation), for a run with -Backend vulkan.
-    [switch]$VulkanValidation
+    [switch]$VulkanValidation,
+    # The mod loader of a fabric target: fabric; quilt, which runs the release jar of the node as a mod on Quilt Loader (the game log has its version line);
+    # or quilt-dev, which runs the dev classes on Quilt Loader.
+    [ValidateSet("fabric", "quilt", "quilt-dev")][string]$Loader = "fabric"
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -102,6 +105,9 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     if (-not ($harnessText -match "^> quit")) { "the game did not get to quit" }
     # The game falls back to the other backend when the forced one does not start, which would hide the test of the wrong backend.
     if ($forced -and $gameText -notmatch "(?i)Using graphics backend $forced\b") { "the game log does not have 'Using graphics backend $forced'" }
+    if ($Loader -ne "fabric" -and $gameText -notmatch "with Quilt Loader \d") { "the game log does not have the Quilt Loader version line" }
+    # The mod table of Quilt Loader names the file of each mod; the release jar of the node is in the mods folder of the run.
+    if ($Loader -eq "quilt" -and $gameText -notmatch "<mods>\\albedo-fabric-\S+\.jar") { "the mod table of the game log does not have the release jar of Albedo" }
     if ($gameText -notmatch "Albedo ready") { "the game log does not have 'Albedo ready'" }
     if ($gameText -notmatch "Changed \d+ textures") { "the game log does not have 'Changed N textures'" }
     # With no other mod, each texture repaints in place; a failed upload reloads all resources, which hides the failure in the images.
@@ -185,14 +191,15 @@ function Set-Iris([string]$runDir) {
 $failed = @()
 foreach ($target in $Targets) {
     $irisFailed = $false
-    $loader, $version = $target -split "-", 2
+    $platform, $version = $target -split "-", 2
+    if ($Loader -ne "fabric" -and $platform -ne "fabric") { throw "-Loader $Loader runs only fabric targets, not $target" }
     # The legacy build has the Forge targets with MCP names; all other Forge targets are in the modern build.
     $legacy = $target -in @("forge-1.8.9", "forge-1.12.2")
     if ($legacy) {
         $dir = Join-Path $root "legacy"; $task = ":${version}:runClientDev"; $runDir = Join-Path $dir "versions\$version\run"; $scene = "scene-legacy.txt"
     } else {
-        $dir = Join-Path $root "modern"; $task = ":${loader}:${version}:runClient"
-        $runDir = Join-Path $dir "$loader\versions\$version\run"; $scene = "scene-modern.txt"
+        $dir = Join-Path $root "modern"; $task = ":${platform}:${version}:runClient"
+        $runDir = Join-Path $dir "$platform\versions\$version\run"; $scene = "scene-modern.txt"
     }
     $harness = Join-Path $env:TEMP "albedo-harness\$target"
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
@@ -202,10 +209,12 @@ foreach ($target in $Targets) {
     # The files that the commands use, for example clip.ps1 of cursorfree.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
+    # A release jar that an earlier -Loader quilt run left here would load next to the classes of the dev run.
+    Remove-Item (Join-Path $runDir "mods\albedo-*.jar") -ErrorAction SilentlyContinue
     # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
-    if (-not $legacy -and $loader -ne "fabric") { Set-TomlKey $runDir "fml.toml" "earlyWindowControl" "false" }
+    if (-not $legacy -and $platform -ne "fabric") { Set-TomlKey $runDir "fml.toml" "earlyWindowControl" "false" }
     # The NeoForge dev run checks each Blaze3D call, but Sodium 0.8.14 casts a texture that this check wraps, so -Compat stops it.
-    if (-not $legacy -and $loader -eq "neoforge") {
+    if (-not $legacy -and $platform -eq "neoforge") {
         Set-TomlKey $runDir "neoforge-client.toml" "enableB3DValidationLayer" $(if ($Compat) { "false" } else { "true" })
     }
     $irisRun = $iris -and -not $legacy
@@ -244,12 +253,14 @@ foreach ($target in $Targets) {
     $log = Join-Path $harness "gradle.log"
     # Only 26.2 and later have the launch argument; the OpenGL game of an older version has no backend line to check.
     $forcedBackend = if ($legacy -or [version]$version -lt [version]"26.2") { "" } else { $Backend }
-    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log -Compat $Compat -Backend $forcedBackend -VulkanValidation:$VulkanValidation
+    $gradlePid = & (Join-Path $PSScriptRoot "run-hidden.ps1") -Dir $dir -Task $task -Harness $harness -Log $log -Compat $Compat -Backend $forcedBackend -VulkanValidation:$VulkanValidation -Quilt:($Loader -ne "fabric") -QuiltJar:($Loader -eq "quilt")
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $harnessLog = Join-Path $harness "log.txt"
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 3
         if (-not (Get-Process -Id $gradlePid -ErrorAction SilentlyContinue)) { break }
+        # A loader that fails to start leaves the Gradle process running.
+        if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'Uncaught exception in thread "main"' -Quiet)) { Write-Host "[$target] the loader did not start"; break }
         if ((Test-Path $harnessLog) -and (Select-String -Path $harnessLog -Pattern "^> quit" -Quiet)) {
             # The game saves the world before it exits; 26.x can take 10 s or more.
             $quitBy = (Get-Date).AddSeconds(30)
