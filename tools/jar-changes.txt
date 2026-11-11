@@ -7,7 +7,7 @@ albedo.mixins.json The build writes the client list from the mixin classes of th
 fabric.mod.json The Fabric jar asks for Fabric Loader 0.15.0, the first version with MixinExtras, not for the version of the build.
 dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of Fabric Loader to the mod.
 dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
-dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks, the cloud option and the flat sky hook count their runs, processSprite takes a SpriteAccess, and the fog keeps its vanilla color when the sky stays vanilla with a shader pack.
+dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks, the cloud option and the flat sky hook count their runs, processSprite takes a SpriteAccess, and the fog keeps its vanilla color when the sky stays vanilla with a shader pack, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
 dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none, and text() makes a text component for the screens and the message.
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
 dev/albedo/core/sky/SkyShaderSource*.class The constant BAKED names the program of the baked sky, and two dialects of 26.2 have a reversed depth buffer.
@@ -18,7 +18,7 @@ dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is op
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput*.class A ui command whose label or slider the screen does not show logs "! no such control".
-dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game.
+dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
 dev/albedo/legacy/LegacyHarnessHost*.class The host gives the hook counters and reads the world, the player, the sound and the world creation through Game.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs, and a quad goes through Game.addQuad.
 dev/albedo/legacy/Game.class A new class has the game members whose names are different on 1.8.9 and 1.12.2.
@@ -75,4 +75,7 @@ dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/AmbientOcclusionMixin.class The common code is compiled against the annotations of Mixin 0.8.5, which write the one "at" of a redirect as a value and not as an array, with the same meaning.
 dev/albedo/modern/mixin/SkySunriseMixin.class The sunrise fan redirect of SkyLayersMixin is a mixin of its own, so that a version without the redirect can leave it out.
+dev/albedo/modern/mixin/MouseGrabMixin.class A new mixin skips the window calls of the mouse grab and release only when the harness runs, with require = 0.
+dev/albedo/legacy/mixin/MouseGrabMixin.class A new mixin skips the LWJGL mouse grab and the cursor move only when the harness runs, with require = 0.
+dev/albedo/core/dev/CursorClip.class A new class is the check of the harness command cursorfree.
 dev/albedo/modern/KeyCodes.class A new class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.

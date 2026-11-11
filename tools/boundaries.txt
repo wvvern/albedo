@@ -293,3 +293,10 @@ net.minecraft.client.gui.Gui#setOverlayMessage
 net.minecraft.network.chat.TextComponent
 com.mojang.blaze3d.platform.InputConstants#KEY_A
 com.mojang.blaze3d.platform.InputConstants#PRESS
+net.minecraft.client.MouseHandler#grabMouse
+net.minecraft.client.MouseHandler#releaseMouse
+net.minecraft.client.MouseHandler#grabMouse>InputConstants.grabOrReleaseMouse
+net.minecraft.client.MouseHandler#grabMouse>InputConstants.grabMouse
+com.mojang.blaze3d.platform.InputConstants#grabOrReleaseMouse
+com.mojang.blaze3d.platform.InputConstants#grabMouse
+com.mojang.blaze3d.platform.InputConstants#releaseMouse
