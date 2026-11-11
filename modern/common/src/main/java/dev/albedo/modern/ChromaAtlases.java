@@ -53,8 +53,8 @@ final class ChromaAtlases {
     private static final float[] TURNS = new float[Chroma.TURN_FLOATS];
     /** The texture paints of the core when the texels were made, so that a change makes them again. */
     private static int paints = Integer.MIN_VALUE;
-    /** True from the pass at the start of a frame until the atlases get back their painted colors. */
-    private static boolean recolored;
+    /** The targets that the pass recolored at the start of a frame, until their atlases get back their painted colors. */
+    private static final List<ChromaBackend.Target> RECOLORED = new ArrayList<>();
     /** True after the pass failed, so that it does not run again in this game. */
     private static boolean broken;
     /** The clock time of the colors of this frame. */
@@ -116,9 +116,11 @@ final class ChromaAtlases {
             Chroma.turns(seconds, TURNS);
             if (timedLeft > 0) frameTimers = new ChromaBackend.Timer[]{BACKEND.timer(), BACKEND.timer()};
             if (frameTimers != null) frameTimers[0].begin();
-            for (ChromaBackend.Target target : TARGETS.values()) target.recolor(TURNS);
+            for (ChromaBackend.Target target : TARGETS.values()) {
+                target.recolor(TURNS);
+                RECOLORED.add(target);
+            }
             if (frameTimers != null) frameTimers[0].end();
-            recolored = true;
         } catch (RuntimeException e) {
             stop(e);
         }
@@ -128,7 +130,7 @@ final class ChromaAtlases {
     /** Gives the atlases back their painted colors at the end of a frame, after the harness saw the frame. */
     static void frameEnd() {
         Albedo sc = Albedo.get();
-        if (sc != null) sc.frameDrawn(recolored ? seconds : SkyClock.longSeconds());
+        if (sc != null) sc.frameDrawn(RECOLORED.isEmpty() ? SkyClock.longSeconds() : seconds);
         long start = System.nanoTime();
         if (frameTimers != null) frameTimers[1].begin();
         restore();
@@ -144,10 +146,11 @@ final class ChromaAtlases {
 
     /** Gives the atlases back their painted colors before Albedo writes new sprites into them in the middle of a frame. */
     static void restore() {
-        if (!recolored) return;
-        recolored = false;
+        if (RECOLORED.isEmpty()) return;
+        List<ChromaBackend.Target> targets = new ArrayList<>(RECOLORED);
+        RECOLORED.clear();
         try {
-            for (ChromaBackend.Target target : TARGETS.values()) target.restore();
+            for (ChromaBackend.Target target : targets) target.restore();
         } catch (RuntimeException e) {
             stop(e);
         }
@@ -202,7 +205,6 @@ final class ChromaAtlases {
     /** Stops the pass for this game after an error, and lets the core paint still Chroma colors in place of it. */
     private static void stop(RuntimeException e) {
         broken = true;
-        recolored = false;
         Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. They stay still.", e);
         close();
         Albedo.get().chromaGpu(false);
