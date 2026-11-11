@@ -198,12 +198,20 @@ public final class ModernHooks {
     /** True when the fog code of the game gives the camera the fog of a fluid, blindness or darkness, which hides the sky. */
     static boolean fogHidesSky(net.minecraft.client.Camera camera) {
         //? if >=1.17 {
-        net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
-        if (fluid == net.minecraft.world.level.material.FogType.WATER || fluid == net.minecraft.world.level.material.FogType.LAVA
-                || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
+        if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER) return true;
         //?} else {
-        /*net.minecraft.world.level.material.FluidState fluid = camera.getFluidInCamera();
-        if (fluid.is(net.minecraft.tags.FluidTags.WATER) || fluid.is(net.minecraft.tags.FluidTags.LAVA)) return true;
+        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.WATER)) return true;
+        *///?}
+        return skySkipped(camera);
+    }
+
+    /** True when the sky pass of the game draws no sky in lava, in powder snow, with blindness and with darkness; 1.17 still draws it. */
+    static boolean skySkipped(net.minecraft.client.Camera camera) {
+        //? if >=1.17 {
+        net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
+        if (fluid == net.minecraft.world.level.material.FogType.LAVA || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
+        //?} else {
+        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.LAVA)) return true;
         *///?}
         //? if >=1.21.11 {
         net.minecraft.world.entity.Entity entity = camera.entity();
