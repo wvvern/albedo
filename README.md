@@ -56,7 +56,7 @@ Put the jar for your Minecraft version and loader in your `mods/` folder. On Fab
 | 26.2      | Yes    | Yes      |       |
 | 26.3      | Yes    | Yes      |       |
 
-Each jar is for the exact version in the table. Other versions are not tested. The jar for 26.1 is for 26.1.2.
+Each jar is for the version in the table. A Fabric jar also runs on these versions: 1.19 and 1.19.1 (jar 1.19.2), 1.19.3 (jar 1.19.4), 1.20 (jar 1.20.1), 1.20.3 (jar 1.20.4), 1.20.5 (jar 1.20.6), 1.21 (jar 1.21.1), 1.21.2 (jar 1.21.3), 1.21.6 and 1.21.7 (jar 1.21.8), 1.21.9 (jar 1.21.10), 26.1 and 26.1.1 (jar 26.1). Forge and NeoForge jars run only on their own version. Other versions are not tested. The jar for 26.1 is for 26.1.2.
 
 ## Config file
 

@@ -76,7 +76,8 @@ while IFS= read -r row; do
     done
     [ "$(sed -n 's/.*loaders: \[\([^]]*\)\].*/\1/p' <<<"$row" | tr -d ' ')" = "$loaders" ] || row_error "must have the loaders [$loaders]"
     read -r lower upper <<<"$(prop minecraft_range_fabric | tr -d '>=<')"
-    for version in $(sed -n "s/.*game_versions: [\"']\(.*\)[\"'] }.*/\1/p" <<<"$row" | sed 's/\\n/ /g'); do
+    # Both game_versions and fabric_game_versions must be in the range, so the pattern starts at "game_versions".
+    for version in $(grep -oE "game_versions: (\"[^\"]*\"|'[^']*')" <<<"$row" | sed -E "s/^game_versions: .(.*).\$/\1/; s/\\\\n/ /g"); do
         { at_most "$lower" "$version" && at_most "$version" "$upper" && [ "$version" != "$upper" ]; } \
             || row_error "has the game version $version, which is not in minecraft_range_fabric"
     done
