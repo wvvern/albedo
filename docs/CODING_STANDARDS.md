@@ -1,70 +1,32 @@
 # Coding standards
 
-Obey these rules when you change the code. The tag after each rule shows how the project examines it:
-
-- `[cs]`: Checkstyle, with the rules in `core/config/checkstyle/checkstyle.xml`.
-- `[lint]`: `tools/lint.sh`. CI runs it in the `Check` job.
-- `[javac]`: the compiler settings in `core/build.gradle`.
-- `[review]`: a reviewer examines it. No tool can do this check.
-
-A `[cs]`, `[lint]` or `[javac]` violation stops the build. Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle and tests) and `bash tools/lint.sh` in the repository root.
-
-## Scope
-
-Checkstyle examines `core/src/main` and `core/src/test` only. It does not examine `modern/` and `legacy/`:
-
-- Stonecutter changes the `modern/` source text for each version. The inactive branches are code in comments.
-- Mixin handler names contain `$`. The adapters use Mojang and MCP names and long target descriptors.
-
-`tools/lint.sh` examines all files that git tracks, the adapters included.
+Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. CI runs both.
 
 ## Architecture
 
-1. The core does not use Minecraft, loader, Mixin, LWJGL, AWT, Swing or ImageIO types. `[javac]` `[cs] IllegalImport, noGameOrDesktopTypes`
-2. The core compiles for Java 8. `[javac] options.release = 8`
-3. The core has no Stonecutter comments (`//?`). `[cs] noStonecutter`
-4. The core does not write to `System.out` or `System.err`. Use `Platform.info` and `Platform.warn`. `[cs] noConsole`
-5. The name of each mixin handler starts with `albedo$`. `@Shadow` and `@Accessor` members keep the target name. `[lint]`
-6. A mixin handler has no game logic. It sends plain values to `ModernHooks` or `LegacyHooks`, and the core makes the decision. `[review]`
-7. Config types are immutable. A `with*` method gives a new object. `[review]`
-
-## Text and files
-
-8. Tracked text files contain only ASCII characters. `[lint]` `[cs] asciiOnly`
-9. Use spaces, not tabs. Do not put spaces at the end of a line. Each file ends with a newline. `[lint]` `[cs]`
-10. Write all text that users read in ASD-STE100 Simplified Technical English: messages, screen labels, README and docs. `[review]`
-
-## Java (core)
-
-11. A line has a maximum of 150 characters. Package lines, import lines and lines with a URL are not examined. `[cs] LineLength`
-12. Do not use wildcard imports. You can use a static wildcard import. Remove unused imports. `[cs] AvoidStarImport, UnusedImports`
-13. Put imports in three groups, with one empty line between them: `dev`, `org` and other libraries; `java` and `javax`; static. Sort each group in ASCII order. `[cs] CustomImportOrder`
-14. Names: `UpperCamel` for types, `lowerCamel` for methods, fields, parameters and variables, `UPPER_SNAKE` for constants, lowercase letters and digits for packages. `[cs]` naming checks
-15. Put one space around binary operators and after keywords, commas and casts. Do not put spaces inside parentheses. `[cs]` whitespace checks
-16. Put `{` at the end of the line. You can write a short body on one line, for example `{ return name; }`. `[cs] braceOnOwnLine`
-17. Each `switch` has a `default`. Mark a fall-through with the comment `// fall through`. `[cs] MissingSwitchDefault, FallThrough`
-18. Write modifiers in JLS order. Do not write redundant modifiers. `[cs] ModifierOrder, RedundantModifier`
-19. A class with only static members is `final` and has a private constructor. `[cs] HideUtilityClassConstructor, FinalClass`
-20. If you override `equals`, also override `hashCode`. Compare strings with `equals`, not `==`. `[cs] EqualsHashCode, StringLiteralEquality`
-21. An empty `catch` block has a comment that gives the reason, or its variable has the name `ignored`. `[cs] EmptyCatchBlock`
-22. Do not commit `TODO` or `FIXME` comments. Open an issue. `[cs] TodoComment`
-23. Layout: indent with 4 spaces. You can write an `if`, `for` or `else` with no braces if the statement fits on one line. `[review]`
-24. Javadoc is short. Write it for public types, and for members when the name does not tell enough. For each change to core behavior, add or change a JUnit 5 test. `[review]`
-25. A comment has one sentence. Each Javadoc tag (`@param`, `@return`) has one sentence. If you need more, give the code a better name or split it. `[review]`
-26. A comment tells what the code does and why. It does not tell what the code did before a change. Put the history in the commit message. `[review]`
-
-## Commits
-
-27. A commit title is a Conventional Commit in ASD-STE100: `type: Verb ...`, at most 72 characters, no period. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. The body says why, not how. Release notes come from these titles (see [RELEASING.md](RELEASING.md)). `[review]`
+1. The core uses no Minecraft, loader, Mixin, LWJGL, AWT, Swing or ImageIO types, and compiles for Java 8. The compiler and Checkstyle enforce this.
+2. The core never writes to `System.out` or `System.err`; use `Platform.info` and `Platform.warn`.
+3. Mixin handler names start with `albedo$` (lint). `@Shadow` and `@Accessor` members keep the target name.
+4. A mixin handler extracts values and makes one call into the adapter class of its concept. Decisions belong in core.
+5. Config types are immutable; a `with*` method returns a new object.
+6. Each change to core behavior comes with a JUnit 5 test.
 
 ## Version conditions (modern)
 
-28. A file that all versions share has no condition inside a condition, and no condition chain with more than three branches. `[review]`
-29. Put the code that only one rendering family can compile in a class with a condition around the whole file. Such a class can have conditions for one API change, and Stonecutter writes an inactive branch inside an inactive file as `/^ ... ^/`. `[review]`
-30. Use a family constant of `modern/stonecutter.gradle` (`gl_fixed`, `gl_core`, `frame_graph`, `gpu_device`, `renderpearl`) for a rendering family. Use a version predicate only for one API change. `[review]`
-31. Each version in a condition is a boundary in the table of [ARCHITECTURE.md](ARCHITECTURE.md). `[lint]`
-32. Do not add Java 9 syntax (`var`, `instanceof` with a name, `Math.clamp`, `List.of`, `List.copyOf`) to a file that all versions share, because the oldest version compiles with Java 8. A file with a condition around the whole file can use it. `[lint]`
+7. Code that only one rendering family can compile goes in a class with a condition around the whole file. Name the family with a constant from `modern/stonecutter.gradle` (`gl_fixed`, `gl_core`, `frame_graph`, `gpu_device`, `renderpearl`, and `gl_sky`/`gl_chroma` for the raw GL classes). Use a version predicate only for a single API change.
+8. Many conditions in one shared method are a sign: move the varying call into a version shim, or the code into a family file.
+9. Every version in a condition is a row of the boundary table in [ARCHITECTURE.md](ARCHITECTURE.md) (lint).
+10. Shared modern files must compile with Java 8, because the 1.16.5 node builds with it.
 
-## When a check is incorrect
+## Style
 
-If a check is incorrect for one element, add `@SuppressWarnings("checkstyle:<check>")`, for example `checkstyle:linelength`, with a comment that gives the reason. Do not change `checkstyle.xml` for one file. The regex checks also match text in string literals.
+11. Checkstyle (`core/config/checkstyle/checkstyle.xml`) is the Java style for core. To silence one check for one element, use `@SuppressWarnings("checkstyle:<check>")` with a comment that says why.
+12. Text files are ASCII, indented with spaces, with no trailing spaces and a final newline (lint).
+13. UI text, README and changelog: short plain English for a player. Code comments and docs: normal technical English.
+14. No comment when the name says it. Otherwise say why, briefly. A real trap (driver bug, ordering constraint) can take a short paragraph at the code it protects.
+15. Javadoc only where a caller needs something the signature does not say.
+16. Comments describe the code as it is. History goes in the commit message. No `TODO` or `FIXME`; open an issue.
+
+## Commits
+
+17. Titles are Conventional Commits in the imperative, at most 72 characters, no period: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. The body says why.
