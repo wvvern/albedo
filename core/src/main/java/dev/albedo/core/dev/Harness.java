@@ -50,6 +50,9 @@ public final class Harness {
     public interface Host {
         boolean inWorld();
 
+        /** Whether the game still shows its loading screen, where no command runs, because the models can be missing. */
+        default boolean loading() { return false; }
+
         void openWorld(String name);
 
         void runCommand(String command);
@@ -257,6 +260,7 @@ public final class Harness {
         host.quiet();
         writeStatus(host.inWorld() ? "world" : "menu");
         takeCommandFile();
+        if (host.loading()) return;
         realClick();
         if (waitingForWorld) {
             if (!host.inWorld()) return;

@@ -20,6 +20,15 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public boolean loading() {
+        //? if >=26.2 {
+        return Minecraft.getInstance().gui.overlay() != null;
+        //?} else {
+        /*return Minecraft.getInstance().getOverlay() != null;
+        *///?}
+    }
+
+    @Override
     public void openWorld(String name) {
         //? if >=1.19 {
         HarnessWorlds.open(name);

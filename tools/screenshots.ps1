@@ -138,6 +138,20 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     if ($changed -lt $frameChecks) { "$frameChecks framechanged commands gave only $changed results" }
 }
 
+# The ground of a superflat world is at y=-61 from 1.18 and at y=3 before it, so a scene line moves up by 64 blocks on the old versions.
+function Move-SceneUp([string]$line) {
+    $words = $line -split " "
+    $yIndexes = switch ($words[1]) { "fill" { @(3, 6) } "setblock" { @(3) } "tp" { @(4) } "summon" { @(4) } default { @() } }
+    if ($words[0] -ne "run" -or $words.Count -lt 5) { return $line }
+    foreach ($i in $yIndexes) {
+        $y = 0.0
+        if ($i -lt $words.Count -and [double]::TryParse($words[$i], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$y) -and $y -ge -64 -and $y -lt 0) {
+            $words[$i] = ($y + 64).ToString([Globalization.CultureInfo]::InvariantCulture)
+        }
+    }
+    return $words -join " "
+}
+
 function Set-Iris([string]$runDir) {
     # Iris reads config/iris.properties at start, and the file stays for later runs, so each run writes it.
     $config = Join-Path $runDir "config"
@@ -206,8 +220,10 @@ foreach ($target in $Targets) {
     # Each run logs the hook counters before it stops, so that the result can show a hook that did not run.
     # The block short_grass has the name grass before 1.20.3.
     $oldGrass = -not $legacy -and [version]$version -lt [version]"1.20.3"
+    $oldGround = -not $legacy -and [version]$version -lt [version]"1.18"
     $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
         ForEach-Object { if ($oldGrass) { $_ -replace "\bshort_grass\b", "grass" } else { $_ } } |
+        ForEach-Object { if ($oldGround) { Move-SceneUp $_ } else { $_ } } |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"
