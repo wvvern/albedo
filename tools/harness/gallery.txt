@@ -1,5 +1,5 @@
-# The images of docs/gallery and the store page, all with a level camera: a split of vanilla, the turned Galaxy and
-# quake-white, the star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and the minimal profile:
+# The images of modrinth/gallery, all with a level camera: a split of vanilla, the turned Galaxy and quake-white, the
+# star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with red mobs:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # Then put the three split shots side by side with tools/split.py and frame all images with tools/gallery.py.
 wait 60

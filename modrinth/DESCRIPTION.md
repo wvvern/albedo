@@ -1,6 +1,6 @@
 # Albedo
 
-![Vanilla, the minimal profile with the Galaxy sky, and quake-white](https://raw.githubusercontent.com/wvvern/albedo/master/docs/gallery/01-split.png)
+![Vanilla, the minimal profile with the Galaxy sky, and quake-white](https://raw.githubusercontent.com/wvvern/albedo/master/modrinth/gallery/01-split.png)
 
 Albedo is a client-side mod that lets you paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
 

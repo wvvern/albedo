@@ -1,19 +1,21 @@
 <#
 .SYNOPSIS
-Makes the reference screenshots of each target on a hidden desktop.
-Builds a test scene in a superflat world. Takes screenshots of vanilla, each built-in profile,
+Runs a command file of the test harness for each target on a hidden desktop and checks the result.
+The default command file builds a test scene in a superflat world and takes screenshots of vanilla, each built-in profile,
 night with and without fullbright, and the settings screen.
 
 .DESCRIPTION
 The game runs with the test harness (core/src/main/java/dev/albedo/core/dev/Harness.java).
 Sound and narrator are off. The game does not pause when it loses focus.
-Screenshots go to docs/screenshots/<target>/, or to <OutDir>/<target>/.
-Each target also gets <OutDir>/<target>/result.txt, which starts with PASS or FAIL. The exit code is 1 when a target fails.
-A target is PASS when the game got to quit, the game log has "Albedo ready" and "Changed N textures" (and, with no -Compat, no
-reason for a resource reload), the harness log has no line
-that starts with ! and no DIFFERENT, each skycompare logged "same", each framechanged logged its result, each screenshot command made its image at the window size
-(1600 x 900), the hooks line shows
-that each hook of the game ran, and the run folder has config/albedo/config.json. The script adds the command hooks before quit.
+Screenshots go to <OutDir>/<target>/ (default build/screenshots), with result.txt, which starts with PASS or FAIL.
+The exit code is 1 when a target fails. A target is PASS when:
+- the game got to quit,
+- the game log has "Albedo ready" and "Changed N textures", and with no -Compat, no reason for a resource reload,
+- the harness log has no line that starts with ! and no DIFFERENT,
+- each skycompare logged "same" and each framechanged logged its result,
+- each screenshot is at the window size (1600 x 900),
+- the hooks line shows that each hook of the game ran (the script adds the command hooks before quit),
+- the run folder has config/albedo/config.json.
 
 .EXAMPLE
 ./tools/screenshots.ps1                       # every target
@@ -35,7 +37,7 @@ param(
     [string[]]$Targets = @("fabric-26.3", "neoforge-26.3", "fabric-1.21.11", "neoforge-1.21.11", "fabric-1.21.1", "neoforge-1.21.1", "forge-1.8.9"),
     [int]$TimeoutSeconds = 600,
     # The folder for the screenshots, relative to the repository root.
-    [string]$OutDir = "docs\screenshots",
+    [string]$OutDir = "build\screenshots",
     # The command file in tools/harness/, run after the scene.
     [string]$Shots = "shots.txt",
     # Optional dev-only renderer mod for modern targets, for example sodium or embeddium.

@@ -46,7 +46,7 @@ Before you push: `./gradlew :core:check` in `modern/` and `bash tools/lint.sh` i
 pwsh -Command "& ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Shots sky-sharp.txt -OutDir build\run"
 ```
 
-- Suites: `shots.txt` (each profile, mod on and off, hooks, window size, cursor), `sky-sharp.txt` (`skycompare` on the presets), `chroma.txt` with `pastel.txt`, `typing-modern.txt` / `typing-legacy.txt`, `settings-pages.txt`, `gallery.txt` (the images in `docs/gallery`). The `scene-*.txt` files set up the world.
+- Suites: `shots.txt` (each profile, mod on and off, hooks, window size, cursor), `sky-sharp.txt` (`skycompare` on the presets), `chroma.txt` with `pastel.txt`, `typing-modern.txt` / `typing-legacy.txt`, `settings-pages.txt`, `gallery.txt` (the images in `modrinth/gallery`). The `scene-*.txt` files set up the world.
 - 1.8.9 and 1.12.2 run the `*-legacy.txt` copy of a `*-modern.txt` file.
 - Options: `-Compat <mod>`, `-ShaderPack <zip>`, `-Config <config.json>`, `-OptionLines key:value` (for example `useVbo:true`), `-Backend opengl|vulkan` (26.2+, add `-VulkanValidation` for the validation layers), `-Loader quilt` (the node's release jar on Quilt Loader) or `quilt-dev`.
 - Each target gets a `result.txt`: `PASS` or `FAIL` on the first line, then the reasons. Reasons are log lines starting with `!` (including `! unknown command` and `! no such control`), a screenshot that is not 1600 x 900, a `skycompare` without `same`, or a missing hook. The exit code is 1 if any target fails.

@@ -8,5 +8,3 @@ runs/
 .vscode/
 .kotlin/
 .claude/
-# tools/screenshots.ps1 writes the result of a run next to the reference screenshots.
-docs/screenshots/*/result.txt
