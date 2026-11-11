@@ -183,29 +183,32 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public void recolor(float[] turns) {
             GlState saved = GlState.ofAll();
-            GlStateManager._disableBlend();
-            GlStateManager._disableDepthTest();
-            GlStateManager._disableScissorTest();
-            GlStateManager._disableCull();
-            for (int level = 0; level < widths.length; level++) copy(live, pristine, level);
-            GlStateManager._glUseProgram(PROGRAM.id());
-            turnBytes.clear();
-            turnBytes.asFloatBuffer().put(turns);
-            GL20.nglUniform4fv(PROGRAM.turns, Chroma.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
-            GlStateManager._glBindVertexArray(PROGRAM.vertexArray);
-            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, PROGRAM.drawFbo);
-            for (int level = 0; level < widths.length; level++) {
-                GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
-                GlStateManager._viewport(0, 0, widths[level], heights[level]);
-                baseLevel(GL13.GL_TEXTURE0, pristine, level);
-                baseLevel(GL13.GL_TEXTURE1, texels, level);
-                GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3);
+            try {
+                GlStateManager._disableBlend();
+                GlStateManager._disableDepthTest();
+                GlStateManager._disableScissorTest();
+                GlStateManager._disableCull();
+                for (int level = 0; level < widths.length; level++) copy(live, pristine, level);
+                GlStateManager._glUseProgram(PROGRAM.id());
+                turnBytes.clear();
+                turnBytes.asFloatBuffer().put(turns);
+                GL20.nglUniform4fv(PROGRAM.turns, Chroma.TURN_FLOATS / 4, MemoryUtil.memAddress(turnBytes));
+                GlStateManager._glBindVertexArray(PROGRAM.vertexArray);
+                GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, PROGRAM.drawFbo);
+                for (int level = 0; level < widths.length; level++) {
+                    GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
+                    GlStateManager._viewport(0, 0, widths[level], heights[level]);
+                    baseLevel(GL13.GL_TEXTURE0, pristine, level);
+                    baseLevel(GL13.GL_TEXTURE1, texels, level);
+                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3);
+                }
+            } finally {
+                GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+                // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
+                baseLevel(GL13.GL_TEXTURE1, texels, 0);
+                baseLevel(GL13.GL_TEXTURE0, pristine, 0);
+                saved.restore();
             }
-            GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
-            // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
-            baseLevel(GL13.GL_TEXTURE1, texels, 0);
-            baseLevel(GL13.GL_TEXTURE0, pristine, 0);
-            saved.restore();
         }
 
         // Binds a texture to a unit with one level as its base level, which the shader reads with texelFetch at level 0.
