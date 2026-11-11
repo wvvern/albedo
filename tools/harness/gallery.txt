@@ -282,6 +282,9 @@ screenshot g06-bevel-outline
 # 7. quake-white with red mobs on the shops.
 profile quake-white
 look entities solid #C83232
+# The game multiplies the wool dye with the mob color, so white wool keeps the sheep red.
+run data merge entity @e[type=sheep,x=-46,y=-60,z=3,distance=..2,limit=1] {Color:0}
+run data merge entity @e[type=sheep,x=-33.5,y=-60,z=3.5,distance=..2,limit=1] {Color:0}
 run tp @p -39.5 -60 10.5 180 -4
 wait 100
 run tp @e[type=!player,tag=!g] 0 -300 0
