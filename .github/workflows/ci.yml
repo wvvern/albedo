@@ -132,7 +132,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - name: Build
         working-directory: legacy
-        run: ./gradlew -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 ${TAG:+-PmodVersion=${TAG#v}} build
+        # One Gradle run for each version, as tools/build-all.ps1 does.
+        run: |
+          for mc in 1.8.9 1.12.2; do
+            ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 \
+              ${TAG:+-PmodVersion=${TAG#v}} ":$mc:build"
+          done
+      - name: Examine the jars
+        run: |
+          for mc in 1.8.9 1.12.2; do
+            bash tools/check-legacy-jar.sh legacy/versions/$mc/build/libs/albedo-forge-*+$mc.jar $mc
+          done
       - uses: actions/upload-artifact@v7
         with:
           name: jars-1.8.9
@@ -158,6 +168,9 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Count the jars
+        # 18 Fabric, 7 Forge and 12 NeoForge jars, and the Forge jars of 1.8.9 and 1.12.2.
+        run: test "$(ls dist/*.jar | wc -l)" = 39
       - uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/*.jar
