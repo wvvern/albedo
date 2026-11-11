@@ -112,12 +112,14 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     # The harness renames commands.txt to commands.taken when it reads it.
     $compares = 0
     $frameChecks = 0
+    $cursorChecks = 0
     # The game starts at the size of the run task, and the command "window" changes it.
     $size = "1600 x 900"
     foreach ($line in Get-Content (Join-Path $harness "commands.taken") -ErrorAction SilentlyContinue) {
         $words = @($line.Trim() -split "\s+")
         if ($words[0] -eq "skycompare") { $compares++ }
         if ($words[0] -eq "framechanged") { $frameChecks++ }
+        if ($words[0] -eq "cursorfree") { $cursorChecks++ }
         if ($words[0] -eq "window") { $size = "$($words[1]) x $($words[2])" }
         $images = @()
         if ($words[0] -eq "screenshot") {
@@ -136,6 +138,9 @@ function Get-Failures([string]$harness, [string]$gradleLog, [string]$runDir, [st
     # A framechanged logs its result when the next frame is read back, which can come after quit.
     $changed = @($harnessText -match "^framechanged ").Count
     if ($changed -lt $frameChecks) { "$frameChecks framechanged commands gave only $changed results" }
+    # A cursorfree logs its result at once, with a "!" when the game clips the cursor, so a missing line means that it did not run.
+    $cursorFree = @($harnessText -match "^cursorfree: (ok|skipped)").Count
+    if ($cursorFree -lt $cursorChecks) { "$cursorChecks cursorfree commands gave only $cursorFree results with 'ok'" }
 }
 
 # The ground of a superflat world is at y=-61 from 1.18 and at y=3 before it, so a scene line moves up by 64 blocks on the old versions.
@@ -266,9 +271,10 @@ foreach ($target in $Targets) {
         $irisFailed = $true
     }
     # A renderer mod replaces the terrain draw, so its own tint hook must run in place of the game's tint and afterSolid hooks.
-    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload") }
-             elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint") }
-             else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass") }
+    # The hook mouseGrab counts the grab calls that the harness skips, so that a game which grabs the mouse (and clips the cursor) fails.
+    $hooks = if ($legacy) { @("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload", "mouseGrab") }
+             elseif ($Compat) { @("fullbright", "shadow", "skyPass", "sodiumTint", "mouseGrab") }
+             else { @("afterSolid", "tint", "fullbright", "shadow", "skyPass", "mouseGrab") }
     $failures = @(Get-Failures $harness $log $runDir $hooks)
     if ($irisFailed) { $failures += "Iris did not load the shader pack" }
     $result = if ($failures.Count -eq 0) { "PASS" } else { "FAIL" }
