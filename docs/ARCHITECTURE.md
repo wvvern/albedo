@@ -137,7 +137,7 @@ Traps by version:
 
 `//? if` comments mark version differences in `modern/` only, never in core. A class that only one rendering family can compile has a condition around the whole file. The families are constants in `modern/stonecutter.gradle`: `gl_fixed` (before 1.17), `gl_core` (1.17 to 1.21.1), `frame_graph` (1.21.2 to 1.21.4), `gpu_device` (1.21.5 to 26.2), `renderpearl` (26.3), plus `gl_sky` (raw GL sky to 1.21.5) and `gl_chroma` (raw GL Chroma to 1.21.10). Shared classes call the family class: `ModernSky` calls `PearlSky`, `PrecompiledSky`, `FixedSky` or `GlSky`; `TextureUploads` calls `DeviceAtlasUpload` or `GlAtlasUpload`.
 
-A condition may only use a version from this table (`tools/lint.sh` checks). `tools/boundaries.sh` prints the shape of every member in `tools/boundaries.txt` on every node, from the Mojang-named jars; use it to place a boundary. Only the nodes are read, so a boundary between two nodes is not checked against the minor versions in between. With only 1.21.1 and 1.21.11 as nodes on either side, not every `>=1.21.11` is a true boundary; recheck when adding a node there.
+A condition may only use a version from this table (`tools/lint.sh` checks). `tools/boundaries.sh` prints the shape of every member in `tools/boundaries.txt` on every node, from the Mojang-named jars; use it to place a boundary. Only the nodes are read, so a boundary between two nodes is not checked against the minor versions in between. With only 1.21.1 and 1.21.11 as nodes on either side, not every `>=1.21.11` is a true boundary; recheck when adding a node there. To add a Minecraft version, see "Add a Minecraft version" in [BUILDING.md](BUILDING.md).
 
 | Boundary | Main API change |
 |----------|-----------------|
