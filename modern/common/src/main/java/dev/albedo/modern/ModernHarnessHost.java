@@ -3,10 +3,7 @@ package dev.albedo.modern;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.NarratorStatus;
-import net.minecraft.client.Options;
 import net.minecraft.client.server.IntegratedServer;
-import net.minecraft.sounds.SoundSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,8 +20,21 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
+    public boolean loading() {
+        //? if >=26.2 {
+        return Minecraft.getInstance().gui.overlay() != null;
+        //?} else {
+        /*return Minecraft.getInstance().getOverlay() != null;
+        *///?}
+    }
+
+    @Override
     public void openWorld(String name) {
+        //? if >=1.19 {
         HarnessWorlds.open(name);
+        //?} else {
+        /*HarnessWorldsOld.open(name);
+        *///?}
     }
 
     @Override
@@ -34,7 +44,11 @@ final class ModernHarnessHost implements Harness.Host {
             Harness.log("! no singleplayer server");
             return;
         }
+        //? if >=1.19 {
         server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command));
+        //?} else {
+        /*server.execute(() -> server.getCommands().performCommand(server.createCommandSourceStack(), command));
+        *///?}
     }
 
     @Override
@@ -129,16 +143,12 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void quiet() {
-        Options o = Minecraft.getInstance().options;
-        if (o.getSoundSourceOptionInstance(SoundSource.MASTER).get() != 0.0) o.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
-        if (o.narrator().get() != NarratorStatus.OFF) o.narrator().set(NarratorStatus.OFF);
-        // A window on a hidden desktop never has focus; pausing would stop the command queue.
-        o.pauseOnLostFocus = false;
+        HarnessOptions.quiet();
     }
 
     @Override
     public void setFov(int degrees) {
-        Minecraft.getInstance().options.fov().set(degrees);
+        HarnessOptions.setFov(degrees);
     }
 
     @Override
@@ -165,18 +175,16 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public int framesPerSecond() {
+        //? if >=1.19.3 {
         return Minecraft.getInstance().getFps();
+        //?} else {
+        /*return dev.albedo.modern.mixin.MinecraftFpsAccessor.albedo$fps();
+        *///?}
     }
 
     @Override
     public void uncapFrameRate() {
-        Options o = Minecraft.getInstance().options;
-        // The option value 260 is "Unlimited".
-        o.framerateLimit().set(260);
-        o.enableVsync().set(false);
-        //? if >=1.21.2 {
-        o.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
-        //?}
+        HarnessOptions.uncapFrameRate();
     }
 
     @Override

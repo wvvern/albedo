@@ -1,7 +1,6 @@
 package dev.albedo.modern;
 
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 /** Development-only: shows one texture large on a gray square, so that a harness screenshot shows a skin. */
 final class TextureScreen extends Screen {
@@ -16,7 +15,7 @@ final class TextureScreen extends Screen {
 
     /** @param id the texture, for example "minecraft:skins/<sha1>" */
     TextureScreen(String id) {
-        super(Component.literal("Texture"));
+        super(ModernPlatform.text("Texture"));
         this.texture = HarnessSkins.id(id);
     }
 
@@ -37,24 +36,26 @@ final class TextureScreen extends Screen {
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // the world stays visible behind the texture
     }
-    //?} elif >=1.20.2 {
+    //?} elif >=1.20 {
     /*@Override
     public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int x = 8, y = 8, size = SIZE * SCALE;
         g.fill(x - 4, y - 4, x + size + 4, y + size + 4, 0xFF808080);
         GraphicsCanvas.texture(g, texture, x, y, size, SIZE);
-    }
-
-    @Override
-    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // the world stays visible behind the texture
     }
     *///?} else {
     /*@Override
-    public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(com.mojang.blaze3d.vertex.PoseStack pose, int mouseX, int mouseY, float partialTick) {
         int x = 8, y = 8, size = SIZE * SCALE;
-        g.fill(x - 4, y - 4, x + size + 4, y + size + 4, 0xFF808080);
-        GraphicsCanvas.texture(g, texture, x, y, size, SIZE);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x - 4, y - 4, x + size + 4, y + size + 4, 0xFF808080);
+        PoseStackCanvas.texture(pose, texture, x, y, size, size, SIZE, SIZE);
+    }
+    *///?}
+
+    //? if >=1.20.2 && <26.1 {
+    /*@Override
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // the world stays visible behind the texture
     }
     *///?}
 }

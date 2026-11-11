@@ -27,7 +27,7 @@ public abstract class FogMixin {
         ModernHooks.overrideFog(camera, cir.getReturnValue());
     }
 }
-*///?} elif <1.21.2 {
+*///?} elif >=1.19.3 && <1.21.2 {
 /*@Mixin(net.minecraft.client.renderer.FogRenderer.class)
 public abstract class FogMixin {
     @org.spongepowered.asm.mixin.Shadow private static float fogRed;

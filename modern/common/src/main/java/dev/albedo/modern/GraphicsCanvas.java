@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if <26.1 {
+//? if >=1.20 && <26.1 {
 /*import dev.albedo.core.ui.Canvas;
 import dev.albedo.core.ui.CanvasImage;
 import net.minecraft.client.gui.Font;

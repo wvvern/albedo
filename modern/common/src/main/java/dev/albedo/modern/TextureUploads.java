@@ -39,7 +39,7 @@ final class TextureUploads {
         /** Writes the full image (every animation frame), then makes the mip levels from it. */
         void repaint() {
             write(pixels, access.image());
-            access.remip();
+            access.remip(sprite);
         }
     }
 

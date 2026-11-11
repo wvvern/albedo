@@ -7,7 +7,6 @@ import dev.albedo.core.ui.SettingsEditor;
 import dev.albedo.core.ui.UiKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 /**
  * Hosts the version-agnostic {@link SettingsEditor}: the life cycle and the input of the settings screen, which draws
@@ -19,7 +18,7 @@ public final class SettingsScreen extends Screen {
     private final CanvasImages images = new CanvasImages();
 
     public SettingsScreen(Screen parent) {
-        super(Component.literal(Albedo.NAME));
+        super(ModernPlatform.text(Albedo.NAME));
         this.parent = parent;
         ModernHooks.bootstrap();
         this.editor = new SettingsEditor(Albedo.get());
@@ -46,21 +45,23 @@ public final class SettingsScreen extends Screen {
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // the editor draws its own backdrop and keeps the world visible behind it
     }
-    //?} elif >=1.20.2 {
+    //?} elif >=1.20 {
     /*@Override
     public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
         textInput();
     }
-
-    @Override
-    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // the editor draws its own backdrop and keeps the world visible behind it
-    }
     *///?} else {
     /*@Override
-    public void render(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        editor.render(new GraphicsCanvas(g, font, width, height, images), mouseX, mouseY);
+    public void render(com.mojang.blaze3d.vertex.PoseStack pose, int mouseX, int mouseY, float partialTick) {
+        editor.render(new PoseStackCanvas(pose, font, width, height, images), mouseX, mouseY);
+    }
+    *///?}
+
+    //? if >=1.20.2 && <26.1 {
+    /*@Override
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // the editor draws its own backdrop and keeps the world visible behind it
     }
     *///?}
 
