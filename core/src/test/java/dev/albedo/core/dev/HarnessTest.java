@@ -197,10 +197,22 @@ class HarnessTest {
 
     @Test
     void theHooksLineShowsTheRunsOfEachCounter() {
-        HookCounter ran = new HookCounter("afterSolid"), missed = new HookCounter("tint");
-        ran.run();
-        ran.run();
-        assertEquals("hooks: afterSolid=2 tint=0", Harness.hooksLine(Arrays.asList(ran, missed)));
+        System.setProperty("albedo.harness", "harness");
+        try {
+            HookCounter ran = new HookCounter("afterSolid"), missed = new HookCounter("tint");
+            ran.run();
+            ran.run();
+            assertEquals("hooks: afterSolid=2 tint=0", Harness.hooksLine(Arrays.asList(ran, missed)));
+        } finally {
+            System.clearProperty("albedo.harness");
+        }
+    }
+
+    @Test
+    void aCounterDoesNotCountWithoutTheHarness() {
+        HookCounter counter = new HookCounter("tint");
+        counter.run();
+        assertEquals(0, counter.runs());
     }
 
     @Test

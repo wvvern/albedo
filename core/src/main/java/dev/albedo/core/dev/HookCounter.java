@@ -6,15 +6,17 @@ import java.util.concurrent.atomic.LongAdder;
 public final class HookCounter {
     private final String name;
     private final LongAdder runs = new LongAdder();
+    // Read once, because a hook can run for each face of a chunk and only a harness run shows the counts.
+    private final boolean counting = Harness.active();
 
     /** @param name the name of the hook in the harness log, for example "afterSolid" */
     public HookCounter(String name) {
         this.name = name;
     }
 
-    /** Records one run of the hook, from any thread. */
+    /** Records one run of the hook, from any thread, when the game runs with the harness. */
     public void run() {
-        runs.increment();
+        if (counting) runs.increment();
     }
 
     public String name() {
