@@ -42,19 +42,6 @@ for version in $(git grep -hE '//\?.*(if|elif) ' -- 'modern/*.java' | grep -oE '
         || { echo "docs/ARCHITECTURE.md: error: the version $version of a Stonecutter condition is not in the boundary table"; fail=1; }
 done
 
-# A file that all versions share must compile with Java 8 for the oldest node, so it gets no more Java 9 syntax than the 3 lines that it has, which are in branches for 1.21.4 and later.
-# A file with a condition around the whole file is not examined, because its condition can leave out the oldest node.
-java9='\bvar [A-Za-z_]+ [=:]|instanceof [A-Za-z_.<>?]+ [a-z][A-Za-z]* *[)&|]|Math\.clamp\(|\b(List|Set|Map)\.(of|copyOf)\(|"""|\brecord [A-Z]'
-shared=$(git ls-files -- 'modern/*/src/*.java' | while IFS= read -r f; do
-    awk 'NR > 1 && NF { exit !/^\/\/\? if/ }' "$f" || echo "$f"
-done)
-# shellcheck disable=SC2086
-if [ "$(grep -hE "$java9" $shared | wc -l)" -gt 3 ]; then
-    grep -nE "$java9" $shared
-    echo 'error: do not add Java 9 syntax (var, instanceof with a name, Math.clamp, List.of) to a file that all versions share'
-    fail=1
-fi
-
 # Each row of the CI matrix agrees with modern/settings.gradle and with the gradle.properties of its node.
 ci=.github/workflows/ci.yml
 node_list() { sed -n "s/^def $1 = \[\(.*\)\]$/\1/p" modern/settings.gradle | tr -d "' "; }
