@@ -46,9 +46,7 @@ public final class ModernHooks {
 
     /** Whether the window calls of the mouse grab and release must not run, which is so only with the test harness. */
     public static boolean skipMouseGrab() {
-        if (!Harness.active()) return false;
-        MOUSE_GRAB.run();
-        return true;
+        return Harness.skip(MOUSE_GRAB);
     }
 
     public static void bootstrap() {

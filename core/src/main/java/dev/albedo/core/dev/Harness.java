@@ -250,6 +250,13 @@ public final class Harness {
         return !System.getProperty("albedo.harness", "").trim().isEmpty();
     }
 
+    /** Counts one skipped window call and returns true when the game runs with the harness, otherwise returns false. */
+    public static boolean skip(HookCounter counter) {
+        if (!active()) return false;
+        counter.run();
+        return true;
+    }
+
     /** @return the harness, or null when the system property is not set */
     public static Harness fromSystemProperty(Platform platform) {
         String path = System.getProperty("albedo.harness");
