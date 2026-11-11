@@ -30,7 +30,11 @@ final class HarnessSkins {
         Minecraft mc = Minecraft.getInstance();
         String folder = cape ? "capes/" : "skins/";
         // The game names a skin by the SHA-1 of its hash and keeps the file in <cache>/<first 2>/<hash>.
-        var id = id("minecraft:" + folder + com.google.common.hash.Hashing.sha1().hashUnencodedChars(hash));
+        //? if >=1.21.11 {
+        net.minecraft.resources.Identifier id = id("minecraft:" + folder + com.google.common.hash.Hashing.sha1().hashUnencodedChars(hash));
+        //?} else {
+        /*net.minecraft.resources.ResourceLocation id = id("minecraft:" + folder + com.google.common.hash.Hashing.sha1().hashUnencodedChars(hash));
+        *///?}
         File file = new File(new File(new File(png.getParentFile(), "skin-cache"), hash.substring(0, 2)), hash);
         Files.createDirectories(file.getParentFile().toPath());
         Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);

@@ -23,6 +23,16 @@ public final class SpriteAccess {
         return new SpriteAccess(sprite.contents());
     }
 
+    /** The column of the first pixel of the sprite in its atlas. */
+    static int x(TextureAtlasSprite sprite) {
+        return sprite.getX();
+    }
+
+    /** The row of the first pixel of the sprite in its atlas. */
+    static int y(TextureAtlasSprite sprite) {
+        return sprite.getY();
+    }
+
     /** The name of the sprite in its atlas, for example {@code minecraft:block/stone}. */
     String name() {
         return String.valueOf(contents.name());
@@ -88,6 +98,16 @@ public final class SpriteAccess {
     /^* The access to a sprite that an atlas holds. ^/
     static SpriteAccess of(TextureAtlasSprite sprite) {
         return new SpriteAccess(sprite.getName(), levels(sprite)[0], sprite.getWidth(), sprite.getHeight());
+    }
+
+    /^* The column of the first pixel of the sprite in its atlas. ^/
+    static int x(TextureAtlasSprite sprite) {
+        return ((SpriteMainImageAccessor) sprite).albedo$x();
+    }
+
+    /^* The row of the first pixel of the sprite in its atlas. ^/
+    static int y(TextureAtlasSprite sprite) {
+        return ((SpriteMainImageAccessor) sprite).albedo$y();
     }
 
     /^* The name of the sprite in its atlas, for example {@code minecraft:block/stone}. ^/

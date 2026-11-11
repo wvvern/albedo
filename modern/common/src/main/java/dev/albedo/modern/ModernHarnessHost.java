@@ -1,8 +1,10 @@
 package dev.albedo.modern;
 
+import com.mojang.blaze3d.platform.Window;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 
 import java.io.File;
@@ -153,10 +155,15 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void look(float yaw, float pitch) {
-        var player = Minecraft.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
+        //? if >=1.17 {
         player.setYRot(yaw);
         player.setXRot(pitch);
+        //?} else {
+        /*player.yRot = yaw;
+        player.xRot = pitch;
+        *///?}
         player.yRotO = yaw;
         player.xRotO = pitch;
     }
@@ -168,6 +175,8 @@ final class ModernHarnessHost implements Harness.Host {
         return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         //?} elif >=1.21.6 {
         /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        *///?} elif gl_fixed {
+        /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?} else {
         /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?}
@@ -194,7 +203,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public int[] frameSize() {
-        var window = Minecraft.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         return new int[]{window.getWidth(), window.getHeight()};
     }
 

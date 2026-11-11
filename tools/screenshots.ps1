@@ -224,6 +224,8 @@ foreach ($target in $Targets) {
     $lines | ForEach-Object { if ($_ -match "^quit\s*$") { "hooks" }; $_ } |
         ForEach-Object { if ($oldGrass) { $_ -replace "\bshort_grass\b", "grass" } else { $_ } } |
         ForEach-Object { if ($oldGround) { Move-SceneUp $_ } else { $_ } } |
+        # The server stands at the world spawn, which a flat world before 1.18 puts away from 0 0, so a relative tp starts from the player there.
+        ForEach-Object { if ($oldGround) { $_ -replace "^run tp @p ~ ~ ~ ", "run execute as @p at @p run tp @p ~ ~ ~ " } else { $_ } } |
         Set-Content -Encoding ascii (Join-Path $harness "commands.txt")
 
     Write-Host "[$target] launching hidden"

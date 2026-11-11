@@ -42,6 +42,7 @@ final class HarnessOptions {
         //?} else {
         /*o.framerateLimit = 260;
         o.enableVsync = false;
+        Minecraft.getInstance().getWindow().updateVsync(false);
         *///?}
         //? if >=1.21.2 {
         o.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);

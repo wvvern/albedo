@@ -11,5 +11,11 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface SpriteMainImageAccessor {
     @Accessor("mainImage")
     NativeImage[] albedo$mainImage();
+
+    @Accessor("x")
+    int albedo$x();
+
+    @Accessor("y")
+    int albedo$y();
 }
 *///?}

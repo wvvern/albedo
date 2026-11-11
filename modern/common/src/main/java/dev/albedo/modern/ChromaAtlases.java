@@ -30,6 +30,8 @@ final class ChromaAtlases {
     private static final ChromaBackend BACKEND = new ChromaPass();
     //?} elif >=1.21.11 {
     /*private static final ChromaBackend BACKEND = new PrecompiledChromaPass();
+    *///?} elif gl_fixed {
+    /*private static final ChromaBackend BACKEND = new FixedChromaPass();
     *///?} else {
     /*private static final ChromaBackend BACKEND = new GlChromaPass();
     *///?}
@@ -92,11 +94,12 @@ final class ChromaAtlases {
             for (Object id : ATLASES) {
                 AbstractTexture texture = TextureUploads.registered(id);
                 ChromaBackend.Target target = TARGETS.get(id);
-                if (!(texture instanceof TextureAtlas atlas)) {
+                if (!(texture instanceof TextureAtlas)) {
                     if (target != null) TARGETS.remove(id).close();
                     LAYOUTS.remove(id);
                     continue;
                 }
+                TextureAtlas atlas = (TextureAtlas) texture;
                 boolean newLayout = LAYOUTS.get(id) != ((TextureAtlasAccessor) atlas).albedo$texturesByName();
                 if (changed || newLayout || target != null && !target.sameTexture(atlas)) build(id, atlas);
             }
@@ -176,7 +179,7 @@ final class ChromaAtlases {
             /*int padding = 0;
             *///?}
             SpriteAccess access = SpriteAccess.of(sprite);
-            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), sprite.getX(), sprite.getY(), access.width(), access.height(), padding);
+            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(), padding);
         }
         if (!texels.moving()) return;
         if (BACKEND.compile() == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");

@@ -5,6 +5,7 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.albedo.core.ui.Canvas;
 import dev.albedo.core.ui.CanvasImage;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiComponent;
 
@@ -37,7 +38,11 @@ final class PoseStackCanvas implements Canvas {
 
     // Draws all of a texture of the game, for example a skin, into a box of w by h pixels.
     static void texture(PoseStack pose, net.minecraft.resources.ResourceLocation texture, int x, int y, int w, int h, int textureWidth, int textureHeight) {
+        //? if >=1.17 {
         RenderSystem.setShaderTexture(0, texture);
+        //?} else {
+        /^Minecraft.getInstance().getTextureManager().bind(texture);
+        ^///?}
         GuiComponent.blit(pose, x, y, w, h, 0f, 0f, textureWidth, textureHeight, textureWidth, textureHeight);
     }
 }

@@ -26,7 +26,7 @@ final class ModernPlatform implements Platform {
     //? if >=1.18 {
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
     //?} else {
-    /*// The game of 1.17 logs with Log4j and has no SLF4J provider in the Forge dev run.
+    /*// The game before 1.18 logs with Log4j and has no SLF4J provider in the Forge dev run.
     private static final Logger LOG = LogManager.getLogger("albedo");
     *///?}
 

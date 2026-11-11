@@ -270,3 +270,26 @@ net.minecraft.client.Options#enableVsync
 net.minecraft.network.chat.TextComponent#<init>
 com.mojang.blaze3d.vertex.BufferUploader#end
 com.mojang.blaze3d.vertex.BufferBuilder#popNextBuffer
+
+# Fixed function (1.16.5)
+net.minecraft.client.renderer.texture.TextureAtlasSprite#x
+net.minecraft.client.renderer.texture.TextureAtlasSprite#y
+net.minecraft.client.renderer.texture.TextureAtlasSprite#getX
+net.minecraft.client.renderer.texture.AbstractTexture#getId
+net.minecraft.client.renderer.texture.AbstractTexture#bind
+net.minecraft.client.renderer.RenderType#cutout
+com.mojang.blaze3d.systems.RenderSystem#pushMatrix
+com.mojang.blaze3d.systems.RenderSystem#multMatrix
+com.mojang.blaze3d.platform.GlStateManager#glGenFramebuffers
+com.mojang.blaze3d.platform.GlStateManager#_glBindFramebuffer
+com.mojang.blaze3d.platform.GlStateManager#_glFramebufferTexture2D
+com.mojang.blaze3d.platform.GlStateManager#_glDeleteFramebuffers
+com.mojang.blaze3d.platform.GlStateManager#_genTexture
+com.mojang.blaze3d.platform.GlStateManager#_glUseProgram
+net.minecraft.world.level.levelgen.FlatLevelSource
+net.minecraft.client.Options#narrator
+com.mojang.blaze3d.platform.Window#updateVsync
+net.minecraft.client.gui.Gui#setOverlayMessage
+net.minecraft.network.chat.TextComponent
+com.mojang.blaze3d.platform.InputConstants#KEY_A
+com.mojang.blaze3d.platform.InputConstants#PRESS
