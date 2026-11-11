@@ -2,7 +2,7 @@
 
 ## 0.6.2
 
-- compat: Run the Fabric jars on Quilt Loader 0.30.2
+- compat: Run the Fabric jars for 1.16.5 to 1.21.11 on Quilt Loader 0.30.2
 
 ## 0.6.1
 
