@@ -3,6 +3,7 @@ package dev.albedo.legacy;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.Policy;
+import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
@@ -27,12 +28,21 @@ public final class LegacyHooks {
     public static final HookCounter SHADE = new HookCounter("shade");
     public static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
     public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
+    /** The skipped LWJGL calls of the mouse grab and release, which only a harness game skips. */
+    private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
-    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD);
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD, MOUSE_GRAB);
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 
     private LegacyHooks() {}
+
+    /** Whether the LWJGL calls of the mouse grab and release must not run, which is so only with the test harness. */
+    public static boolean skipMouseGrab() {
+        if (!Harness.active()) return false;
+        MOUSE_GRAB.run();
+        return true;
+    }
 
     public static void connecting(String host) {
         connectedHost = host;

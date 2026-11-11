@@ -245,6 +245,11 @@ public final class Harness {
         this.host = platform.harnessHost();
     }
 
+    /** Whether the game runs with the harness, where it must never grab the mouse, because a grab clips the cursor of the whole desktop. */
+    public static boolean active() {
+        return !System.getProperty("albedo.harness", "").trim().isEmpty();
+    }
+
     /** @return the harness, or null when the system property is not set */
     public static Harness fromSystemProperty(Platform platform) {
         String path = System.getProperty("albedo.harness");
@@ -343,6 +348,7 @@ public final class Harness {
         else if (verb.equals("chromacompare")) chromaCompare(sc);
         else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
+        else if (verb.equals("cursorfree")) log(CursorClip.check(dir));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
         else if (verb.equals("clouds")) log(cloudsLine(host.cloudsDrawn(), arg));
         else if (verb.equals("keepframe")) host.framePixels((w, h, argb) -> keptFrame = middle(argb, w, h));

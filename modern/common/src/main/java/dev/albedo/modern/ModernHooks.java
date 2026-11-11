@@ -3,6 +3,7 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
+import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
@@ -35,11 +36,20 @@ public final class ModernHooks {
     private static final HookCounter SHADOW = new HookCounter("shadow");
     /** The flat sky hook, which a loader can skip when it adds an overload of the sky pass method and calls that one. */
     private static final HookCounter SKY_PASS = new HookCounter("skyPass");
+    /** The skipped window calls of the mouse grab and release, which only a harness game skips. */
+    private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
     static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_SHADE, ITEM_ICON, CLOUDS, DRY_FOLIAGE,
-            FULLBRIGHT, SHADOW, SKY_PASS);
+            FULLBRIGHT, SHADOW, SKY_PASS, MOUSE_GRAB);
 
     private ModernHooks() {}
+
+    /** Whether the window calls of the mouse grab and release must not run, which is so only with the test harness. */
+    public static boolean skipMouseGrab() {
+        if (!Harness.active()) return false;
+        MOUSE_GRAB.run();
+        return true;
+    }
 
     public static void bootstrap() {
         bootstrap(null);
