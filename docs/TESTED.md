@@ -13,7 +13,6 @@ This file has one row for each of the 39 jars. A row is filled by the validation
 ## Tiers
 
 - **Full:** the sharp sky draws after the solid world, and the Chroma colors move on the GPU. All 39 targets logged both.
-- **Full, OpenGL only:** as Full on the OpenGL backend. With the Vulkan backend of 26.2 the sky draws from a baked image.
 
 ## Fabric
 
@@ -35,8 +34,8 @@ This file has one row for each of the 39 jars. A row is filled by the validation
 | Fabric | 1.21.10 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
 | Fabric | 1.21.11 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
 | Fabric | 26.1.2 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
-| Fabric | 26.2 | Full, OpenGL only | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
-| Fabric | 26.3 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
+| Fabric | 26.2 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: sharp sky and Chroma run, skycompare and chromacompare same (2026-11-11). |
+| Fabric | 26.3 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: all five suites PASS (2026-11-11). |
 
 ## Forge
 
@@ -66,7 +65,7 @@ This file has one row for each of the 39 jars. A row is filled by the validation
 | NeoForge | 1.21.10 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
 | NeoForge | 1.21.11 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
 | NeoForge | 26.1.2 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
-| NeoForge | 26.2 | Full, OpenGL only | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
-| NeoForge | 26.3 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | |
+| NeoForge | 26.2 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: sharp sky runs, skycompare same (2026-11-11). |
+| NeoForge | 26.3 | Full | PASS | PASS | PASS | PASS | PASS | | 2026-11-10 | Vulkan backend: all five suites PASS (2026-11-11). |
 
 These runs passed on a second try: Chroma (`chromacompare`) on Fabric 1.17.1, Fabric 1.21.3 and Forge 1.8.9, and Typing on Forge 1.12.2.

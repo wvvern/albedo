@@ -59,7 +59,7 @@ final class PrecompiledSharpSky {
 
         // Gives the pipeline to the game before each use, because a resource reload empties the pipeline cache, and returns true when it compiled.
         boolean ready() {
-            if (state == Compile.FAILED || !DeviceApi.isGl()) return false;
+            if (state == Compile.FAILED) return false;
             if (RenderSystem.getDevice().precompilePipeline(pipeline,
                     (id, type) -> source(type == ShaderType.VERTEX ? name : fragment, type, steps)).isValid()) {
                 if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
@@ -91,9 +91,9 @@ final class PrecompiledSharpSky {
             ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
             try {
                 bytes.asShortBuffer().put(img.terms());
-                // The game sends the bytes of a write as unsigned bytes, so the GL sends them again as half floats to the texture that it binds.
                 RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, bytes, 0, 0, 0, 0, width, height);
-                GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+                // The GL device sends the bytes of a write as unsigned bytes, so the GL sends them again as half floats to the texture that it binds; Vulkan copies the bytes as they are.
+                if (DeviceApi.isGl()) GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
             } finally {
                 MemoryUtil.memFree(bytes);
             }
@@ -145,11 +145,11 @@ final class PrecompiledSharpSky {
     private static RenderPipeline.Builder builder(int n, String name, String fragment, boolean terms) {
         boolean sharp = name.equals(SkyShaderSource.SHARP);
         boolean black = fragment.equals(SkyShaderSource.BLACK);
-        // The sky sphere adds its color to a black frame only where the depth is still the far depth of the clear.
-        RenderPipeline.Builder b = DeviceApi.state(RenderPipeline.builder(), sharp && !black, sharp || black);
+        // The sky sphere adds its color to a black frame only where the depth is still the far depth of the clear; the image of skycompare has no depth.
+        RenderPipeline.Builder b = sharp ? DeviceApi.state(RenderPipeline.builder(), !black, true) : DeviceApi.colorOnly(RenderPipeline.builder());
         if (sharp) b = DeviceApi.transformBlocks(b);
-        // The game warns about a sampler that the program does not use.
-        if (terms) b = DeviceApi.sampler(b, "AlbedoTerms");
+        // The GL game warns about a sampler that the program does not use, but Vulkan needs each sampler that the shader text declares.
+        if (!black && (terms || !DeviceApi.isGl())) b = DeviceApi.sampler(b, "AlbedoTerms");
         if (!black) b = DeviceApi.uniformBlock(b, "AlbedoSky");
         return DeviceApi.triangles(b.withLocation(DeviceApi.id("pipeline/" + fragment.replace('/', '_') + "_" + n))
                 .withVertexShader(DeviceApi.id(name))
@@ -284,7 +284,7 @@ final class PrecompiledSharpSky {
             image.close();
             OptionalLong t = query == null ? OptionalLong.empty() : query.value();
             // The screenshot can come back before the GPU has the time, as on NeoForge, so the GL then waits for the draws to end.
-            if (query != null && !t.isPresent()) {
+            if (query != null && !t.isPresent() && DeviceApi.isGl()) {
                 GL11.glFinish();
                 t = query.value();
             }
