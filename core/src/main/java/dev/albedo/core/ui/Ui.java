@@ -111,7 +111,7 @@ final class Ui {
     /** The cursor of the focused text field of this frame, or null when no field takes typing. */
     private Rect cursor;
     private final Map<String, Integer> scrolls = new HashMap<String, Integer>();
-    /** The rectangle of each drag area of this frame by id, where the harness command {@code slide} presses. */
+    /** The rectangle of each drag area of this frame by id, which the tests of the settings screen press. */
     private final Map<String, Rect> dragAreas = new HashMap<String, Rect>();
     /** The text of each text field of this frame by id, which the harness command {@code expect} compares. */
     private final Map<String, String> fieldTexts = new HashMap<String, String>();

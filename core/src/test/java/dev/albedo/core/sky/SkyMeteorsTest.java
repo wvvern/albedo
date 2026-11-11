@@ -92,16 +92,6 @@ class SkyMeteorsTest {
     }
 
     @Test
-    void theNextPeakIsAMeteorHighInTheSky() {
-        float[] peak = SkyMeteors.nextPeak(PROGRAM, 100f, 30);
-        assertNotNull(peak);
-        assertTrue(peak[0] > 100f && peak[0] < 160f, "a meteor comes in less than a minute: " + peak[0]);
-        assertTrue(peak[2] >= Math.sin(Math.toRadians(30)) - 1e-6);
-        assertEquals(1, peak[1] * peak[1] + peak[2] * peak[2] + peak[3] * peak[3], 1e-5);
-        assertNull(SkyMeteors.nextPeak(SkyProgram.of(SkyPresets.GALAXY, new float[SkyImage.RING * 3]), 0f, 30), "no meteors layer");
-    }
-
-    @Test
     void theBakeHasNoMeteors() {
         SkyImage still = SkyGenerator.bake(SkyPresets.METEORS.withLayers(SkyPresets.METEORS.layers().subList(0, 3)), 128, 64);
         SkyImage withMeteors = SkyGenerator.bake(SkyPresets.METEORS, 128, 64);
@@ -112,7 +102,7 @@ class SkyMeteorsTest {
     @Test
     void theShaderHasTheSameModel() throws IOException {
         String glsl = SkyProgramTest.skyLayersSource();
-        // The numbers of SkyMeteors.of, so that the harness command meteor looks where the shader draws a meteor.
+        // The numbers of SkyMeteors.of, which the shader must use too.
         String[] model = {"int(albedoLayer(layer, 2).y) * 7 + 13", "(2.0 + 118.0 * amount * amount)",
             "albedoMeteorUnit(slot, channel, 2, seed) < 0.05",
             "(0.3 + 0.7 * albedoMeteorUnit(slot, channel, 3, seed)) * (fireball ? 1.4 : 1.0)",

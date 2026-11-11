@@ -2,7 +2,6 @@ package dev.albedo.core.dev;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
-import dev.albedo.core.Colors;
 import dev.albedo.core.Keys;
 import dev.albedo.core.Platform;
 import dev.albedo.core.config.Appearance;
@@ -10,17 +9,14 @@ import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
-import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Toggle;
 import dev.albedo.core.sky.Oklab;
 import dev.albedo.core.sky.SkyClock;
-import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
-import dev.albedo.core.sky.SkyMeteors;
 import dev.albedo.core.sky.SkyPresets;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyTurn;
@@ -31,8 +27,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -93,21 +87,6 @@ public final class Harness {
         void quit();
 
         /**
-         * Loads a PNG as a downloaded skin or cape through the path of the game, from its skin cache, so that nothing
-         * goes to the network.
-         *
-         * @param hash the texture hash that the game would get from the profile, which names the cache file
-         * @return the name of the texture, for example "minecraft:skins/<sha1>"
-         */
-        String loadSkin(File png, String hash, boolean cape) throws IOException;
-
-        /** Releases a texture as the game does, for example "minecraft:skins/<sha1>". */
-        void releaseTexture(String id);
-
-        /** Opens a screen that shows a texture large, where "steve" is the default skin. */
-        void showTexture(String id);
-
-        /**
          * Mutes sound, disables the narrator, keeps the game running without focus and keeps the camera where the harness
          * aims it, and must be cheap because it runs every tick.
          */
@@ -115,9 +94,6 @@ public final class Harness {
 
         /** Sets the field of view in degrees, in the range of the game option. */
         void setFov(int degrees);
-
-        /** Turns the camera of the player at once to a yaw and a pitch in degrees, with no command to the server. */
-        void look(float yaw, float pitch);
 
         /**
          * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an image of
@@ -140,18 +116,6 @@ public final class Harness {
 
         /** Gives the pixels of the last frame that the game drew to {@code done}, on any thread. */
         void framePixels(FramePixels done);
-
-        /** The frames of the last full second, as the debug screen shows them. */
-        int framesPerSecond();
-
-        /** Removes the frame limit, the vertical sync and the limit of a window with no focus, so that the frame rate shows the cost of a frame. */
-        void uncapFrameRate();
-
-        /** Sets the size of the game window in pixels, with no border, which the game can apply some frames later. */
-        void resizeWindow(int width, int height);
-
-        /** The width and the height of the frame that the game draws. */
-        int[] frameSize();
 
         /** The counters of the hooks of this version that can miss their target with no error. */
         List<HookCounter> hookCounters();
@@ -178,14 +142,8 @@ public final class Harness {
     private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
     /** The camera of {@code skytime} when the command gives none: the yaw, the pitch and the vertical field of view in degrees. */
     private static final float TIME_YAW = 180, TIME_PITCH = -20, TIME_FOV = 70;
-    /** The ticks between two samples of {@code fps}, and the ticks before the first sample, so that the new frame limit is in effect. */
-    private static final int FPS_TICKS = 20, FPS_SETTLE = 40;
-    /** The samples of {@code fps} when the command gives no count. */
-    private static final int FPS_DEFAULT = 10;
     /** The ticks that a sky command waits for the shader to compile. */
     private static final int SKY_TRIES = 200;
-    /** The lowest elevation in degrees of the meteor that {@code meteor} looks at. */
-    private static final int METEOR_ELEVATION = 30;
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
     /** The number of frames that {@code chromatime} measures. */
@@ -213,16 +171,10 @@ public final class Harness {
     private int waitTicks;
     private boolean waitingForWorld;
     private String lastStatus = "";
-    /** The last texture that {@code skin} loaded. */
-    private String lastSkin;
     /** The GUI position of a {@code ui realclick} whose button is down until the next tick, or null. */
     private int[] pressedAt;
     /** The CPU bake of the last {@code skycompare}, which its tries share. */
     private SkyImage compareCpu;
-    /** The samples that {@code fps} still takes, which hold the next commands. */
-    private int fpsLeft;
-    /** The samples of the running {@code fps}. */
-    private int[] fpsSamples = new int[0];
     /** The screenshots that the running {@code frames} command still takes, its name and the index of the next one. */
     private int burstLeft;
     private String burstName;
@@ -282,16 +234,12 @@ public final class Harness {
             waitTicks--;
             return;
         }
-        if (fpsLeft > 0) {
-            sampleFps();
-            return;
-        }
         if (burstLeft > 0) return; // the next commands wait for the screenshots of a frames command
         if (chromaStep > 0) {
             chromaCompareStep();
             return;
         }
-        while (!queue.isEmpty() && waitTicks == 0 && fpsLeft == 0 && !waitingForWorld && burstLeft == 0 && chromaStep == 0) {
+        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0 && chromaStep == 0) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             log("> " + line);
@@ -335,25 +283,18 @@ public final class Harness {
         else if (verb.equals("mod")) sc.apply(config.withEnabled(arg.equals("on")));
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
-        else if (verb.equals("group")) sc.apply(config.withProfile(withGroup(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("sky")) sc.apply(config.withProfile(withSky(config.activeProfile(), arg)));
         else if (verb.equals("skyadd")) sc.apply(config.withProfile(withSkyLayer(config.activeProfile(), arg)));
-        else if (verb.equals("skyparam")) sc.apply(config.withProfile(withSkyParam(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skyrender")) sc.apply(config.withProfile(withSkyRender(config.activeProfile(), arg)));
-        else if (verb.equals("skyextent")) sc.apply(config.withProfile(withSkyExtent(config.activeProfile(), arg)));
         else if (verb.equals("skyturn")) sc.apply(config.withProfile(withSkyTurning(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("skycompare")) skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg));
         else if (verb.equals("skytime")) skyTime(arg.isEmpty() ? new String[0] : arg.split("\\s+"));
-        else if (verb.equals("fps")) startFps(arg.isEmpty() ? FPS_DEFAULT : Integer.parseInt(arg));
-        else if (verb.equals("window")) resizeWindow(arg.split("\\s+"));
         else if (verb.equals("skyclock")) skyClock(arg);
-        else if (verb.equals("skypartial")) skyPartial(arg);
         else if (verb.equals("frames")) frames(arg.split("\\s+"));
         else if (verb.equals("chromagpu")) sc.chromaGpu(arg.equals("on"));
         else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
         else if (verb.equals("chromacompare")) chromaCompare(sc);
-        else if (verb.equals("meteor")) meteor(arg.isEmpty() ? METEOR_ELEVATION : Integer.parseInt(arg));
         else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
         else if (verb.equals("cursorfree")) log(CursorClip.check(dir));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
@@ -374,9 +315,6 @@ public final class Harness {
         else if (verb.equals("hud")) host.setHudVisible(arg.equals("on"));
         else if (verb.equals("reload")) platform.reloadResources();
         else if (verb.equals("screenshot")) host.screenshot(new File(dir, arg.endsWith(".png") ? arg : arg + ".png"));
-        else if (verb.equals("skin")) skin(arg);
-        else if (verb.equals("release")) host.releaseTexture(textureArg(arg));
-        else if (verb.equals("overlay")) host.showTexture(textureArg(arg));
         else if (verb.equals("quit")) host.quit();
         else log("! unknown command: " + verb);
     }
@@ -456,57 +394,6 @@ public final class Harness {
         else log("! the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
     }
 
-    /** Loads {@code <png> [cape]} from the harness folder as a downloaded skin or cape. */
-    private void skin(String arg) {
-        String[] args = arg.split("\\s+");
-        boolean cape = args.length > 1 && args[1].equals("cape");
-        File png = new File(dir, args[0]);
-        try {
-            lastSkin = host.loadSkin(png, skinHash(Files.readAllBytes(png.toPath()), cape), cape);
-            log("skin " + lastSkin);
-        } catch (IOException e) {
-            log("! cannot load skin " + png + ": " + e);
-        }
-    }
-
-    /** A texture id, where "skin" or no text is the last skin that {@code skin} loaded. */
-    private String textureArg(String arg) {
-        if (!arg.isEmpty() && !arg.equals("skin")) return arg;
-        if (lastSkin == null) throw new IllegalStateException("no skin: run skin <png> first");
-        return lastSkin;
-    }
-
-    /** A hash for the cache file of a skin, from its pixels and type, as the skin server gives one for each image. */
-    static String skinHash(byte[] png, boolean cape) {
-        try {
-            MessageDigest sha = MessageDigest.getInstance("SHA-256");
-            sha.update(png);
-            sha.update((byte) (cape ? 1 : 0));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : sha.digest()) hex.append(String.format("%02x", b & 0xFF));
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /**
-     * Sets or replaces a group by name from {@code <category> <name> <color or mode> <pattern>...}, for example
-     * {@code group particles Fire #FF0000 flame lava}.
-     */
-    static Profile withGroup(Profile profile, String[] args) {
-        if (args.length < 4) throw new IllegalArgumentException("group <category> <name> <color or mode> <pattern>...");
-        Category category = Category.byKey(args[0]);
-        if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
-        Rule group = new Rule(args[1], Arrays.asList(args).subList(3, args.length), look(args[2]), false);
-        CategorySettings settings = profile.get(category);
-        List<Rule> rules = settings.rules();
-        int index = 0;
-        while (index < rules.size() && !rules.get(index).name().equals(group.name())) index++;
-        if (index < rules.size()) return profile.with(category, settings.withRule(index, group));
-        return profile.with(category, settings.withRuleAt(rules.size(), group)); // appends a new group
-    }
-
     /**
      * Sets the effects of a category's look from
      * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]}, where a missing
@@ -573,15 +460,6 @@ public final class Harness {
         return profile.with(Category.SKY, sky.withSky(sky.sky().withAdded(k)));
     }
 
-    /** Sets a setting of a layer of the custom sky, where the lowest layer is 1 ({@code skyparam 2 pulse 100}). */
-    static Profile withSkyParam(Profile profile, String[] args) {
-        CategorySettings sky = profile.get(Category.SKY);
-        int index = Integer.parseInt(args[0]) - 1;
-        SkyLayer.Param param = SkyLayer.Param.valueOf(args[1].toUpperCase(Locale.ROOT));
-        SkyLayer layer = sky.sky().layers().get(index).withParam(param, Integer.parseInt(args[2]));
-        return profile.with(Category.SKY, sky.withSky(sky.sky().withLayer(index, layer)));
-    }
-
     /** Sets the render of the custom sky to {@code sharp} or {@code fast}. */
     static Profile withSkyRender(Profile profile, String render) {
         CategorySettings sky = profile.get(Category.SKY);
@@ -589,29 +467,15 @@ public final class Harness {
         return profile.with(Category.SKY, sky.withSky(sky.sky().withRender(r)));
     }
 
-    /** Sets the extent of the custom sky to {@code sphere} ("Full sphere" on) or {@code horizon} (off). */
-    static Profile withSkyExtent(Profile profile, String extent) {
-        CategorySettings sky = profile.get(Category.SKY);
-        SkyDesign.Extent e = SkyDesign.Extent.valueOf(extent.trim().toUpperCase(Locale.ROOT));
-        return profile.with(Category.SKY, sky.withSky(sky.sky().withExtent(e)));
-    }
-
     /**
-     * Sets the turning of the custom sky from {@code <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]},
-     * where a missing option keeps its value in {@link SkyTurning#STILL} ({@code skyturn 100 speed 10 trails 45 real}).
+     * Sets the turning of the custom sky from {@code <percent> [height N]}, where a missing option keeps its value in
+     * {@link SkyTurning#STILL} ({@code skyturn 100 height 75}).
      */
     static Profile withSkyTurning(Profile profile, String[] args) {
         SkyTurning t = SkyTurning.STILL.withAmount(Integer.parseInt(args[0]));
         for (int i = 1; i < args.length; i++) {
-            if (args[i].equals("reverse")) t = t.withDirection(SkyTurning.Direction.REVERSE);
-            else if (args[i].equals("real")) t = t.withClock(SkyTurning.Clock.REAL);
-            else if (i + 1 >= args.length) {
-                throw new IllegalArgumentException("skyturn <percent> [speed N] [height N] [pole N] [trails N] [light N] [reverse] [real]");
-            } else if (args[i].equals("speed")) t = t.withSpeed(Integer.parseInt(args[++i]));
-            else if (args[i].equals("height")) t = t.withPoleHeight(Integer.parseInt(args[++i]));
-            else if (args[i].equals("pole")) t = t.withPole(Integer.parseInt(args[++i]));
-            else if (args[i].equals("trails")) t = t.withTrails(Integer.parseInt(args[++i]));
-            else if (args[i].equals("light")) t = t.withTrailLight(Integer.parseInt(args[++i]));
+            if (i + 1 >= args.length) throw new IllegalArgumentException("skyturn <percent> [height N]");
+            if (args[i].equals("height")) t = t.withPoleHeight(Integer.parseInt(args[++i]));
             else throw new IllegalArgumentException("unknown skyturn option: " + args[i]);
         }
         CategorySettings sky = profile.get(Category.SKY);
@@ -686,38 +550,6 @@ public final class Harness {
             for (int k = 0; k < 3; k++) out[c * 3 + k] = (float) (forward[k] + corners[c][0] * tx * right[k] + corners[c][1] * ty * up[k]);
         }
         return out;
-    }
-
-    /** Removes the frame limit and logs the mean frames per second over some seconds, which holds the next commands. */
-    private void startFps(int seconds) {
-        host.uncapFrameRate();
-        fpsLeft = seconds;
-        fpsSamples = new int[seconds];
-        waitTicks = FPS_SETTLE;
-    }
-
-    /** Takes one sample of {@code fps} each second, and logs the result after the last one. */
-    private void sampleFps() {
-        fpsSamples[fpsSamples.length - fpsLeft] = host.framesPerSecond();
-        fpsLeft--;
-        if (fpsLeft > 0) {
-            waitTicks = FPS_TICKS - 1;
-            return;
-        }
-        int[] s = fpsSamples.clone();
-        Arrays.sort(s);
-        double sum = 0;
-        for (int v : s) sum += v;
-        double mean = sum / s.length;
-        int[] size = host.frameSize();
-        log(String.format(Locale.ROOT, "fps %dx%d: %.0f (median %d, %d to %d), %.3f ms for each frame",
-                size[0], size[1], mean, s[s.length / 2], s[0], s[s.length - 1], 1000 / mean));
-    }
-
-    /** Sets the window size from {@code window <width> <height>}. */
-    private void resizeWindow(String[] args) {
-        if (args.length != 2) throw new IllegalArgumentException("window <width> <height>");
-        host.resizeWindow(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
     }
 
     /** Asks the adapter to measure the GPU pass of Chroma in the next frames, and logs when this version cannot. */
@@ -857,40 +689,10 @@ public final class Harness {
         burstLeft--;
     }
 
-    /**
-     * Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), moves it by some
-     * seconds ({@code skyclock add -0.2}), or lets it run ({@code skyclock run}).
-     */
+    /** Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), or lets it run ({@code skyclock run}). */
     private static void skyClock(String arg) {
         if (arg.equals("run")) SkyClock.run();
-        else if (arg.startsWith("add ")) SkyClock.hold(SkyClock.seconds() + Float.parseFloat(arg.substring(4).trim()));
         else SkyClock.hold(Float.parseFloat(arg));
-    }
-
-    /** Holds the frames at a partial tick between the last two ticks ({@code skypartial 0.5}), or lets them move ({@code skypartial run}). */
-    private static void skyPartial(String arg) {
-        if (arg.equals("run")) SkyDayTime.run();
-        else SkyDayTime.hold(Float.parseFloat(arg));
-    }
-
-    /**
-     * Holds the clock at the next meteor of the world sky that is at its brightest above an elevation in degrees, and
-     * turns the camera to its head, so that a screenshot shows a meteor in flight.
-     */
-    private void meteor(int elevation) {
-        SkyImage world = Albedo.skyImage();
-        float[] peak = world == null ? null : SkyMeteors.nextPeak(world.program(), SkyClock.seconds(), elevation);
-        if (peak == null) {
-            log("! meteor: the sky has no meteors");
-            return;
-        }
-        SkyClock.hold(peak[0]);
-        // The camera yaw is 0 to the south and 90 to the west, and a negative pitch looks up.
-        double yaw = Math.toDegrees(Math.atan2(peak[1], -peak[3])) + 180;
-        double pitch = -Math.toDegrees(Math.asin(peak[2]));
-        log(String.format(Locale.ROOT, "meteor at %.3f s, yaw %.1f, pitch %.1f", peak[0], yaw, pitch));
-        // A tp command with a relative place does not turn a falling player on 1.8.9, so the client turns the camera.
-        host.look((float) yaw, (float) pitch);
     }
 
     /** Runs a sky command line again on the next tick, until no tries are left. */
@@ -925,15 +727,6 @@ public final class Harness {
 
     private static void lab(int argb, float[] out) {
         Oklab.fromLinear(Oklab.toLinear(argb >> 16), Oklab.toLinear(argb >> 8), Oklab.toLinear(argb), out);
-    }
-
-    /** A mode such as "hidden", or a solid color in any form that {@link Colors#parse} reads. */
-    private static Appearance look(String text) {
-        try {
-            return Appearance.of(Appearance.Mode.byKey(text));
-        } catch (IllegalArgumentException notAMode) {
-            return Appearance.solid(Colors.parse(text));
-        }
     }
 
     private void takeCommandFile() {

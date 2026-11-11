@@ -34,7 +34,7 @@ Variants (OptiFine settings, see Set-Variant):
 ./tools/optifine.ps1 -Variants none,quake -OutDir build\compat-optifine
 ./tools/optifine.ps1 -Variants default -OptionLines useVbo:true  # with VBOs on
 ./tools/optifine.ps1 -Variants quake -DumpClasses   # the transformed classes go to legacy\build\optifine\game\CLASSLOADER_TEMP
-./tools/optifine.ps1 -Variants none -Mods C:\temp\player-mods -Shots repaint-legacy.txt -OutDir build\repaint-mods
+./tools/optifine.ps1 -Variants none -Mods C:\temp\player-mods -OutDir build\compat-mods
 #>
 param(
     [string[]]$Variants = @("none", "default", "quake", "quake-ao", "quake-fancy"),
@@ -154,7 +154,7 @@ foreach ($variant in $Variants) {
     }
     Remove-Item -Recurse -Force $harness -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $harness | Out-Null
-    # Images that the commands load, for example the test skin of skins.txt.
+    # The files that the commands use, for example clip.ps1 of cursorfree.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Variant $variant
     Get-Content (Join-Path $PSScriptRoot "harness\scene-legacy.txt"), (Join-Path $PSScriptRoot "harness\$Shots") |

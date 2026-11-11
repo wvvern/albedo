@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Dev harness input for the settings screen, one command per frame: click a label, click it through the game's mouse
- * handler, press a slider at a percent of its track, turn the wheel over a label, compare the text of a field, or move the
+ * handler, turn the wheel over a label, compare the text of a field, or move the
  * pointer off; keys and typing go through the game's own keyboard path instead (see {@code Harness}).
  */
 final class ScriptedInput {
@@ -20,8 +20,6 @@ final class ScriptedInput {
 
     /** The center of each label that the last frame drew, where a click command finds its label, or null before the first frame. */
     private Map<String, int[]> lastTexts;
-    /** The drag areas of the last recorded frame by widget id, where a slide command finds its slider. */
-    private Map<String, Rect> lastAreas;
     /** The text of each text field of the last recorded frame by widget id, which an expect command compares. */
     private Map<String, String> lastFields;
     /** The scripted pointer position, or null while the real pointer is used. */
@@ -57,7 +55,6 @@ final class ScriptedInput {
         if (release) ui.mouseReleased();
         // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
         lastTexts = active() ? recorder.texts : null;
-        lastAreas = active() ? ui.dragAreas() : null;
         lastFields = active() ? ui.fieldTexts() : null;
     }
 
@@ -91,19 +88,6 @@ final class ScriptedInput {
                 pointer = at;
                 ui.scrolled(Integer.parseInt(arg.substring(0, split)));
                 return false;
-            }
-            case "slide": {
-                // "slide 0 sky.turning": a press at 0 percent of the track of the slider with the widget id sky.turning.
-                int split = arg.indexOf(' ');
-                Rect area = split < 0 ? null : lastAreas.get(arg.substring(split + 1));
-                if (area == null) {
-                    Harness.log(noSuchControl(arg.substring(split + 1)));
-                    return false;
-                }
-                float at = Integer.parseInt(arg.substring(0, split)) / 100f;
-                pointer = new int[]{area.x + Math.round(at * (area.w - 1)), area.y + area.h / 2};
-                ui.mousePressed();
-                return true;
             }
             case "expect": {
                 // "expect search oak log": the text field with the id search shows "oak log".

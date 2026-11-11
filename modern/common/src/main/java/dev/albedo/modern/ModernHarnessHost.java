@@ -1,14 +1,11 @@
 package dev.albedo.modern;
 
-import com.mojang.blaze3d.platform.Window;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 
 import java.io.File;
-import java.io.IOException;
 
 /**
  * Development-only: what the test harness needs from the game (see {@link Harness}), where the {@code Harness*} classes
@@ -128,22 +125,6 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public String loadSkin(File png, String hash, boolean cape) throws IOException {
-        return HarnessSkins.load(png, hash, cape);
-    }
-
-    @Override
-    public void releaseTexture(String id) {
-        Minecraft.getInstance().getTextureManager().release(HarnessSkins.id(id));
-    }
-
-    @Override
-    public void showTexture(String id) {
-        String texture = id.equals("steve") ? HarnessSkins.defaultSkin() : id;
-        ModernPlatform.setScreen(new TextureScreen(texture));
-    }
-
-    @Override
     public void quiet() {
         HarnessOptions.quiet();
     }
@@ -151,21 +132,6 @@ final class ModernHarnessHost implements Harness.Host {
     @Override
     public void setFov(int degrees) {
         HarnessOptions.setFov(degrees);
-    }
-
-    @Override
-    public void look(float yaw, float pitch) {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) return;
-        //? if >=1.17 {
-        player.setYRot(yaw);
-        player.setXRot(pitch);
-        //?} else {
-        /*player.yRot = yaw;
-        player.xRot = pitch;
-        *///?}
-        player.yRotO = yaw;
-        player.xRotO = pitch;
     }
 
     @Override
@@ -181,31 +147,6 @@ final class ModernHarnessHost implements Harness.Host {
         *///?} elif gl_sky {
         /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?}
-    }
-
-    @Override
-    public int framesPerSecond() {
-        //? if >=1.19.3 {
-        return Minecraft.getInstance().getFps();
-        //?} else {
-        /*return dev.albedo.modern.mixin.MinecraftFpsAccessor.albedo$fps();
-        *///?}
-    }
-
-    @Override
-    public void uncapFrameRate() {
-        HarnessOptions.uncapFrameRate();
-    }
-
-    @Override
-    public void resizeWindow(int width, int height) {
-        HarnessWindow.resize(width, height);
-    }
-
-    @Override
-    public int[] frameSize() {
-        Window window = Minecraft.getInstance().getWindow();
-        return new int[]{window.getWidth(), window.getHeight()};
     }
 
     @Override

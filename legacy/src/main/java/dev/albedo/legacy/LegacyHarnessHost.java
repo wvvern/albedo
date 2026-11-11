@@ -1,11 +1,9 @@
 package dev.albedo.legacy;
 
-import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
@@ -21,8 +19,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.IntBuffer;
 import javax.imageio.ImageIO;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /** Development-only: what the test harness needs from the game (see {@link Harness}). */
@@ -183,29 +179,6 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public String loadSkin(File png, String hash, boolean cape) throws IOException {
-        Minecraft mc = Minecraft.getMinecraft();
-        File cache = ((LegacyHooks.SkinCache) mc.getSkinManager()).albedo$skinCacheDir();
-        File file = new File(new File(cache, hash.substring(0, 2)), hash);
-        Files.createDirectories(file.getParentFile().toPath());
-        Files.copy(png.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        // The hash is the last part of the URL, which the game does not read because the cache file exists.
-        MinecraftProfileTexture texture = new MinecraftProfileTexture("http://127.0.0.1:9/" + hash, null);
-        return mc.getSkinManager().loadSkin(texture, cape ? MinecraftProfileTexture.Type.CAPE : MinecraftProfileTexture.Type.SKIN).toString();
-    }
-
-    @Override
-    public void releaseTexture(String id) {
-        Minecraft.getMinecraft().getTextureManager().deleteTexture(new ResourceLocation(id));
-    }
-
-    @Override
-    public void showTexture(String id) {
-        ResourceLocation texture = id.equals("steve") ? DefaultPlayerSkin.getDefaultSkinLegacy() : new ResourceLocation(id);
-        Minecraft.getMinecraft().displayGuiScreen(new GuiTexture(texture));
-    }
-
-    @Override
     public void quiet() {
         Minecraft mc = Minecraft.getMinecraft();
         Game.mute();
@@ -220,54 +193,14 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public void look(float yaw, float pitch) {
-        net.minecraft.client.entity.EntityPlayerSP player = Game.player();
-        if (player == null) return;
-        player.rotationYaw = player.prevRotationYaw = yaw;
-        player.rotationPitch = player.prevRotationPitch = pitch;
-    }
-
-    @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
         return LegacySharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
     }
 
     @Override
-    public int framesPerSecond() {
-        return Minecraft.getDebugFPS();
-    }
-
-    @Override
-    public void uncapFrameRate() {
-        Minecraft mc = Minecraft.getMinecraft();
-        // The option value 260 is "Unlimited".
-        mc.gameSettings.limitFramerate = 260;
-        mc.gameSettings.enableVsync = false;
-        org.lwjgl.opengl.Display.setVSyncEnabled(false);
-    }
-
-    @Override
-    public void resizeWindow(int width, int height) {
-        Minecraft mc = Minecraft.getMinecraft();
-        try {
-            org.lwjgl.opengl.Display.setLocation(0, 0);
-            org.lwjgl.opengl.Display.setDisplayMode(new org.lwjgl.opengl.DisplayMode(width, height));
-        } catch (org.lwjgl.LWJGLException e) {
-            Harness.log("! cannot resize the window: " + e);
-        }
-        ((dev.albedo.legacy.mixin.MinecraftAccessor) mc).albedo$resize(org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
-    }
-
-    @Override
     public List<dev.albedo.core.dev.HookCounter> hookCounters() {
         return LegacyHooks.COUNTERS;
-    }
-
-    @Override
-    public int[] frameSize() {
-        Minecraft mc = Minecraft.getMinecraft();
-        return new int[]{mc.displayWidth, mc.displayHeight};
     }
 
     /** Reads the clouds texture back from the GPU, because a hidden look makes all of its pixels transparent. */
