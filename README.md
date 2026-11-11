@@ -82,7 +82,7 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 ## Compatibility
 
-- **Sodium and Embeddium:** all features operate on 1.20.1 and on 1.21.1 and later. On the other versions Albedo has no hook for them, so some block tints can stay.
+- **Sodium, Embeddium and Rubidium:** everything works on every version that has the mod. On an old release of one of them, grass, leaves and water can keep their biome color, so white grass shows green.
 - **Vulkan on 26.2 and later:** everything works with both the OpenGL and the Vulkan backend.
 - **OptiFine on 1.8.9:** everything works. The custom sky needs the OptiFine Sky setting on. With an OptiFine shader pack, the sky stays vanilla.
 - **OptiFine on other versions:** not supported.

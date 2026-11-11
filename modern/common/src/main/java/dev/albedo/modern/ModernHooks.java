@@ -30,6 +30,7 @@ public final class ModernHooks {
     public static final HookCounter DRY_FOLIAGE = new HookCounter("dryFoliage");
     private static final HookCounter TINT = new HookCounter("tint");
     private static final HookCounter SODIUM_TINT = new HookCounter("sodiumTint");
+    private static final HookCounter SODIUM_WATER = new HookCounter("sodiumWater");
     private static final HookCounter ITEM_ICON = new HookCounter("itemIcon");
     private static final HookCounter CLOUDS = new HookCounter("clouds");
     private static final HookCounter FULLBRIGHT = new HookCounter("fullbright");
@@ -39,8 +40,8 @@ public final class ModernHooks {
     /** The skipped window calls of the mouse grab and release, which only a harness game skips. */
     private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
-    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_SHADE, ITEM_ICON, CLOUDS, DRY_FOLIAGE,
-            FULLBRIGHT, SHADOW, SKY_PASS, MOUSE_GRAB);
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_WATER, SODIUM_SHADE, ITEM_ICON, CLOUDS,
+            DRY_FOLIAGE, FULLBRIGHT, SHADOW, SKY_PASS, MOUSE_GRAB);
 
     private ModernHooks() {}
 
@@ -155,6 +156,12 @@ public final class ModernHooks {
     public static boolean blockTinted(boolean tinted) {
         SODIUM_TINT.run();
         return tinted && !Albedo.currentPolicy().removeTint(Category.BLOCKS);
+    }
+
+    /** Sodium: true means the fluid quads of the water get no biome color, because its renderer does not ask BiomeColors. */
+    public static boolean removeSodiumWaterTint() {
+        SODIUM_WATER.run();
+        return removeFluidTint();
     }
 
     public static boolean removeFluidTint() {

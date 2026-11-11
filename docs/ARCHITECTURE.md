@@ -29,8 +29,8 @@ The adapters change data at stable points, not inside the renderers. The core wo
 | Other textures | `TextureContents.load` (1.21.4+), `SimpleTexture.doLoad` | `SimpleTexture.loadTexture` |
 | Downloaded skins, capes, elytra | `TextureManager.register` of a `DynamicTexture` (1.21.4+), `HttpTexture.load` | `ThreadDownloadImageData.setBufferedImage` |
 | Biome colormaps | `GrassColor`, `FoliageColor`, `DryFoliageColor` `init` | `ColorizerGrass`, `ColorizerFoliage` |
-| Block tint | `ModelBlockRenderer`; Forge 1.16.5 `BlockInfo`; Sodium and Embeddium `BlockRenderer` | `BlockModelRenderer` (1.12.2 `BlockColors.colorMultiplier` in it), Forge `BlockInfo` |
-| Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
+| Block tint | `ModelBlockRenderer`; Forge 1.16.5 `BlockInfo`; Sodium, Embeddium and Rubidium `BlockRenderer` (see below) | `BlockModelRenderer` (1.12.2 `BlockColors.colorMultiplier` in it), Forge `BlockInfo` |
+| Water tint | `BiomeColors.getAverageWaterColor`; Sodium 0.5, Embeddium 0.3 and Rubidium 0.7 `WaterColorProvider.getColor` | `BiomeColorHelper.getWaterColorAtPos` |
 | Fullbright | gamma in `LightTexture`, 26.x `LightmapRenderStateExtractor` | gamma in `EntityRenderer.updateLightmap` |
 | Smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer`, Sodium `LevelSlice` | `Minecraft.isAmbientOcclusionEnabled` |
 | Face shade | `ClientLevel.getShade`, Forge 1.16.5 `LightUtil.diffuseLight`, 26.x `CardinalLighting.byFace` | quads into the chunk mesh (`Game.addQuad`, `LegacyHooks.vertexColor`) |
@@ -40,7 +40,12 @@ The adapters change data at stable points, not inside the renderers. The core wo
 | Hidden clouds | `Options.getCloudsType`, 26.x `getCloudStatus` | the clouds texture |
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
-- The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
+- The Sodium, Embeddium and Rubidium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
+- Block tint hooks, one per renderer generation (counter `sodiumTint`):
+  - Sodium 0.2 to 0.4, Embeddium 0.3.18, Rubidium 0.2 to 0.6 (1.16.5 to 1.19.4): `SodiumTintRedirectMixin` takes the `getColors` result of the biome color blender in `BlockRenderer`. It returns an array of white, never `null`.
+  - Sodium 0.5, Embeddium 0.3, Rubidium 0.7 (1.20.1 to 1.20.6): `SodiumTintRedirectMixin.albedo$tint` on `getVertexColors`. These mods read water color from their own cache, so `SodiumWaterMixin` (counter `sodiumWater`) covers water; older ones use `BiomeColors`.
+  - Sodium 0.6 and later, Embeddium 1.0 (1.21.1 and later): `SodiumTintMixin` on `colorizeQuad`, `tintQuad` or `getVertexColors`, depending on the version.
+  - The first two hooks use plain Mixin, because Forge has no MixinExtras before 1.20.5.
 - Foliage has no hook: the texture hooks make plant textures transparent. `core/texture/Foliage` finds plants by texture name, so a modded plant with another name stays visible.
 - An optional (`require = 0`) hook that misses its target fails silently. `HookCounter` counts each one, and the harness `hooks` check turns a zero count into a FAIL.
 - 1.12.2 reads sprite pixels in `loadSpriteFrames`, not `loadSprite`, so its hook redirects `TextureUtil.readBufferedImage` there and passes the whole strip to the core like 1.8.9. A repaint cuts the strip into frames where `loadSpriteFrames` does, then calls `generateMipmaps`.
@@ -163,11 +168,13 @@ A condition may only use a version from this table (`tools/lint.sh` checks). `to
 
 ## Compat mods in the dev run
 
-- Add `-Pcompat=sodium`, `embeddium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
+- Add `-Pcompat=sodium`, `embeddium`, `rubidium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
+  - Sodium runs on Fabric 1.16.5 to 1.21.x, Embeddium on Forge 1.16.5, 1.18.2, 1.19.2 and 1.20.1 and NeoForge 1.20.4, Rubidium on Forge 1.16.5 to 1.20.1 (not 1.17.1). Forge 1.17.1 and 1.20.4 have no Embeddium or Rubidium. Embeddium does not start on NeoForge 1.20.6 and 1.21.4, because a lambda name of its `ClientLevel` mixin is not in their NeoForge build.
+  - Sodium 0.3 and 0.4 (1.17.1 to 1.19.2) need JOML in the dev run (`joml_version`), because Loom drops the nested jar. Sodium 0.2 on 1.16.5 starts without Fabric API, which the build excludes, because the API of 1.17 would add a second Fabric Loader.
   - Iris works only on Fabric 26.3, 26.2, 26.1, 1.21.11, 1.21.5 and 1.21.4. On 1.21.4 it is Sodium 0.6.13 and Iris 1.8.8, the versions of the owner instances. On the other targets you get only Sodium.
   - Sodium 0.6.13 does not start in the NeoForge 1.21.5 dev run, because it needs the Fabric rendering API.
-  - On 1.20.1, Sodium 0.5.13 (Fabric) and Embeddium 0.3.31 (Forge) have the package `me.jellysquid.mods.sodium`. `SodiumTintRedirectMixin` hooks their `getVertexColors`.
-  - The property `lwjgl_version` puts the LWJGL version of the game in the dev run, because Sodium 0.5 starts only with that version.
+  - On 1.20.1, Sodium 0.5.13 (Fabric) and Embeddium 0.3.31 (Forge) have the package `me.jellysquid.mods.sodium`. `SodiumTintRedirectMixin` hooks their `getVertexColors`, as for Sodium 0.5 on 1.20.4 and 1.20.6.
+  - The property `lwjgl_version` puts the LWJGL version of the game in the dev run (3.3.1 on 1.20.1, 3.3.2 on 1.20.4, 3.3.3 on 1.20.6), because Sodium 0.5 starts only with that version.
   - NeoForge 1.21.1 gets Sodium 0.6.13, the version of the owner's pack, because its dev run loads the 0.8.13 jar only as a library.
   - NeoForge from 1.20.5 and 26.x get the mod jar with no remap, because a remap drops the jar-in-jar list from which Sodium loads its mod.
   - With `-Compat`, `tools/screenshots.ps1` turns off the Blaze3D check of the NeoForge dev run (`enableB3DValidationLayer`). Sodium 0.8.14 on NeoForge 1.21.11 casts a texture that the check wraps.

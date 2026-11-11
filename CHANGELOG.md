@@ -2,6 +2,9 @@
 
 ## 0.6.2
 
+- fix: Show the profile color of grass, leaves and vines with Sodium, Embeddium or Rubidium on 1.16.5 to 1.19.4
+- fix: Show the profile color of water with Sodium or Rubidium on 1.20.1 to 1.20.6
+- fix: Show the profile color of grass and leaves with Sodium on Fabric 1.20.6
 - compat: Support Quilt on 1.16.5 to 1.21.11 with the Fabric jar
 
 ## 0.6.1
