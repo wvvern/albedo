@@ -56,23 +56,23 @@ jobs:
         # loaders: the lists in modern/settings.gradle that have the node, as a YAML list, because contains() on a string finds forge in neoforge.
         # game_versions: the released versions of the Forge and NeoForge jars, with one value per line for mc-publish.
         # fabric_game_versions: the released versions in minecraft_range_fabric of the node, when the Fabric jar runs on more than game_versions.
-        # quilt: true when the Fabric jar of the node starts through its entry point on the release Quilt Loader (docs/TESTED.md).
+        # fabric_loaders: the Modrinth loaders of the Fabric jar, with quilt where the jar starts through its entry point on the release Quilt Loader (docs/TESTED.md).
         target: &modern
-          - { node: '1.16.5', mc: '1.16.5', java: 8, loaders: [fabric, forge], game_versions: '1.16.5', quilt: true }
-          - { node: '1.17.1', mc: '1.17.1', java: 16, loaders: [fabric, forge], game_versions: '1.17.1', quilt: true }
-          - { node: '1.18.2', mc: '1.18.2', java: 17, loaders: [fabric, forge], game_versions: '1.18.2', quilt: true }
-          - { node: '1.19.2', mc: '1.19.2', java: 17, loaders: [fabric, forge], game_versions: '1.19.2', fabric_game_versions: "1.19\n1.19.1\n1.19.2", quilt: true }
-          - { node: '1.19.4', mc: '1.19.4', java: 17, loaders: [fabric, forge], game_versions: '1.19.4', fabric_game_versions: "1.19.3\n1.19.4", quilt: true }
-          - { node: '1.20.1', mc: '1.20.1', java: 17, loaders: [fabric, forge], game_versions: '1.20.1', fabric_game_versions: "1.20\n1.20.1", quilt: true }
-          - { node: '1.20.4', mc: '1.20.4', java: 17, loaders: [fabric, forge, neoforge], game_versions: '1.20.4', fabric_game_versions: "1.20.3\n1.20.4", quilt: true }
-          - { node: '1.20.6', mc: '1.20.6', java: 21, loaders: [fabric, neoforge], game_versions: '1.20.6', fabric_game_versions: "1.20.5\n1.20.6", quilt: true }
-          - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1", quilt: true }
-          - { node: '1.21.3', mc: '1.21.3', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.3', fabric_game_versions: "1.21.2\n1.21.3", quilt: true }
-          - { node: '1.21.4', mc: '1.21.4', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.4', quilt: true }
-          - { node: '1.21.5', mc: '1.21.5', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.5', quilt: true }
-          - { node: '1.21.8', mc: '1.21.8', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.8', fabric_game_versions: "1.21.6\n1.21.7\n1.21.8", quilt: true }
-          - { node: '1.21.10', mc: '1.21.10', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.10', fabric_game_versions: "1.21.9\n1.21.10", quilt: true }
-          - { node: '1.21.11', mc: '1.21.11', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.11', quilt: true }
+          - { node: '1.16.5', mc: '1.16.5', java: 8, loaders: [fabric, forge], game_versions: '1.16.5', fabric_loaders: "fabric\nquilt" }
+          - { node: '1.17.1', mc: '1.17.1', java: 16, loaders: [fabric, forge], game_versions: '1.17.1', fabric_loaders: "fabric\nquilt" }
+          - { node: '1.18.2', mc: '1.18.2', java: 17, loaders: [fabric, forge], game_versions: '1.18.2', fabric_loaders: "fabric\nquilt" }
+          - { node: '1.19.2', mc: '1.19.2', java: 17, loaders: [fabric, forge], game_versions: '1.19.2', fabric_game_versions: "1.19\n1.19.1\n1.19.2", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.19.4', mc: '1.19.4', java: 17, loaders: [fabric, forge], game_versions: '1.19.4', fabric_game_versions: "1.19.3\n1.19.4", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.20.1', mc: '1.20.1', java: 17, loaders: [fabric, forge], game_versions: '1.20.1', fabric_game_versions: "1.20\n1.20.1", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.20.4', mc: '1.20.4', java: 17, loaders: [fabric, forge, neoforge], game_versions: '1.20.4', fabric_game_versions: "1.20.3\n1.20.4", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.20.6', mc: '1.20.6', java: 21, loaders: [fabric, neoforge], game_versions: '1.20.6', fabric_game_versions: "1.20.5\n1.20.6", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.3', mc: '1.21.3', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.3', fabric_game_versions: "1.21.2\n1.21.3", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.4', mc: '1.21.4', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.4', fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.5', mc: '1.21.5', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.5', fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.8', mc: '1.21.8', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.8', fabric_game_versions: "1.21.6\n1.21.7\n1.21.8", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.10', mc: '1.21.10', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.10', fabric_game_versions: "1.21.9\n1.21.10", fabric_loaders: "fabric\nquilt" }
+          - { node: '1.21.11', mc: '1.21.11', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.11', fabric_loaders: "fabric\nquilt" }
           - { node: '26.1', mc: '26.1.2', java: 25, loaders: [fabric, neoforge], game_versions: '26.1.2', fabric_game_versions: "26.1\n26.1.1\n26.1.2" }
           - { node: '26.2', mc: '26.2', java: 25, loaders: [fabric, neoforge], game_versions: '26.2' }
           - { node: '26.3', mc: '26.3', java: 25, loaders: [fabric, neoforge], game_versions: '26.3' }
@@ -221,7 +221,7 @@ jobs:
           files: dist/albedo-fabric-*.jar
           name: Albedo ${{ env.TAG }} for fabric ${{ matrix.target.mc }}
           version: ${{ env.TAG }}+fabric-${{ matrix.target.mc }}
-          loaders: ${{ matrix.target.quilt && 'fabric quilt' || 'fabric' }}
+          loaders: ${{ matrix.target.fabric_loaders || 'fabric' }}
           game-versions: ${{ matrix.target.fabric_game_versions || matrix.target.game_versions }}
           changelog: ${{ needs.check.outputs.notes }}
       - name: Forge
