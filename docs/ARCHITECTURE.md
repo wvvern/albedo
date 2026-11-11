@@ -105,7 +105,8 @@ Traps:
   - 1.21.6 to 26.2: `SkyAfterSolidMixin` on `Lighting.setupFor` for the level. It follows the solid terrain also when Sodium draws it.
   - 1.20.5 to 1.21.5: `SkyAfterSolidMixin` on `LevelRenderer.renderSectionLayer`.
   - 1.19.4 to 1.20.4: `SkyAfterChunkLayerMixin`.
-  - 1.16.5 to 1.19.2: no hook. The sphere draws in the sky pass.
+  - 1.16.5: `FixedSkyMixin` on `LevelRenderer.renderChunkLayer`, after the cutout layer.
+  - 1.17 to 1.19.2: `MojangMathSkyMixin` on `LevelRenderer.renderChunkLayer`, after the cutout layer.
   - 1.8.9 and 1.12.2: `RenderGlobal.renderBlockLayer`.
 - `sky/SkyDefer` decides where the sphere draws. The sphere waits for the hook only when the hook ran in the frame before, else it draws in the sky pass. Thus a renderer mod that removes the hook only loses the speed, and a frame that skips the hook gives at most one frame of black sky. A sphere that waits goes at the start of each frame, so a frame with no sky pass (lava, powder snow, blindness, darkness) draws no sky after the solid world.
 - The term texture also holds field images: the smooth noise of each cloud and fractal layer that the bake writes at the texel centers. A cloud field holds only the coarse octaves of the cloud value (`SkyGenerator.CLOUD_FIELD_OCTAVES`), because the fine octaves are smaller than a texel at the half size of the bake. The shader reads the fields with linear filters, and calculates the fine cloud octaves and the sharp ridges of a fractal for each pixel. A sky that cannot draw sharp gets no field images.

@@ -1,0 +1,4 @@
+PASS
+target: forge-1.12.2
+commands: scene-legacy.txt, shots.txt
+screenshots: 6
