@@ -11,8 +11,8 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Development-only: the check behind the harness command {@code cursorfree}. A game that grabs the mouse clips the cursor
- * of the whole window station, also on the desktop of the player, so a test game must never do that.
+ * The development-only check behind the harness command {@code cursorfree}, because a game that grabs the mouse clips the
+ * cursor of the whole window station, also on the desktop of the player.
  */
 final class CursorClip {
     private static final long WAIT_SECONDS = 30;

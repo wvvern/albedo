@@ -62,8 +62,7 @@ public final class SpriteUpload implements TextureStore.Upload {
 
     /**
      * The frames of a strip at the places that loadSpriteFrames gives them, with an empty place for each index that the
-     * animation does not name; the animation of a loaded sprite always has its frame list. Each frame has a place for
-     * each mip level, as generateMipmaps needs.
+     * animation does not name and a place for each mip level of each frame, as generateMipmaps needs.
      */
     private static List<int[][]> frames(int[] strip, int frameLength, int mipLevels, AnimationMetadataSection animation) {
         List<int[][]> frames = new ArrayList<int[][]>();
