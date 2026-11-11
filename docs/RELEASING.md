@@ -2,14 +2,29 @@
 
 A release is a tag such as `v1.2.0`. CI builds all jars, makes a GitHub release with the notes from `CHANGELOG.md`, and uploads the jars to Modrinth (slug `albedo`) when the repository variable `MODRINTH_PROJECT_ID` and the secret `MODRINTH_TOKEN` exist.
 
+## The jars
+
+A release has 39 jars: 18 Fabric, 7 Forge and 12 NeoForge for the nodes in `modern/settings.gradle`, and the Forge jars of 1.8.9 and 1.12.2 from `legacy/`. The name of a jar is `albedo-<loader>-<version>+<minecraft version>.jar`. The node `26.1` builds the jar `+26.1.2`.
+
+To build all of them on your computer, run `pwsh tools/build-all.ps1`. It builds one node in each Gradle run and copies the jars to `build/libs`.
+
+## CI
+
+- `check` runs `tools/lint.sh` and `:core:check`. On a tag it also reads the notes with `tools/release-notes.sh`.
+- `modern` has one job for each row of the matrix in `.github/workflows/ci.yml`. A job builds all loaders of its node in one Gradle run, runs `tools/check-jar.sh` on each jar, and uploads the artifact `jars-<minecraft version>`.
+- `legacy` builds the jars of 1.8.9 and 1.12.2 and uploads `jars-1.8.9` and `jars-1.12.2`.
+- `release` runs on a tag. It checks that there are 39 jars, signs each jar with a build attestation, and makes the GitHub release.
+- `modrinth` has one job for each jar group. Each loader has its own upload step with the game versions of the row. Quilt is not listed. If an upload fails, delete the incomplete version on Modrinth and run `.github/workflows/modrinth.yml`.
+
 ## Steps
 
 1. Make sure that CI is green on `master`.
 2. Select the version (semantic versioning): a breaking config change increases the major number, a `feat` increases the minor number, only `fix` and `perf` increase the patch number. Before 1.0.0, increase the minor number for breaking changes.
 3. Set `mod_version` in `modern/gradle.properties` to the version. The legacy build reads the same value.
 4. Write the `CHANGELOG.md` section for the version (rules below). Put it at the top, under the title.
-5. Commit as `chore: Release X.Y.Z`, push, and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-6. Monitor the CI run. Check that the release has 7 jars and the notes.
+5. Run the validation matrix and fill `docs/TESTED.md`. Start the release jars of the candidate commit and install them in the instances of the owner.
+6. Commit as `chore: Release X.Y.Z`, push, and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+7. Monitor the CI run. Check that the release has 39 jars and the notes.
 
 ## Changelog rules
 
