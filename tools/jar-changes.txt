@@ -4,6 +4,8 @@
 architectury_inject_* The Architectury transformer puts a random id in this folder name in each build.
 mixins.albedo.refmap.json The Mixin annotation processor of the 1.8.9 build writes the mixins in a different sequence in each build.
 albedo.mixins.json The build writes the client list from the mixin classes of the node, in ASCII sequence.
+META-INF/neoforge.mods.toml The mod version in the file is the version of the new release.
+mcmod.info The mod version in the file is the version of the new release.
 fabric.mod.json The Fabric jar asks for Fabric Loader 0.15.0, the first version with MixinExtras, not for the version of the build.
 dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of Fabric Loader to the mod.
 dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
