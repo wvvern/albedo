@@ -1,0 +1,8 @@
+# The Modrinth gallery, in order: <file in gallery/> = <title>. The first image is the featured one.
+01-split.png = Vanilla, the minimal profile with the Galaxy sky, and quake-white
+02-trails.png = Star trails at night
+03-galaxy.png = The Galaxy rises in the east
+04-nebula.png = The Nebula sky
+05-sky-editor.png = The sky editor
+06-bevel-outline.png = Bevel and Outline on quake-black
+07-quake-white.png = quake-white with red mobs

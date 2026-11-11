@@ -249,8 +249,8 @@ jobs:
           game-versions: ${{ matrix.target.game_versions }}
           changelog: ${{ needs.check.outputs.notes }}
 
-  modrinth-description:
-    name: Modrinth description
+  modrinth-page:
+    name: Modrinth page
     needs: [release]
-    uses: ./.github/workflows/modrinth-description.yml
+    uses: ./.github/workflows/modrinth-page.yml
     secrets: inherit

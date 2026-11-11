@@ -44,7 +44,7 @@ Each version has its own file. The Fabric file also works on Quilt. Fabric API i
 
 - **Sodium, Embeddium and Rubidium:** everything works. Tested with the newest release of each for every Minecraft version.
 - **OptiFine:** supported on 1.8.9 only. Turn on the OptiFine Sky setting to see the custom sky. With an OptiFine shader pack, the sky stays vanilla.
-- **Iris:** everything works with shaders off. Most shader packs draw their own sky, light and shadows.
+- **Iris:** everything works with shaders off. Many shader packs draw their own sky, light and shadows.
 - **Vulkan:** works on 26.2 and later.
 
 ## Known limits

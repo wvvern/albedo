@@ -2,7 +2,7 @@
 
 Albedo is a client-side Minecraft mod that lets you paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
 
-Albedo changes textures as they load, so it also works with modded blocks and resource packs.
+Textures are changed as they load, so modded blocks and resource packs work too.
 
 ![Vanilla, the minimal profile with the Galaxy sky, and quake-white](modrinth/gallery/01-split.png)
 
@@ -11,23 +11,23 @@ Albedo changes textures as they load, so it also works with modded blocks and re
 ### Paint the world
 
 - **Profiles:** start from `quake-white`, `quake-black`, `minimal` or `pastel`, or make your own. Export and import them as files.
-- **Looks:** give each category (blocks, fluids, mobs, players, particles, sky and more) a flat color, a recolor, the average color, gray, or hide it.
-- **Effects:** Bevel shades the edges of each block, Outline draws a line around it, and Chroma moves its colors through all hues.
+- **Looks:** give each category (blocks, fluids, mobs, players, particles, sky and more) a flat color, a recolor, its average color, gray, or hide it.
+- **Effects:** Bevel shades block edges, Outline draws a line around each block, and Chroma cycles colors through every hue.
 - **Groups:** give a set of textures their own look, for example dirt, grass and gravel in one color.
 
 ### Build your sky
 
 - **Layers:** stack gradients, glows, clouds, stars, galaxies, meteors and auroras, with filters such as blur and bloom.
 - **Presets:** Dusk, Nebula, Galaxy, Meteors, Aurora and Trails.
-- **Stars:** the colors of real stars, from blue-white to orange, with a soft glow, fine spikes and twinkle.
+- **Stars:** real star colors from blue-white to orange, with a soft glow, fine spikes and twinkle.
 - **Motion:** the sky turns around a pole like the real night sky, with optional star trails.
-- **Sharp:** your graphics card draws each pixel, so the sky stays sharp at all zoom levels.
+- **Sharp:** drawn per pixel on the GPU, so it stays sharp at any zoom.
 
 ### Control
 
 - **Servers:** give each server its own profile, or turn the mod off there.
 - **World options:** fullbright, shading, foliage and entity shadows.
-- **Keys:** F9 opens the settings, F6 turns the mod on or off, and F7 selects the next profile.
+- **Keys:** F9 opens the settings, F6 turns the mod on or off, F7 switches profile.
 
 ## Install
 

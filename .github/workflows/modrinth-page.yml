@@ -1,0 +1,45 @@
+name: Modrinth page
+
+# Sets the description of the Modrinth project to modrinth/DESCRIPTION.md and replaces its gallery with the images
+# in modrinth/gallery.txt. CI runs it after a release. To run it by hand: gh workflow run modrinth-page.yml
+# The token needs the Modrinth scope "Write projects".
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  page:
+    if: vars.MODRINTH_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    env:
+      API: https://api.modrinth.com/v2/project/${{ vars.MODRINTH_PROJECT_ID }}
+      TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Description
+        run: |
+          jq -n --rawfile body modrinth/DESCRIPTION.md '{body: $body}' > body.json
+          curl -fsS -X PATCH "$API" -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+            -H "User-Agent: $GITHUB_REPOSITORY (GitHub Actions)" --data @body.json
+      - name: Gallery
+        run: |
+          modrinth() { curl -fsS -H "Authorization: $TOKEN" -H "User-Agent: $GITHUB_REPOSITORY (GitHub Actions)" "$@"; }
+          # Check that each listed image exists before the old gallery is removed.
+          grep -v '^#' modrinth/gallery.txt | while IFS='=' read -r file title; do
+            test -f "modrinth/gallery/$(echo $file)" || { echo "Missing modrinth/gallery/$file"; exit 1; }
+          done
+          modrinth "$API" | jq -r '.gallery[].url' | while read -r url; do
+            modrinth -X DELETE "$API/gallery?url=$(jq -rn --arg u "$url" '$u|@uri')"
+          done
+          n=0
+          grep -v '^#' modrinth/gallery.txt | while IFS='=' read -r file title; do
+            file=$(echo $file); title=$(echo $title)
+            featured=$([ $n -eq 0 ] && echo true || echo false)
+            query="ext=png&featured=$featured&ordering=$n&title=$(jq -rn --arg t "$title" '$t|@uri')"
+            modrinth -X POST "$API/gallery?$query" -H "Content-Type: image/png" --data-binary "@modrinth/gallery/$file"
+            echo "Uploaded $file"
+            n=$((n + 1))
+          done
