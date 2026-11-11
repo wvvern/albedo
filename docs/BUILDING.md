@@ -25,7 +25,7 @@ Before you push: `./gradlew :core:check` in `modern/` and `bash tools/lint.sh` i
 - Modern: `./gradlew :fabric:26.3:runClient` in `modern/` (any loader and node). Legacy: `./gradlew --configure-on-demand :1.12.2:runClientDev` in `legacy/`.
 - Forge 1.16.5 with `-Pharness` adds the mixin in `modern/forge/dev-1.16.5`, because Loom leaves SRG names on two Forge-patched calls in `Transformation` (`NoSuchMethodError: Transformation.func_227987_b_()` when models load). `tools/check-jar.sh` fails a jar that contains it.
 - `-Pquilt` runs the Fabric dev game on Quilt Loader.
-- `-Pcompat=sodium|embeddium|iris` adds that mod; see "Compat mods in the dev run" in [ARCHITECTURE.md](ARCHITECTURE.md).
+- `-Pcompat=sodium|embeddium|rubidium|iris` adds that mod; see "Compat mods in the dev run" in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Add a Minecraft version
 

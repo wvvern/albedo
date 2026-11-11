@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # To add a Minecraft version, see "Add a Minecraft version" in docs/ARCHITECTURE.md; tools/lint.sh compares the rows with modern/.
+        # To add a Minecraft version, see "Add a Minecraft version" in docs/BUILDING.md; tools/lint.sh compares the rows with modern/.
         # node: the folder in modern/versions.
         # mc: minecraft_version of the node, which is the end of the jar name.
         # java: java_version of the node.
