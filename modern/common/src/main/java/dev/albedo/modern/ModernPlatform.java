@@ -8,8 +8,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
+//? if >=1.18 {
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+//?} else {
+/*import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+*///?}
 
 import java.io.File;
 import java.util.HashMap;
@@ -18,7 +23,12 @@ import java.util.Map;
 /** The {@link Platform} for Minecraft 1.21 and later on all loaders, which keeps loader code in the entrypoints. */
 final class ModernPlatform implements Platform {
     static final String MINECRAFT = /*$ minecraft*/ "26.3";
+    //? if >=1.18 {
     private static final Logger LOG = LoggerFactory.getLogger("albedo");
+    //?} else {
+    /*// The game of 1.17 logs with Log4j and has no SLF4J provider in the Forge dev run.
+    private static final Logger LOG = LogManager.getLogger("albedo");
+    *///?}
 
     private final Map<String, Integer> keyCodes = new HashMap<>();
     private final File loaderConfigDir;

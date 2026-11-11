@@ -253,6 +253,8 @@ com.mojang.math.Vector4f#x
 net.minecraft.client.gui.GuiComponent#fill
 net.minecraft.client.gui.GuiComponent#blit
 net.minecraft.client.gui.Font#draw
+net.minecraft.client.Minecraft#getOverlay
+net.minecraft.client.gui.Gui#overlay
 net.minecraft.client.Minecraft#createLevel
 net.minecraft.client.Minecraft#loadLevel
 net.minecraft.commands.Commands#performCommand
