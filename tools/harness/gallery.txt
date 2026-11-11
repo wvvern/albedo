@@ -217,6 +217,7 @@ run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
 screenshot g01-split-galaxy
 profile quake-white
+look entities solid #C83232
 wait 200
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
