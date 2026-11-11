@@ -57,7 +57,7 @@ dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change on 1
 dev/albedo/modern/DeviceAtlasUpload.class A new class has the sprite upload through the GPU device.
 dev/albedo/modern/GlAtlasUpload.class A new class has the sprite upload of 1.21.1.
 dev/albedo/modern/SpriteAccess.class A new class gives the pixels and the name of a sprite.
-dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAccess.
+dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAccess and makes its backend in a method.
 dev/albedo/modern/mixin/SpriteLoaderMixin.class The handler gives a SpriteAccess to the hook.
 dev/albedo/modern/ModernHarnessHost.class The host is split by topic, gives the hook counters and tells the harness while the loading screen shows.
 dev/albedo/modern/Harness*.class New classes have the worlds, options, window, mouse, keyboard, screenshots, frame pixels and skins of the harness host, and the game rules of a new world come from a method with a variant for each version.

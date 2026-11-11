@@ -283,9 +283,10 @@ final class FixedSharpSky {
     // Draws the program and the term images of a sky repeat times into an image of this size, then gives the pixels and the
     // GPU time of one draw, and returns false when the shader cannot compile.
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
-        Program equirect = EQUIRECT.get(sky.program().shaderSteps());
         GLCapabilities caps = GL.getCapabilities();
-        if (!equirect.ready() || !caps.OpenGL30) return false;
+        if (!caps.OpenGL30) return false;
+        Program equirect = EQUIRECT.get(sky.program().shaderSteps());
+        if (!equirect.ready()) return false;
         Saved saved = new Saved();
         int framebufferBefore = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         IntBuffer viewport = BufferUtils.createIntBuffer(16);

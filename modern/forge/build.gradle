@@ -16,7 +16,7 @@ loom {
 }
 
 // Only a Gradle run of runClient alone with -Pharness adds the mixin of forge/dev-1.16.5, which the dev game of Forge 1.16.5 needs, so no jar has it.
-def harnessRun = project.hasProperty('harness') && gradle.startParameter.taskNames.every { it.endsWith('runClient') }
+def harnessRun = project.hasProperty('harness') && !gradle.startParameter.taskNames.isEmpty() && gradle.startParameter.taskNames.every { it.endsWith('runClient') }
 if (project.minecraft_version == '1.16.5' && harnessRun) {
     sourceSets.main.java.srcDir rootProject.file('forge/dev-1.16.5/java')
     sourceSets.main.resources.srcDir rootProject.file('forge/dev-1.16.5/resources')

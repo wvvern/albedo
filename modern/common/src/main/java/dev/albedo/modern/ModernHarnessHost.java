@@ -171,13 +171,14 @@ final class ModernHarnessHost implements Harness.Host {
     @Override
     public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
+        //? if gl_fixed {
+        /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        *///?}
         //? if >=26.3 {
         return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         //?} elif >=1.21.6 {
         /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
-        *///?} elif gl_fixed {
-        /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
-        *///?} else {
+        *///?} elif gl_sky {
         /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
         *///?}
     }

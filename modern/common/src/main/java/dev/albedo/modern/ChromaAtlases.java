@@ -26,15 +26,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * painted, so that the game and Albedo always write into those colors.
  */
 final class ChromaAtlases {
-    //? if >=26.3 {
-    private static final ChromaBackend BACKEND = new ChromaPass();
-    //?} elif >=1.21.11 {
-    /*private static final ChromaBackend BACKEND = new PrecompiledChromaPass();
-    *///?} elif gl_fixed {
-    /*private static final ChromaBackend BACKEND = new FixedChromaPass();
-    *///?} else {
-    /*private static final ChromaBackend BACKEND = new GlChromaPass();
-    *///?}
+    private static final ChromaBackend BACKEND = backend();
+
+    private static ChromaBackend backend() {
+        //? if gl_fixed {
+        /*return new FixedChromaPass();
+        *///?}
+        //? if >=26.3 {
+        return new ChromaPass();
+        //?} elif >=1.21.11 {
+        /*return new PrecompiledChromaPass();
+        *///?} elif gl_chroma {
+        /*return new GlChromaPass();
+        *///?}
+    }
 
     /** The atlases whose sprites can have their hue from the pass, by location, which the sprite loaders add on worker threads. */
     private static final Set<Object> ATLASES = ConcurrentHashMap.newKeySet();

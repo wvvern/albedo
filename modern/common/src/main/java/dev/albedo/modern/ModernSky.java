@@ -29,13 +29,14 @@ public final class ModernSky {
 
     /** Starts a frame, which forgets the sharp sky of the last frame that still waits. */
     static void frameStart() {
+        //? if gl_fixed {
+        /*FixedSky.frameStart();
+        *///?}
         //? if >=26.3 {
         PearlSky.frameStart();
         //?} elif >=1.21.6 {
         /*PrecompiledSky.frameStart();
-        *///?} elif gl_fixed {
-        /*FixedSky.frameStart();
-        *///?} else {
+        *///?} elif gl_sky {
         /*GlSky.frameStart();
         *///?}
     }
@@ -58,7 +59,7 @@ public final class ModernSky {
 
     /** True when the vanilla sky draws in place of the custom sky, because the GL families do not draw it with a shader pack. */
     static boolean vanillaWithPack() {
-        //? if >=1.17 && <1.21.6 {
+        //? if gl_sky {
         /*return shaderPackInUse();
         *///?} else {
         return false;

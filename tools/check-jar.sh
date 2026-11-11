@@ -19,7 +19,10 @@ listed=$(sed -n '/"client"/,/]/p' "$dir/albedo.mixins.json" | grep -o '"[A-Za-z0
 present=$(cd "$dir/dev/albedo/modern/mixin" && ls | grep -v '\$' | sed 's/\.class$//' | sort)
 [ "$listed" = "$present" ] || error 'the client list of albedo.mixins.json is not the list of the mixin classes in the jar'
 
-# A Forge jar of a version with the light pipeline of Forge also has a config for its own mixins, which the manifest names.
+# A Forge jar of a version with the light pipeline of Forge (below 1.19) also has a config for its own mixins, which the manifest names.
+case "$loader:$node" in
+    forge:1.16.5 | forge:1.17.1 | forge:1.18.2) [ -f "$dir/albedo.forge.mixins.json" ] || error 'the jar has no albedo.forge.mixins.json' ;;
+esac
 if [ -f "$dir/albedo.forge.mixins.json" ]; then
     forge_listed=$(sed -n '/"client"/,/]/p' "$dir/albedo.forge.mixins.json" | grep -o '"[A-Za-z0-9_]*"' | tr -d '"' | grep -vx client | sort)
     forge_present=$(cd "$dir/dev/albedo/forge/mixin" && ls | grep -v '\$' | sed 's/\.class$//' | sort)
