@@ -94,6 +94,15 @@ final class DeviceApi {
         ^///?}
     }
 
+    // The pipeline state for a pass with no depth view: from 26.2 it has no depth state, because Vulkan builds the variant for such a pass only then.
+    static RenderPipeline.Builder colorOnly(RenderPipeline.Builder builder) {
+        //? if >=26.2 {
+        return builder.withColorTargetState(ColorTargetState.DEFAULT);
+        //?} else {
+        /^return state(builder, false, false);
+        ^///?}
+    }
+
     // The blocks of the transforms of the game that the sky draws read, the globals, the projection and the transform of the draw.
     static RenderPipeline.Builder transformBlocks(RenderPipeline.Builder builder) {
         //? if >=26.2 {

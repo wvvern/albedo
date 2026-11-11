@@ -83,6 +83,7 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 ## Compatibility
 
 - **Sodium and Embeddium:** all features operate on 1.20.1 and on 1.21.1 and later. On the other versions Albedo has no hook for them, so some block tints can stay.
+- **Graphics backend on 26.2 and later:** all features operate with the OpenGL backend and with the Vulkan backend.
 - **OptiFine on 1.8.9:** all features operate. The custom sky shows when the OptiFine setting Sky is on. With an OptiFine shader pack, the sky stays vanilla.
 - **OptiFine on other versions:** not supported.
 - **Iris:** with shaders off, all features operate. Many shader packs draw their own sky, light and shadows. On 1.17.1 to 1.21.5 with a shader pack, the custom sky and its fog color stay vanilla.
@@ -91,7 +92,6 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 - On 1.21.2 and later, you can only hide clouds, not color them.
 - Hidden foliage also hides the items of those plants.
-- On 26.2 the sharp sky needs the OpenGL graphics backend. With the Vulkan backend the sky is drawn from a baked image.
 - Key presses and the config buttons of the loaders have no automatic test.
 
 ## Contributing

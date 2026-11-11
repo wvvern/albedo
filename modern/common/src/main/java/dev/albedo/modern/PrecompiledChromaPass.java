@@ -29,7 +29,7 @@ import java.util.OptionalLong;
 final class PrecompiledChromaPass implements ChromaBackend {
     // One triangle over the whole mip level with no blend and no depth, so that each texel of the pass replaces the atlas texel.
     private static final RenderPipeline PIPELINE = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.sampler(
-            DeviceApi.uniformBlock(DeviceApi.state(RenderPipeline.builder(), false, false), "AlbedoChroma"), "AlbedoPristine"), "AlbedoTexels")
+            DeviceApi.uniformBlock(DeviceApi.colorOnly(RenderPipeline.builder()), "AlbedoChroma"), "AlbedoPristine"), "AlbedoTexels")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
@@ -37,7 +37,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             .build();
 
     // A draw that copies one mip level, because the texture copy of 1.21.11 copies only the level 0.
-    private static final RenderPipeline COPY = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.state(RenderPipeline.builder(), false, false), "AlbedoSource")
+    private static final RenderPipeline COPY = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.colorOnly(RenderPipeline.builder()), "AlbedoSource")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
             .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA_COPY))
