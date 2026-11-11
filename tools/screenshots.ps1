@@ -192,7 +192,7 @@ foreach ($target in $Targets) {
     # A process of an earlier run can hold the folder, and its old log and images would then count for this run.
     if (Test-Path $harness) { throw "cannot delete $harness; stop the process that uses it" }
     New-Item -ItemType Directory -Force $harness | Out-Null
-    # Images that the commands load, for example the test skin of skins.txt.
+    # The files that the commands use, for example clip.ps1 of cursorfree.
     Copy-Item -Recurse (Join-Path $PSScriptRoot "harness\files") $harness
     Set-Options $runDir
     # The early loading window of Forge and NeoForge does not open on the hidden desktop, so the game makes its window itself.
