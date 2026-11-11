@@ -82,7 +82,7 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 ## Compatibility
 
-- **Sodium and Embeddium:** all features operate on 1.20.1 and on 1.21.1 and later. On the other versions Albedo has no hook for them, so some block tints can stay.
+- **Sodium, Embeddium and Rubidium:** all features operate on each Minecraft version that has the mod. Sodium is for Fabric. Embeddium and Rubidium are for Forge, and NeoForge has Sodium and Embeddium. Forge 1.17.1 and Forge 1.20.4 have none of them. Albedo was tested with the newest release of the mod for each version. An older release can have a different renderer, and then the biome color of grass, leaves, vines and water can stay on top of the color of your profile. For example, white grass shows green.
 - **Graphics backend on 26.2 and later:** all features operate with the OpenGL backend and with the Vulkan backend.
 - **OptiFine on 1.8.9:** all features operate. The custom sky shows when the OptiFine setting Sky is on. With an OptiFine shader pack, the sky stays vanilla.
 - **OptiFine on other versions:** not supported.

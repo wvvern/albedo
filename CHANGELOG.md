@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+
+- fix: Remove the biome color of grass, leaves and vines with Sodium on Fabric 1.16.5 to 1.19.4
+- fix: Remove the biome color of grass, leaves and vines with Embeddium or Rubidium on Forge 1.16.5 to 1.19.4
+- fix: Remove the biome color of grass, leaves and vines with Sodium on Fabric 1.20.6
+- fix: Remove the biome color of water with Sodium on Fabric 1.20.1 to 1.20.6 and Rubidium on Forge 1.20.1
+
 ## 0.6.1
 
 - fix: Stop the crash on 26.2 with the Vulkan graphics backend when Chroma colors move

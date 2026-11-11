@@ -35,8 +35,8 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Other textures | `TextureContents.load` (1.21.4+), `SimpleTexture.doLoad` | `SimpleTexture.loadTexture` |
 | Downloaded skins, capes, elytra | `TextureManager.register` of a `DynamicTexture` (1.21.4+), `HttpTexture.load` | `ThreadDownloadImageData.setBufferedImage` |
 | Biome colormaps | `GrassColor`, `FoliageColor`, `DryFoliageColor` `init` | `ColorizerGrass`, `ColorizerFoliage` |
-| Block tint | `ModelBlockRenderer`; Forge 1.16.5 `BlockInfo`; Sodium and Embeddium `BlockRenderer` | `BlockModelRenderer` (1.12.2 `BlockColors.colorMultiplier` in it), Forge `BlockInfo` |
-| Water tint | `BiomeColors.getAverageWaterColor` | `BiomeColorHelper.getWaterColorAtPos` |
+| Block tint | `ModelBlockRenderer`; Forge 1.16.5 `BlockInfo`; Sodium, Embeddium and Rubidium `BlockRenderer` (one hook for each renderer generation, see below) | `BlockModelRenderer` (1.12.2 `BlockColors.colorMultiplier` in it), Forge `BlockInfo` |
+| Water tint | `BiomeColors.getAverageWaterColor`; Sodium 0.5, Embeddium 0.3 and Rubidium 0.7 `WaterColorProvider.getColor` | `BiomeColorHelper.getWaterColorAtPos` |
 | Fullbright | gamma in `LightTexture`, 26.x `LightmapRenderStateExtractor` | gamma in `EntityRenderer.updateLightmap` |
 | Smooth lighting | `Minecraft.useAmbientOcclusion`, 26.x `ModelBlockRenderer`, Sodium `LevelSlice` | `Minecraft.isAmbientOcclusionEnabled` |
 | Face shade | `ClientLevel.getShade`, Forge 1.16.5 `LightUtil.diffuseLight`, 26.x `CardinalLighting.byFace` | quads into the chunk mesh (`Game.addQuad`, `LegacyHooks.vertexColor`) |
@@ -47,6 +47,21 @@ The adapters change data at stable points, not in the renderers. The core proces
 | Tick | `Minecraft.tick` | `Minecraft.runTick` |
 
 - The Sodium and Embeddium hooks are `@Pseudo` mixins with `remap = false` and `require = 0`. They use internal names of these mods, so a new version can silently skip them. Test each new version with `-Pcompat`.
+- Block tint hooks of the renderer mods, with the counter that the `hooks` line shows (`sodiumTint` for all of them, `sodiumWater` for the water hook):
+
+  | Renderer mods and Minecraft versions | Method in the renderer | Handler |
+  |--------------------------------------|------------------------|---------|
+  | Sodium 0.2 and 0.3, Embeddium 0.3.18 and Rubidium 0.2 on 1.16.5 and 1.17.1 | `render.pipeline.BlockRenderer` | `SodiumTintRedirectMixin.albedo$biomeColors`, the `BiomeColorBlender.getColors` result in `renderQuad` |
+  | Sodium 0.4, Embeddium 0.3.18 and Rubidium 0.5 to 0.6 on 1.18.2 to 1.19.4 | `render.pipeline.BlockRenderer`, from 1.19.4 `render.chunk.compile.pipeline.BlockRenderer` | `SodiumTintRedirectMixin.albedo$blendedColors`, the `ColorBlender.getColors` result in `renderQuad` or `renderQuadList` |
+  | Sodium 0.5, Embeddium 0.3 and Rubidium 0.7 on 1.20.1 to 1.20.6 | `getVertexColors` | `SodiumTintRedirectMixin.albedo$tint`; water: `SodiumWaterMixin` |
+  | Sodium 0.6 on 1.21.3 and 0.8.13 on 1.21.1 | `colorizeQuad` | `SodiumTintMixin.albedo$colorIndex` |
+  | Sodium 0.6.13 on 1.21.4 and 1.21.5, 0.7 | `tintQuad` | `SodiumTintMixin.albedo$quadTintIndex` |
+  | Sodium 0.8.14 to 0.9.2 | `tintQuad` | `SodiumTintMixin.albedo$tintIndex`, from 0.9.3 `albedo$sodiumTintIndex` |
+  | Embeddium 1.0 on 1.21.1 and 1.21.4 | `getVertexColors` | `SodiumTintMixin.albedo$hasColor` |
+
+- The hooks of the first three rows use plain Mixin (`@Inject`, `@ModifyVariable`), because Forge has no MixinExtras before 1.20.5. The two blender hooks take the `int[]` of the `getColors` result by the call, so no Minecraft type is in the target and one jar covers the Fabric and the Forge names. They return a new array of white and not `null`, because Embeddium 0.3.18 reads it with no null check.
+- Sodium 0.4 and older read the water color through `BiomeColors`, so `BiomeColorsMixin` covers them. Sodium 0.5 and its forks read it from their own cache (`WorldSlice.getColor`), which is why `SodiumWaterMixin` exists.
+- Shading and smooth lighting need no renderer hook before Sodium 0.9: the renderers ask `Minecraft.useAmbientOcclusion` (`AmbientOcclusionMixin`) and the face shade of the level (`FaceShadeMixin`).
 - Foliage has no hook. The texture hooks set the alpha of plant textures to zero.
 
 ## Settings changes
@@ -191,11 +206,13 @@ cd legacy && ./gradlew build                                                # Fo
 - The build writes the `client` list of `albedo.mixins.json` from the compiled mixin classes of the node, and `compatibilityLevel` from its Java version (`JAVA_21` at most). Do not write mixin names in the file. The list has the classes of the package `mixin` whose names end in `Mixin`, `Accessor` or `Invoker`. Do not put a different class in that package: `tools/check-jar.sh` fails for it.
 - `-Pmc_override=<version>` builds a node for a different Minecraft version, to examine a minor version of its range. It changes only the dependency: the Stonecutter swap `minecraft` and the conditions keep the version of the node.
 - Dev client: `./gradlew :fabric:26.3:runClient` in `modern/` (any loader or version), `./gradlew --configure-on-demand :1.12.2:runClientDev` in `legacy/` (or `:1.8.9:`).
-- Add `-Pcompat=sodium`, `embeddium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
+- Add `-Pcompat=sodium`, `embeddium`, `rubidium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
+  - Sodium for Fabric 1.16.5 to 1.21.x, Embeddium for Forge 1.16.5, 1.18.2, 1.19.2 and 1.20.1 and for NeoForge 1.20.4, and Rubidium for Forge 1.16.5 to 1.20.1 (not 1.17.1) are in the property files. Embeddium for NeoForge 1.20.6 and 1.21.4 does not start in the dev run, because a lambda name of its `ClientLevel` mixin is not in the NeoForge build of those nodes. No Embeddium or Rubidium exists for Forge 1.17.1 and 1.20.4.
+  - Sodium 0.3 and 0.4 (Fabric 1.17.1 to 1.19.2) need JOML in the dev run, because Loom drops the nested jar, so `joml_version` adds it. Sodium 0.2 on 1.16.5 starts with no Fabric API, and the Fabric API of 1.17 would add a second Fabric Loader, so the build excludes it.
   - Iris works only on Fabric 26.3, 26.2, 26.1, 1.21.11, 1.21.5 and 1.21.4. On 1.21.4 it is Sodium 0.6.13 and Iris 1.8.8, the versions of the owner instances. On the other targets you get only Sodium.
   - Sodium 0.6.13 does not start in the NeoForge 1.21.5 dev run, because it needs the Fabric rendering API.
-  - On 1.20.1, Sodium 0.5.13 (Fabric) and Embeddium 0.3.31 (Forge) have the package `me.jellysquid.mods.sodium`. `SodiumTintRedirectMixin` hooks their `getVertexColors`.
-  - The property `lwjgl_version` puts the LWJGL version of the game in the dev run, because Sodium 0.5 starts only with that version.
+  - On 1.20.1, Sodium 0.5.13 (Fabric) and Embeddium 0.3.31 (Forge) have the package `me.jellysquid.mods.sodium`. `SodiumTintRedirectMixin` hooks their `getVertexColors`, as for Sodium 0.5 on 1.20.4 and 1.20.6.
+  - The property `lwjgl_version` puts the LWJGL version of the game in the dev run, because Sodium 0.5 starts only with that version (3.3.1 on 1.20.1, 3.3.2 on 1.20.4, 3.3.3 on 1.20.6).
   - NeoForge 1.21.1 gets Sodium 0.6.13, the version of the owner's pack, because its dev run loads the 0.8.13 jar only as a library.
   - NeoForge from 1.20.5 and 26.x get the mod jar with no remap, because a remap drops the jar-in-jar list from which Sodium loads its mod.
   - With `-Compat`, `tools/screenshots.ps1` turns off the Blaze3D check of the NeoForge dev run (`enableB3DValidationLayer`). Sodium 0.8.14 on NeoForge 1.21.11 casts a texture that the check wraps.
@@ -218,7 +235,7 @@ A Stonecutter condition uses only the versions of this table. `tools/boundaries.
 | `1.20` | `GuiGraphics`; before it the screens draw with a `PoseStack` and `GuiComponent` | `GraphicsCanvas`, `PoseStackCanvas`, `SettingsScreen` | javap, minor open |
 | `1.20.2` | `mouseScrolled` with 4 numbers, `Screen.render` draws the background | `SettingsScreen` | javap, minor open |
 | `1.20.3` | `renderSectionLayer` with a `PoseStack`, `WorldOpenFlows.checkForBackupAndLoad`, `createFreshLevel` with a parent screen | `SkyAfterChunkLayerMixin`, `HarnessWorlds` | javap, minor open |
-| `1.20.5` | `renderSectionLayer` with two matrices, `WorldOpenFlows.openWorld`, `@Mod(dist)` and a `ModContainer` on NeoForge, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and their `*RedirectMixin` classes, `SkyAfterSolidMixin`, `HarnessWorlds`, `AlbedoNeoForge` | javap, minor open |
+| `1.20.5` | `renderSectionLayer` with two matrices, `WorldOpenFlows.openWorld`, `@Mod(dist)` and a `ModContainer` on NeoForge, MixinExtras on all loaders | `BlockTintMixin`, `FullbrightMixin`, `ShadowMixin`, `SodiumTintMixin` and the `BlockTintRedirectMixin`, `FullbrightRedirectMixin` and `ShadowRedirectMixin` classes (`SodiumTintRedirectMixin` has no condition, because plain Mixin works on all versions), `SkyAfterSolidMixin`, `HarnessWorlds`, `AlbedoNeoForge` | javap, minor open |
 | `1.21` | `MeshData`, `ResourceLocation.fromNamespaceAndPath`, `GameRenderer.render(DeltaTracker, boolean)`, `Minecraft.getTimer` | `SkySunriseMixin`, `CanvasImages`, `ModernSky` | javap, minor open |
 | `1.21.2` | `SkyRenderer`, `LevelRenderer.addSkyPass`, `CloudRenderer`, `LevelRenderer.getCloudRenderer`, `NativeImage.getPixel` and `setPixel`, `Minecraft.getDeltaTracker()`, `GameRules(FeatureFlagSet)`, static `FogRenderer.computeFogColor`, `blit` with a `RenderType` function | `SkyMixin`, `SkyLayersMixin`, `GlSkyLayersMixin`, `FogMixin`, `StaticFogMixin`, `NativeImagePixels`, `ModernHarnessHost`, `ModernSky`, `HarnessWorlds`, `GraphicsCanvas` | javap, minor open |
 | `1.21.4` | `TextureContents.load`, `ReloadableTexture.doLoad(NativeImage, boolean, boolean)`, no `SimpleTexture.doLoad`, no `HttpTexture` | `TextureLoadMixin`, `SkinTextureMixin`, `TextureManagerMixin`, `TextureUploadInvoker`, `ModernHooks`, `TextureUploads` | javap |
