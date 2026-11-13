@@ -24,12 +24,18 @@ FRAME = 0x00C00000 | 0x00040000 | 0x00080000 | 0x00020000 | 0x00010000
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
+SM_CXVIRTUALSCREEN = 78
+SM_CYVIRTUALSCREEN = 79
 POLL_SECONDS = 0.5
 
 
-def too_small(client: Size, wanted: Size) -> bool:
-    """Whether the screen made a window smaller than the run wants, which a window with no pixels yet is not."""
-    return client != (0, 0) and (client[0] < wanted[0] or client[1] < wanted[1])
+def held_by_screen(client: Size, outer: Size, wanted: Size, screen: Size) -> bool:
+    """Whether the screen made a window smaller than the run wants: its inside is too small on an axis where it fills the screen.
+
+    A game can open a small window and set its size later, and such a window is left alone, because the game would give a window
+    with no frame the size of one with a frame.
+    """
+    return any(client[axis] < wanted[axis] and outer[axis] >= screen[axis] for axis in (0, 1))
 
 
 def without_frame(style: int) -> int:
@@ -62,13 +68,24 @@ def windows_of(pids: set[int]) -> list[int]:
     return found
 
 
-def client_size(window: int) -> Size:
+def sizes(window: int) -> tuple[Size, Size]:
+    """The size of the inside of a window and its size with its frame."""
     import ctypes
     from ctypes import wintypes
 
-    rect = wintypes.RECT()
-    ctypes.WinDLL("user32", use_last_error=True).GetClientRect(wintypes.HWND(window), ctypes.byref(rect))
-    return rect.right - rect.left, rect.bottom - rect.top
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    client, outer = wintypes.RECT(), wintypes.RECT()
+    user32.GetClientRect(wintypes.HWND(window), ctypes.byref(client))
+    user32.GetWindowRect(wintypes.HWND(window), ctypes.byref(outer))
+    return (client.right - client.left, client.bottom - client.top), (outer.right - outer.left, outer.bottom - outer.top)
+
+
+def screen_size() -> Size:
+    """The size of all screens together, which is the limit of a window with a frame."""
+    import ctypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    return user32.GetSystemMetrics(SM_CXVIRTUALSCREEN), user32.GetSystemMetrics(SM_CYVIRTUALSCREEN)
 
 
 def fit(window: int, wanted: Size) -> None:
@@ -88,11 +105,11 @@ def watch(pid: int, harness: Path, log: Path) -> None:
 
     while processes.alive(pid):
         for window in windows_of(game_pids(harness)):
-            size = client_size(window)
-            if too_small(size, protocol.WINDOW_SIZE):
+            client, outer = sizes(window)
+            if held_by_screen(client, outer, protocol.WINDOW_SIZE, screen_size()):
                 fit(window, protocol.WINDOW_SIZE)
                 with log.open("a", encoding="ascii") as file:
-                    file.write(f"a window of {size[0]} x {size[1]} got no frame and now has {' x '.join(map(str, client_size(window)))}\n")
+                    file.write(f"a window of {client[0]} x {client[1]} got no frame and now has {' x '.join(map(str, sizes(window)[0]))}\n")
         time.sleep(POLL_SECONDS)
 
 
