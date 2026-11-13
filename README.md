@@ -4,7 +4,7 @@ Albedo is a client-side Minecraft mod that lets you paint blocks, fluids, the sk
 
 Textures are changed as they load, so modded blocks and resource packs work too.
 
-![An alien planet, the minimal profile with the Galaxy sky, and quake-white](modrinth/header.png)
+![An alien planet, the minimal profile with the Galaxy sky, and quake-black](modrinth/header.png)
 
 ## Features
 

@@ -21,7 +21,10 @@ jobs:
       - uses: actions/checkout@v7
       - name: Description
         run: |
-          jq -n --rawfile body modrinth/DESCRIPTION.md '{body: $body}' > body.json
+          # Links to images in this repository name the commit, so a changed image gets a new address and no cache shows the
+          # old one.
+          sed "s#/albedo/master/#/albedo/$GITHUB_SHA/#g" modrinth/DESCRIPTION.md > description.md
+          jq -n --rawfile body description.md '{body: $body}' > body.json
           curl -fsS -X PATCH "$API" -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
             -H "User-Agent: $GITHUB_REPOSITORY (GitHub Actions)" --data @body.json
       - name: Gallery
