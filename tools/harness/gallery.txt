@@ -1,4 +1,4 @@
-# The images of modrinth/gallery, all with a level camera: a split of autumn, the turned Galaxy and quake-white, the
+# The images of modrinth/gallery, all with a level camera: a split of an alien planet, the turned Galaxy and quake-white, the
 # star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with colored mobs and particles:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # Then put the three split shots side by side with tools/split.py and frame all images with tools/gallery.py, with the
@@ -195,20 +195,20 @@ run setblock 8 -59 58 lantern
 run setblock 8 -59 63 lantern
 run summon cow 10.5 -60 56.5 {NoAI:1b,Rotation:[110f,0f],Tags:["g"]}
 run summon sheep 10.8 -60 65.2 {NoAI:1b,Color:0,Rotation:[70f,0f],Tags:["g"]}
-# 1. The split: the same view in the same session, with autumn, the minimal profile with the Galaxy sky and quake-white.
+# 1. The split: the same view in the same session, with an alien planet, the minimal profile with the Galaxy sky and quake-white.
 # With the pole at 75 degrees, the Galaxy turns through the north, and at the time 9000 it is in the middle strip.
 fov 70
 run time set 9000
 run tp @p 0.5 -60 4.5 180 -6
 wait 100
 run tp @e[type=!player,tag=!g] 0 -300 0
-# Autumn: only the grass, the plants and the leaves change, and they keep their texture. Without the biome tint, the
-# recolor is not mixed with the green of the biome.
-profilejson {"albedoProfile": 1, "name": "autumn", "profile": {"blocks": {"removeTint": true, "groups": [{"name": "Grass", "match": ["grass_block_top", "grass_block_side_overlay", "short_grass", "tall_grass*", "fern", "large_fern*", "vine"], "mode": "recolor", "color": "#A8742C"}, {"name": "Leaves", "match": "*leaves*", "mode": "recolor", "color": "#B4422A"}]}}}
+# An alien planet: every block, the water and the mobs are recolored and keep their texture, with groups for the
+# ground, stone, wood, leaves and the colored blocks. The sky does not turn, so that its clouds are the same in each shot.
+profilejson {"albedoProfile": 1, "name": "alien-planet", "profile": {"blocks": {"mode": "recolor", "color": "#6A5BD0", "detail": 100, "keepColors": 0, "keepLight": 30, "removeTint": true, "groups": [{"name": "Leaves", "match": ["*leaves*"], "color": "#E8309F"}, {"name": "Wood", "match": ["*log*", "*planks*", "*bookshelf*"], "color": "#F29A2E"}, {"name": "Ground", "match": ["*grass_block*", "*dirt*", "*gravel*", "*sand*"], "color": "#19C7AE"}, {"name": "Accents", "match": ["*wool*", "*terracotta*", "*copper*", "*hay*"], "color": "#9B6BFF"}, {"name": "Stone", "match": ["*stone*", "*ore*", "*deepslate*", "*bricks*"], "color": "#5547B8"}], "bevel": 20}, "block_entities": {"mode": "recolor", "color": "#8A6BFF", "detail": 100, "keepColors": 0, "keepLight": 30}, "fluids": {"mode": "recolor", "color": "#B6FF2E", "detail": 100, "keepColors": 0, "keepLight": 10, "removeTint": true, "bevel": 25}, "entities": {"mode": "recolor", "color": "#FF6FD8", "detail": 100, "keepColors": 0, "keepLight": 40}, "particles": {"mode": "recolor", "color": "#B6FF2E"}, "clouds": {"mode": "hidden"}, "sky": {"mode": "layers", "celestial": "hide", "light": "fixed", "extent": "horizon", "turning": {"amount": 0}, "layers": [{"id": 1, "kind": "gradient", "color1": "#3FA88A", "color2": "#0C1A3A", "height": 22, "amount": 75}, {"id": 2, "kind": "fractal", "color1": "#000000", "color2": "#5AE0B0", "amount": 50, "seed": 21, "blend": "add", "opacity": 45, "transform": {"pitch": 20, "scale": 140}}, {"id": 3, "kind": "stars", "color1": "#FFFFFF", "amount": 40, "height": 30, "seed": 3, "blend": "add", "opacity": 70}]}}}
 wait 160
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
-screenshot g01-split-autumn
+screenshot g01-split-alien
 profile minimal
 sky galaxy
 skyturn 100 height 75
