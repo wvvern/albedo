@@ -1,5 +1,9 @@
 # Albedo
 
+[![CI](https://github.com/wvvern/albedo/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/wvvern/albedo/actions/workflows/ci.yml)
+[![Modrinth version](https://img.shields.io/modrinth/v/albedo?logo=modrinth&label=modrinth)](https://modrinth.com/mod/albedo)
+[![Modrinth downloads](https://img.shields.io/modrinth/dt/albedo?logo=modrinth&label=downloads)](https://modrinth.com/mod/albedo)
+
 Albedo is a client-side Minecraft mod that lets you paint blocks, fluids, the sky, mobs and the rest of the world in any color. Give each part one flat color, or recolor its textures and keep their detail.
 
 Textures are changed as they load, so modded blocks and resource packs work too.
@@ -31,7 +35,7 @@ Textures are changed as they load, so modded blocks and resource packs work too.
 
 ## Install
 
-Put the jar for your Minecraft version and loader in your `mods/` folder. Fabric API is not needed. On Quilt, use the Fabric jar.
+Download the jar from [Modrinth](https://modrinth.com/mod/albedo) or from [GitHub releases](https://github.com/wvvern/albedo/releases). Put the jar for your Minecraft version and loader in your `mods/` folder. Fabric API is not needed. On Quilt, use the Fabric jar.
 
 | Minecraft | Fabric | Quilt | NeoForge | Forge | Fabric jar also runs on |
 |-----------|:------:|:-----:|:--------:|:-----:|-------------------------|
