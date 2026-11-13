@@ -59,6 +59,26 @@ wait 10
 ui pointer off
 wait 10
 screenshot p07-sky
+# The cards of the built-in skies, then with a chosen card. The style goes back to Color, so that the later pages show the profile.
+ui click Layers
+wait 60
+ui pointer off
+wait 10
+screenshot p07a-sky-layers
+ui click Skies
+wait 100
+ui pointer off
+wait 10
+screenshot p07b-sky-gallery
+ui click Nebula
+wait 100
+ui pointer off
+wait 10
+screenshot p07c-sky-gallery-chosen
+key ESCAPE
+wait 5
+ui click Color
+wait 10
 ui click Weather
 wait 10
 ui pointer off

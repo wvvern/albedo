@@ -458,7 +458,9 @@ public final class Harness {
         String[] parts = arg.trim().split("\\s+");
         SkyDesign design = SkyPresets.byName(parts[0]);
         if (design == null || parts.length > 2) {
-            throw new IllegalArgumentException("sky <" + String.join("|", SkyPresets.all().keySet()) + "|off> [layers]");
+            StringBuilder keys = new StringBuilder();
+            for (SkyPresets.Preset p : SkyPresets.all()) keys.append(p.key()).append('|');
+            throw new IllegalArgumentException("sky <" + keys + "off> [layers]");
         }
         // A still sky gives the same screenshots in each run, and Trails keeps the turning that draws its trails.
         if (design.turning().equals(SkyTurning.DEFAULT)) design = design.withTurning(SkyTurning.STILL);

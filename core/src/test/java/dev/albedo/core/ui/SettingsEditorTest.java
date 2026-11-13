@@ -943,11 +943,119 @@ class SettingsEditorTest {
         assertEquals(SkyLayer.Kind.GLOW, savedSky().layers().get(0).kind());
         assertEquals(SkyLayer.Kind.GRADIENT, savedSky().layers().get(1).kind());
 
-        click(editor, canvas, "Dusk");
-        assertNotEquals(SkyPresets.DUSK, sc.config().activeProfile().get(Category.SKY).sky(), "the first click only asks");
+        SkyDesign own = savedSky();
+        click(editor, canvas, "Skies");
+        click(editor, canvas, "Use this sky");
+        assertNotNull(canvas.find("Start from a sky"), "the button does nothing before a card is chosen");
         click(editor, canvas, "Dusk");
         click(editor, canvas, "Apply");
-        assertEquals(SkyPresets.DUSK, savedSky(), "a preset replaces the layers after a second click");
+        assertEquals(own, savedSky(), "a click on a card only chooses it");
+        editor.keyPressed(UiKey.ESCAPE);
+        render(editor, canvas);
+        assertNotNull(canvas.find("+ Add layer"), "Esc goes back to the layers: " + canvas.texts.keySet());
+        click(editor, canvas, "Apply");
+        assertEquals(own, savedSky(), "Esc leaves the layers as they are");
+
+        click(editor, canvas, "Skies");
+        click(editor, canvas, "Dusk");
+        click(editor, canvas, "Use this sky");
+        assertNotNull(canvas.find("+ Add layer"), "the layers show again: " + canvas.texts.keySet());
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.DUSK, savedSky(), "the chosen sky replaces the layers");
+    }
+
+    @Test
+    void eachCardOfTheGalleryGetsItsImage() throws InterruptedException {
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.DUSK))));
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(960, 540);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        click(editor, canvas, "Skies");
+        for (SkyPresets.Preset p : SkyPresets.all()) {
+            assertNotNull(canvas.find(p.name()), "each sky has a card: " + canvas.texts.keySet());
+            String id = "sky.gallery." + p.key();
+            for (int i = 0; i < 1000 && canvas.images.get(id) == null; i++) {
+                Thread.sleep(10);
+                render(editor, canvas);
+            }
+            CanvasImage img = canvas.images.get(id);
+            assertNotNull(img, "the card of " + p.name() + " has an image: " + canvas.images.keySet());
+            assertTrue(img.height() > img.width() / 4 && img.height() < img.width() / 2, "the image ends a little below the horizon");
+        }
+
+        // The aurora is in the north, at the two ends of a bake, and its card shows it in the middle.
+        CanvasImage aurora = canvas.images.get("sky.gallery.aurora");
+        long middle = 0, ends = 0;
+        for (int i = 0; i < aurora.argb().length; i++) {
+            int x = i % aurora.width(), p = aurora.argb()[i];
+            // The green that a pixel has over its red and blue, which the stars and the night sky do not have.
+            int green = Math.max(0, (p >> 8 & 0xFF) - Math.max(p >> 16 & 0xFF, p & 0xFF));
+            if (x >= aurora.width() / 4 && x < aurora.width() * 3 / 4) middle += green;
+            else ends += green;
+        }
+        assertTrue(middle > 2 * ends, "the card of the aurora looks north: " + middle + " and " + ends);
+
+        // The clock stands still, so that only the click on a card gives the large preview a new image.
+        SkyClock.hold(0);
+        try {
+            // An image from before the hold is made again once, for the time 0.
+            render(editor, canvas);
+            CanvasImage own = newPreview(editor, canvas, null);
+            render(editor, canvas);
+            assertSame(own, canvas.images.get("sky.preview"), "the preview stays while no card is chosen");
+            click(editor, canvas, "Galaxy");
+            assertNotNull(newPreview(editor, canvas, own), "the large preview shows the sky of the chosen card");
+            click(editor, canvas, "Apply");
+            assertEquals(SkyPresets.DUSK, savedSky(), "the preview does not change the profile");
+        } finally {
+            SkyClock.run();
+        }
+
+        // A change of the style leaves the gallery, so that Esc closes the screen and is not lost on a hidden page.
+        click(editor, canvas, "Color");
+        editor.keyPressed(UiKey.ESCAPE);
+        render(editor, canvas);
+        assertTrue(editor.isClosed(), "Esc closes the screen after a style change");
+    }
+
+    /** Renders until the large sky preview shows other pixels than {@code old}, and returns that image, or null after ten seconds. */
+    private static CanvasImage newPreview(SettingsEditor editor, RecordingCanvas canvas, CanvasImage old) throws InterruptedException {
+        for (int i = 0; i < 1000; i++) {
+            CanvasImage shown = canvas.images.get("sky.preview");
+            if (shown != null && (old == null || !Arrays.equals(shown.argb(), old.argb()))) return shown;
+            Thread.sleep(10);
+            render(editor, canvas);
+        }
+        return null;
+    }
+
+    @Test
+    void theCardsScrollInAShortWindowAndAClickKeepsTheirPlace() {
+        Config c = withOwnProfile();
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.DUSK))));
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(320, 200);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        click(editor, canvas, "Skies");
+        String last = SkyPresets.all().get(SkyPresets.all().size() - 1).name();
+        assertNull(canvas.find(last), "the last card is below the window: " + canvas.texts.keySet());
+        int[] first = canvas.find("Dusk");
+        for (int i = 0; i < 10 && canvas.find(last) == null; i++) {
+            editor.mouseScrolled(-1);
+            canvas.texts.clear();
+            editor.render(canvas, first[0], first[1]);
+        }
+        assertNotNull(canvas.find(last), "the wheel shows the last card: " + canvas.texts.keySet());
+        click(editor, canvas, last);
+        assertNotNull(canvas.find(last), "a click on a card does not move the cards: " + canvas.texts.keySet());
+        click(editor, canvas, "Use this sky");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyPresets.TRAILS, savedSky(), "a sky with its own turning brings it");
     }
 
     @Test
@@ -992,8 +1100,9 @@ class SettingsEditorTest {
         click(editor, canvas, "Apply");
         assertEquals(SkyTurning.Clock.WORLD, savedSky().turning().clock());
 
+        click(editor, canvas, "Skies");
         click(editor, canvas, "Nebula");
-        click(editor, canvas, "Nebula");
+        click(editor, canvas, "Use this sky");
         click(editor, canvas, "Apply");
         assertEquals(SkyPresets.NEBULA.layers(), savedSky().layers());
         assertEquals(t, savedSky().turning(), "a preset keeps the turning");
@@ -1058,7 +1167,7 @@ class SettingsEditorTest {
     @Test
     void theSkyLayersEditorFitsAtEverySize() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}};
-        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Galaxy"}, {"Motion"}};
+        String[][] paths = {{}, {"+ Add layer"}, {"Gradient 1"}, {"Gradient 1", "Place"}, {"Skies"}, {"Skies", "Dusk"}, {"Motion"}};
         for (int[] size : sizes) {
             for (String[] path : paths) {
                 Config c = withOwnProfile();

@@ -13,16 +13,18 @@ import dev.albedo.core.sky.SkyTurn;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/** The editor of the custom sky on the Sky page: a list of layers, a page to add one, and a page for each layer, over a preview. */
+/**
+ * The editor of the custom sky on the Sky page: a list of layers, a page to add one, a page with the built-in skies, and a page
+ * for each layer, over a preview.
+ */
 final class SkyLayersEditor {
     /** What the editor shows, which only {@link #go} changes. */
-    enum Screen { LIST, ADD, LAYER }
+    enum Screen { LIST, ADD, GALLERY, LAYER }
 
     /** The two pages of a layer: its look, or its place on the sky. */
     enum LayerTab { LOOK, PLACE }
@@ -37,28 +39,33 @@ final class SkyLayersEditor {
 
     /** The immutable state of the editor's navigation. */
     static final class SkyPage {
-        static final SkyPage LIST = new SkyPage(Screen.LIST, 0, LayerTab.LOOK, PreviewSource.RESULT);
+        static final SkyPage LIST = new SkyPage(Screen.LIST, 0, LayerTab.LOOK, PreviewSource.RESULT, null);
 
         final Screen screen;
         /** The id of the open layer on the layer screen. */
         final int layerId;
         final LayerTab tab;
         final PreviewSource source;
+        /** The key of the chosen card on the gallery screen, or null. */
+        final String preset;
 
-        private SkyPage(Screen screen, int layerId, LayerTab tab, PreviewSource source) {
+        private SkyPage(Screen screen, int layerId, LayerTab tab, PreviewSource source, String preset) {
             this.screen = screen;
             this.layerId = layerId;
             this.tab = tab;
             this.source = source;
+            this.preset = preset;
         }
 
-        SkyPage add() { return new SkyPage(Screen.ADD, 0, LayerTab.LOOK, PreviewSource.RESULT); }
+        SkyPage add() { return new SkyPage(Screen.ADD, 0, LayerTab.LOOK, PreviewSource.RESULT, null); }
 
-        SkyPage layer(int id) { return new SkyPage(Screen.LAYER, id, LayerTab.LOOK, source); }
+        SkyPage gallery(String chosen) { return new SkyPage(Screen.GALLERY, 0, LayerTab.LOOK, PreviewSource.RESULT, chosen); }
 
-        SkyPage withTab(LayerTab t) { return new SkyPage(screen, layerId, t, source); }
+        SkyPage layer(int id) { return new SkyPage(Screen.LAYER, id, LayerTab.LOOK, source, null); }
 
-        SkyPage withSource(PreviewSource s) { return new SkyPage(screen, layerId, tab, s); }
+        SkyPage withTab(LayerTab t) { return new SkyPage(screen, layerId, t, source, null); }
+
+        SkyPage withSource(PreviewSource s) { return new SkyPage(screen, layerId, tab, s, null); }
     }
 
     /** The size of the preview image, the same shape as the image in the world. */
@@ -73,6 +80,7 @@ final class SkyLayersEditor {
     /** The seconds between two images of a turning preview. */
     private static final double TURN_STEP_S = 0.05;
     private static final String MOTION = "sky.motion";
+    private static final String SKIES = "Skies";
     private static final String TURNING = "Turning", SPEED = "Speed", FOLLOW_TIME = "Follow time", POLE_HEIGHT = "Pole height",
             DIRECTION = "Direction", POLE = "Pole", TRAILS = "Trails", TRAIL_LIGHT = "Trail light";
     /** The labels of the options under Turning, which show only while the sky turns. */
@@ -81,6 +89,7 @@ final class SkyLayersEditor {
     private final Ui ui;
     private final Runnable relayout;
     private final SkyBaker preview;
+    private final SkyGallery gallery;
     private SkyPage page = SkyPage.LIST;
     /** True while the Motion section is open; only a click on its heading changes it. */
     private boolean motionOpen;
@@ -102,11 +111,14 @@ final class SkyLayersEditor {
         this.ui = ui;
         this.relayout = relayout;
         this.preview = new SkyBaker(PREVIEW_W, PREVIEW_H, errors);
+        this.gallery = new SkyGallery(ui, errors);
         for (SkyLayer.Param p : SkyLayer.Param.values()) if (p.isColor()) colors.put(p, new ColorField(ui));
     }
 
     /** The only way the page changes; a text field or scroll of the old page does not carry over. */
     private void go(SkyPage next) {
+        // A click on a card keeps the place of the cards.
+        if (next.screen != page.screen) ui.resetScroll(SkyGallery.SCROLL);
         page = next;
         ui.clearFocus();
         ui.resetScroll("sky.rows");
@@ -116,11 +128,13 @@ final class SkyLayersEditor {
     /** Goes back to the list from another screen, for Esc, and returns whether there was a screen to leave. */
     boolean back() {
         if (page.screen == Screen.LIST) return false;
+        // The preview of a chosen card that was not used must not show as the sky of the list while the bake runs.
+        if (page.screen == Screen.GALLERY && page.preset != null) preview.request(null);
         go(SkyPage.LIST);
         return true;
     }
 
-    /** Shows the list again, for a different profile or category. */
+    /** Shows the list again, for a different profile, category or style. */
     void reset() {
         page = SkyPage.LIST;
     }
@@ -144,6 +158,7 @@ final class SkyLayersEditor {
         }
         switch (page.screen) {
             case ADD: addScreen(x, y, w, bottom, design, set); break;
+            case GALLERY: galleryScreen(x, y, w, bottom, design, set); break;
             case LAYER: layerScreen(x, y, w, bottom, screenH >= LAYER_PREVIEW_MIN_H, design, index, set); break;
             default: listScreen(x, y, w, bottom, design, set);
         }
@@ -234,19 +249,10 @@ final class SkyLayersEditor {
             go(page.add());
             return;
         }
-        int px = x + w;
-        for (Map.Entry<String, SkyDesign> e : reversed(SkyPresets.all())) {
-            String name = Character.toUpperCase(e.getKey().charAt(0)) + e.getKey().substring(1);
-            int bw = ui.buttonWidth(name);
-            if (px - bw < x + aw + 4) break;
-            px -= bw;
-            if (ui.confirmButton("sky.preset." + e.getKey(), px, cy, bw, Ui.H, name, "Start from the " + name + " sky",
-                    "Click again to replace all layers with the " + name + " sky")) {
-                // The Motion settings stay, except for a preset with its own turning, such as Trails.
-                set.accept(e.getValue().turning().equals(SkyTurning.DEFAULT) ? e.getValue().withTurning(design.turning()) : e.getValue());
-                return;
-            }
-            px -= 3;
+        int sw = ui.buttonWidth(SKIES);
+        if (ui.button("sky.skies", x + w - sw, cy, sw, Ui.H, SKIES, Ui.Style.NORMAL, true, "Start from a ready-made sky")) {
+            go(page.gallery(null));
+            return;
         }
         cy += Ui.H + GAP;
         boolean celestial = design.celestial() == SkyDesign.Celestial.SHOW, night = design.light() == SkyDesign.Light.DAY_NIGHT;
@@ -264,7 +270,7 @@ final class SkyLayersEditor {
         cy = motion(x, cy, w, bottom, design, set);
         List<SkyLayer> layers = design.layers();
         if (layers.isEmpty()) {
-            ui.paragraph("No layers. The sky is black. Add a layer or select a sky above.", x, cy + 2, w, Ui.FAINT);
+            ui.paragraph("No layers. The sky is black. Add a layer or click " + SKIES + ".", x, cy + 2, w, Ui.FAINT);
             return;
         }
         if (bottom - cy < ROW) return; // the open Motion section takes the room of the list
@@ -386,12 +392,6 @@ final class SkyLayersEditor {
         return rows;
     }
 
-    private static List<Map.Entry<String, SkyDesign>> reversed(Map<String, SkyDesign> map) {
-        List<Map.Entry<String, SkyDesign>> out = new ArrayList<Map.Entry<String, SkyDesign>>(map.entrySet());
-        Collections.reverse(out);
-        return out;
-    }
-
     /** The name of a layer: its kind and its place from the bottom. */
     private static String name(SkyDesign design, int index) {
         return Labels.kind(design.layers().get(index).kind()) + " " + (index + 1);
@@ -443,6 +443,41 @@ final class SkyLayersEditor {
     private static String blockTip(SkyDesign design, SkyLayer blocker) {
         int i = design.indexOf(blocker.id());
         return "Cannot move: " + name(design, i) + " uses the layer below it as its mask. A mask must be lower.";
+    }
+
+    /** The preset of the chosen card, or null when no card is chosen. */
+    private SkyPresets.Preset chosen() {
+        for (SkyPresets.Preset p : SkyPresets.all()) if (p.key().equals(page.preset)) return p;
+        return null;
+    }
+
+    /** The design that a preset gives: the Motion settings stay, except for a preset with its own turning, such as Trails. */
+    private static SkyDesign started(SkyPresets.Preset p, SkyDesign from) {
+        return p.design().turning().equals(SkyTurning.DEFAULT) ? p.design().withTurning(from.turning()) : p.design();
+    }
+
+    /** The cards of the built-in skies, where a click chooses one for the preview and only the Use button changes the layers. */
+    private void galleryScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
+        if (ui.backButton("sky.back", x, y, "Back to the layers (Esc)")) {
+            back();
+            return;
+        }
+        SkyPresets.Preset chosen = chosen();
+        String use = "Use this sky";
+        int uw = ui.buttonWidth(use);
+        if (ui.button("sky.use", x + w - uw, y, uw, Ui.H, use, Ui.Style.PRIMARY, chosen != null,
+                chosen == null ? "Click a sky first" : "Replace all layers with the " + chosen.name() + " sky")) {
+            set.accept(started(chosen, design));
+            go(SkyPage.LIST);
+            return;
+        }
+        ui.textFit("Start from a sky", x + 16, y + 3, w - uw - 20, Ui.TEXT);
+        int cy = y + Ui.H + GAP;
+        if (bottom - cy >= previewHeight(w) + GAP + SkyGallery.height(w, 2)) {
+            cy += preview(x, cy, w, chosen == null ? design : started(chosen, design), -1) + GAP;
+        }
+        String clicked = gallery.draw(x, cy, w, bottom - cy, page.preset);
+        if (clicked != null && !clicked.equals(page.preset)) go(page.gallery(clicked));
     }
 
     private void addScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {

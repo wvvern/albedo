@@ -9,11 +9,10 @@ import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /** The built-in custom skies, which the editor offers as starting points. */
 public final class SkyPresets {
@@ -82,27 +81,54 @@ public final class SkyPresets {
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE)
             .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
 
-    private static final Map<String, SkyDesign> ALL = new LinkedHashMap<String, SkyDesign>();
-
-    static {
-        ALL.put("dusk", DUSK);
-        ALL.put("nebula", NEBULA);
-        ALL.put("galaxy", GALAXY);
-        ALL.put("meteors", METEORS);
-        ALL.put("aurora", AURORA);
-        ALL.put("trails", TRAILS);
-    }
+    private static final List<Preset> ALL = Collections.unmodifiableList(Arrays.asList(
+            new Preset("dusk", "Dusk", "An orange sunset with the first stars", 270, DUSK),
+            new Preset("nebula", "Nebula", "Pink and violet clouds that slowly pulse", 180, NEBULA),
+            new Preset("galaxy", "Galaxy", "A galaxy with two blue jets over the stars", 135, GALAXY),
+            new Preset("meteors", "Meteors", "Shooting stars, not shown here", 180, METEORS),
+            new Preset("aurora", "Aurora", "Green northern lights over a starry night", 0, AURORA),
+            new Preset("trails", "Trails", "Stars that turn and draw long arcs", 0, TRAILS)));
 
     private SkyPresets() {}
 
-    /** The presets by name, in the order the editor shows them. */
-    public static Map<String, SkyDesign> all() {
-        return Collections.unmodifiableMap(ALL);
+    /** A built-in sky with the texts and the view of its card in the editor. */
+    public static final class Preset {
+        private final String key, name, description;
+        private final int facing;
+        private final SkyDesign design;
+
+        Preset(String key, String name, String description, int facing, SkyDesign design) {
+            this.key = key;
+            this.name = name;
+            this.description = description;
+            this.facing = facing;
+            this.design = design;
+        }
+
+        /** The direction in degrees east of north in the middle of the card image, where the sky shows what the preset is about. */
+        public int facing() { return facing; }
+
+        /** The name in harness commands and widget ids: lower-case letters and digits. */
+        public String key() { return key; }
+
+        public String name() { return name; }
+
+        /** One short sentence for a player. */
+        public String description() { return description; }
+
+        public SkyDesign design() { return design; }
     }
 
-    /** The preset with this name in any case, or null. */
+    /** The presets in the order the editor shows them. */
+    public static List<Preset> all() {
+        return ALL;
+    }
+
+    /** The design of the preset with this key in any case, or null. */
     public static SkyDesign byName(String name) {
-        return ALL.get(name.trim().toLowerCase(Locale.ROOT));
+        String key = name.trim().toLowerCase(Locale.ROOT);
+        for (Preset p : ALL) if (p.key.equals(key)) return p.design;
+        return null;
     }
 
     /** Puts layers together with ids from 1 in the order they are added. */

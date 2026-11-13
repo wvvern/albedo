@@ -26,7 +26,8 @@ class SkyCodecTest {
 
     @Test
     void everyPresetGoesThroughTheFileUnchanged() {
-        for (SkyDesign d : SkyPresets.all().values()) {
+        for (SkyPresets.Preset p : SkyPresets.all()) {
+            SkyDesign d = p.design();
             Config c = withSky(layers(d));
             Config back = ConfigCodec.decode(ConfigCodec.encode(c));
             assertEquals(d, back.profiles().get("night").get(Category.SKY).sky());
@@ -92,7 +93,8 @@ class SkyCodecTest {
         assertFalse(SkyTurning.DEFAULT.showsTrails());
         assertFalse(SkyTurning.STILL.turns());
         assertEquals(SkyTurning.STILL, SkyTurning.DEFAULT.baked());
-        for (SkyDesign d : SkyPresets.all().values()) {
+        for (SkyPresets.Preset p : SkyPresets.all()) {
+            SkyDesign d = p.design();
             if (d != SkyPresets.TRAILS) assertEquals(SkyTurning.DEFAULT, d.turning(), "each preset but Trails has the default turning");
         }
         SkyTurning trails = SkyPresets.TRAILS.turning();

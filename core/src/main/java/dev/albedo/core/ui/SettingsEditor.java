@@ -637,6 +637,8 @@ public final class SettingsEditor {
                 // A new custom sky starts from a preset, so that the first look is a sky and not black.
                 setCategory(cs.withAppearance(target.withMode(Appearance.Mode.LAYERS)).withSky(SkyPresets.DUSK));
             } else setLook(cs, index, target.withMode(modes.get(chosen)));
+            // A hidden page of the layer editor must not take the next Esc.
+            if (category == Category.SKY) skyLayers.reset();
             return true; // the rest depends on the style
         }));
         if (global) {
