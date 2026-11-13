@@ -1,4 +1,4 @@
-# The game members that the modern mixins and adapters name, for tools/boundaries.sh.
+# The game members that the modern mixins and adapters name, for python -m tools boundaries.
 
 # Atlas sprites
 net.minecraft.client.renderer.texture.SpriteLoader#stitch

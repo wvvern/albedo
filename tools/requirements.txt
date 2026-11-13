@@ -1,0 +1,4 @@
+# The packages of the commands that CI does not run: Pillow for image, psutil for harness and optifine.
+# Install them with: python -m pip install -r tools/requirements.txt
+Pillow>=10
+psutil>=5.9
