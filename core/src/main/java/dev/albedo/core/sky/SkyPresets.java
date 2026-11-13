@@ -76,7 +76,7 @@ public final class SkyPresets {
             .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 6)
             .blend(SkyLayer.Blend.ADD).opacity(6).place(new Transform(0, 0, 0, 100))
             .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 6).blend(SkyLayer.Blend.ADD).opacity(85)
-            .add(Kind.AURORA, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
+            .add(Kind.AURORA, Param.COLOR_2, 0xFF7A4FE0, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
 
     /** A long exposure of a dark clear night: the stars turn around the pole in the north and draw arcs behind them. */

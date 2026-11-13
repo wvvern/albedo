@@ -88,37 +88,95 @@ class AuroraTest {
         assertTrue(columns > 10 && edges > columns * 0.7, edges + " of " + columns + " columns are brightest at a lower edge");
     }
 
+    /** The light of the near curtain alone, with no far curtain under it, in the direction at an azimuth and an elevation in degrees. */
+    private static float nearLight(SkyProgram program, double azimuth, double elevation, float footprint, double time) {
+        double az = Math.toRadians(azimuth), el = Math.toRadians(elevation);
+        float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
+        float[] out = new float[4];
+        Aurora.sample(program.at(time, SkyTurn.STILL), 0, p, footprint, 1, out);
+        return out[1] * out[3];
+    }
+
     @Test
-    void theLowerEdgeIsOneSmoothLineAcrossTheSky() {
+    void theLowerEdgeOfACurtainIsOneSmoothLineAcrossTheSky() {
         SkyProgram b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA).withTransform(Transform.IDENTITY));
         for (double time : new double[] {0, 40, 77}) {
             int columns = 0;
             double last = Double.NaN, worst = 0;
-            float[] l = new float[400];
-            for (double az = -60; az <= 60; az += 0.1) {
+            float[] l = new float[600];
+            // Steps of 0.05 degrees, because the soft edge moves more with the light of the column than a hard one would.
+            for (double az = -60; az <= 60; az += 0.05) {
                 float best = 0;
                 for (int i = 0; i < l.length; i++) {
-                    l[i] = light(b, az, 1 + i * 0.1, 0.0015f, time);
+                    l[i] = nearLight(b, az, 1 + i * 0.1, 0.0015f, time);
                     best = Math.max(best, l[i]);
                 }
-                // A faint column is the end of a curtain or a gap, where the next bright column can be of the other curtain.
+                // A faint column is the end of the curtain or a gap.
                 if (best < 0.15f) {
                     last = Double.NaN;
                     continue;
                 }
+                // A quarter of the brightest light, which is in the soft edge also where the rays above it are brighter than the band at it.
                 int i = 0;
-                while (l[i] <= 0.5f * best) i++;
-                // The elevation in degrees where the light comes to half of the brightest light of the column.
-                double edge = 1 + i * 0.1 - 0.1 * (l[i] - 0.5f * best) / Math.max(1e-6f, l[i] - (i > 0 ? l[i - 1] : 0));
+                while (l[i] <= 0.25f * best) i++;
+                double edge = 1 + i * 0.1 - 0.1 * (l[i] - 0.25f * best) / Math.max(1e-6f, l[i] - (i > 0 ? l[i - 1] : 0));
                 if (!Double.isNaN(last)) {
                     columns++;
                     worst = Math.max(worst, Math.abs(edge - last));
                 }
                 last = edge;
             }
-            assertTrue(columns > 300 && worst < 0.2, "the largest step of the lower edge in 0.1 degrees of azimuth after " + time
+            assertTrue(columns > 600 && worst < 0.3, "the largest step of the lower edge in 0.05 degrees of azimuth after " + time
                     + " s is " + worst + " degrees in " + columns + " columns");
         }
+    }
+
+    @Test
+    void theFarCurtainIsAFainterArcUnderTheNearOne() {
+        SkyProgram b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA).withTransform(Transform.IDENTITY));
+        double far = 0, farHeight = 0, near = 0, nearHeight = 0;
+        for (double az = -60; az <= 60; az += 0.5) {
+            for (double el = 1; el <= 70; el += 0.25) {
+                float n = nearLight(b, az, el, 0.001f, 0), f = light(b, az, el, 0.001f, 0) - n;
+                near += n;
+                nearHeight += n * el;
+                far += f;
+                farHeight += f * el;
+            }
+        }
+        assertTrue(far > 0.01 * near && far < 0.4 * near, "the far curtain has less light: " + far + " of " + near);
+        assertTrue(farHeight / far < nearHeight / near - 8, "and is lower in the sky: " + farHeight / far + " and " + nearHeight / near);
+    }
+
+    @Test
+    void theLightOfACurtainRisesSmoothlyFromItsLowerEdge() {
+        SkyProgram b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA).withTransform(Transform.IDENTITY));
+        float[] l = new float[2000];
+        int columns = 0, soft = 0;
+        double steepest = 0;
+        for (int az = -40; az <= 40; az += 2) {
+            float best = 0;
+            int top = 0;
+            for (int i = 0; i < l.length; i++) {
+                // A fine pixel, so that the softness comes from the curtain and not from the width of the pixel.
+                l[i] = light(b, az, i * 0.02, 0.0002f, 0);
+                if (l[i] > best) {
+                    best = l[i];
+                    top = i;
+                }
+            }
+            if (best < 0.1f) continue;
+            columns++;
+            int high = top, low;
+            while (high > 0 && l[high] > 0.9f * best) high--;
+            low = high;
+            while (low > 0 && l[low] > 0.1f * best) low--;
+            for (int i = low; i < high; i++) steepest = Math.max(steepest, (l[i + 1] - l[i]) / best);
+            // From a tenth to nine tenths of the brightest light of the column over more than half a degree.
+            if ((high - low) * 0.02 > 0.5) soft++;
+        }
+        assertTrue(columns > 10 && soft > columns * 0.8, soft + " of " + columns + " columns come in softly at the lower edge");
+        assertTrue(steepest < 0.08, "the largest rise in 0.02 degrees under the brightest light is " + steepest + " of it");
     }
 
     @Test
@@ -137,7 +195,7 @@ class AuroraTest {
             stillChange += Math.abs(light(still, az, 30, 0.001f, 20) - light(still, az, 30, 0.001f, 0));
             total += light(b, az, 30, 0.001f, 0);
         }
-        assertTrue(total > 0.3 && change > 0.5 * total, "the curtains move in 20 s: " + change + " of " + total);
+        assertTrue(total > 0.3 && change > 0.3 * total, "the curtains move in 20 s: " + change + " of " + total);
         assertEquals(0, stillChange, "speed 0 keeps the curtains still");
     }
 

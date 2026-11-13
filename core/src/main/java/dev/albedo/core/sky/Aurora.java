@@ -4,8 +4,9 @@ import static dev.albedo.core.sky.SkyGenerator.smooth;
 
 /**
  * The aurora generator, which the sky shader repeats in {@code albedoAurora}: a near and a far curtain of light high above
- * the ground toward the layer center, each with one smooth lower edge across the sky that is brightest, and above it the
- * rays of a thin sheet on a folded curve, of varied heights, that fade up from COLOR_1 to COLOR_2.
+ * the ground toward the layer center, each with one smooth lower edge across the sky, where the light comes in softly and is
+ * brightest just above it, and above it the rays of a thin sheet on a folded curve, of varied heights, that fade up from
+ * COLOR_1 to COLOR_2.
  */
 final class Aurora {
     /** The radius of the earth in km, which makes a far ribbon sink to the horizon. */
@@ -13,15 +14,15 @@ final class Aurora {
     /** The altitude in km of the lower edge of the ribbons. */
     private static final float BASE = 100f;
     /** The distance in km of the nearest place of the near and of the far ribbon. */
-    private static final float[] DISTANCE = {280f, 620f};
+    private static final float[] DISTANCE = {160f, 430f};
     /** The azimuth in radians of the nearest place of the near and of the far ribbon, so that each ribbon slants across the sky. */
     private static final float[] SKEW = {0.45f, -0.35f};
     /** The elevation in radians above which the far ribbon has no light. */
-    private static final float FAR_TOP = 0.3f;
+    private static final float FAR_TOP = 0.72f;
     /** The light of the near and of the far ribbon. */
     private static final float[] GAIN = {1f, 0.2f};
     /** The km to each side of a sheet that its light reaches, which makes a sheet seen edge-on brighter but not without end. */
-    private static final float THICK = 14f;
+    private static final float THICK = 9f;
     /**
      * The seconds of the aurora clock after which it goes back to 0, in which each wave turns and each ray and noise row
      * moves on a whole number of times, so that the wrap has no jump.
@@ -32,7 +33,7 @@ final class Aurora {
     /** The frequency for each radian of azimuth, the size in radians and the speed in radians for each second of the folds. */
     private static final float[] FOLD_K = {8f, 21f, 43f}, FOLD_AMP = {0.08f, 0.04f, 0.019f}, FOLD_RATE = {23 * TURN, -57 * TURN, 126 * TURN};
     /** The frequency for each radian, the size in km and the speed of the waves that move the ribbon toward the viewer. */
-    private static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {30f, 6f}, NEAR_RATE = {-17 * TURN, 46 * TURN};
+    private static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {22f, 5f}, NEAR_RATE = {-17 * TURN, 46 * TURN};
     /** How far toward the viewer a fold moves the lower edge, for each km that it moves the ribbon along its line. */
     private static final float LOOP = 0.3f;
     /** The steps of the search for the parts of a ribbon near the view, over the azimuths that the folds can reach. */
@@ -43,20 +44,33 @@ final class Aurora {
     private static final float DRIFT = 0.6f;
     /** The waves of the lower edge of about 23 and 9 km in radians for each km, which the drift of a period turns a whole number of times. */
     private static final float EDGE_K1 = 30 * TURN / DRIFT, EDGE_K2 = 76 * TURN / DRIFT;
-    /** The width in km of the cells of each octave of rays, so that the drift of a period is a whole number of cells of each. */
-    private static final float[] RAY_CELL = {40f, 3f, 1.08f, 0.5f, 2f};
-    /** The cells of each octave of rays in the drift of a period, and the noise rows that each octave moves through in a period. */
-    private static final int[] RAY_CELLS = {108, 1440, 4000, 8640, 2160}, RAY_ROWS = {216, 720, 1800, 4320, 864};
+    /**
+     * The width in km of the cells of each octave of rays, so that the drift of a period is a whole number of cells of each:
+     * the bundles, three octaves of thin rays, and the wide octave of the height of the rays.
+     */
+    private static final float[] RAY_CELL = {40f, 3f, 1.08f, 0.5f, 24f};
+    /**
+     * The cells of each octave of rays in the drift of a period, and the noise rows that each octave moves through in a period,
+     * few enough that a ray lives for some seconds and is seen to move along its curtain.
+     */
+    private static final int[] RAY_CELLS = {108, 1440, 4000, 8640, 180}, RAY_ROWS = {216, 480, 900, 1800, 144};
     /** The noise rows in a period of the bright and faint parts of a ribbon and of their brightness. */
     private static final int PART_ROWS = 29, LIGHT_ROWS = 72;
     /** One {@link Ribbon} for each thread, so that a pixel of the bake makes no new arrays. */
     private static final ThreadLocal<Ribbon> VIEW = ThreadLocal.withInitial(Ribbon::new);
     /** The part of its full height that a curtain keeps where it ends. */
     private static final float SHORT = 0.15f;
-    /** The km over which the light of the near curtain comes in at its lower edge. */
-    private static final float SOFT = 1f;
-    /** The km under the lower edge over which the faint glow of a curtain fades out. */
-    private static final float SKIRT = 4f;
+    /**
+     * The km over which the light of the near curtain comes in at its lower edge, so that the curtain grows out of the sky
+     * instead of standing on a hard line.
+     */
+    private static final float SOFT = 9f;
+    /** The km to each side of the lower edge over which the faint glow of a curtain fades out. */
+    private static final float SKIRT = 8f;
+    /** How many times the height of the tallest rays above the lower edge the light of a curtain ends. */
+    private static final float TOP = 3.4f;
+    /** The km over which the bright band at the lower edge fades up into the rays. */
+    private static final float BAND = 8f;
     /** The azimuth in radians of one cell of the noise of the gaps, so that a curtain ends over many degrees of the sky. */
     private static final float GAP = 0.6f;
     /** The most light of a piece of a sheet for the light of a sheet across the view, which a fold seen edge-on comes near. */
@@ -78,6 +92,11 @@ final class Aurora {
      * @param footprint the width of one pixel in radians
      */
     static void sample(float[] block, int layer, float[] p, float footprint, float[] out) {
+        sample(block, layer, p, footprint, 2, out);
+    }
+
+    /** {@link #sample(float[], int, float[], float, float[])} of the first {@code curtains} curtains: 1 for the near curtain alone. */
+    static void sample(float[] block, int layer, float[] p, float footprint, int curtains, float[] out) {
         out[0] = 0;
         out[1] = 0;
         out[2] = 0;
@@ -94,8 +113,8 @@ final class Aurora {
         light[0] = 0;
         light[1] = 0;
         view.add(0, light);
-        // The far ribbon with its short rays is never more than about 15 degrees high.
-        if (el < FAR_TOP) view.add(1, light);
+        // The far ribbon with its shorter rays is never more than about 40 degrees high.
+        if (curtains > 1 && el < FAR_TOP) view.add(1, light);
         // The thick air near the horizon dims the light, so that no bright edge lies along it, and the light fades out before the search stops.
         float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el)
                 * (1 - smooth(MAX_AZIMUTH - 0.2f, MAX_AZIMUTH, Math.abs(a)));
@@ -126,13 +145,13 @@ final class Aurora {
         private final float[] phases = new float[7];
         /** The km of one pixel up the curtain of the last {@link #rise}. */
         private float pixelUp;
-        /** The km of the view above the lower edge, the km that the tallest rays reach, and true where the view is not under the edge. */
-        private float up, tallest;
-        private boolean above;
+        /**
+         * The km of the view above the lower edge, that much but not under 0, the km over which the light comes in at the
+         * edge and the km that the tallest rays reach.
+         */
+        private float h, up, soft, tallest;
         /** The light of the pieces of the ribbon near the view: all of it, of the band at the lower edge, of the rays and of their red tops. */
         private float lit, band, beam, crown;
-        /** How much of the near curtain is there at the view. */
-        private float front;
         /** The light and the place where it is seen of the last {@link #aim}. */
         private float aimed, seen;
 
@@ -144,7 +163,7 @@ final class Aurora {
             this.footprint = footprint;
             t = block[SkyProgram.at(layer, SkyProgram.CLOCK)];
             scale = block[SkyProgram.at(layer, SkyProgram.SCALE)];
-            height = 40 + 220 * block[SkyProgram.at(layer, SkyProgram.HEIGHT)];
+            height = 70 + 260 * block[SkyProgram.at(layer, SkyProgram.HEIGHT)];
             seed = (int) block[SkyProgram.at(layer, SkyProgram.SEED)];
         }
 
@@ -185,17 +204,13 @@ final class Aurora {
                 phases[5 + i] = 6.2831853f * Noise.unit(Noise.hash(i, c, 2, seed + 603));
             }
             float th = angle(c, a), along = DISTANCE[c] * (float) Math.tan(th) / scale, present = presence(c, th);
-            if (c == 0) front = present;
-            // The far curtain shows only in the gaps of the near curtain, so that the two lower edges never look like one edge with a step.
-            else present *= 1 - smooth(0, 0.5f, front);
             if (present <= 0) return;
-            float h = rise(c, th, along);
-            // A curtain gets shorter as it gets fainter toward its end, so that it does not end at a wall.
-            tallest = height * (SHORT + (1 - SHORT) * present) / (far(c) * far(c));
-            if (h < -6 * SKIRT || h > 2.2f * tallest) return;
-            float soft = Math.max(SOFT * far(c), 0.7f * pixelUp), below = smooth(-2 * soft, soft, h);
+            h = rise(c, th, along);
+            // A curtain gets shorter as it gets fainter toward its end, so that it does not end at a wall, and the far one is a lower arc.
+            tallest = height * (SHORT + (1 - SHORT) * present) / far(c);
+            soft = Math.max(SOFT * far(c), 0.7f * pixelUp);
+            if (h < -Math.max(4 * SKIRT, 2 * soft) || h > TOP * tallest) return;
             up = Math.max(h, 0);
-            above = below > 0;
             lit = 0;
             band = 0;
             beam = 0;
@@ -224,11 +239,13 @@ final class Aurora {
                 da = db;
                 sa = sb;
             }
-            // A faint glow around the lower edge that also reaches under it, so that the sky under a curtain does not look like a dark hill.
-            float glow = 0.1f * lit * (float) Math.exp(-Math.abs(h) / SKIRT), gain = GAIN[c] * present;
-            // The brightest light is a thin band at the lower edge, and above it the rays dissolve into the open sky.
-            light[0] += gain * (glow + below * (band * (float) Math.exp(-up / 3.5f) + beam));
-            light[1] += gain * below * crown;
+            // A faint glow around the lower edge that also reaches under it, so that the sky under a curtain does not look like
+            // a dark hill, with no crease at the edge.
+            float glow = 0.1f * lit * (float) Math.exp(-(h / SKIRT) * (h / SKIRT)), gain = GAIN[c] * present;
+            // The brightest light is a band just above the lower edge, wider in km on the far curtain so that it is no thin line
+            // there, and above it the rays dissolve into the open sky.
+            light[0] += gain * (glow + band * (float) Math.exp(-up / (BAND * far(c))) + beam);
+            light[1] += gain * crown;
         }
 
         /** Adds the light of the straight piece of ribbon {@code c} from {@code ta} to {@code tb} with its rays. */
@@ -292,22 +309,31 @@ final class Aurora {
             float th = angle(c, theta), along = DISTANCE[c] * (float) Math.tan(th) / scale, cos = (float) Math.cos(th);
             float bright = k * (0.4f + 0.9f * value(along / 70, t * (LIGHT_ROWS / PERIOD), 0, LIGHT_ROWS, seed + 33 + c));
             lit += bright;
-            if (!above) return;
+            if (h <= -2 * soft) return;
             // The km of the rays in one pixel, which is more where the view runs along the sheet, as near the tip of a fold.
             float pixelAlong = wide * DISTANCE[c] / (cos * cos * Math.max(Math.abs(slope), 0.02f)) / scale;
             float sd = along + DRIFT * t;
             float r0 = ray(0, sd, 0, seed + 21 + c, pixelAlong), r1 = ray(1, sd, 0, seed + 22 + c, pixelAlong);
             float r2 = ray(2, sd, 0, seed + 23 + c, pixelAlong), r3 = ray(3, sd, 0, seed + 24 + c, pixelAlong);
             float tall = ray(4, sd, 31.7f, seed + 25 + c, pixelAlong);
-            // Wide bundles of thin rays with dark sky between them, whose edges are never harder than about one pixel.
+            // Wide bundles of thin rays, which are brighter lines in one sheet of light and have soft sides.
             float bundle = 0.35f + 0.65f * smooth(0.2f, 0.8f, r0);
-            float hard = Math.max(0.05f, Math.min(0.3f, pixelAlong / 0.5f * 0.5f));
+            float hard = Math.max(0.2f, Math.min(0.3f, pixelAlong / 0.5f * 0.5f));
             float rays = bundle * smooth(0.55f - hard, 0.55f + hard, 0.3f * r1 + 0.38f * r2 + 0.32f * r3);
-            // Each ray fades up over its own height, and the far ribbon is shorter, so that it is a low arc.
-            float rise = up / (tallest * (0.07f + 0.45f * tall * tall));
-            band += bright * (0.15f + 0.4f * bundle + 0.8f * rays);
-            beam += bright * 1.1f * rays * (float) Math.exp(-rise * (0.5f + 0.5f * rise));
-            crown += bright * 0.25f * rays * tall * (float) Math.exp(-(rise - 1.3f) * (rise - 1.3f) * 2);
+            // The height of the rays changes slowly along the curtain, so that their tops are one soft line, and each thin ray is
+            // a little taller or shorter than the rays next to it.
+            float rise = up / (tallest * (0.3f + 0.5f * tall) * (0.85f + 0.3f * r2));
+            // The light comes in over the soft km at the lower edge, which each bundle starts a little higher or lower, so
+            // that the edge is neither a hard line nor a level one; it is 0 for a view more than 1.2 soft km under the edge,
+            // so that the stop at 2 soft km above changes no light.
+            float foot = smooth(-soft, soft, h + 0.4f * soft * (r0 - 0.5f));
+            foot *= bright * foot;
+            // The light of each bundle between its rays, so that a curtain is a sheet of light and not a row of needles.
+            float sheet = 0.45f * bundle + 0.75f * rays;
+            band += foot * (0.12f + 0.3f * bundle + 0.6f * rays);
+            beam += foot * 0.65f * sheet * (float) Math.exp(-rise * (0.5f + 0.5f * rise));
+            // The tops of the rays turn to COLOR_2 over a wide part of the curtain, so that the color changes slowly upward.
+            crown += foot * 0.3f * sheet * (0.5f + tall) * (float) Math.exp(-(rise - 1.1f) * (rise - 1.1f) * 1.2f);
         }
 
         /**
