@@ -66,5 +66,3 @@ Dev runs of `python -m tools harness --compat <mod>` with the profile quake-whit
 | Forge | 1.20.1 | Rubidium 0.7.1 | 565282 | 1056 |
 | NeoForge | 1.20.4 | Embeddium 0.3.25 | 639460 | |
 | NeoForge | 1.21.3 | Sodium 0.6.13 | 581788 | |
-
-Not run: Fabric 1.21.4, 1.21.10, 1.21.11 and 26.2, and NeoForge from 1.21.1 except 1.21.3 (the hooks ran on the versions next to them). Not possible: Forge 1.17.1 and 1.20.4 (no Embeddium or Rubidium), NeoForge 1.20.6 and 1.21.4 with Embeddium and Forge 1.20.1 with Embeddium 0.3.31 (a mixin of Embeddium does not start in the dev run), and Embeddium on Fabric (not tried).
