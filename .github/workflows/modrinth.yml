@@ -32,9 +32,8 @@ jobs:
       GAME_VERSIONS: ${{ inputs.game_versions }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      # The default branch, whose tools and CHANGELOG.md also cover each older tag.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag }}
       - name: Download the jar from the release
         run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "albedo-$LOADER-*+$MC.jar" --dir dist
       - name: Read the game versions and the changelog
@@ -45,7 +44,7 @@ jobs:
             echo "$GAME_VERSIONS" | tr ' ' '\n'
             echo "EOF"
             echo "notes<<EOF"
-            bash tools/release-notes.sh "$TAG"
+            python3 -m tools release-notes "$TAG"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: Kir-Antipov/mc-publish@v3

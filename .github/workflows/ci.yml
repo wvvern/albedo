@@ -20,6 +20,20 @@ env:
   TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
 
 jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    # The rows of the build and upload jobs, from the node lists and the node properties of modern/ and legacy/ (tools/ci_matrix.py).
+    outputs:
+      modern: ${{ steps.matrix.outputs.modern }}
+      legacy: ${{ steps.matrix.outputs.legacy }}
+      publish: ${{ steps.matrix.outputs.publish }}
+      jars: ${{ steps.matrix.outputs.jars }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: matrix
+        run: python3 -m tools ci-matrix >> "$GITHUB_OUTPUT"
+
   check:
     name: Check
     runs-on: ubuntu-latest
@@ -32,7 +46,12 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v5
-      - run: bash tools/lint.sh
+      - run: python3 -m tools lint
+      - name: Check the tools
+        run: |
+          python3 -m unittest discover -s tools/tests -t .
+          pipx run ruff==0.17.5 check tools
+          pipx run ruff==0.17.5 format --check tools
       - run: ./gradlew --configure-on-demand :core:check
         working-directory: modern
       - name: Release notes
@@ -40,42 +59,17 @@ jobs:
         if: env.TAG != ''
         id: notes
         run: |
-          notes="$(bash tools/release-notes.sh "$TAG")"
+          notes="$(python3 -m tools release-notes "$TAG")"
           printf 'notes<<EOF\n%s\nEOF\n' "$notes" >> "$GITHUB_OUTPUT"
 
   modern:
     name: Build ${{ matrix.target.mc }}
+    needs: plan
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # To add a Minecraft version, see "Add a Minecraft version" in docs/BUILDING.md; tools/lint.sh compares the rows with modern/.
-        # node: the folder in modern/versions.
-        # mc: minecraft_version of the node, which is the end of the jar name.
-        # java: java_version of the node.
-        # loaders: the lists in modern/settings.gradle that have the node, as a YAML list, because contains() on a string finds forge in neoforge.
-        # game_versions: the released versions of the Forge and NeoForge jars, with one value per line for mc-publish.
-        # fabric_game_versions: the released versions in minecraft_range_fabric of the node, when the Fabric jar runs on more than game_versions.
-        # fabric_loaders: the Modrinth loaders of the Fabric jar, with quilt where the jar starts through its entry point on the release Quilt Loader (docs/TESTED.md).
-        target: &modern
-          - { node: '1.16.5', mc: '1.16.5', java: 8, loaders: [fabric, forge], game_versions: '1.16.5', fabric_loaders: "fabric\nquilt" }
-          - { node: '1.17.1', mc: '1.17.1', java: 16, loaders: [fabric, forge], game_versions: '1.17.1', fabric_loaders: "fabric\nquilt" }
-          - { node: '1.18.2', mc: '1.18.2', java: 17, loaders: [fabric, forge], game_versions: '1.18.2', fabric_loaders: "fabric\nquilt" }
-          - { node: '1.19.2', mc: '1.19.2', java: 17, loaders: [fabric, forge], game_versions: '1.19.2', fabric_game_versions: "1.19\n1.19.1\n1.19.2", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.19.4', mc: '1.19.4', java: 17, loaders: [fabric, forge], game_versions: '1.19.4', fabric_game_versions: "1.19.3\n1.19.4", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.20.1', mc: '1.20.1', java: 17, loaders: [fabric, forge], game_versions: '1.20.1', fabric_game_versions: "1.20\n1.20.1", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.20.4', mc: '1.20.4', java: 17, loaders: [fabric, forge, neoforge], game_versions: '1.20.4', fabric_game_versions: "1.20.3\n1.20.4", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.20.6', mc: '1.20.6', java: 21, loaders: [fabric, neoforge], game_versions: '1.20.6', fabric_game_versions: "1.20.5\n1.20.6", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.1', mc: '1.21.1', java: 21, loaders: [fabric, neoforge], game_versions: "1.21\n1.21.1", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.3', mc: '1.21.3', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.3', fabric_game_versions: "1.21.2\n1.21.3", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.4', mc: '1.21.4', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.4', fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.5', mc: '1.21.5', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.5', fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.8', mc: '1.21.8', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.8', fabric_game_versions: "1.21.6\n1.21.7\n1.21.8", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.10', mc: '1.21.10', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.10', fabric_game_versions: "1.21.9\n1.21.10", fabric_loaders: "fabric\nquilt" }
-          - { node: '1.21.11', mc: '1.21.11', java: 21, loaders: [fabric, neoforge], game_versions: '1.21.11', fabric_loaders: "fabric\nquilt" }
-          - { node: '26.1', mc: '26.1.2', java: 25, loaders: [fabric, neoforge], game_versions: '26.1.2', fabric_game_versions: "26.1\n26.1.1\n26.1.2" }
-          - { node: '26.2', mc: '26.2', java: 25, loaders: [fabric, neoforge], game_versions: '26.2' }
-          - { node: '26.3', mc: '26.3', java: 25, loaders: [fabric, neoforge], game_versions: '26.3' }
+        target: ${{ fromJSON(needs.plan.outputs.modern) }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -87,7 +81,7 @@ jobs:
             25
       - uses: gradle/actions/setup-gradle@v5
         with:
-          # The entries of all node jobs together are larger than the cache limit of the repository, so only Check and the legacy job write.
+          # The entries of all node jobs together are larger than the cache limit of the repository, so only Check and the legacy jobs write.
           cache-read-only: true
       - name: Build
         working-directory: modern
@@ -107,13 +101,7 @@ jobs:
             cp "$loader/versions/$NODE/build/libs/albedo-$loader-"*"+$MC.jar" ../dist/
           done
       - name: Examine the jars
-        env:
-          NODE: ${{ matrix.target.node }}
-          LOADERS: ${{ join(matrix.target.loaders, ' ') }}
-        run: |
-          for loader in $LOADERS; do
-            bash tools/check-jar.sh dist/albedo-$loader-*.jar "$loader" "$NODE"
-          done
+        run: python3 -m tools check-jar dist
       - uses: actions/upload-artifact@v7
         with:
           name: jars-${{ matrix.target.mc }}
@@ -121,8 +109,13 @@ jobs:
           if-no-files-found: error
 
   legacy:
-    name: Build 1.8.9 and 1.12.2
+    name: Build ${{ matrix.mc }}
+    needs: plan
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ${{ fromJSON(needs.plan.outputs.legacy) }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -134,32 +127,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - name: Build
         working-directory: legacy
-        # One Gradle run for each version, as tools/build-all.ps1 does.
+        env:
+          MC: ${{ matrix.mc }}
         run: |
-          for mc in 1.8.9 1.12.2; do
-            ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 \
-              ${TAG:+-PmodVersion=${TAG#v}} ":$mc:build"
-          done
-      - name: Examine the jars
-        run: |
-          for mc in 1.8.9 1.12.2; do
-            bash tools/check-legacy-jar.sh legacy/versions/$mc/build/libs/albedo-forge-*+$mc.jar $mc
-          done
+          ./gradlew --configure-on-demand -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_21_X64 \
+            ${TAG:+-PmodVersion=${TAG#v}} ":$MC:build"
+          mkdir -p ../dist
+          cp "versions/$MC/build/libs/albedo-forge-"*"+$MC.jar" ../dist/
+      - name: Examine the jar
+        run: python3 -m tools check-jar dist
       - uses: actions/upload-artifact@v7
         with:
-          name: jars-1.8.9
-          path: legacy/versions/1.8.9/build/libs/albedo-*.jar
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v7
-        with:
-          name: jars-1.12.2
-          path: legacy/versions/1.12.2/build/libs/albedo-*.jar
+          name: jars-${{ matrix.mc }}
+          path: dist/*.jar
           if-no-files-found: error
 
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [check, modern, legacy]
+    needs: [plan, check, modern, legacy]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -171,8 +157,9 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Count the jars
-        # 18 Fabric, 7 Forge and 12 NeoForge jars, and the Forge jars of 1.8.9 and 1.12.2.
-        run: test "$(ls dist/*.jar | wc -l)" = 39
+        env:
+          JARS: ${{ needs.plan.outputs.jars }}
+        run: test "$(ls dist/*.jar | wc -l)" = "$JARS"
       - uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/*.jar
@@ -197,15 +184,12 @@ jobs:
     name: Modrinth ${{ matrix.target.mc }}
     # Needs the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN.
     if: vars.MODRINTH_PROJECT_ID != ''
-    needs: [check, release]
+    needs: [plan, check, release]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: *modern
-        include:
-          - { target: { mc: '1.8.9', loaders: [forge], game_versions: '1.8.9' } }
-          - { target: { mc: '1.12.2', loaders: [forge], game_versions: '1.12.2' } }
+        target: ${{ fromJSON(needs.plan.outputs.publish) }}
     steps:
       - uses: actions/download-artifact@v8
         with:
