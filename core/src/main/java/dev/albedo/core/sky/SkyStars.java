@@ -44,9 +44,9 @@ final class SkyStars {
 
     private static final float RADIAN = (float) (Math.PI / 180);
     /** The standard deviation of the core of each star. */
-    private static final float CORE = 0.009f * RADIAN;
+    static final float CORE = 0.009f * RADIAN;
     /** The part of a pixel that the footprint adds to the width of a thin part, as a standard deviation. */
-    private static final float PIXEL = 0.42f;
+    static final float PIXEL = 0.42f;
     /** The radius of the halo of a star of light 1, which grows with the square root of the light. */
     private static final float HALO = 0.03f * RADIAN;
     /** The part of the light of a star in its halo. */

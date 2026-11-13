@@ -42,17 +42,22 @@ public final class SkyPresets {
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
     /**
-     * An active galaxy like Centaurus A high in the south-east: a tilted disc in a large warm halo with a dark lane of dust
-     * across its center, and two blue jets from its black hole into red lobes with rings, over faint dust and stars.
+     * An active galaxy like Centaurus A high in the south-east: a tilted disc in a large warm halo with threads of dust
+     * across its center, and two blue jets from its black hole into red lobes with rings, which move slowly, over far
+     * galaxies, a cloud of the stars of our own galaxy, faint wisps of gas and stars with long spikes.
      */
     public static final SkyDesign GALAXY = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A0D1A, Param.COLOR_2, 0xFF010206, Param.HEIGHT, 30, Param.AMOUNT, 60)
             .add(Kind.NOISE, Param.COLOR_1, 0xFF000000, Param.COLOR_2, 0xFF1C2238, Param.AMOUNT, 40, Param.SEED, 2)
             .blend(SkyLayer.Blend.ADD).opacity(45).place(new Transform(0, 0, 70, 200))
-            .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 9).blend(SkyLayer.Blend.ADD)
+            .add(Kind.STARS, Param.AMOUNT, 60, Param.HEIGHT, 85, Param.TWINKLE, 50, Param.SEED, 9).blend(SkyLayer.Blend.ADD)
             .add(Kind.GALAXY, Param.COLOR_1, 0xFF8FB2FF, Param.COLOR_2, 0xFFFFD9A6, Param.COLOR_3, 0xFF6FC3FF, Param.AMOUNT, 40,
-                    Param.TILT, 68, Param.DUST, 85, Param.JETS, 80, Param.SEED, 4)
+                    Param.TILT, 68, Param.DUST, 85, Param.JETS, 80, Param.DETAIL, 70, Param.MOTION, 50, Param.SEED, 4)
             .blend(SkyLayer.Blend.ADD).place(new Transform(135, 46, 30, 140))
+            .add(Kind.DEEP_FIELD, Param.AMOUNT, 55, Param.HEIGHT, 45, Param.SEED, 3)
+            .blend(SkyLayer.Blend.ADD).place(new Transform(195, 22, 55, 100))
+            .add(Kind.FRACTAL, Param.COLOR_1, 0xFF1A2A52, Param.COLOR_2, 0xFF8A4A3C, Param.AMOUNT, 75, Param.SEED, 21)
+            .blend(SkyLayer.Blend.ADD).opacity(16).place(new Transform(0, 0, 0, 260))
             .add(Kind.BLOOM, Param.AMOUNT, 35, Param.HEIGHT, 55)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 

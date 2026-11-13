@@ -17,7 +17,7 @@ Textures are changed as they load, so modded blocks and resource packs work too.
 
 ### Build your sky
 
-- **Layers:** stack gradients, glows, clouds, stars, galaxies, meteors and auroras, with filters such as blur and bloom.
+- **Layers:** stack gradients, glows, clouds, stars, galaxies, deep fields, meteors and auroras, with filters such as blur and bloom.
 - **Presets:** pick Dusk, Nebula, Galaxy, Meteors, Aurora or Trails from a gallery that shows an image of each.
 - **Stars:** real star colors from blue-white to orange, with a soft glow, fine spikes and twinkle.
 - **Motion:** the sky turns around a pole like the real night sky, with optional star trails.

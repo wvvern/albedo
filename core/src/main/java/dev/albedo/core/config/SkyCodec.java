@@ -26,8 +26,8 @@ final class SkyCodec {
     private static final List<String> TURNING_KEYS = Arrays.asList("amount", "speed", "clock", "height", "direction", "pole", "trails",
             "trailLight");
     private static final List<String> LAYER_KEYS = Arrays.asList("id", "kind", "blend", "opacity", "output", "mask", "color1", "color2",
-            "color3", "amount", "height", "tilt", "dust", "jets", "seed", "speed", "length", "shower", "twinkle", "pulse",
-            "transform");
+            "color3", "amount", "height", "tilt", "dust", "jets", "detail", "motion", "seed", "speed", "length", "shower", "twinkle",
+            "pulse", "transform");
     private static final List<String> MASK_KEYS = Arrays.asList("layer", "mode");
     private static final List<String> TRANSFORM_KEYS = Arrays.asList("yaw", "pitch", "roll", "scale");
 
@@ -187,8 +187,10 @@ final class SkyCodec {
             m.put("mask", mask);
         }
         for (SkyLayer.Param p : l.kind().params()) {
-            // A layer with no twinkle or pulse leaves the key out, so that the file stays short, which does not let an older version read it.
-            if ((p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE) && l.param(p) == 0) continue;
+            // A layer with no twinkle, pulse, detail or motion leaves the key out, so that the file stays short and an older version,
+            // which does not know the key, can still read it.
+            boolean optional = p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE || p == SkyLayer.Param.DETAIL || p == SkyLayer.Param.MOTION;
+            if (optional && l.param(p) == 0) continue;
             m.put(p.key, p.isColor() ? (Object) Colors.format(l.param(p)) : l.param(p));
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();

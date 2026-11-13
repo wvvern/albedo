@@ -193,15 +193,19 @@ class SkyProgramTest {
         assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(4, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_STARS, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
         SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
-        assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy and the bloom term");
+        assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy, deep field, fractal and the bloom term");
         assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.at(3, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.at(4, SkyProgram.KIND)]);
-        assertEquals(2, galaxy.terms());
-        assertEquals(2, galaxy.block()[2], "the header has the count of term and field images");
+        assertEquals(SkyProgram.KIND_DEEP_FIELD, galaxy.block()[SkyProgram.at(4, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.at(6, SkyProgram.KIND)]);
+        assertEquals(3, galaxy.terms());
+        assertEquals(3, galaxy.block()[2], "the header has the count of term and field images");
         assertEquals(-1, galaxy.termSlot(3));
-        assertEquals(0, galaxy.termSlot(4));
+        assertEquals(-1, galaxy.termSlot(4), "the deep field is calculated for each pixel");
+        assertEquals(0, galaxy.termSlot(6));
         assertEquals(1, galaxy.termSlot(1), "the field image of the noise");
+        assertEquals(2, galaxy.termSlot(5), "the field image of the fractal");
+        assertTrue(galaxy.moves(), "the stars twinkle and the galaxy moves");
         SkyLayer[] clouds = new SkyLayer[SkyDesign.MAX_LAYERS];
         for (int i = 0; i < clouds.length; i++) clouds[i] = SkyLayer.of(i + 1, SkyLayer.Kind.NOISE);
         assertEquals(SkyProgram.MAX_SLOTS, program(clouds).terms(), "the field images stop at the largest number of images");
@@ -239,6 +243,34 @@ class SkyProgramTest {
             for (int r = 0; r < 3; r++) assertTrue(taken.add(SkyProgram.LOCAL + r * 4 + c), "rotation " + r);
         }
         assertEquals(SkyProgram.LAYER_VEC4S * 4, taken.size(), "each float of the layer has one use");
+    }
+
+    @Test
+    void theDetailAndTheMotionOfAGalaxyAreInFloatsThatAGalaxyDoesNotRead() throws IOException {
+        SkyLayer plain = SkyLayer.of(1, SkyLayer.Kind.GALAXY);
+        SkyLayer fine = plain.withParam(SkyLayer.Param.DETAIL, 70).withParam(SkyLayer.Param.MOTION, 40);
+        SkyProgram p = program(fine);
+        assertEquals(0.7f, p.block()[SkyProgram.at(0, SkyProgram.DETAIL)], 1e-6f);
+        assertEquals(0.4f, p.block()[SkyProgram.at(0, SkyProgram.MOTION)], 1e-6f);
+        // A galaxy has no height and mixes no OKLab colors, so the detail is in slot 1 and the motion in slot 5, as the shader reads them.
+        assertEquals(SkyProgram.HEIGHT, SkyProgram.DETAIL);
+        assertEquals(SkyProgram.LAB_1, SkyProgram.MOTION);
+        assertEquals(1 * 4 + 3, SkyProgram.DETAIL);
+        assertEquals(5 * 4, SkyProgram.MOTION);
+        String glsl = skyLayersSource();
+        assertTrue(glsl.contains("float detail = (flags & ALBEDO_FLAG_DETAIL) != 0 ? values.w : 0.0;"));
+        assertTrue(glsl.contains("float motion = (flags & ALBEDO_FLAG_MOTION) != 0 ? albedoLayer(layer, 5).x : 0.0;"));
+        assertTrue(p.moves(), "a galaxy with motion needs the time of each frame");
+        assertFalse(program(plain).moves());
+        assertFalse(program(plain.withParam(SkyLayer.Param.DETAIL, 100)).moves(), "the detail alone is still");
+        int both = SkyShaderSource.FLAG_DUST | SkyShaderSource.FLAG_JETS | SkyShaderSource.FLAG_DETAIL | SkyShaderSource.FLAG_MOTION;
+        assertTrue(p.shaderSteps().contains(" s = albedoGalaxy(0, albedoFrame(0, dir), footprint, " + both + ");"), p.shaderSteps());
+        int old = SkyShaderSource.FLAG_DUST | SkyShaderSource.FLAG_JETS;
+        assertTrue(program(plain).shaderSteps().contains("footprint, " + old + ");"), "a plain galaxy compiles none of the new parts");
+        for (String flag : new String[] {"DETAIL " + SkyShaderSource.FLAG_DETAIL, "MOTION " + SkyShaderSource.FLAG_MOTION,
+            "CLOUD " + SkyShaderSource.FLAG_CLOUD}) {
+            assertTrue(glsl.contains("#define ALBEDO_FLAG_" + flag + "\n"), flag);
+        }
     }
 
     @Test

@@ -91,6 +91,7 @@ final class Labels {
             case FRACTAL: return "Fractal";
             case GALAXY: return "Galaxy";
             case STARS: return "Stars";
+            case DEEP_FIELD: return "Deep field";
             case METEORS: return "Meteors";
             case AURORA: return "Aurora";
             case BLUR: return "Blur";
@@ -112,6 +113,7 @@ final class Labels {
             case FRACTAL: return "Thin bright lines of gas, as in a nebula";
             case GALAXY: return "A spiral galaxy with dust and two jets from its black hole";
             case STARS: return "Small points of light";
+            case DEEP_FIELD: return "Far galaxies all over the sky, and a cloud of stars across it";
             case METEORS: return "Shooting stars that move across the sky. Only Sharp render shows them, not the preview. "
                     + "Blur, Pixelate, Crystallize and Swirl above them hide them.";
             case AURORA: return "Curtains of northern light that move slowly";
@@ -132,17 +134,21 @@ final class Labels {
             case COLOR_1:
                 return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "Low"
                         : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head" : "Color";
+                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head"
+                        : k == SkyLayer.Kind.DEEP_FIELD ? "Warm" : "Color";
             case COLOR_2:
                 return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
-                        : k == SkyLayer.Kind.METEORS ? "Trail" : "Light";
+                        : k == SkyLayer.Kind.METEORS ? "Trail" : k == SkyLayer.Kind.DEEP_FIELD ? "Cool" : "Light";
             case COLOR_3: return "Jet color";
             case HEIGHT:
                 return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
-                        : k == SkyLayer.Kind.STARS ? "Spikes" : "Height";
+                        : k == SkyLayer.Kind.STARS ? "Spikes" : k == SkyLayer.Kind.DEEP_FIELD ? "Star cloud" : "Height";
             case TILT: return "Tilt";
             case DUST: return "Dust";
             case JETS: return "Jets";
+            case DETAIL: return "Detail";
+            // Not "Motion", which is the name of the section that turns the sky.
+            case MOTION: return "Animation";
             case SEED: return "Seed";
             case SPEED: return "Speed";
             case LENGTH: return "Length";
@@ -160,7 +166,7 @@ final class Labels {
             case NOISE: return "Cover";
             case FRACTAL: return "Warp";
             case GALAXY: case SWIRL: return "Twist";
-            case STARS: return "Count";
+            case STARS: case DEEP_FIELD: return "Count";
             case METEORS: return "Amount";
             case AURORA: return "Brightness";
             case BLUR: return "Radius";

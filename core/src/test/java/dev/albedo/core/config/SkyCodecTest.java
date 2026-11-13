@@ -44,6 +44,8 @@ class SkyCodecTest {
             assertEquals(SkyLayer.Kind.GALAXY.defaultValue(p), l.param(p), p.key);
         }
         assertEquals(55, l.param(SkyLayer.Param.AMOUNT));
+        assertEquals(0, l.param(SkyLayer.Param.DETAIL), "a galaxy from before the detail stays plain");
+        assertEquals(0, l.param(SkyLayer.Param.MOTION), "and still");
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\", \"tilt\": 91}]}")
                 .endsWith("tilt: use a whole number from 0 to 90"));
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"jets\": 50}]}")
@@ -194,6 +196,20 @@ class SkyCodecTest {
         SkyDesign noSpeed = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
                 + "[{\"id\": 1, \"kind\": \"aurora\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
         assertEquals(50, noSpeed.layers().get(0).param(SkyLayer.Param.SPEED), "a file with no speed takes the default");
+    }
+
+    @Test
+    void theDetailAndTheMotionOfAGalaxyAreWrittenOnlyWhenTheyAreOn() {
+        SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.GALAXY).withAdded(SkyLayer.Kind.DEEP_FIELD);
+        String plain = ConfigCodec.encode(withSky(layers(d)));
+        assertFalse(plain.contains("detail") || plain.contains("motion"), plain);
+        assertTrue(plain.contains("\"kind\": \"deep_field\""), plain);
+        d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.DETAIL, 70).withParam(SkyLayer.Param.MOTION, 50));
+        Config c = withSky(layers(d));
+        assertTrue(ConfigCodec.encode(c).contains("\"detail\": 70") && ConfigCodec.encode(c).contains("\"motion\": 50"));
+        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"deep_field\", \"detail\": 3}]}")
+                .startsWith("night.sky.layers[0]: 'detail' has no meaning for deep_field"));
     }
 
     @Test

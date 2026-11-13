@@ -37,6 +37,10 @@ public final class SkyLayer {
         DUST("dust", 0, 100),
         /** A percent of the strength of the jets. */
         JETS("jets", 0, 100),
+        /** A percent of the fine parts of a galaxy (dust threads, gas regions, jet strands, clusters, a stream), where 0 is the plain galaxy. */
+        DETAIL("detail", 0, 100),
+        /** A percent of how much a galaxy changes with the time (its jets flow, its nucleus flickers, a star explodes), where 0 keeps it still. */
+        MOTION("motion", 0, 100),
         SEED("seed", 0, 99999),
         /** A percent of how fast a moving layer moves, where 0 stops an aurora. */
         SPEED("speed", 0, 100),
@@ -82,9 +86,12 @@ public final class SkyLayer {
                 Param.COLOR_1, 0xFF5B2A86, Param.COLOR_2, 0xFFFF7AB6, Param.AMOUNT, 50, Param.PULSE, 0, Param.SEED, 1),
         GALAXY(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(135, 45, 20, 100),
                 Param.COLOR_1, 0xFF9FB4FF, Param.COLOR_2, 0xFFFFE7B0, Param.COLOR_3, 0xFF7CC8FF, Param.AMOUNT, 50, Param.TILT, 60,
-                Param.DUST, 60, Param.JETS, 70, Param.SEED, 1),
+                Param.DUST, 60, Param.JETS, 70, Param.DETAIL, 0, Param.MOTION, 0, Param.SEED, 1),
         STARS(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), Transform.IDENTITY,
                 Param.COLOR_1, 0xFFFFFFFF, Param.AMOUNT, 50, Param.HEIGHT, 50, Param.TWINKLE, 0, Param.SEED, 1),
+        /** Far galaxies over the whole sky, and a cloud of the stars of our own galaxy along the horizon of the layer, brightest at its center. */
+        DEEP_FIELD(Role.GENERATOR, EnumSet.allOf(Transform.Axis.class), new Transform(200, 20, 55, 100),
+                Param.COLOR_1, 0xFFFFD2A0, Param.COLOR_2, 0xFFA9C4FF, Param.AMOUNT, 50, Param.HEIGHT, 40, Param.SEED, 1),
         /** Shooting stars, which move with the time, so only the sharp render draws them; the center is the radiant of a shower. */
         METEORS(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH), new Transform(45, 55, 0, 100),
                 Param.COLOR_1, 0xFFE4EEFF, Param.COLOR_2, 0xFFA8FFC4, Param.AMOUNT, 50, Param.SPEED, 50, Param.LENGTH, 40,

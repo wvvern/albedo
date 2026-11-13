@@ -58,6 +58,8 @@ public final class SkyProgram {
     static final int KIND_METEORS = 15;
     /** The kind code of the aurora, a generator that moves with the time and that the bake draws at time 0. */
     static final int KIND_AURORA = 16;
+    /** The kind code of the deep field, a generator that the shader calculates for each pixel. */
+    static final int KIND_DEEP_FIELD = 17;
     /** The blend codes of the shader. */
     static final int BLEND_NORMAL = 0, BLEND_ADD = 1, BLEND_SCREEN = 2, BLEND_MULTIPLY = 3;
     /** What the shader does with a layer: skip it, make it only for the masks of higher layers, or show it. */
@@ -69,6 +71,8 @@ public final class SkyProgram {
     static final int COLOR_2 = 16, LAB_1 = 20, LAB_2 = 24;
     /** The values of a galaxy in the free last floats of the color vec4 values: the tilt from 0 to 1 of 90 degrees, the dust and the jets. */
     static final int TILT = 19, DUST = 23, JETS = 27;
+    /** The detail of a galaxy in the float of the height and its motion in the first float of the first OKLab color: a galaxy reads neither. */
+    static final int DETAIL = HEIGHT, MOTION = LAB_1;
     /** The values of the meteors and the aurora in the same free floats as the galaxy values, because each kind reads only its own values. */
     static final int SPEED = 19, LENGTH = 23, SHOWER = 27;
     /** The twinkle of the stars and the pulse of the noise and fractal clouds, in the same free float as the speed. */
@@ -132,6 +136,8 @@ public final class SkyProgram {
                 block[base + TILT] = l.param(SkyLayer.Param.TILT) / 90f;
                 block[base + DUST] = l.param(SkyLayer.Param.DUST) / 100f;
                 block[base + JETS] = l.param(SkyLayer.Param.JETS) / 100f;
+                block[base + DETAIL] = l.param(SkyLayer.Param.DETAIL) / 100f;
+                block[base + MOTION] = l.param(SkyLayer.Param.MOTION) / 100f;
                 float[] jet = Oklab.linear(l.param(SkyLayer.Param.COLOR_3));
                 for (int c = 0; c < 3; c++) block[base + COLOR_3 + c * 4] = jet[c];
             } else if (l.kind() == SkyLayer.Kind.METEORS) {
@@ -184,6 +190,7 @@ public final class SkyProgram {
             case FRACTAL:
             case GALAXY:
             case STARS:
+            case DEEP_FIELD:
             case METEORS:
             case AURORA:
             case POSTERIZE:
@@ -291,6 +298,8 @@ public final class SkyProgram {
             case NOISE:
             case FRACTAL:
                 return layer.param(SkyLayer.Param.PULSE) > 0;
+            case GALAXY:
+                return layer.param(SkyLayer.Param.MOTION) > 0;
             default:
                 return false;
         }
@@ -315,6 +324,7 @@ public final class SkyProgram {
             case HUE_SHIFT: return KIND_HUE_SHIFT;
             case VIGNETTE: return KIND_VIGNETTE;
             case AURORA: return KIND_AURORA;
+            case DEEP_FIELD: return KIND_DEEP_FIELD;
             default: throw new IllegalArgumentException("no kind code for " + kind);
         }
     }

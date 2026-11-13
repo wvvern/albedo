@@ -54,7 +54,7 @@ run tp @p 0 3000 0 180 -60
 wait 40
 screenshot sharp-07-nebula-on-fov70
 # The generators of Galaxy and Nebula with no filters, so that the shader draws them. Yaw -45 and pitch -40 look at the galaxy.
-sky galaxy 4
+sky galaxy 6
 wait 160
 fov 30
 run tp @p 0 3000 0 -45 -40
@@ -76,7 +76,7 @@ wait 40
 skyrender fast
 wait 160
 screenshot sharp-10-nebula-off-fov30
-sky galaxy 4
+sky galaxy 6
 skyrender fast
 wait 160
 run tp @p 0 3000 0 -45 -40

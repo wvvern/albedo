@@ -486,32 +486,55 @@ final class SkyLayersEditor {
             return;
         }
         ui.text("Add a layer", x + 16, y + 3, Ui.TEXT);
-        int cy = y + Ui.H + GAP;
-        for (SkyLayer.Role role : SkyLayer.Role.values()) {
-            String heading = role == SkyLayer.Role.GENERATOR ? "Make" : "Change";
-            ui.text(heading, x, cy + 3, Ui.MUTED);
-            ui.tip(x, cy, labelW, Ui.H, role == SkyLayer.Role.GENERATOR ? "Layers that paint their own image"
-                    : "Layers that change the layers below them");
-            int bx = x + ui.width("Change") + 8, by = cy;
-            for (SkyLayer.Kind k : SkyLayer.Kind.values()) {
-                if (k.role() != role) continue;
+        int cy = y + Ui.H + GAP, rowH = Ui.H + 2;
+        // The lines scroll when they do not all fit, and then the scroll bar takes some of their width.
+        List<List<SkyLayer.Kind>> fit = kindLines(w);
+        List<List<SkyLayer.Kind>> lines = fit.size() * rowH > bottom - cy ? kindLines(w - 6) : fit;
+        RowList.draw(ui, "sky.kinds", x, cy, w, bottom - cy, lines.size(), rowH, (r, rx, ry, rw, rh) -> {
+            List<SkyLayer.Kind> line = lines.get(r);
+            SkyLayer.Role role = line.get(0).role();
+            if (r == 0 || lines.get(r - 1).get(0).role() != role) {
+                ui.text(role == SkyLayer.Role.GENERATOR ? "Make" : "Change", rx, ry + 3, Ui.MUTED);
+                ui.tip(rx, ry, labelW, Ui.H, role == SkyLayer.Role.GENERATOR ? "Layers that paint their own image"
+                        : "Layers that change the layers below them");
+            }
+            int bx = rx + ui.width("Change") + 8;
+            for (SkyLayer.Kind k : line) {
                 String label = Labels.kind(k);
                 int bw = ui.buttonWidth(label);
-                if (bx + bw > x + w && bx > x + ui.width("Change") + 8) {
-                    bx = x + ui.width("Change") + 8;
-                    by += Ui.H + 2;
-                }
-                if (by + Ui.H > bottom) break;
-                if (ui.button("sky.kind." + k.key(), bx, by, bw, Ui.H, label, Ui.Style.NORMAL, !design.isFull(), Labels.kindTip(k))) {
+                if (ui.button("sky.kind." + k.key(), bx, ry, bw, Ui.H, label, Ui.Style.NORMAL, !design.isFull(), Labels.kindTip(k))) {
                     int id = design.nextId();
                     set.accept(design.withAdded(k));
                     go(page.layer(id));
-                    return;
+                    return true;
                 }
                 bx += bw + 3;
             }
-            cy = by + Ui.H + GAP;
+            return false;
+        });
+    }
+
+    /** The kinds as lines of buttons that fit a width, where each role starts a new line that has its heading on the left. */
+    private List<List<SkyLayer.Kind>> kindLines(int w) {
+        List<List<SkyLayer.Kind>> lines = new ArrayList<List<SkyLayer.Kind>>();
+        int left = ui.width("Change") + 8;
+        for (SkyLayer.Role role : SkyLayer.Role.values()) {
+            List<SkyLayer.Kind> line = new ArrayList<SkyLayer.Kind>();
+            int bx = left;
+            for (SkyLayer.Kind k : SkyLayer.Kind.values()) {
+                if (k.role() != role) continue;
+                int bw = ui.buttonWidth(Labels.kind(k));
+                if (bx + bw > w && !line.isEmpty()) {
+                    lines.add(line);
+                    line = new ArrayList<SkyLayer.Kind>();
+                    bx = left;
+                }
+                line.add(k);
+                bx += bw + 3;
+            }
+            if (!line.isEmpty()) lines.add(line);
         }
+        return lines;
     }
 
     /** Draws one row of a layer page at y. */

@@ -1069,12 +1069,12 @@ class SettingsEditorTest {
         click(editor, canvas, "Sky");
         assertNotNull(canvas.texts.get("Off"), "the closed heading tells that the sky is still: " + canvas.texts.keySet());
         assertNull(canvas.texts.get("Turning"), "the section starts closed");
-        int listY = canvas.find("Bloom 5")[1];
+        int listY = canvas.find("Bloom 7")[1];
 
         click(editor, canvas, "Motion");
         assertNotNull(canvas.texts.get("Turning"), "the slider shows in the open section: " + canvas.texts.keySet());
         assertNull(canvas.texts.get("Speed"), "a still sky shows no options");
-        assertTrue(canvas.find("Bloom 5") == null || canvas.find("Bloom 5")[1] > listY, "the layers move down");
+        assertTrue(canvas.find("Bloom 7") == null || canvas.find("Bloom 7")[1] > listY, "the layers move down");
 
         // A press near the right end of the track turns the sky, and the options show in the frame of the press.
         int[] value = canvas.texts.get("0%");
@@ -1162,6 +1162,32 @@ class SettingsEditorTest {
             SkyClock.run();
             sc.apply(Config.defaults());
         }
+    }
+
+    @Test
+    void theAddPageScrollsToEveryKindOnASmallScreen() {
+        Config c = withOwnProfile();
+        List<SkyLayer> one = Collections.singletonList(SkyLayer.of(1, SkyLayer.Kind.GRADIENT));
+        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+                false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withLayers(one)))));
+        SettingsEditor editor = new SettingsEditor(sc);
+        RecordingCanvas canvas = new RecordingCanvas(320, 200);
+        editor.render(canvas, 0, 0);
+        click(editor, canvas, "Sky");
+        click(editor, canvas, "+ Add layer");
+        int[] first = canvas.find("Gradient");
+        assertNotNull(first, "the first kind shows: " + canvas.texts.keySet());
+        assertNull(canvas.find("Vignette"), "the last kind is below the page at this size");
+        for (int i = 0; i < 12; i++) {
+            editor.mouseScrolled(-1);
+            canvas.texts.clear();
+            editor.render(canvas, first[0], first[1]);
+        }
+        assertNotNull(canvas.find("Vignette"), "the page scrolls down to the last kind: " + canvas.texts.keySet());
+        assertNotNull(canvas.find("Change"), "the heading of the filters moves with them");
+        click(editor, canvas, "Vignette");
+        click(editor, canvas, "Apply");
+        assertEquals(SkyLayer.Kind.VIGNETTE, savedSky().layers().get(1).kind());
     }
 
     @Test

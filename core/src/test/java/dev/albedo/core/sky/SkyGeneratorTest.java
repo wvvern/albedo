@@ -84,7 +84,7 @@ class SkyGeneratorTest {
     void thePresetsKeepTheirPixels() {
         assertEquals(1164738102, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
         assertEquals(-1992624876, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
-        assertEquals(2083471237, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
+        assertEquals(766003272, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
         assertEquals(-1617945180, Arrays.hashCode(SkyGenerator.bake(SkyPresets.METEORS, 256, 128).argb()), "meteors");
         assertEquals(934053435, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
         assertEquals(-1457549582, Arrays.hashCode(SkyGenerator.bake(SkyPresets.TRAILS, 256, 128).argb()), "trails");
@@ -186,6 +186,87 @@ class SkyGeneratorTest {
     }
 
     @Test
+    void aGalaxyWithNoDetailAndNoMotionKeepsThePixelsOfASkyFromBeforeThem() {
+        SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200));
+        assertEquals(0, galaxy.param(SkyLayer.Param.DETAIL) + galaxy.param(SkyLayer.Param.MOTION), "a new galaxy is plain and still");
+        SkyDesign d = new SkyDesign(Collections.singletonList(galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
+                SkyDesign.Extent.SPHERE);
+        assertEquals(-1082905965, Arrays.hashCode(SkyGenerator.bake(d, 512, 256).argb()));
+    }
+
+    @Test
+    void galaxyDetailAddsItsPartsAndItsDustStillOnlyAbsorbs() {
+        int w = 512, h = 256;
+        SkyLayer plain = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200)).withParam(SkyLayer.Param.TILT, 60)
+                .withParam(SkyLayer.Param.JETS, 0);
+        SkyLayer fine = plain.withParam(SkyLayer.Param.DETAIL, 100);
+        int[] before = SkyGenerator.bake(of(plain), w, h).argb(), after = SkyGenerator.bake(of(fine), w, h).argb();
+        int changed = 0;
+        for (int i = 0; i < before.length; i++) if (Math.abs(red(before[i]) - red(after[i])) > 2) changed++;
+        assertTrue(changed > 1500, "the detail changes the disc and the halo: " + changed + " pixels");
+        int[] clean = SkyGenerator.bake(of(fine.withParam(SkyLayer.Param.DUST, 0)), w, h).argb();
+        int[] dusty = SkyGenerator.bake(of(fine.withParam(SkyLayer.Param.DUST, 100)), w, h).argb();
+        for (int i = 0; i < clean.length; i++) {
+            assertTrue(red(dusty[i]) <= red(clean[i]) + 1, "the dust gives back less red light than it takes, pixel " + i);
+            assertTrue(blue(dusty[i]) <= blue(clean[i]) + 1, "and less blue light, pixel " + i);
+        }
+    }
+
+    /** The linear light of a galaxy layer at a point of its image plane in galaxy units, at a time of the sky clock. */
+    private static float[] galaxyLight(SkyLayer galaxy, float x, float y, float time, float texel) {
+        SkyDesign d = new SkyDesign(Collections.singletonList(galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
+                SkyDesign.Extent.SPHERE);
+        SkyGenerator.Layer l = new SkyGenerator.Layer(galaxy, SkyProgram.of(d, new float[SkyImage.RING * 3]).block(), 0);
+        float size = 0.22f * galaxy.transform().scale() / 100f;
+        float px = x * size, py = y * size, len = (float) Math.sqrt(px * px + py * py + 1);
+        float[] out = new float[4];
+        SkyGenerator.galaxy(l, new float[] {px / len, py / len, -1 / len}, texel, time, out);
+        return new float[] {out[0] * out[3], out[1] * out[3], out[2] * out[3]};
+    }
+
+    private static float[] galaxyLight(SkyLayer galaxy, float x, float y, float time) {
+        return galaxyLight(galaxy, x, y, time, 0.0005f);
+    }
+
+    @Test
+    void aGalaxyMovesOnlyWithMotionAndComesBackToItsStartInTheHourOfTheSkyClock() {
+        SkyLayer still = layer(1, SkyLayer.Kind.GALAXY).withTransform(Transform.IDENTITY).withParam(SkyLayer.Param.DETAIL, 70);
+        SkyLayer moving = still.withParam(SkyLayer.Param.MOTION, 60);
+        float most = 0, wrap = 0;
+        // Points along the near jet and through the nucleus.
+        for (int i = 0; i <= 60; i++) {
+            float y = 0.02f * i;
+            assertArrayEquals(galaxyLight(still, 0.01f, y, 0), galaxyLight(still, 0.01f, y, 1234), 0f, "a still galaxy at " + y);
+            float[] start = galaxyLight(moving, 0.01f, y, 0), later = galaxyLight(moving, 0.01f, y, 7), hour = galaxyLight(moving, 0.01f, y, 3600);
+            for (int c = 0; c < 3; c++) {
+                most = Math.max(most, Math.abs(later[c] - start[c]));
+                wrap = Math.max(wrap, Math.abs(hour[c] - start[c]));
+            }
+        }
+        assertTrue(most > 0.02f, "the jet and the nucleus change in 7 seconds: " + most);
+        assertTrue(wrap < 2e-3f, "the galaxy at the end of the hour is the galaxy at its start: " + wrap);
+    }
+
+    @Test
+    void aNewStarExplodesInTheDiscOfAMovingGalaxyAndIsGoneBeforeTheNext() {
+        SkyLayer moving = layer(1, SkyLayer.Kind.GALAXY).withTransform(Transform.IDENTITY).withParam(SkyLayer.Param.JETS, 0)
+                .withParam(SkyLayer.Param.MOTION, 100);
+        // 80 slots of 45 seconds in the hour at a motion of 100, and wide pixels, so that the grid of points finds the star.
+        float most = 0, gone = 0, texel = 0.004f;
+        for (int i = -40; i <= 40; i++) {
+            for (int j = -18; j <= 18; j++) {
+                float x = 0.025f * i, y = 0.025f * j;
+                float base = galaxyLight(moving, x, y, 0, texel)[2];
+                most = Math.max(most, galaxyLight(moving, x, y, 0.6f, texel)[2] - base);
+                // The nucleus flickers, so the points near it change with the time also with no new star.
+                if (x * x + y * y > 0.09f) gone = Math.max(gone, Math.abs(galaxyLight(moving, x, y, 44.9f, texel)[2] - base));
+            }
+        }
+        assertTrue(most > 0.05f, "a new star shows in the first second of its slot: " + most);
+        assertTrue(gone < 2e-3f, "and no light of it is left at the end of the slot: " + gone);
+    }
+
+    @Test
     void theShaderHasTheSameGalaxyNumbers() throws IOException {
         String glsl = SkyProgramTest.skyLayersSource();
         String[] numbers = {
@@ -195,11 +276,29 @@ class SkyGeneratorTest {
             "vec3 ALBEDO_GALAXY_DUST_REDDENING = " + vec3(SkyGenerator.DUST_REDDENING),
             "vec3 ALBEDO_GALAXY_HALPHA = " + vec3(SkyGenerator.HALPHA),
             "vec3 ALBEDO_GALAXY_LOBE = " + vec3(SkyGenerator.LOBE),
-            "vec3 ALBEDO_GALAXY_NUCLEUS = " + vec3(SkyGenerator.NUCLEUS)};
+            "vec3 ALBEDO_GALAXY_NUCLEUS = " + vec3(SkyGenerator.NUCLEUS),
+            "float ALBEDO_GALAXY_DUST_THREADS = " + SkyGenerator.DUST_THREADS,
+            "float ALBEDO_GALAXY_GAS_CELL = " + SkyGenerator.GAS_CELL,
+            "float ALBEDO_GALAXY_CLUSTER_CELL = " + SkyGenerator.CLUSTER_CELL,
+            "float ALBEDO_GALAXY_LOOP = " + SkyGenerator.LOOP,
+            "vec3 ALBEDO_GALAXY_JET_END = " + vec3(SkyGenerator.JET_END),
+            "vec3 ALBEDO_GALAXY_LOBE_RIM = " + vec3(SkyGenerator.LOBE_RIM),
+            "vec3 ALBEDO_GALAXY_HOT_SPOT = " + vec3(SkyGenerator.HOT_SPOT),
+            "vec3 ALBEDO_GALAXY_BOW_SHOCK = " + vec3(SkyGenerator.BOW_SHOCK),
+            "vec3 ALBEDO_GALAXY_ION_CONE = " + vec3(SkyGenerator.ION_CONE),
+            "vec3 ALBEDO_GALAXY_GAS_CORE = " + vec3(SkyGenerator.GAS_CORE),
+            "vec3 ALBEDO_GALAXY_BULGE_CORE = " + vec3(SkyGenerator.BULGE_CORE),
+            "vec3 ALBEDO_GALAXY_BULGE_EDGE = " + vec3(SkyGenerator.BULGE_EDGE),
+            "vec3 ALBEDO_GALAXY_DUST_GLOW = " + vec3(SkyGenerator.DUST_GLOW),
+            "vec3 ALBEDO_GALAXY_STREAM = " + vec3(SkyGenerator.STREAM),
+            "vec3 ALBEDO_GALAXY_SUPERNOVA = " + vec3(SkyGenerator.SUPERNOVA),
+            "float ALBEDO_GALAXY_STREAM_TURN = " + SkyGenerator.STREAM_TURN,
+            "float ALBEDO_GALAXY_STREAM_HEAD = " + SkyGenerator.STREAM_HEAD,
+            "float ALBEDO_GALAXY_STREAM_LONG = " + SkyGenerator.STREAM_LONG};
         for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
     }
 
-    private static String vec3(float[] v) {
+    static String vec3(float[] v) {
         return "vec3(" + v[0] + ", " + v[1] + ", " + v[2] + ")";
     }
 
@@ -362,13 +461,14 @@ class SkyGeneratorTest {
     void theBloomTermHoldsOnlyTheGlowThatTheBloomAdds() {
         int w = 128, h = 64;
         SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
-        SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, 4)), w, h);
-        assertEquals(w / 2 * h / 2 * 4, below.terms().length, "the field image of the noise");
+        int bloom = SkyPresets.GALAXY.layers().size() - 1;
+        SkyImage below = SkyGenerator.bake(SkyPresets.GALAXY.withLayers(SkyPresets.GALAXY.layers().subList(0, bloom)), w, h);
+        assertEquals(w / 2 * h / 2 * 4 * 2, below.terms().length, "the field images of the noise and the fractal");
         assertEquals(w / 2, full.termTextureWidth());
-        assertEquals(h, full.termTextureHeight(), "the bloom term over the field image");
+        assertEquals(h / 2 * 3, full.termTextureHeight(), "the bloom term over the field images of the noise and the fractal");
         assertEquals(w / 2, full.termWidth());
         assertEquals(h / 2, full.termHeight());
-        assertEquals(w / 2 * h / 2 * 4 * 2, full.terms().length, "two images of half float RGBA");
+        assertEquals(w / 2 * h / 2 * 4 * 3, full.terms().length, "three images of half float RGBA");
         double error = 0, glow = 0;
         int count = 0;
         for (int y = 0; y < h; y++) {

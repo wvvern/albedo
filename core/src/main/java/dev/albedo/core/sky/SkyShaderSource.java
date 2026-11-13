@@ -66,6 +66,7 @@ public final class SkyShaderSource {
     public static final String LAYERS_INCLUDE = Albedo.MOD_ID + ":sky_layers.glsl";
     /** The ALBEDO_FLAG bits of sky_layers.glsl. */
     static final int FLAG_TWINKLE = 1, FLAG_TRAILS = 2, FLAG_SPIKES = 4, FLAG_PULSE = 8, FLAG_DUST = 16, FLAG_JETS = 32;
+    static final int FLAG_DETAIL = 64, FLAG_MOTION = 128, FLAG_CLOUD = 256;
 
     private static final String FOLDER = "/assets/albedo/shaders/";
     /** An include line, with the id between angle brackets or quotes. */
@@ -168,6 +169,7 @@ public final class SkyShaderSource {
                 if (field == null) field = "albedoFractalField(" + layer + ", " + frame + ", " + flags + ")";
                 return "albedoFractal(" + layer + ", " + frame + ", " + field + ", " + flags + ")";
             case SkyProgram.KIND_GALAXY: return "albedoGalaxy(" + layer + ", " + frame + ", footprint, " + flags + ")";
+            case SkyProgram.KIND_DEEP_FIELD: return "albedoDeepField(" + layer + ", " + frame + ", footprint, " + flags + ")";
             // The layers in the air take the world direction, so that they do not turn with the sky.
             case SkyProgram.KIND_METEORS: return "albedoMeteors(" + layer + ", world, footprint)";
             case SkyProgram.KIND_AURORA: return "albedoAurora(" + layer + ", albedoFrame(" + layer + ", world), footprint)";
@@ -197,6 +199,10 @@ public final class SkyShaderSource {
         } else if (kind == SkyProgram.KIND_GALAXY) {
             if (b[SkyProgram.at(layer, SkyProgram.DUST)] > 0) flags |= FLAG_DUST;
             if (b[SkyProgram.at(layer, SkyProgram.JETS)] > 0) flags |= FLAG_JETS;
+            if (b[SkyProgram.at(layer, SkyProgram.DETAIL)] > 0) flags |= FLAG_DETAIL;
+            if (b[SkyProgram.at(layer, SkyProgram.MOTION)] > 0) flags |= FLAG_MOTION;
+        } else if (kind == SkyProgram.KIND_DEEP_FIELD) {
+            if (b[SkyProgram.at(layer, SkyProgram.HEIGHT)] > 0) flags |= FLAG_CLOUD;
         }
         return flags;
     }
