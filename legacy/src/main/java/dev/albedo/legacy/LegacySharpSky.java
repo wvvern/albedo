@@ -82,7 +82,6 @@ final class LegacySharpSky {
             return state == Compile.READY;
         }
 
-        /** Deletes the GL program. */
         void close() {
             if (state == Compile.READY) GL20.glDeleteProgram(id);
             state = Compile.FAILED;

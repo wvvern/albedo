@@ -38,7 +38,6 @@ final class ModernPlatform implements Platform {
         this.loaderConfigDir = loaderConfigDir;
     }
 
-    /** A plain text component. */
     static Component text(String text) {
         //? if >=1.19 {
         return Component.literal(text);

@@ -204,7 +204,7 @@ class EffectsTest {
 
     @Test
     void defaultSaturationAndBrightnessGiveTheStillChromaColors() {
-        // The colors that Chroma gave before it had options, from OKLab chroma 0.13 and the lightness limits 0.3 and 0.78.
+        // The colors of OKLab chroma 0.13 and the lightness limits 0.3 and 0.78, which the default options keep.
         int[] expected = {0xFF6BD093, 0xFF00324A, 0xFFFA93B4};
         String[] ids = {"minecraft:block/stone", "minecraft:block/dirt", "minecraft:block/oak_planks"};
         for (int i = 0; i < ids.length; i++) {
