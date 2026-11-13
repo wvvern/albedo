@@ -2,7 +2,7 @@ package dev.albedo.core.sky;
 
 /** The time of the sky layers that move, which each adapter writes into the sky block for each frame. */
 public final class SkyClock {
-    /** The time goes back to 0 after this many seconds, so that a float keeps a precision of about 0.25 ms. */
+    /** The time goes back to 0 after this many ms (one hour), so that a float keeps a precision of about 0.25 ms. */
     static final long PERIOD_MS = 3_600_000L;
 
     /** The time that the harness holds still in seconds, or NaN when the clock runs. */

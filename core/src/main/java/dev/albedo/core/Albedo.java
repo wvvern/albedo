@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** The one entry point of the core for the adapters, which hold the config, watch its file, read the keys and change textures. */
+/** The one entry point of the core for the adapters: it holds the config, watches its file, reads the keys and changes textures. */
 public final class Albedo {
     public static final String MOD_ID = "albedo";
     public static final String NAME = "Albedo";

@@ -208,8 +208,7 @@ final class SkyLayersEditor {
         }
         ui.fill(x, y, w, 1, 0x66FFFFFF);
         ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, 0xCCFFFFFF);
-        ui.tip(x, y, w, ph, "Preview of the sky, with the horizon (line) and the zenith (top). Yellow: the sun path. "
-                + "The sky in the world changes when you click Apply or Done.");
+        ui.tip(x, y, w, ph, "White line: the horizon. Yellow: the sun path. The world sky changes after Apply or Done.");
         if (w >= 24) {
             for (int i = 0; i < SkyPreviewGeometry.COMPASS.length; i++) {
                 int cx = SkyPreviewGeometry.x(strip, i * 90);
@@ -345,7 +344,7 @@ final class SkyLayersEditor {
             if (amount != t.amount()) set.accept(design.withTurning(t.withAmount(amount)));
         });
         if (t.turns()) rows.addAll(turningOptions(options, design, set));
-        if (h < ROW) return top; // no room for one row
+        if (h < ROW) return top;
         RowList.draw(ui, "sky.motion.rows", x, top, w, h, rows.size(), ROW, (r, rx, ry, rw, rh) -> {
             form.guide(ry, ROW);
             if (r > 0) turning.guide(ry, ROW);

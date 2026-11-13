@@ -112,12 +112,12 @@ public final class Policy {
         return profile != null && profile.get(Category.CLOUDS).appearance().mode() == Appearance.Mode.HIDDEN;
     }
 
-    /** Should biome / hard-coded tints for this category be replaced by white? */
+    /** Whether the biome and fixed tints of this category become white. */
     public boolean removeTint(Category c) {
         return profile != null && profile.get(c).removeTint();
     }
 
-    /** True when the sky (and fog, so the horizon blends) should be one flat color. */
+    /** True when the sky, and the fog so that the horizon blends, is one flat color. */
     public boolean overridesSky() {
         return skyStyle() == SkyStyle.FLAT;
     }
@@ -146,12 +146,12 @@ public final class Policy {
     /** Far above the brightness slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
     static final float FULLBRIGHT_GAMMA = 16f;
 
-    /** The brightness (gamma) setting the lightmap should use instead of the player's {@code setting}. */
+    /** The brightness (gamma) that the lightmap uses in place of the player's {@code setting}. */
     public double gamma(double setting) {
         return profile != null && profile.is(Toggle.FULLBRIGHT) ? FULLBRIGHT_GAMMA : setting;
     }
 
-    /** False when ambient occlusion and per-face shading should be switched off. */
+    /** False when ambient occlusion and per-face shading are off. */
     public boolean shading() {
         return profile == null || profile.is(Toggle.SHADING);
     }
@@ -160,7 +160,7 @@ public final class Policy {
         return profile == null || profile.is(Toggle.SHADOWS);
     }
 
-    /** False when the armor that players wear should not be drawn. */
+    /** False when the armor that players wear is hidden. */
     public boolean playerArmor() {
         return profile == null || profile.is(Toggle.ARMOR);
     }

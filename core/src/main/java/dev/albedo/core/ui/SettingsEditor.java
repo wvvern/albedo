@@ -892,7 +892,7 @@ public final class SettingsEditor {
         int dw = ui.buttonWidth("Delete");
         int nx = x + 20 + ui.width(crumb), nw = Math.min(140, x + w - dw - 6 - nx);
         if (!ui.isFocused("group.name")) groupName.set(rule.displayName());
-        if (ui.textField("group.name", groupName, nx, y - 3, nw, Ui.H, "Group name", "The name of this group. Click to change it.")
+        if (ui.textField("group.name", groupName, nx, y - 3, nw, Ui.H, "Group name", "The name of this group")
                 && !groupName.text.trim().isEmpty()) {
             setRule(cs, index, rule.withName(groupName.text.trim()));
             return;
@@ -1058,7 +1058,7 @@ public final class SettingsEditor {
             int ry = ly + 2 + (i - first) * ROW;
             Rule owner = cs.ruleFor(id);
             if (ui.button("row." + id, x + 2, ry, w - 8, ROW, "", Ui.Style.GHOST, true,
-                    owner == null ? "Click to make a new group with " + shortId(id) : "Click to open group " + owner.displayName())) {
+                    owner == null ? "Make a new group with " + shortId(id) : "Open group " + owner.displayName())) {
                 openTextureGroup(cs, id, owner);
                 return;
             }
@@ -1078,7 +1078,7 @@ public final class SettingsEditor {
             go(page.withGroup(cs.rules().indexOf(owner)));
             return;
         }
-        // First place, so the texture really gets this group's look even if a broader group also matches it.
+        // First place, so that this look wins over a broader group that also matches the texture.
         setCategory(cs.withRuleAt(0, cs.newGroup(shortId(id), Collections.singletonList(shortId(id)))));
         go(page.withGroup(0));
     }
@@ -1189,7 +1189,7 @@ public final class SettingsEditor {
         if (ui.button("apply", x + w - 2 * bw - 3, y, bw, Ui.H, "Apply", Ui.Style.NORMAL, dirty,
                 dirty ? "Save and show the result. The screen stays open." : "There are no changes to save")) apply();
         if (ui.button("cancel", x + w - 3 * bw - 6, y, bw, Ui.H, dirty ? "Discard" : "Close", Ui.Style.NORMAL, true,
-                dirty ? "Close and do not save the changes" : "Close")) closed = true;
+                dirty ? "Close and do not save the changes" : null)) closed = true;
         if (ui.button("export", x, y, lw, Ui.H, "Export", Ui.Style.NORMAL, true,
                 "Save this profile to a file and copy it to the clipboard")) {
             exportProfile();

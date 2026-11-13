@@ -66,7 +66,7 @@ public final class Rule {
         return category.with(own, values);
     }
 
-    /** True when the group sets no field and so takes its category's look, which is useful when a category only changes its groups. */
+    /** True when the group sets no field and so takes its category's look. */
     public boolean usesGlobalLook() { return own.isEmpty(); }
 
     public Rule withName(String n) { return new Rule(n, patterns, globs, values, own); }

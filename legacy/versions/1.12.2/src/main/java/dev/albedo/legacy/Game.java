@@ -113,7 +113,6 @@ public final class Game {
         return server.getPlayerList().getPlayers();
     }
 
-    /** Sets the master volume to 0. */
     public static void mute() {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.gameSettings.getSoundLevel(SoundCategory.MASTER) != 0f) mc.gameSettings.setSoundLevel(SoundCategory.MASTER, 0f);

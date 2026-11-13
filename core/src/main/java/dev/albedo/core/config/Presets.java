@@ -37,7 +37,7 @@ public final class Presets {
         // Signs, banners and maps are toned, not lost: their text and patterns stay readable on them.
         int decoration = white ? 0xFFD4D4D4 : 0xFF6A6A6A;
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
-        // Solid leaves: through their holes you'd otherwise see darker back faces, which is exactly the noise to remove.
+        // Solid leaves hide the darker back faces behind their holes.
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 Appearance.ORIGINAL.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(Appearance.solid(block), true, Collections.singletonList(solidLeaves)));

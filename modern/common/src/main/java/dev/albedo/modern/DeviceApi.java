@@ -304,7 +304,6 @@ final class DeviceApi {
             return OptionalLong.of((long) ((t[1].getAsLong() - t[0].getAsLong()) * RenderSystem.getDevice().getDeviceInfo().timestampPeriod()));
         }
 
-        // Frees the query.
         void close() {
             pool.close();
         }

@@ -108,7 +108,7 @@ final class TextureUploads {
         return ReloadableTextureUpload.texture(location);
     }
     *///?} else {
-    /*// A stand-alone texture. The texture object loaded it with these filter settings.
+    /*// A stand-alone texture, with the filter settings of its load.
     static TextureStore.Upload texture(Object location, net.minecraft.client.renderer.texture.SimpleTexture texture,
                                        boolean blur, boolean clamp) {
         return pixels -> {

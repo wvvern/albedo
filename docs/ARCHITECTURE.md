@@ -112,7 +112,7 @@ Invariants:
 - Meteors and aurora live in world space and do not turn with the sky. The bake does not know the turn, so the baked texture turns its aurora with the sky.
 - A sky that turns is drawn and baked around the full sphere (`SkyDesign.drawnExtent`), whatever its extent: the turn brings the part of the design below its horizon up into the sky, and a horizon sky would end there at a tilted line with the horizon color past it. Read `drawnExtent`, not `extent`, wherever the sky is drawn. Harness suite `sky-turned` shows each preset half a turn on.
 - A render mode or turning change does not rebake (`SkyDesign.baked`), except star trails, which the bake draws.
-- Never dispatch on the layer kind at run time in a layer step: the NVIDIA compiler stops inlining at about seven such steps and the sky gets about 60 percent slower. Never index a constant array with a per-pixel value: it moves to local memory. Measure shader changes with `skytime 3840 2160` on 26.3 (and note that 26.x goes through SPIR-V).
+- Never dispatch on the layer kind at run time in a layer step: the NVIDIA compiler stops inlining at about seven such steps and the sky gets about 60 percent slower. Never index a constant array with a per-pixel value: it moves to local memory. Measure shader changes with `skytime 3840 2160` on 26.3; 26.x goes through SPIR-V.
 
 Traps by version:
 
@@ -130,7 +130,7 @@ Traps by version:
 - 1.16.5 uses the fixed pipeline like 1.8.9, through ports of the legacy classes (`FixedSky`, `FixedSharpSky`, `FixedChromaPass`); they cannot be shared because legacy uses MCP names, LWJGL 2 and the `Game` shim. `FixedSkyMixin` redirects the three `VertexBuffer.draw` calls of `renderSky` to get the sky disc's camera matrix, and the sunrise fan's `BufferUploader.end`.
 - 1.8.9: below cloud height the clouds draw before the world and blend with the sky, so the sphere draws before them (`RenderGlobal.renderClouds`). The black sphere uses the depth range 1 to 1.
 - 1.8.9 with Use VBOs (off by default; on by default on 1.12.2): vanilla binds its sky buffer before the hook and LWJGL refuses client-memory draws while it is bound, so `LegacySky.drawSky` unbinds it. Test both settings.
-- Nothing that blends with the sky or skips the depth test may draw between the sky pass and the solid world: it gets a black background. Other mods can draw there (for example NeoForge `AFTER_SKY`), and their translucent pixels blend with black. This is a known limit.
+- Nothing that blends with the sky or skips the depth test may draw between the sky pass and the solid world: it gets a black background. Other mods can draw there (for example NeoForge `AFTER_SKY`), and their translucent pixels blend with black.
 
 ## OptiFine on 1.8.9
 

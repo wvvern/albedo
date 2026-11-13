@@ -52,8 +52,7 @@ public final class CategorySettings {
     public Appearance appearance() { return appearance; }
 
     /**
-     * Replace biome/hard-coded tints (grass, foliage, water color...) with white so the flat texture color is
-     * what actually shows.
+     * Whether biome and fixed tints (grass, foliage, water) become white, so that the texture color shows.
      */
     public boolean removeTint() { return removeTint; }
 
@@ -87,8 +86,7 @@ public final class CategorySettings {
     }
 
     /**
-     * A new group in this scope: under "only groups" it takes the global look (so adding a block just switches it on),
-     * otherwise it gets its own color from a rotating set so it stands out.
+     * A new group, which takes the global look under "only groups" and else the next color of {@link #GROUP_COLORS}.
      */
     public Rule newGroup(String name, List<String> patterns) {
         if (onlyGroups) return new Rule(name, patterns, appearance, true);

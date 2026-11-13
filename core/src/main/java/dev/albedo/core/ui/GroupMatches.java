@@ -24,7 +24,7 @@ final class GroupMatches {
     /** What one pattern of a group matches. */
     static final class Chip {
         final int matched;
-        /** Of those, the textures the group really gets: no higher group took them. */
+        /** Of those, the textures that no higher group took. */
         final int effective;
         /** The average color of the first match; null when nothing matches. */
         final Integer color;

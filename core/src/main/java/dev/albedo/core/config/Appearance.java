@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
-/** How a texture should look, as an immutable value. */
+/** How a texture looks, as an immutable value. */
 public final class Appearance {
     public enum Mode {
         ORIGINAL,
@@ -16,7 +16,7 @@ public final class Appearance {
         /** Fill with the texture's own average color: removes detail but keeps each block recognisable. */
         AVERAGE,
         GRAYSCALE,
-        /** Fully transparent: the thing disappears (useful for clouds, weather, particles). */
+        /** Fully transparent, so the thing disappears. */
         HIDDEN,
         /** A custom sky made of layers ({@link SkyDesign}), only for the sky and never given to a texture. */
         LAYERS;

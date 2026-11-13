@@ -14,7 +14,7 @@ import java.util.function.IntConsumer;
  * generator works on directions (no seam, no pinch at the zenith) and each filter size is in degrees.
  */
 public final class SkyGenerator {
-    /** Runs an index from 0 to count - 1 for each row (or column) of a pass, maybe in parallel. */
+    /** Runs an index from 0 to count - 1 for each row or column of a pass, on one or more threads. */
     interface Rows {
         /** @return false when the bake is out of date and stops */
         boolean run(int count, IntConsumer row);

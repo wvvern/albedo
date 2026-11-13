@@ -31,8 +31,6 @@
 
 ## 0.6.0
 
-This update adds many Minecraft versions, each with its own jar.
-
 - fix: Show the flat sky color on NeoForge 1.21.11 in the pastel and quake-white profiles
 - fix: Show the water surface on 26.3 in the pastel profile
 - compat: Add Fabric jars for Minecraft 1.16.5, 1.17.1, 1.18.2, 1.19.2 and 1.19.4

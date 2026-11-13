@@ -28,7 +28,7 @@ final class GraphicsCanvas implements Canvas {
     @Override public void text(String text, int x, int y, int argb) { g.drawString(font, text, x, y, argb, false); }
     @Override public int textWidth(String text) { return font.width(text); }
 
-    // How a GUI texture draws, for a blit.
+    // The pipeline or render type that a blit draws a GUI texture with.
     //? if >=1.21.6 {
     static final com.mojang.blaze3d.pipeline.RenderPipeline TEXTURED = net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
     //?} elif >=1.21.2 {
