@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+- feat: Pick a built-in sky from a gallery with an image of each sky, in place of the preset buttons
+- feat: Add the Deep field sky layer, with far galaxies and a cloud of stars
+- feat: Add Detail to the Galaxy layer, for threads of dust, glowing gas, star clusters and finer jets
+- feat: Add Animation to the Galaxy layer, which moves its jets, makes its core flicker and lets stars explode
+- feat: Give the Galaxy sky far galaxies, a star cloud, wisps of gas, more detail and slow motion
+- feat: Make the aurora larger, with tall soft curtains, lasting rays and a second fainter arc
+- fix: Remove the hard bright line at the lower edge of the aurora
+- fix: Close the settings with Esc after a change of the sky style on a layer page
+
 ## 0.6.2
 
 - fix: Show the profile color of grass, leaves and vines with Sodium, Embeddium or Rubidium on 1.16.5 to 1.19.4
