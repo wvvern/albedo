@@ -139,5 +139,14 @@ class GameRunsTest(unittest.TestCase):
         self.assertTrue(protocol.game_runs([gradle, harness]))
         self.assertTrue(protocol.game_runs([player]))
         self.assertFalse(protocol.game_runs([gradle]))
-        self.assertTrue(protocol.harness_game(harness, r"C:\Temp\albedo-harness\fabric-26.3"))
-        self.assertFalse(protocol.harness_game(harness, r"C:\Temp\albedo-harness\forge-1.8.9"))
+        self.assertTrue(protocol.harness_game(harness))
+        self.assertFalse(protocol.harness_game(gradle))
+
+    def test_a_command_line_names_a_harness_folder_only_by_its_whole_name(self):
+        folder = r"C:\Temp\albedo-harness\fabric-1.21.1"
+        self.assertTrue(protocol.names_harness(rf"java.exe -Dalbedo.harness={folder} Main", folder))
+        self.assertTrue(protocol.names_harness(rf'java.exe "-Pharness={folder}"', folder))
+        self.assertTrue(protocol.names_harness(rf"java.exe -Pharness={folder}", folder))
+        self.assertFalse(protocol.names_harness(rf"java.exe -Dalbedo.harness={folder}1 Main", folder))
+        self.assertFalse(protocol.names_harness(rf"java.exe -Dalbedo.harness={folder}0 Main", folder))
+        self.assertFalse(protocol.names_harness(r"java.exe -Dalbedo.harness=C:\Temp\albedo-harness\forge-1.8.9", folder))

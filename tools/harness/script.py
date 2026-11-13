@@ -54,7 +54,7 @@ def entity_ids_of_1_12(line: str) -> str | None:
     """1.12.2 names an entity type by its id and has no achievement command."""
     if line.startswith("run achievement "):
         return None
-    line = line.replace("type=!Player", "type=!player")
+    line = re.sub(r"type=!Player\b", "type=!player", line)
     return re.sub(r"^(run summon )([A-Z]\w*)", lambda match: f"{match.group(1)}minecraft:{match.group(2).lower()}", line)
 
 

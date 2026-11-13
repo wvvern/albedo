@@ -4,7 +4,7 @@ import os
 import time
 from pathlib import Path
 
-from tools.harness import desktop, processes, watchdog
+from tools.harness import desktop, processes, protocol, watchdog
 from tools.harness.session import Launch
 from tools.report import ToolError
 
@@ -18,7 +18,7 @@ class Windows:
 
     def uses(self, harness: Path) -> bool:
         # The Gradle process of a dev run names the folder before its game does.
-        return any(str(harness) in line for line in processes.java_command_lines())
+        return any(protocol.names_harness(line, harness) for line in processes.java_command_lines())
 
     def start(self, launch: Launch, harness: Path) -> int:
         pid = desktop.start_hidden(launch)
@@ -29,7 +29,7 @@ class Windows:
         return processes.alive(pid)
 
     def stop(self, pid: int, harness: Path) -> None:
-        processes.kill_java_with(str(harness))
+        processes.kill_java(lambda command_line: protocol.names_harness(command_line, harness))
         processes.kill(pid)
 
     def sleep(self, seconds: float) -> None:

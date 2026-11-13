@@ -51,7 +51,8 @@ class Tree:
         return cls(root, tuple(name for name in listing.decode("utf-8").split("\0") if (root / name).is_file()))
 
     def text(self, file: str) -> str:
-        return (self.root / file).read_text(encoding="utf-8")
+        # A byte that is not UTF-8 is a problem of text_hygiene, and no reason for the other checks to stop.
+        return (self.root / file).read_text(encoding="utf-8", errors="replace")
 
     def lines(self, file: str) -> list[str]:
         return self.text(file).splitlines()
@@ -140,12 +141,12 @@ def condition_versions(tree: Tree) -> Iterator[Problem]:
 
 def node_files(tree: Tree) -> Iterator[Problem]:
     """The node folders agree with the lists of modern/settings.gradle."""
-    all_nodes, *loader_lists = project.modern_node_lists(tree.text(project.SETTINGS)).items()
-    nodes = all_nodes[1]
+    loader_lists = project.modern_node_lists(tree.text(project.SETTINGS))
+    nodes = loader_lists.pop("fabric")
     folders = {Path(file).parent.name for file in tree.matching(NODE_PROPERTIES)}
     for node in sorted(folders.symmetric_difference(nodes), key=project.version_key):
         yield Problem(project.SETTINGS, f"the node {node} must be in the list nodes and have {project.node_properties_file(node)}")
-    for loader, loader_nodes in loader_lists:
+    for loader, loader_nodes in loader_lists.items():
         for node in loader_nodes:
             file = project.loader_properties_file(loader, node)
             if node not in nodes:

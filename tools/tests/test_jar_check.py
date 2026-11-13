@@ -1,9 +1,11 @@
 import io
 import json
+import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 
-from tools.jar_check import Jar, Subject, examine
+from tools.jar_check import Jar, Subject, examine, examine_file
 from tools.project import Target
 
 NODE = {
@@ -84,6 +86,11 @@ class ModernJarTest(unittest.TestCase):
         entries = fabric_jar({"fabric.mod.json": json.dumps({"depends": {"minecraft": ">=1.18", "fabricloader": ">=0.15.0"}})})
         self.assertEqual(["fabric.mod.json has the minecraft range >=1.18, not >=1.18.2 <1.19"], examine(subject(FABRIC, entries)))
 
+    def test_a_new_forge_jar_must_not_have_the_forge_mixin_config(self):
+        target = Target("forge", "1.20.1", "1.20.1", 17, legacy=False)
+        entries = self.forge_jar()
+        self.assertEqual(["the jar has albedo.forge.mixins.json, which only a Forge jar below 1.19 needs"], examine(subject(target, entries)))
+
     def test_the_mixin_of_the_dev_run_fails(self):
         entries = fabric_jar({"dev/albedo/forge/dev/TransformationMixin.class": class_file(17)})
         self.assertEqual(["the jar has the mixin of the dev run"], examine(subject(FABRIC, entries)))
@@ -149,3 +156,30 @@ class LegacyJarTest(unittest.TestCase):
             ["the jar has no mixins.albedo.refmap.json", "dev/albedo/core/A.class has the class version 61, not 52"],
             examine(subject(LEGACY, entries)),
         )
+
+
+class JarFileTest(unittest.TestCase):
+    """Jar files with the name of a target of this repository."""
+
+    def problems(self, entries: dict[str, str | bytes]) -> list[str]:
+        file = Path(tempfile.mkdtemp()) / "albedo-forge-1.0.0+1.8.9.jar"
+        with zipfile.ZipFile(file, "w") as jar:
+            for name, content in entries.items():
+                jar.writestr(name, content)
+        return examine_file(file)
+
+    def test_a_jar_with_no_metadata_file_is_a_problem_of_the_jar(self):
+        problems = self.problems({"mixins.albedo.json": mixins([], "JAVA_8")})
+        self.assertEqual(1, len(problems))
+        self.assertTrue(problems[0].startswith("a check cannot read the jar: "), problems[0])
+        self.assertIn("mcmod.info", problems[0])
+
+    def test_a_metadata_file_that_is_not_json_is_a_problem_of_the_jar(self):
+        problems = self.problems({"mcmod.info": "[{"})
+        self.assertEqual(1, len(problems))
+        self.assertTrue(problems[0].startswith("a check cannot read the jar: "), problems[0])
+
+    def test_a_file_that_is_no_jar_is_a_problem(self):
+        file = Path(tempfile.mkdtemp()) / "albedo-forge-1.0.0+1.8.9.jar"
+        file.write_bytes(b"not a zip")
+        self.assertEqual(["cannot read the jar"], examine_file(file))

@@ -193,7 +193,8 @@ def main(arguments: list[str]) -> int:
     parser.add_argument("--forge", type=Path, help="a Forge 1.8.9 universal jar in place of the installed one (some mods need 11.15.1.2318)")
     parser.add_argument("--dump-classes", action="store_true", help="the transformed classes go to CLASSLOADER_TEMP of the game folder")
     parser.add_argument("--timeout", type=int, default=600, metavar="SECONDS")
-    parser.add_argument("--option", action="append", default=[], metavar="KEY:VALUE", help="one more line of options.txt, for example useVbo:true")
+    option_help = "one more line of options.txt, for example useVbo:true"
+    parser.add_argument("--option", action="append", default=[], type=rundir.key_value, metavar="KEY:VALUE", help=option_help)
     options = parser.parse_args(arguments)
     system = Windows()
     java = options.java or find_java_8()

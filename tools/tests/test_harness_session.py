@@ -144,6 +144,19 @@ class FilesTest(unittest.TestCase):
         self.assertEqual(["a.png", "b.png"], [image.name for image in session.collect(self.dir, out)])
         self.assertEqual(["a.png", "b.png"], sorted(file.name for file in out.iterdir()))
 
+    def test_collect_goes_on_when_the_old_folder_cannot_be_removed(self):
+        self.png("a.png", 1, 1)
+        out = self.dir / "out"
+        out.mkdir()
+        with mock.patch("shutil.rmtree"):
+            self.assertEqual(["a.png"], [image.name for image in session.collect(self.dir, out)])
+        self.assertTrue((out / "a.png").is_file())
+
+    def test_an_option_of_the_command_line_needs_its_colon(self):
+        self.assertEqual("useVbo:false", rundir.key_value("useVbo:false"))
+        with self.assertRaises(ValueError):
+            rundir.key_value("useVbo=false")
+
     def test_options_are_lines_of_key_and_value(self):
         file = self.dir / "run" / "options.txt"
         rundir.write_options(file, {"narrator": "0", "lastServer": "host:25565"})

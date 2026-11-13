@@ -30,9 +30,13 @@ RESULTS = (
 PLAYER_GAME = re.compile(r"--gameDir|KnotClient|net\.minecraft\.client\.main\.Main|launchwrapper\.Launch|BootstrapLauncher")
 
 
-def harness_game(java_command_line: str, harness: object = "") -> bool:
-    """Whether a Java process is a harness game, of one harness folder or of any."""
-    return f"{JVM_PROPERTY}{harness}" in java_command_line
+def names_harness(command_line: str, harness: object) -> bool:
+    """Whether a command line names a harness folder, and not a folder whose name only starts with the name of this one."""
+    return re.search(re.escape(str(harness)) + r"(?![\w.-])", command_line) is not None
+
+
+def harness_game(java_command_line: str) -> bool:
+    return JVM_PROPERTY in java_command_line
 
 
 def game_runs(java_command_lines: Iterable[str]) -> bool:

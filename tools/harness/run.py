@@ -16,7 +16,7 @@ import argparse
 from pathlib import Path
 
 from tools import project
-from tools.harness import devrun, files, script, session, verdict
+from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
 from tools.harness.windows import Windows
@@ -57,7 +57,14 @@ def parse(arguments: list[str]) -> tuple[list[Target], RunOptions]:
     parser.add_argument("--compat", default=RunOptions.compat, metavar="MOD", help="a dev-only renderer mod: sodium, embeddium, rubidium or iris")
     parser.add_argument("--shader-pack", type=Path, help="a shader pack for --compat iris; without it, Iris has shaders off")
     parser.add_argument("--config", type=Path, help="a config.json that the game starts with in place of the default config")
-    parser.add_argument("--option", action="append", default=[], metavar="KEY:VALUE", help="one more line of options.txt, for example useVbo:false")
+    parser.add_argument(
+        "--option",
+        action="append",
+        default=[],
+        type=rundir.key_value,
+        metavar="KEY:VALUE",
+        help="one more line of options.txt, for example useVbo:false",
+    )
     parser.add_argument("--gui-scale", type=int, default=RunOptions.gui_scale, help="0 is auto; 2 gives the settings screen room for the sky preview")
     parser.add_argument("--backend", choices=("opengl", "vulkan"), default=RunOptions.backend, help="the graphics backend of 26.2 and later")
     parser.add_argument("--vulkan-validation", action="store_true", help="the Vulkan validation layers of the game")

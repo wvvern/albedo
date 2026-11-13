@@ -1,6 +1,6 @@
 """The running processes that the harness asks about and stops. Needs psutil."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import suppress
 
 import psutil
@@ -33,8 +33,8 @@ def kill(pid: int) -> None:
         psutil.Process(pid).kill()
 
 
-def kill_java_with(text: str) -> None:
-    """Stops each Java process that has a text in its command line."""
+def kill_java(wanted: Callable[[str], bool]) -> None:
+    """Stops each Java process whose command line is a wanted one."""
     for pid, command_line in java_processes():
-        if text in command_line:
+        if wanted(command_line):
             kill(pid)

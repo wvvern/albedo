@@ -21,7 +21,7 @@ def watch(pid: int, harness: Path, log: Path) -> None:
     processes.wait(pid)
     # The process of the run ends first, and the game can still be shutting down for a few seconds.
     for _ in range(SHUTDOWN_SECONDS):
-        if not any(protocol.harness_game(line, harness) for line in processes.java_command_lines()):
+        if not any(protocol.harness_game(line) and protocol.names_harness(line, harness) for line in processes.java_command_lines()):
             break
         time.sleep(1)
     time.sleep(2)

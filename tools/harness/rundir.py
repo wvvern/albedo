@@ -23,6 +23,13 @@ def mod_config(run_dir: Path) -> Path:
     return run_dir / "config" / "albedo" / "config.json"
 
 
+def key_value(line: str) -> str:
+    """A line "key:value" of a command line, where argparse gives the error for any other text."""
+    if ":" not in line:
+        raise ValueError(line)
+    return line
+
+
 def parse_option_lines(lines: list[str]) -> dict[str, str]:
     """The options of lines "key:value", as in options.txt."""
     return dict(line.split(":", 1) for line in lines if ":" in line)

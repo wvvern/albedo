@@ -102,7 +102,8 @@ def play(launch: Launch, harness: Path, timeout: float, system: System, say: Cal
 def collect(harness: Path, out: Path) -> list[Path]:
     """Copies the screenshots of a run to a new output folder."""
     shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True)
+    # The folder stays when a viewer holds one of its files, and the run still gets its result.
+    out.mkdir(parents=True, exist_ok=True)
     images = sorted(harness.glob("*.png"))
     for image in images:
         shutil.copy2(image, out)

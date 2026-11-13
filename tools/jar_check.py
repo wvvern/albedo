@@ -165,7 +165,11 @@ def examine_file(file: Path) -> list[str]:
     except (OSError, zipfile.BadZipFile):
         return ["cannot read the jar"]
     with jar.zip:
-        return examine(Subject(jar, target, target.properties(), project.build_properties()))
+        try:
+            return examine(Subject(jar, target, target.properties(), project.build_properties()))
+        except (KeyError, ValueError) as error:
+            # zipfile gives a KeyError for a file that the jar does not have, and json and tomllib a ValueError for a file that they cannot read.
+            return [f"a check cannot read the jar: {error}"]
 
 
 def jar_files(arguments: list[Path]) -> list[Path]:

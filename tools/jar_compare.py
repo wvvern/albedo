@@ -76,7 +76,7 @@ def compare(old_dir: Path, new_dir: Path, patterns: list[str]) -> bool:
         print(f"{jar.name}: {len(new_hashes)} entries, {len(found)} different, {unexplained} not explained")
         for difference in found:
             print(difference)
-    for key in old_jars.keys() - new_jars.keys():
+    for key in sorted(old_jars.keys() - new_jars.keys()):
         print(f"{old_jars[key].name}: FAIL, no jar with this name in {new_dir}")
         passed = False
     return passed

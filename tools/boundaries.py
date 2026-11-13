@@ -17,12 +17,13 @@ from itertools import groupby
 from pathlib import Path
 
 from tools import gradle, project
+from tools.report import ToolError
 
 LIST = Path(__file__).with_name("boundaries.txt")
 LOOM_MINECRAFT = gradle.CACHES / "fabric-loom" / "minecraftMaven" / "net" / "minecraft"
 NO_JAR = "no jar in the Loom cache"
 
-CLASS_HEADER = re.compile(r"^[a-z].*\b(?:class|interface|enum) (\S+).*\{$")
+CLASS_HEADER = re.compile(r"^[a-z].*?\b(?:class|interface|enum) (\S+).*\{$")
 MEMBER = re.compile(r"^  \S.*;$")
 REFERENCE = re.compile(r"// (?:Method|InterfaceMethod|Field) (.*)")
 SHORT_NAMES = (
@@ -130,7 +131,11 @@ def disassemble(jar: Path | None, classes: list[str]) -> Disassembly | None:
     if jar is None:
         return None
     # javap prints an error for a class that the jar does not have, and the classes that it has.
-    result = subprocess.run(["javap", "-p", "-c", "-cp", str(jar), *classes], capture_output=True, text=True, encoding="utf-8", check=False)
+    command = ["javap", "-p", "-c", "-cp", str(jar), *classes]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+    except FileNotFoundError:
+        raise ToolError("javap is not on the PATH; it comes with a JDK") from None
     return parse_javap(result.stdout)
 
 

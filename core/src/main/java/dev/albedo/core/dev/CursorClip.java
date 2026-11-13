@@ -58,12 +58,12 @@ final class CursorClip {
             if (command.isEmpty()) return "! cursorfree: clip-probe.txt has no command";
             Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
             process.getOutputStream().close();
-            byte[] bytes = readAll(process);
+            // The wait comes before the read, because a read of a probe that hangs has no end; the one line of the probe fits in the pipe.
             if (!process.waitFor(WAIT_SECONDS, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
                 return "! cursorfree: the clip probe did not finish";
             }
-            String output = new String(bytes, StandardCharsets.UTF_8);
+            String output = new String(readAll(process), StandardCharsets.UTF_8);
             int[] numbers = parse(output);
             return numbers == null ? "! cursorfree: the clip probe gave: " + output.trim() : line(numbers);
         } catch (IOException e) {
