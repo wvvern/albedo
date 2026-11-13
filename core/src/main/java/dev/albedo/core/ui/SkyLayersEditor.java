@@ -262,8 +262,11 @@ final class SkyLayersEditor {
                     design.withCelestial(celestial ? SkyDesign.Celestial.HIDE : SkyDesign.Celestial.SHOW)),
             new Switch("sky.night", "Darker at night", "The sky gets dark at night and in rain, as the vanilla sky does", night,
                     design.withLight(night ? SkyDesign.Light.FIXED : SkyDesign.Light.DAY_NIGHT)),
-            new Switch("sky.extent", "Full sphere", "The layers go around the full sky, also below the horizon", sphere,
-                    design.withExtent(sphere ? SkyDesign.Extent.HORIZON : SkyDesign.Extent.SPHERE)),
+            design.turning().turns()
+                    ? new Switch("sky.extent", "Full sphere",
+                            "A sky that turns always goes around the full sky. Set Turning to 0 to stop the layers at the horizon.", true, null)
+                    : new Switch("sky.extent", "Full sphere", "The layers go around the full sky, also below the horizon", sphere,
+                            design.withExtent(sphere ? SkyDesign.Extent.HORIZON : SkyDesign.Extent.SPHERE)),
             new Switch("sky.render", "Sharp render", "The GPU draws the sky sharp at all screen sizes. Set it off if the game is slow.", sharp,
                     design.withRender(sharp ? SkyDesign.Render.FAST : SkyDesign.Render.SHARP))};
         cy = switches(x, cy, w, switches, set) + 2;
@@ -279,7 +282,7 @@ final class SkyLayersEditor {
                 (r, rx, ry, rw, rh) -> layerRow(rx, ry, rw, design, layers.size() - 1 - r, set));
     }
 
-    /** One on-off row of the list screen and the design that it gives when the user flips it. */
+    /** One on-off row of the list screen and the design that it gives when the user flips it, or null when it is locked. */
     private static final class Switch {
         final String id, label, tip;
         final boolean on;
@@ -300,7 +303,8 @@ final class SkyLayersEditor {
         for (int i = 0; i < switches.length; i++) {
             Switch s = switches[i];
             int sx = x + i % columns * (cw + GAP), sy = y + i / columns * rowH;
-            if (ui.toggleRow(s.id, sx - 4, sy, cw + 4, s.label, s.on, s.tip) != s.on) set.accept(s.flipped);
+            if (s.flipped == null) ui.lockedToggleRow(sx - 4, sy, cw + 4, s.label, s.on, s.tip);
+            else if (ui.toggleRow(s.id, sx - 4, sy, cw + 4, s.label, s.on, s.tip) != s.on) set.accept(s.flipped);
         }
         return y + (switches.length + columns - 1) / columns * rowH;
     }

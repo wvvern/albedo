@@ -70,7 +70,14 @@ public final class SkyDesign {
 
     public Light light() { return light; }
 
+    /** The extent that the design asks for; {@link #drawnExtent} is the one that the sky has. */
     public Extent extent() { return extent; }
+
+    /**
+     * The extent of the drawn sky: the full sphere while the sky turns, because the turn brings the part of the design below
+     * its horizon up into the sky, where a sky that stops at the horizon would show a tilted edge with the horizon color past it.
+     */
+    public Extent drawnExtent() { return turning.turns() ? Extent.SPHERE : extent; }
 
     public Render render() { return render; }
 
@@ -96,7 +103,7 @@ public final class SkyDesign {
     public SkyDesign texturesOnly() { return NONE.withCelestial(celestial); }
 
     /** The design with only what the bake reads, so that a change of the render or the speed of the turning keeps the baked pixels. */
-    public SkyDesign baked() { return withRender(Render.SHARP).withTurning(turning.baked()); }
+    public SkyDesign baked() { return new SkyDesign(layers, celestial, light, drawnExtent(), Render.SHARP, turning.baked()); }
 
     /** An id that no layer has: one more than the largest. */
     public int nextId() {

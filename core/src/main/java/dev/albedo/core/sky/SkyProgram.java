@@ -100,7 +100,7 @@ public final class SkyProgram {
         List<SkyLayer> layers = design.layers();
         // The header: the layer count, the extent (1 for the full sphere), the term count and the time.
         block[0] = layers.size();
-        block[1] = design.extent() == SkyDesign.Extent.SPHERE ? 1 : 0;
+        block[1] = design.drawnExtent() == SkyDesign.Extent.SPHERE ? 1 : 0;
         block[TIME] = STILL;
         for (int row = 0; row < 3; row++) block[WORLD + row * 5] = 1;
         boolean anyMoves = false;

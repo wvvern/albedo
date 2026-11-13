@@ -97,7 +97,18 @@ class SkyDesignTest {
                 .baked(), "the speed, the amount and the clock do not change the trails");
         assertNotEquals(trails.baked(), trails.withTurning(trails.turning().withPole(200)).baked(), "the pole moves the trails");
         assertNotEquals(trails.baked(), trails.withTurning(trails.turning().withTrailLight(90)).baked());
-        assertEquals(d.baked(), trails.withTurning(trails.turning().withAmount(0)).baked(), "a still sky has no trails");
+        assertEquals(d.withTurning(SkyTurning.STILL).baked(), trails.withTurning(trails.turning().withAmount(0)).baked(),
+                "a still sky has no trails");
+    }
+
+    @Test
+    void aSkyThatTurnsIsDrawnAndBakedAroundTheFullSphere() {
+        SkyDesign still = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS).withTurning(SkyTurning.STILL);
+        SkyDesign turning = still.withTurning(SkyTurning.DEFAULT);
+        assertEquals(SkyDesign.Extent.HORIZON, still.drawnExtent());
+        assertEquals(SkyDesign.Extent.SPHERE, turning.drawnExtent(), "the turn would bring the part below the horizon up");
+        assertEquals(SkyDesign.Extent.HORIZON, turning.extent(), "the setting stays for a sky that stops turning");
+        assertEquals(still.withExtent(SkyDesign.Extent.SPHERE).baked(), turning.baked(), "the bake fills the full sphere");
     }
 
     @Test

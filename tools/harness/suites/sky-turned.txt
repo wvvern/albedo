@@ -1,0 +1,117 @@
+# Each preset half a turn into a turning, also Dusk and Aurora, which stand still until a player turns them, from high in the air so that the sky below the horizon shows as over the void of a sky island. No part of any sky may end at a line or show the plain horizon color over a large area. Run it after the scene:
+# python -m tools harness forge-1.8.9 fabric-26.3 --suite sky-turned --out build/sky-turned
+wait 60
+profile minimal
+run time set 6000
+wait 40
+fov 70
+# Yaw 180 looks north, 0 south, 90 west and -90 east.
+sky dusk
+skyturn 100
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot dusk-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot dusk-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot dusk-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot dusk-4-down
+sky nebula
+skyturn 100
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot nebula-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot nebula-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot nebula-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot nebula-4-down
+sky galaxy
+skyturn 100
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot galaxy-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot galaxy-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot galaxy-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot galaxy-4-down
+sky meteors
+skyturn 100
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot meteors-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot meteors-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot meteors-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot meteors-4-down
+sky aurora
+skyturn 100
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot aurora-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot aurora-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot aurora-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot aurora-4-down
+skycompare
+wait 40
+skyrender fast
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot aurora-5-north-baked
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot aurora-6-south-baked
+skyrender sharp
+# Trails keeps its own turning, with the trails.
+sky trails
+skyclock 600
+wait 160
+run tp @p 0 3000 0 180 -30
+wait 40
+screenshot trails-1-north
+run tp @p 0 3000 0 0 -30
+wait 40
+screenshot trails-2-south
+run tp @p 0 3000 0 90 -89
+wait 40
+screenshot trails-3-up
+run tp @p 0 3000 0 -90 40
+wait 40
+screenshot trails-4-down
+skyclock run
+quit

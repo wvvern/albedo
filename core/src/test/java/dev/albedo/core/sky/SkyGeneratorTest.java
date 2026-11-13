@@ -17,7 +17,8 @@ class SkyGeneratorTest {
     private static final int W = 128, H = 32;
 
     private static SkyDesign of(SkyLayer... layers) {
-        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
+        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON,
+                SkyDesign.Render.SHARP, SkyTurning.STILL);
     }
 
     private static SkyLayer layer(int id, SkyLayer.Kind kind) {
@@ -82,12 +83,20 @@ class SkyGeneratorTest {
 
     @Test
     void thePresetsKeepTheirPixels() {
-        assertEquals(1164738102, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
+        assertEquals(-1327994571, Arrays.hashCode(SkyGenerator.bake(SkyPresets.DUSK, 256, 128).argb()), "dusk");
         assertEquals(-1992624876, Arrays.hashCode(SkyGenerator.bake(SkyPresets.NEBULA, 256, 128).argb()), "nebula");
         assertEquals(766003272, Arrays.hashCode(SkyGenerator.bake(SkyPresets.GALAXY, 256, 128).argb()), "galaxy");
         assertEquals(-1617945180, Arrays.hashCode(SkyGenerator.bake(SkyPresets.METEORS, 256, 128).argb()), "meteors");
-        assertEquals(-1638039599, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
+        assertEquals(-982631882, Arrays.hashCode(SkyGenerator.bake(SkyPresets.AURORA, 256, 128).argb()), "aurora");
         assertEquals(-1457549582, Arrays.hashCode(SkyGenerator.bake(SkyPresets.TRAILS, 256, 128).argb()), "trails");
+    }
+
+    @Test
+    void everyPresetGoesAroundTheFullSphere() {
+        // Below the horizon the void of a sky island shows, and a sky that turns brings that part of the design up.
+        for (SkyPresets.Preset p : SkyPresets.all()) {
+            assertEquals(SkyDesign.Extent.SPHERE, p.design().withTurning(SkyTurning.STILL).drawnExtent(), p.key());
+        }
     }
 
     @Test

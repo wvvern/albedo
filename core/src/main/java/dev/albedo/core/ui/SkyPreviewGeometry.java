@@ -16,7 +16,7 @@ final class SkyPreviewGeometry {
 
     /** The lowest elevation in degrees that the strip shows for a design: the lowest that its layers fill. */
     static float bottom(SkyDesign design) {
-        return SkyImage.layersBottom(design.extent());
+        return SkyImage.layersBottom(design.drawnExtent());
     }
 
     /** The number of rows from the top of a sky image of {@code height} rows that the strip shows for a design. */

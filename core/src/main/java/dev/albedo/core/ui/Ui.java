@@ -532,6 +532,15 @@ final class Ui {
         return (flipped || press(id, x, y, w, h)) != on;
     }
 
+    /** A faded label and switch that a click does not flip, for a setting that another setting holds. */
+    void lockedToggleRow(int x, int y, int w, String label, boolean on, String tipText) {
+        int sx = x + w - 22, sy = y + 1;
+        text(ellipsize(label, w - 30), x + 4, y + 2, FAINT);
+        round(sx, sy, 18, 10, on ? CARD_HOVER : BORDER);
+        round(on ? sx + 9 : sx + 1, sy + 1, 8, 8, FAINT);
+        tip(x, y, w, 12, tipText);
+    }
+
     /**
      * The heading of a section that opens and closes, which returns the new open state; the whole row is clickable.
      *

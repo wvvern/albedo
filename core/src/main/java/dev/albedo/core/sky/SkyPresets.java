@@ -16,7 +16,10 @@ import java.util.Locale;
 
 /** The built-in custom skies, which the editor offers as starting points. */
 public final class SkyPresets {
-    /** An orange sunset in the west under a deep blue sky, with small stars only high in the sky, where it is dark. */
+    /**
+     * An orange sunset in the west under a deep blue sky, with small stars only high in the sky, where it is dark, which
+     * stands still, because a turn would carry the sunset and the orange below the horizon up into the sky.
+     */
     public static final SkyDesign DUSK = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFFF08A4B, Param.COLOR_2, 0xFF1A1F4D, Param.HEIGHT, 22, Param.AMOUNT, 45)
             .add(Kind.GLOW, Param.COLOR_1, 0xFFFF9E5E, Param.AMOUNT, 30, Param.HEIGHT, 22)
@@ -24,7 +27,8 @@ public final class SkyPresets {
             .output(SkyLayer.Output.MASK_ONLY)
             .add(Kind.STARS, Param.AMOUNT, 40, Param.SEED, 3)
             .blend(SkyLayer.Blend.ADD).opacity(75).mask(3, SkyMask.Mode.DARK)
-            .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT, SkyDesign.Extent.HORIZON);
+            .build(SkyDesign.Celestial.SHOW, SkyDesign.Light.DAY_NIGHT, SkyDesign.Extent.SPHERE)
+            .withTurning(SkyTurning.STILL);
 
     /**
      * Pink and violet clouds of gas that slowly pulse, partly blurred and changed in hue through a noise mask, with sharp stars
@@ -70,14 +74,18 @@ public final class SkyPresets {
             .add(Kind.METEORS, Param.SHOWER, 70).blend(SkyLayer.Blend.ADD)
             .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
 
-    /** Folded green curtains of the northern light over the north, with red tops, over an open night sky with twinkling stars. */
+    /**
+     * Folded green curtains of the northern light over the north, with red tops, over an open night sky with twinkling stars,
+     * which stands still, because a turn would carry the green glow along the horizon up across the sky.
+     */
     public static final SkyDesign AURORA = new Builder()
             .add(Kind.GRADIENT, Param.COLOR_1, 0xFF0A1424, Param.COLOR_2, 0xFF020409, Param.HEIGHT, 22, Param.AMOUNT, 55)
             .add(Kind.GLOW, Param.COLOR_1, 0xFF1C5C40, Param.AMOUNT, 35, Param.HEIGHT, 6)
             .blend(SkyLayer.Blend.ADD).opacity(6).place(new Transform(0, 0, 0, 100))
             .add(Kind.STARS, Param.AMOUNT, 60, Param.TWINKLE, 50, Param.SEED, 6).blend(SkyLayer.Blend.ADD).opacity(85)
             .add(Kind.AURORA, Param.COLOR_2, 0xFF7A4FE0, Param.AMOUNT, 65, Param.SEED, 3).blend(SkyLayer.Blend.ADD)
-            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON);
+            .build(SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE)
+            .withTurning(SkyTurning.STILL);
 
     /** A long exposure of a dark clear night: the stars turn around the pole in the north and draw arcs behind them. */
     public static final SkyDesign TRAILS = new Builder()

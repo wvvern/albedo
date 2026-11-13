@@ -1,13 +1,19 @@
 package dev.albedo.core.ui;
 
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyTurning;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyPreviewGeometryTest {
     private final Rect strip = new Rect(10, 20, 360, 105);
-    private final SkyDesign horizon = SkyDesign.NONE, sphere = SkyDesign.NONE.withExtent(SkyDesign.Extent.SPHERE);
+    private final SkyDesign horizon = SkyDesign.NONE.withTurning(SkyTurning.STILL), sphere = horizon.withExtent(SkyDesign.Extent.SPHERE);
+
+    @Test
+    void aSkyThatTurnsShowsTheFullSphere() {
+        assertEquals(180, SkyPreviewGeometry.rows(horizon.withTurning(SkyTurning.DEFAULT), 180));
+    }
 
     @Test
     void northIsAtTheLeftAndEastAQuarterToTheRight() {

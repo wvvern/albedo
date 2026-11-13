@@ -97,7 +97,11 @@ class SkyCodecTest {
         assertEquals(SkyTurning.STILL, SkyTurning.DEFAULT.baked());
         for (SkyPresets.Preset p : SkyPresets.all()) {
             SkyDesign d = p.design();
-            if (d != SkyPresets.TRAILS) assertEquals(SkyTurning.DEFAULT, d.turning(), "each preset but Trails has the default turning");
+            if (d == SkyPresets.DUSK || d == SkyPresets.AURORA) {
+                assertEquals(SkyTurning.STILL, d.turning(), p.key() + " has layers along the horizon, which a turn would carry up");
+            } else if (d != SkyPresets.TRAILS) {
+                assertEquals(SkyTurning.DEFAULT, d.turning(), "the other presets but Trails have the default turning");
+            }
         }
         SkyTurning trails = SkyPresets.TRAILS.turning();
         assertEquals(SkyTurning.DEFAULT.clock(), trails.clock(), "the Trails preset turns in real time");

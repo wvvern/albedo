@@ -109,6 +109,7 @@ Invariants:
 - `SkyClock.seconds()` wraps every hour to keep float precision, so every wave must repeat a whole number of times per hour. `longSeconds()` does not wrap and drives the turning. Meteor hashes use the slot modulo 3600, so meteors in flight cross the wrap. `Aurora.clock` wraps at `Aurora.PERIOD` (7200 s) instead.
 - The bake, the preview and `skycompare` draw a still sky (`SkyProgram.STILL`); meteors exist only in the shader. A moving or turning sky writes the block each frame from `SkyProgram.at`.
 - Meteors and aurora live in world space and do not turn with the sky. The bake does not know the turn, so the baked texture turns its aurora with the sky.
+- A sky that turns is drawn and baked around the full sphere (`SkyDesign.drawnExtent`), whatever its extent: the turn brings the part of the design below its horizon up into the sky, and a horizon sky would end there at a tilted line with the horizon color past it. Read `drawnExtent`, not `extent`, wherever the sky is drawn. Harness suite `sky-turned` shows each preset half a turn on.
 - A render mode or turning change does not rebake (`SkyDesign.baked`), except star trails, which the bake draws.
 - Never dispatch on the layer kind at run time in a layer step: the NVIDIA compiler stops inlining at about seven such steps and the sky gets about 60 percent slower. Never index a constant array with a per-pixel value: it moves to local memory. Measure shader changes with `skytime 3840 2160` on 26.3 (and note that 26.x goes through SPIR-V).
 

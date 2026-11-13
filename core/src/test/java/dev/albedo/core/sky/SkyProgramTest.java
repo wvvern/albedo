@@ -340,7 +340,7 @@ class SkyProgramTest {
         SkyImage img = SkyGenerator.bake(SkyPresets.DUSK, 64, 32);
         float[] b = img.program().block();
         assertEquals(4, b[0], "four layers");
-        assertEquals(0, b[1], "the sky stops at the horizon");
+        assertEquals(1, b[1], "the sky goes around the full sphere");
         assertEquals(SkyProgram.KIND_GRADIENT, b[SkyProgram.at(0, SkyProgram.KIND)]);
         assertEquals(SkyProgram.KIND_GLOW, b[SkyProgram.at(1, SkyProgram.KIND)]);
         assertEquals(SkyProgram.USE_MASK, b[SkyProgram.at(2, SkyProgram.USE)], "the mask only layer is made for the stars");

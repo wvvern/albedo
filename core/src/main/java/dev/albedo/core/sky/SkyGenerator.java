@@ -98,7 +98,7 @@ public final class SkyGenerator {
             cosEl[y] = (float) Math.cos(el);
         }
         int filled = h;
-        while (filled > 1 && elevation[filled - 1] < SkyImage.layersBottom(design.extent())) filled--;
+        while (filled > 1 && elevation[filled - 1] < SkyImage.layersBottom(design.drawnExtent())) filled--;
         used = filled;
         texel = (float) (2 * Math.PI / w);
         img = new float[w * h * 4];
@@ -155,7 +155,7 @@ public final class SkyGenerator {
         }
         tmp = null;
         float[] ring = ring();
-        if (design.extent() == SkyDesign.Extent.HORIZON && !rows.run(h, y -> horizonRow(y, ring))) return null;
+        if (design.drawnExtent() == SkyDesign.Extent.HORIZON && !rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
         return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
