@@ -4,7 +4,7 @@ import os
 import time
 from pathlib import Path
 
-from tools.harness import desktop, processes, protocol, watchdog
+from tools.harness import desktop, fit, processes, protocol, watchdog
 from tools.harness.session import Launch
 from tools.report import ToolError
 
@@ -23,6 +23,7 @@ class Windows:
     def start(self, launch: Launch, harness: Path) -> int:
         pid = desktop.start_hidden(launch)
         watchdog.start(pid, harness, launch.log.with_name(f"{launch.log.name}.cursor"))
+        fit.start(pid, harness, launch.log.with_name(f"{launch.log.name}.fit"))
         return pid
 
     def alive(self, pid: int) -> bool:
