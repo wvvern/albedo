@@ -8,6 +8,7 @@ import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
+import dev.albedo.core.config.ConfigCodec;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
@@ -282,6 +283,7 @@ public final class Harness {
         else if (verb.equals("wait")) waitTicks = Integer.parseInt(arg);
         else if (verb.equals("mod")) sc.apply(config.withEnabled(arg.equals("on")));
         else if (verb.equals("profile")) sc.apply(config.withActiveProfile(arg).withEnabled(true));
+        else if (verb.equals("profilejson")) sc.apply(withProfileJson(config, arg));
         else if (toggle != null) sc.apply(config.withProfile(config.activeProfile().with(toggle, arg.equals("on"))));
         else if (verb.equals("effects")) sc.apply(config.withProfile(withEffects(config.activeProfile(), arg.split("\\s+"))));
         else if (verb.equals("look")) sc.apply(config.withProfile(withLook(config.activeProfile(), arg.split("\\s+"))));
@@ -393,6 +395,12 @@ public final class Harness {
         boolean open = host.settingsOpen();
         if (open == state.equals("open")) log("PASS the settings screen is " + state);
         else log("! the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
+    }
+
+    /** Adds the profile of a profile file, written on one line, and makes it the active profile. */
+    static Config withProfileJson(Config config, String json) {
+        Profile p = ConfigCodec.decodeProfileFile(json);
+        return config.withProfile(p).withActiveProfile(p.name()).withEnabled(true);
     }
 
     /** Sets the look of a category to one color from {@code <category> solid #RRGGBB}. */

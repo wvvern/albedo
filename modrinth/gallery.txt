@@ -1,6 +1,6 @@
 # The Modrinth gallery, in order: <file in gallery/> = <caption>. The caption is on the image and is its title on
 # Modrinth. The first image is the featured one.
-01-split.png = Vanilla, the minimal profile with the Galaxy sky, and quake-white
+01-split.png = Autumn colors, the minimal profile with the Galaxy sky, and quake-white
 02-trails.png = Star trails over the shops at night
 03-galaxy.png = The Galaxy rising in the east
 04-nebula.png = The Nebula sky over a cottage

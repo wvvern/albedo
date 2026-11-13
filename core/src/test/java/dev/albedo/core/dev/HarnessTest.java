@@ -124,6 +124,15 @@ class HarnessTest {
     }
 
     @Test
+    void theProfileJsonCommandAddsAndSelectsAProfile() {
+        Config c = Harness.withProfileJson(Config.defaults(), "{\"albedoProfile\": 1, \"name\": \"autumn\", \"profile\": "
+                + "{\"blocks\": {\"groups\": [{\"name\": \"Leaves\", \"match\": \"*leaves\", \"mode\": \"recolor\", \"color\": \"#C8641E\"}]}}}");
+        assertEquals("autumn", c.activeProfile().name());
+        assertEquals(Appearance.Mode.RECOLOR, c.activeProfile().get(Category.BLOCKS).rules().get(0).lookIn(Appearance.ORIGINAL).mode());
+        assertThrows(IllegalArgumentException.class, () -> Harness.withProfileJson(Config.defaults(), "{}"));
+    }
+
+    @Test
     void theSkyCommandSetsAPresetOrTheVanillaSky() {
         Profile p = Harness.withSky(Config.defaults().activeProfile(), "Nebula");
         assertEquals(Appearance.Mode.LAYERS, p.get(Category.SKY).appearance().mode());

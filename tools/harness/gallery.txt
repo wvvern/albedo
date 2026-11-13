@@ -1,4 +1,4 @@
-# The images of modrinth/gallery, all with a level camera: a split of vanilla, the turned Galaxy and quake-white, the
+# The images of modrinth/gallery, all with a level camera: a split of autumn, the turned Galaxy and quake-white, the
 # star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with colored mobs and particles:
 # ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
 # Then put the three split shots side by side with tools/split.py and frame all images with tools/gallery.py, with the
@@ -195,18 +195,20 @@ run setblock 8 -59 58 lantern
 run setblock 8 -59 63 lantern
 run summon cow 10.5 -60 56.5 {NoAI:1b,Rotation:[110f,0f],Tags:["g"]}
 run summon sheep 10.8 -60 65.2 {NoAI:1b,Color:0,Rotation:[70f,0f],Tags:["g"]}
-# 1. The split: the same view in the same session, with vanilla, the minimal profile with the Galaxy sky and quake-white.
+# 1. The split: the same view in the same session, with autumn, the minimal profile with the Galaxy sky and quake-white.
 # With the pole at 75 degrees, the Galaxy turns through the north, and at the time 9000 it is in the middle strip.
 fov 70
 run time set 9000
 run tp @p 0.5 -60 4.5 180 -6
 wait 100
 run tp @e[type=!player,tag=!g] 0 -300 0
-mod off
+# Autumn: only the grass, the plants and the leaves change, and they keep their texture. Without the biome tint, the
+# recolor is not mixed with the green of the biome.
+profilejson {"albedoProfile": 1, "name": "autumn", "profile": {"blocks": {"removeTint": true, "groups": [{"name": "Grass", "match": ["grass_block_top", "grass_block_side_overlay", "short_grass", "tall_grass*", "fern", "large_fern*", "vine"], "mode": "recolor", "color": "#A8742C"}, {"name": "Leaves", "match": "*leaves*", "mode": "recolor", "color": "#B4422A"}]}}}
 wait 160
 run tp @e[type=!player,tag=!g] 0 -300 0
 wait 3
-screenshot g01-split-vanilla
+screenshot g01-split-autumn
 profile minimal
 sky galaxy
 skyturn 100 height 75
