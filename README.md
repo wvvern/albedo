@@ -100,3 +100,5 @@ To build the mod, see [docs/BUILDING.md](docs/BUILDING.md). For how it works, se
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+Not affiliated with the 2017 Albedo colored-lighting mod by elucent.

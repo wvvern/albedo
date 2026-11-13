@@ -55,3 +55,5 @@ Each version has its own file. The Fabric file also works on Quilt. Fabric API i
 ## Source and license
 
 Source code and issues on [GitHub](https://github.com/wvvern/albedo). Apache License 2.0.
+
+Not affiliated with the 2017 Albedo colored-lighting mod by elucent.
