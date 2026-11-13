@@ -9,7 +9,7 @@ repositories {
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }
 }
 
-// -Pquilt runs the dev game on Quilt Loader in place of Fabric Loader, which is the way to test a jar on Quilt (tools/screenshots.ps1 -Loader quilt).
+// -Pquilt runs the dev game on Quilt Loader in place of Fabric Loader, which is the way to test a jar on Quilt (python -m tools harness --loader quilt).
 def quilt = project.hasProperty('quilt')
 if (quilt) {
     repositories { maven { name = 'Quilt'; url = 'https://maven.quiltmc.org/repository/release/' } }

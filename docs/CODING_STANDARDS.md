@@ -1,6 +1,6 @@
 # Coding standards
 
-Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `bash tools/lint.sh` in the repository root. CI runs both.
+Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle, tests) and `python -m tools lint` in the repository root. CI runs both.
 
 ## Architecture
 

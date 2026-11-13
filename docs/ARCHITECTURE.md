@@ -17,7 +17,7 @@ No single toolchain builds both 1.8.9 Forge and 26.x, so there are two Gradle bu
 - `ui/Canvas` is the port for drawing (`fill`, `text`, `image`, sizes). The settings screen is an immediate-mode UI in core; each version's screen class only forwards draws and input.
 - Each adapter (`ModernPlatform`, `LegacyPlatform`) implements the ports, wraps pixels in a `PixelBuffer`, and its mixins call `ModernHooks` or `LegacyHooks`.
 - No loader API is used. Mixins drive tick, keys and config, so Fabric API is not needed.
-- The build generates the mixin list of each jar from the compiled classes in the `mixin` package whose names end in `Mixin`, `Accessor` or `Invoker`. Do not list mixins by hand, and do not put other classes in that package; `tools/check-jar.sh` fails the jar.
+- The build generates the mixin list of each jar from the compiled classes in the `mixin` package whose names end in `Mixin`, `Accessor` or `Invoker`. Do not list mixins by hand, and do not put other classes in that package; `python -m tools check-jar` fails the jar.
 
 ## Hooks
 
@@ -136,13 +136,13 @@ Traps by version:
 - `LegacySkyPatch` finds each draw in `RenderGlobal.renderSky` by the field it reads, not by order, because OptiFine adds draws. If a part is missing, it logs a warning and the sky stays vanilla.
 - With OptiFine Sky off or a shader pack, the sky stays vanilla. With Fast Render, game framebuffers bind nothing, so the harness uses its own.
 - The classifier maps OptiFine textures (`optifine/ctm/`, `mcpatcher/ctm/`, `cit/`, `sky/`, `random/entity/`) to the category of the texture they replace.
-- Tested with HD U M6 pre2 and HD U L5 (`tools/optifine.ps1`). OptiFine on 1.12.2 is unsupported: `MixinPlugin` still turns off the vanilla mixins there, and `OptiFineRenderPatch` targets 1.8.9 names.
+- Tested with HD U M6 pre2 and HD U L5 (`python -m tools optifine`). OptiFine on 1.12.2 is unsupported: `MixinPlugin` still turns off the vanilla mixins there, and `OptiFineRenderPatch` targets 1.8.9 names.
 
 ## Version conditions (modern)
 
 `//? if` comments mark version differences in `modern/` only, never in core. A class that only one rendering family can compile has a condition around the whole file. The families are constants in `modern/stonecutter.gradle`: `gl_fixed` (before 1.17), `gl_core` (1.17 to 1.21.1), `frame_graph` (1.21.2 to 1.21.4), `gpu_device` (1.21.5 to 26.2), `renderpearl` (26.3), plus `gl_sky` (raw GL sky to 1.21.5) and `gl_chroma` (raw GL Chroma to 1.21.10). Shared classes call the family class: `ModernSky` calls `PearlSky`, `PrecompiledSky`, `FixedSky` or `GlSky`; `TextureUploads` calls `DeviceAtlasUpload` or `GlAtlasUpload`.
 
-A condition may only use a version from this table (`tools/lint.sh` checks). `tools/boundaries.sh` prints the shape of every member in `tools/boundaries.txt` on every node, from the Mojang-named jars; use it to place a boundary. Only the nodes are read, so a boundary between two nodes is not checked against the minor versions in between. With only 1.21.1 and 1.21.11 as nodes on either side, not every `>=1.21.11` is a true boundary; recheck when adding a node there. To add a Minecraft version, see "Add a Minecraft version" in [BUILDING.md](BUILDING.md).
+A condition may only use a version from this table (`python -m tools lint` checks). `python -m tools boundaries` prints the shape of every member in `tools/boundaries.txt` on every node, from the Mojang-named jars; use it to place a boundary. Only the nodes are read, so a boundary between two nodes is not checked against the minor versions in between. With only 1.21.1 and 1.21.11 as nodes on either side, not every `>=1.21.11` is a true boundary; recheck when adding a node there. To add a Minecraft version, see "Add a Minecraft version" in [BUILDING.md](BUILDING.md).
 
 | Boundary | Main API change |
 |----------|-----------------|
@@ -176,4 +176,4 @@ A condition may only use a version from this table (`tools/lint.sh` checks). `to
   - The property `lwjgl_version` puts the LWJGL version of the game in the dev run (3.3.1 on 1.20.1, 3.3.2 on 1.20.4, 3.3.3 on 1.20.6), because Sodium 0.5 starts only with that version.
   - NeoForge 1.21.1 gets Sodium 0.6.13, the version of the owner's pack, because its dev run loads the 0.8.13 jar only as a library.
   - NeoForge from 1.20.5 and 26.x get the mod jar with no remap, because a remap drops the jar-in-jar list from which Sodium loads its mod.
-  - With `-Compat`, `tools/screenshots.ps1` turns off the Blaze3D check of the NeoForge dev run (`enableB3DValidationLayer`). Sodium 0.8.14 on NeoForge 1.21.11 casts a texture that the check wraps.
+  - With `--compat`, `python -m tools harness` turns off the Blaze3D check of the NeoForge dev run (`enableB3DValidationLayer`). Sodium 0.8.14 on NeoForge 1.21.11 casts a texture that the check wraps.

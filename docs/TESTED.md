@@ -1,6 +1,6 @@
 # Tested targets
 
-Results of the harness suites (`shots`, `sky-sharp`, `chroma`, `typing`, `settings-pages`) run with `tools/screenshots.ps1` before a release; see [BUILDING.md](BUILDING.md). **All** means all five passed; **Shots** means only `shots` was run and passed. Runs of 2026-11-10, Quilt and Vulkan of 2026-11-11.
+Results of the harness suites (`shots`, `sky-sharp`, `chroma`, `typing`, `settings-pages`) run with `python -m tools harness` before a release; see [BUILDING.md](BUILDING.md). **All** means all five passed; **Shots** means only `shots` was run and passed. Runs of 2026-11-10, Quilt and Vulkan of 2026-11-11.
 
 | Minecraft | Fabric | Quilt | NeoForge | Forge |
 |-----------|--------|-------|----------|-------|
@@ -28,13 +28,13 @@ Results of the harness suites (`shots`, `sky-sharp`, `chroma`, `typing`, `settin
 Notes:
 
 - Vulkan backend: all five suites pass on 26.3 (Fabric and NeoForge). On 26.2, `skycompare` matches on both loaders and `chromacompare` on Fabric; the other suites were not run on Vulkan.
-- Quilt runs use Quilt Loader 0.30.2 with the node's Fabric release jar (`-Loader quilt`). Quilt remaps that jar to the dev game's names, so it was not tested in a game with intermediary names. On 26.x, Quilt Loader does not call the jar's client entry point; Albedo still starts from its first hook during resource loading and everything works, but 26.x is not listed for Quilt because it depends on that fallback.
+- Quilt runs use Quilt Loader 0.30.2 with the node's Fabric release jar (`--loader quilt`). Quilt remaps that jar to the dev game's names, so it was not tested in a game with intermediary names. On 26.x, Quilt Loader does not call the jar's client entry point; Albedo still starts from its first hook during resource loading and everything works, but 26.x is not listed for Quilt because it depends on that fallback.
 - Screenshots and `result.txt` of each target are in `docs/validation/<target>/`.
 - Passed on a second try: Chroma on Fabric 1.17.1, Fabric 1.21.3 and Forge 1.8.9; Typing on Forge 1.12.2.
 
 ## Renderer mods
 
-Dev runs of `tools/screenshots.ps1 -Compat <mod>` with the profile quake-white (2026-11-11). In every run the grass, leaves and vines have the profile color and the `sodiumTint` counter of the `hooks` line is above 0. `sodiumWater` is the water hook of Sodium 0.5 and its forks.
+Dev runs of `python -m tools harness --compat <mod>` with the profile quake-white (2026-11-11). In every run the grass, leaves and vines have the profile color and the `sodiumTint` counter of the `hooks` line is above 0. `sodiumWater` is the water hook of Sodium 0.5 and its forks.
 
 | Loader | Minecraft | Renderer mod | Tint | Water |
 |--------|-----------|--------------|------|-------|
