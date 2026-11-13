@@ -74,7 +74,7 @@ Traps:
 
 Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9 fixed pipeline), but every renderer samples the atlas. So a GPU pass recolors the atlas texture itself each frame. Repainting the block atlas on the CPU takes about 20 ms, too slow per frame.
 
-- The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps get this; everything else gets still Chroma colors at time 0 (`TextureStore.stillChroma` tells the Effects section which categories are affected).
+- The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps get this; everything else gets still Chroma colors at time 0. The Effects section shows Speed only where the pass moves the colors (`Albedo.chromaCanMove`): never for mobs and players, whose textures are stand-alone on every version (`Category.hasMovingChroma`, and `Policy` gives them speed 0), and elsewhere only where a kind of texture is drawn from an atlas (`TextureStore.movingChroma`).
 - `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels.
 - The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
 - The hue comes from `Chroma.turns` on `SkyClock.longSeconds()` in double precision. An ordered 16 x 16 dither below one 8-bit step keeps slow hues moving smoothly.

@@ -210,9 +210,12 @@ public final class Albedo {
         return chromaStill;
     }
 
-    /** Whether some textures of a category keep still Chroma colors, because the GPU pass does not reach them. */
-    public boolean chromaStill(Category category) {
-        return chromaStill || store.stillChroma(category);
+    /**
+     * Whether the Speed of Chroma means something in a category: the GPU pass moves the colors of its textures, or would
+     * where the pass stopped after an error.
+     */
+    public boolean chromaCanMove(Category category) {
+        return category.hasMovingChroma() && (chromaStill || store.movingChroma(category));
     }
 
     /**

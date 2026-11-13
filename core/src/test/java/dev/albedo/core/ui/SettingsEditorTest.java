@@ -22,6 +22,7 @@ import dev.albedo.core.config.Toggle;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyPresets;
+import dev.albedo.core.texture.TextureStore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -57,10 +58,19 @@ class SettingsEditorTest {
         }
     }
 
+    /** Loads a block atlas sprite, whose Chroma colors the GPU pass moves as in the game. */
     private static void load(String location, int argb) {
-        Albedo.processTexture(location, new PixelBuffer.Heap(1, 1, new int[]{argb}), pixels -> {
-            ((FakePlatform) sc.platform()).uploads++;
-            return true;
+        Albedo.processTexture(location, new PixelBuffer.Heap(1, 1, new int[]{argb}), new TextureStore.Upload() {
+            @Override
+            public boolean upload(PixelBuffer pixels) {
+                ((FakePlatform) sc.platform()).uploads++;
+                return true;
+            }
+
+            @Override
+            public boolean gpuHue() {
+                return true;
+            }
         });
     }
 
@@ -540,10 +550,13 @@ class SettingsEditorTest {
             }
             assertNotNull(canvas.texts.get("Speed"), "keys do not close the section: " + canvas.texts.keySet());
             click(editor, canvas, "Fluids");
-            assertNotNull(canvas.texts.get("Speed"), "the section stays open on the next page: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Vivid"), "the section stays open on the next page: " + canvas.texts.keySet());
             click(editor, canvas, "Players");
             assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the page of skins: " + canvas.texts.keySet());
             assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("Vivid"), canvas.texts.keySet().toString());
+            assertNull(canvas.texts.get("Speed"), "the colors of skins cannot move: " + canvas.texts.keySet());
+            assertNull(canvas.texts.get("The GPU"), canvas.texts.keySet().toString());
             editor.keyPressed(UiKey.ESCAPE);
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");

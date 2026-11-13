@@ -58,6 +58,14 @@ public enum Category {
         return supportedModes().contains(Appearance.Mode.RECOLOR) && this != COLORMAPS;
     }
 
+    /**
+     * Whether Chroma colors can move here, which the GPU pass does only for atlas sprites, while mobs and players draw
+     * stand-alone textures on every version (of mobs, only the armor trims are sprites).
+     */
+    public boolean hasMovingChroma() {
+        return hasChroma() && this != ENTITIES && this != PLAYERS;
+    }
+
     /** Whether Bevel and Outline mean something here, which needs square tiles such as block faces. */
     public boolean hasEdgeEffects() {
         return this == BLOCKS || this == FLUIDS;

@@ -373,13 +373,16 @@ class TextureStoreTest {
     }
 
     @Test
-    void aCategoryWithTexturesThatTheGpuPassDoesNotReachKeepsStillColors() {
+    void onlyACategoryWithSpritesThatTheGameDrawsHasMovingColors() {
         TextureStore store = new TextureStore();
         record(store, "stone", new GpuUpload(), Policy.DISABLED);
-        assertFalse(store.stillChroma(Category.BLOCKS));
+        assertTrue(store.movingChroma(Category.BLOCKS));
         recordNamed(store, "minecraft:textures/entity/chest/normal.png", new FakeUpload(), Policy.DISABLED);
-        assertTrue(store.stillChroma(Category.BLOCK_ENTITIES));
-        assertFalse(store.stillChroma(Category.BLOCKS));
+        assertFalse(store.movingChroma(Category.BLOCK_ENTITIES), "a stand-alone chest keeps still colors");
+        recordNamed(store, "minecraft:block/destroy_stage_0", new GpuUpload(), Policy.DISABLED);
+        assertTrue(store.movingChroma(Category.BLOCK_BREAKING), "a breaking stage from the block atlas moves");
+        recordNamed(store, "minecraft:textures/block/destroy_stage_0.png", new FakeUpload(), Policy.DISABLED);
+        assertFalse(store.movingChroma(Category.BLOCK_BREAKING), "the game draws the stand-alone breaking stage");
     }
 
     @Test

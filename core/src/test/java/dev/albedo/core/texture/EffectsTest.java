@@ -126,6 +126,18 @@ class EffectsTest {
     }
 
     @Test
+    void chromaColorsStayStillOnMobsAndPlayers() {
+        Appearance moving = solid(GRAY, 0, 0, 100);
+        TextureKey trim = TextureClassifier.classify("minecraft:trims/models/armor/coast");
+        assertEquals(Category.ENTITIES, trim.category());
+        assertFalse(LayoutTest.policy(Category.ENTITIES, moving).appearanceFor(trim).chromaMoves(), "an armor trim sprite stays still with its mob");
+        TextureKey skin = TextureClassifier.classify("minecraft:skins/abc");
+        assertFalse(LayoutTest.policy(Category.PLAYERS, moving).appearanceFor(skin).chromaMoves());
+        TextureKey stone = TextureClassifier.classify("minecraft:block/stone");
+        assertTrue(LayoutTest.policy(Category.BLOCKS, moving).appearanceFor(stone).chromaMoves());
+    }
+
+    @Test
     void effectsKeepAlphaAndSkipVanillaAndHide() {
         PixelBuffer.Heap img = filled(16, 16, 0x80808080);
         LayoutTest.paint(Layout.of("minecraft:block/glass"), Collections.singletonList(solid(WHITE, 100, 100, 100)), img);

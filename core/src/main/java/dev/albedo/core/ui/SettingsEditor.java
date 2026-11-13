@@ -40,8 +40,8 @@ public final class SettingsEditor {
     private static final String EFFECTS = "effects";
     /** The first effect under the Effects heading, which all categories with effects have. */
     private static final String CHROMA_LABEL = "Chroma";
-    private static final String CHROMA_TIP =
-            "Chroma: each kind of texture gets its own rainbow color, and the colors go around at the Speed below.";
+    private static final String CHROMA_TIP = "Chroma: each kind of texture gets its own rainbow color";
+    private static final String CHROMA_MOVING_TIP = ", and the colors go around at the Speed below.";
     /** The Chroma options, which show under Chroma only while it is on, with short labels that fit the second indent. */
     private static final String[] CHROMA_LABELS = {"Speed", "Vivid", "Bright"};
     private static final String[] CHROMA_IDS = {"effects.chromaSpeed", "effects.chromaSaturation", "effects.chromaBrightness"};
@@ -705,16 +705,18 @@ public final class SettingsEditor {
     }
 
     /**
-     * The Effects heading, and under it when it is open Chroma with its options while it is on, then Bevel and Outline
-     * for blocks and fluids.
+     * The Effects heading, and under it when it is open Chroma with its options while it is on (Speed only where the
+     * GPU pass moves the colors), then Bevel and Outline for blocks and fluids.
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
         boolean edges = page.category.hasEdgeEffects(), open = effectsOpen;
         Chroma chroma = target.chroma();
-        boolean more = chroma.isOn() || edges;
+        boolean more = chroma.isOn() || edges, speed = sc.chromaCanMove(page.category);
+        // The Chroma options that show, as indexes into CHROMA_LABELS.
+        int[] shown = speed ? new int[]{0, 1, 2} : new int[]{1, 2};
         // One item for each group of rows, so that a short window scrolls to each, with one guide line through all of them.
         int chromaH = more ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
-        int optionsH = edges ? Form.rowsHeight(CHROMA_LABELS.length) : Form.slidersHeight(CHROMA_LABELS.length, false);
+        int optionsH = edges ? Form.rowsHeight(shown.length) : Form.slidersHeight(shown.length, false);
         int edgesH = Form.slidersHeight(EFFECT_LABELS.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
@@ -728,7 +730,8 @@ public final class SettingsEditor {
         items.add(Column.of(chromaH, (x, y, w) -> {
             Form form = form(x, w);
             form.guide(y, more ? chromaH : chromaH - GAP);
-            int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, CHROMA_TIP, chroma.strength());
+            String tip = CHROMA_TIP + (speed ? CHROMA_MOVING_TIP : ".");
+            int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, tip, chroma.strength());
             if (strength == chroma.strength()) return false;
             setLook(cs, index, target.withEffects(target.bevel(), target.outline(), chroma.withStrength(strength)));
             return (strength > 0) != chroma.isOn(); // the options show or hide under it
@@ -739,11 +742,12 @@ public final class SettingsEditor {
                 Form form = form(x, w);
                 form.guide(y, edges ? optionsH : optionsH - GAP);
                 Form rows = form.indented();
-                rows.guide(y, Form.rowsHeight(CHROMA_LABELS.length) - 3);
+                rows.guide(y, Form.rowsHeight(shown.length) - 3);
                 int[] o = {chroma.speed(), chroma.saturation(), chroma.brightness()};
-                for (int i = 0; i < o.length; i++) {
+                for (int row = 0; row < shown.length; row++) {
+                    int i = shown[row];
                     String text = i == 0 && o[i] == 0 ? "Still" : o[i] + "%";
-                    o[i] = rows.indented().slider(CHROMA_IDS[i], y + Form.rowsHeight(i), CHROMA_LABELS[i], CHROMA_TIPS[i], o[i], text);
+                    o[i] = rows.indented().slider(CHROMA_IDS[i], y + Form.rowsHeight(row), CHROMA_LABELS[i], CHROMA_TIPS[i], o[i], text);
                 }
                 Chroma next = chroma.withOptions(o[0], o[1], o[2]);
                 if (!next.equals(chroma)) setLook(cs, index, target.withEffects(target.bevel(), target.outline(), next));
@@ -760,10 +764,8 @@ public final class SettingsEditor {
                 return false;
             }));
         }
-        if (chroma.moves() && sc.chromaStill()) {
+        if (speed && chroma.moves() && sc.chromaStill()) {
             items.add(note("The colors stay still, because the GPU cannot move them here."));
-        } else if (chroma.moves() && sc.chromaStill(page.category)) {
-            items.add(note("The GPU can move the colors of only some textures here. The other textures keep still colors."));
         }
         return items;
     }

@@ -104,11 +104,11 @@ public final class TextureStore {
      * knows when to read the {@link #chromaTexels} again and a downloaded skin does not make it read them.
      */
     private final AtomicInteger paints = new AtomicInteger();
-    /** Counts each record and drop of any texture, for the cache of {@link #stillChroma}. */
+    /** Counts each record and drop of any texture, for the cache of {@link #movingChroma}. */
     private final AtomicInteger changes = new AtomicInteger();
-    /** The categories with a kept texture that has no GPU hue, at the {@link #changes} in {@link #stillChromaAt}. */
-    private volatile Set<Category> stillChroma = Collections.emptySet();
-    private volatile int stillChromaAt = -1;
+    /** The categories with a key whose kept textures all have GPU hue, at the {@link #changes} in {@link #movingChromaAt}. */
+    private volatile Set<Category> movingChroma = Collections.emptySet();
+    private volatile int movingChromaAt = -1;
 
     public TextureStore() {
         this(DEFAULT_BUDGET);
@@ -274,16 +274,25 @@ public final class TextureStore {
         return paints.get();
     }
 
-    /** Whether a category has a kept texture with no GPU hue, whose moving Chroma colors stay still. */
-    public boolean stillChroma(Category category) {
+    /**
+     * Whether the GPU pass moves the Chroma colors of some kind of texture in a category: a key whose kept textures all
+     * have GPU hue, where a key that also has a stand-alone texture does not count because the game draws that one (the
+     * breaking stages since 1.15 are also unused sprites of the block atlas).
+     */
+    public boolean movingChroma(Category category) {
         int now = changes.get();
-        if (stillChromaAt != now) {
-            Set<Category> still = EnumSet.noneOf(Category.class);
-            for (Entry e : entries.values()) if (!e.upload.gpuHue()) still.add(e.layout.key().category());
-            stillChroma = still;
-            stillChromaAt = now;
+        if (movingChromaAt != now) {
+            Map<TextureKey, Boolean> keys = new HashMap<TextureKey, Boolean>();
+            for (Entry e : entries.values()) {
+                Boolean before = keys.get(e.layout.key());
+                keys.put(e.layout.key(), (before == null || before) && e.upload.gpuHue());
+            }
+            Set<Category> moving = EnumSet.noneOf(Category.class);
+            for (Map.Entry<TextureKey, Boolean> k : keys.entrySet()) if (k.getValue()) moving.add(k.getKey().category());
+            movingChroma = moving;
+            movingChromaAt = now;
         }
-        return stillChroma.contains(category);
+        return movingChroma.contains(category);
     }
 
     /**
