@@ -1,10 +1,13 @@
 package dev.albedo.core.ui;
 
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.sky.SkyBaker;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMeteors;
 import dev.albedo.core.sky.SkyPresets;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,8 @@ final class SkyGallery {
     /** The least width of a card in a window too narrow for two cards of {@link #MIN_CARD_W}. */
     private static final int NARROW_CARD_W = 88;
     private static final int GAP = 4, PAD = 2;
+    /** The seconds of meteors that a card image shows at once, as a long exposure does. */
+    private static final int EXPOSURE_S = 30;
     /** The lines of the description on a card with room for them. */
     private static final int LINES = 2;
     /** The height of a card that shows only its name. */
@@ -167,9 +172,14 @@ final class SkyGallery {
         SkyImage img = baker.image();
         if (img == null) return null;
         int w = img.width(), rows = Math.max(1, Math.round(IMAGE_PART * img.height()));
+        int[] src = Arrays.copyOf(img.argb(), rows * w), argb = new int[rows * w];
+        List<SkyLayer> layers = p.design().layers();
+        for (int i = 0; i < layers.size(); i++) {
+            SkyLayer l = layers.get(i);
+            if (l.kind() == SkyLayer.Kind.METEORS && l.output() == SkyLayer.Output.SHOW) SkyMeteors.expose(img, i, EXPOSURE_S, src);
+        }
         // The bake has north at its left edge, and the card has the direction of the preset in its middle.
         int shift = Math.floorMod(Math.round(p.facing() / 360f * w) - w / 2, w);
-        int[] src = img.argb(), argb = new int[rows * w];
         for (int y = 0; y < rows; y++) {
             for (int x = 0; x < w; x++) argb[y * w + x] = src[y * w + (x + shift) % w];
         }

@@ -1,5 +1,7 @@
 package dev.albedo.core.sky;
 
+import dev.albedo.core.config.SkyLayer;
+
 /**
  * The shooting stars of a meteors layer, the same model as {@code albedoMeteor} in the sky shader: each slot of time has
  * some channels, and the hash of a slot, a channel and the seed tells whether a meteor starts in it and where it goes,
@@ -91,6 +93,69 @@ public final class SkyMeteors {
             m.motion[2] = ez * cos + nz * sin;
         }
         return m;
+    }
+
+    /**
+     * Adds the meteors of a layer to the top rows of a bake as a long exposure shows them: the whole path of each head that
+     * starts in {@code seconds} seconds, brighter to its end. A bake has no meteors, because each lives for about a second, so a
+     * still image such as a card of the editor shows them only with this.
+     *
+     * @param layer the index of a meteors layer of the design of {@code img}
+     * @param argb the top rows of {@code img}, which this method changes
+     */
+    public static void expose(SkyImage img, int layer, int seconds, int[] argb) {
+        float[] block = img.program().block();
+        SkyLayer l = img.design().layers().get(layer);
+        int w = img.width(), h = img.height(), rows = argb.length / w;
+        float[] light = new float[w * rows];
+        // Steps of half a pixel leave no gap in a path.
+        float step = (float) Math.PI / h / 2;
+        for (int slot = 0; slot < seconds / SLOT; slot++) {
+            for (int channel = 0; channel < CHANNELS; channel++) {
+                Meteor m = of(block, layer, slot, channel);
+                if (m == null) continue;
+                float path = m.speed * m.duration, bright = m.fireball ? 1.5f : 0.8f;
+                for (float a = 0; a <= path; a += step) {
+                    float cos = (float) Math.cos(a), sin = (float) Math.sin(a), life = a / path;
+                    float x = m.start[0] * cos + m.motion[0] * sin, y = m.start[1] * cos + m.motion[1] * sin;
+                    float z = m.start[2] * cos + m.motion[2] * sin;
+                    // The light of the head over its life, as in the shader, and nothing at the horizon.
+                    float head = smooth(0f, 0.12f, life) * (1 - smooth(0.8f, 1f, life)) * (0.7f + 0.5f * life) * smooth(0f, 0.09f, y);
+                    double u = Math.atan2(x, -z) / (2 * Math.PI) * w - 0.5;
+                    double v = (0.5 - Math.asin(Math.max(-1, Math.min(1, y))) / Math.PI) * h - 0.5;
+                    splat(light, w, rows, u, v, Math.min(1f, head * bright));
+                }
+            }
+        }
+        int color = l.param(SkyLayer.Param.COLOR_1);
+        for (int i = 0; i < light.length; i++) {
+            if (light[i] <= 0) continue;
+            int out = 0xFF000000;
+            for (int shift = 0; shift < 24; shift += 8) {
+                int add = Math.round(light[i] * l.opacity() / 100f * (color >> shift & 0xFF));
+                out |= Math.min(255, (argb[i] >> shift & 0xFF) + add) << shift;
+            }
+            argb[i] = out;
+        }
+    }
+
+    /** Raises the four pixels around a place to their part of {@code value}, with a wrap across the sides, so that paths that cross do not add up. */
+    private static void splat(float[] light, int w, int rows, double u, double v, float value) {
+        int x0 = (int) Math.floor(u), y0 = (int) Math.floor(v);
+        float fx = (float) (u - x0), fy = (float) (v - y0);
+        for (int dy = 0; dy <= 1; dy++) {
+            int y = y0 + dy;
+            if (y < 0 || y >= rows) continue;
+            for (int dx = 0; dx <= 1; dx++) {
+                int i = y * w + Math.floorMod(x0 + dx, w);
+                light[i] = Math.max(light[i], value * (dx == 0 ? 1 - fx : fx) * (dy == 0 ? 1 - fy : fy));
+            }
+        }
+    }
+
+    private static float smooth(float from, float to, float x) {
+        float t = Math.max(0, Math.min(1, (x - from) / (to - from)));
+        return t * t * (3 - 2 * t);
     }
 
     private static float unit(int slot, int channel, int value, int seed) {

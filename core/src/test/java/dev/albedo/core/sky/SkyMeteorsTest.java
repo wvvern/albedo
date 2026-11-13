@@ -4,6 +4,7 @@ import dev.albedo.core.config.SkyLayer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,6 +12,29 @@ class SkyMeteorsTest {
     /** The program of the Meteors preset, whose fourth layer is the meteors. */
     private static final SkyProgram PROGRAM = SkyProgram.of(SkyPresets.METEORS, new float[SkyImage.RING * 3]);
     private static final int LAYER = 3;
+
+    @Test
+    void aLongExposureAddsThePathsOfTheMeteorsToAStillImage() {
+        int w = 256, rows = 75;
+        SkyImage img = SkyGenerator.bake(SkyPresets.METEORS, w, 128);
+        int[] still = Arrays.copyOf(img.argb(), w * rows), exposed = still.clone();
+        SkyMeteors.expose(img, LAYER, 30, exposed);
+        int lit = 0;
+        for (int i = 0; i < still.length; i++) {
+            if (exposed[i] == still[i]) continue;
+            lit++;
+            assertTrue(i / w <= 64, "no meteor below the horizon, row " + i / w);
+            for (int shift = 0; shift < 24; shift += 8) {
+                assertTrue((exposed[i] >> shift & 0xFF) >= (still[i] >> shift & 0xFF), "a meteor only adds light");
+            }
+        }
+        assertTrue(lit > 40 && lit < still.length / 20, "some thin paths: " + lit + " pixels");
+        int[] again = still.clone(), none = still.clone();
+        SkyMeteors.expose(img, LAYER, 30, again);
+        assertArrayEquals(exposed, again, "the same exposure each time");
+        SkyMeteors.expose(img, LAYER, 0, none);
+        assertArrayEquals(still, none, "no time, no meteors");
+    }
 
     @Test
     void theSameSlotGivesTheSameMeteor() {

@@ -85,7 +85,7 @@ public final class SkyPresets {
             new Preset("dusk", "Dusk", "An orange sunset with the first stars", 270, DUSK),
             new Preset("nebula", "Nebula", "Pink and violet clouds that slowly pulse", 180, NEBULA),
             new Preset("galaxy", "Galaxy", "A galaxy with two blue jets over the stars", 135, GALAXY),
-            new Preset("meteors", "Meteors", "Shooting stars, not shown here", 180, METEORS),
+            new Preset("meteors", "Meteors", "A shower of shooting stars on a clear night", 45, METEORS),
             new Preset("aurora", "Aurora", "Green northern lights over a starry night", 0, AURORA),
             new Preset("trails", "Trails", "Stars that turn and draw long arcs", 0, TRAILS)));
 
