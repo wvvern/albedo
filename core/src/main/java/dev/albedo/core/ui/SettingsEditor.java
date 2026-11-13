@@ -64,6 +64,8 @@ public final class SettingsEditor {
     /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
+    /** The choice in the profile list of a server that turns Albedo off there, which no profile name can be (it has a space). */
+    private static final String OFF = "Albedo off";
     private static final int ROW = 11;
     /** The distance between the panel rows of the group and server lists. */
     private static final int LIST_ROW = 16;
@@ -78,7 +80,7 @@ public final class SettingsEditor {
     /** The header's mode, which only {@link #setMode} changes, so that each mode gives back the focus it took. */
     private enum Mode {
         BROWSE,
-        /** The searchable profile list is open under the profile button. */
+        /** The searchable profile list is open under the profile button, or under the profile of a server ({@link #pickServer}). */
         PICK_PROFILE,
         /** The profile name is a text field, with Save and Cancel. */
         RENAME
@@ -146,9 +148,13 @@ public final class SettingsEditor {
     private boolean closed;
     /** Width of the label column ("Style", "Color", ...) plus its gap; set each frame from the font. */
     private int labelW;
-    /** The profile button, and the bottom of the page that the open profile list must stay above. */
-    private Rect profileButton = new Rect(0, 0, 0, 0);
-    private int bodyBottom;
+    /** The button that the open profile list belongs to, and the top and bottom of the page that the list must stay inside. */
+    private Rect pickAnchor = new Rect(0, 0, 0, 0);
+    private int bodyTop, bodyBottom;
+    /** The server whose profile the open list picks, or null when it picks the profile of the screen. */
+    private String pickServer;
+    /** Whether the button of {@link #pickServer} showed in this frame, so that the list closes when its row scrolls away. */
+    private boolean pickAnchorShown;
     private int picked;
     private int suggestion;
     private final ColorPicker picker;
@@ -238,8 +244,9 @@ public final class SettingsEditor {
         ui.round(x0, y0, pw, ph, Ui.BG);
         ui.tipBounds(new Rect(x0, y0, pw, ph));
 
-        int bodyTop = y0 + 26;
+        bodyTop = y0 + 26;
         bodyBottom = y1 - 24;
+        pickAnchorShown = false;
         header(x0 + 8, y0 + 6, pw - 16);
         ui.fill(x0 + 8, bodyTop - 3, pw - 16, 1, Ui.BORDER);
         int widest = 0;
@@ -251,6 +258,7 @@ public final class SettingsEditor {
         ui.fill(x0 + 8, bodyBottom + 1, pw - 16, 1, Ui.BORDER);
         footer(x0 + 8, bodyBottom + 5, pw - 16);
         toast(cx, bodyTop + 2, bodyBottom - 3, cw);
+        if (mode == Mode.PICK_PROFILE && pickServer != null && !pickAnchorShown) setMode(Mode.BROWSE);
         if (mode == Mode.PICK_PROFILE) profileList();
         escape();
         ui.end();
@@ -269,13 +277,14 @@ public final class SettingsEditor {
         if (mode == Mode.PICK_PROFILE) {
             ui.releaseFocus("profiles.search"); // a click on Rename has just focused its own field
             ui.endOverlay();
+            pickServer = null;
         }
         if (mode == Mode.RENAME) ui.releaseFocus("rename");
         mode = next;
         changed = true;
         if (next == Mode.PICK_PROFILE) {
             profileSearch.set("");
-            picked = Math.max(0, new ArrayList<String>(draft.profiles().keySet()).indexOf(draft.activeProfileName()));
+            picked = Math.max(0, profileNames().indexOf(pickedNow()));
             ui.focus("profiles.search");
         } else if (next == Mode.RENAME) {
             rename.set(draft.activeProfileName());
@@ -367,10 +376,13 @@ public final class SettingsEditor {
         }
         if (mode == Mode.RENAME || pw < 40) return;
 
-        profileButton = new Rect(px, y, pw, Ui.H);
+        boolean listHere = mode == Mode.PICK_PROFILE && pickServer == null;
+        Rect button = new Rect(px, y, pw, Ui.H);
+        if (listHere) pickAnchor = button;
         if (ui.button("profiles", px, y, pw, Ui.H, "", Ui.Style.NORMAL, true,
                 "Select a profile. " + draft.keys().cycleProfile + " selects the next profile in game.")) {
-            setMode(mode == Mode.PICK_PROFILE ? Mode.BROWSE : Mode.PICK_PROFILE);
+            openPicker(null, button, listHere);
+            listHere = mode == Mode.PICK_PROFILE;
         }
         String name = draft.activeProfileName(), tag = builtIn ? BUILT_IN : "";
         int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6, room = pw - 18 - tagW;
@@ -379,23 +391,48 @@ public final class SettingsEditor {
         if (tagW > 0) ui.text(tag, px + pw - 12 - tagW, y + 3, Ui.FAINT);
         ui.text("v", px + pw - 10, y + 3, Ui.MUTED);
         // Reserved before the page is drawn, so that a click on the open list does not also reach the page.
-        if (mode == Mode.PICK_PROFILE) ui.reserveOverlay(profileListArea());
+        if (listHere) ui.reserveOverlay(profileListArea());
     }
 
+    /** Opens the profile list for a server (null: the profile of the screen), or closes it when it is open there. */
+    private void openPicker(String server, Rect anchor, boolean openHere) {
+        if (openHere) {
+            setMode(Mode.BROWSE);
+            return;
+        }
+        if (mode == Mode.PICK_PROFILE) setMode(Mode.BROWSE);
+        pickServer = server;
+        pickAnchor = anchor;
+        setMode(Mode.PICK_PROFILE);
+    }
+
+    /** The name the open list marks as chosen: the profile of the screen, or the profile of the server ({@link #OFF} for none). */
+    private String pickedNow() {
+        if (pickServer == null) return draft.activeProfileName();
+        ServerRule r = draft.servers().get(pickServer);
+        return r == null || r.profile() == null ? OFF : r.profile();
+    }
+
+    /** The names in the open list that match the search, with {@link #OFF} first for a server. */
     private List<String> profileNames() {
         String q = profileSearch.text.trim().toLowerCase(Locale.ROOT);
         List<String> names = new ArrayList<String>();
+        if (pickServer != null && OFF.toLowerCase(Locale.ROOT).contains(q)) names.add(OFF);
         for (String n : draft.profiles().keySet()) if (n.contains(q)) names.add(n);
         return names;
     }
 
-    private int profileRows() {
-        int top = profileButton.bottom() + 1;
-        return Math.max(1, Math.min(profileNames().size(), (bodyBottom - top - Ui.H - 6) / ROW));
-    }
-
+    /** The open list under its button, or above it when there is more room there. */
     private Rect profileListArea() {
-        return new Rect(profileButton.x, profileButton.bottom() + 1, profileButton.w, Ui.H + 6 + profileRows() * ROW);
+        int need = Math.max(1, pickServer == null ? draft.profiles().size() : draft.profiles().size() + 1);
+        int below = (bodyBottom - pickAnchor.bottom() - 1 - Ui.H - 6) / ROW, above = (pickAnchor.y - 1 - bodyTop - Ui.H - 6) / ROW;
+        boolean up = below < need && above > below;
+        int rows = Math.max(1, Math.min(need, up ? above : below)), h = Ui.H + 6 + rows * ROW;
+        // As wide as the longest name with its tag, ending where the button ends.
+        int w = ui.width(OFF) + 16;
+        for (String n : draft.profiles().keySet()) w = Math.max(w, ui.width(n) + (Config.isBuiltIn(n) ? ui.width(BUILT_IN) + 6 : 0) + 16);
+        w = Math.max(pickAnchor.w, Math.min(w, pickAnchor.x + pickAnchor.w - 4));
+        return new Rect(pickAnchor.x + pickAnchor.w - w, up ? pickAnchor.y - 1 - h : pickAnchor.bottom() + 1, w, h);
     }
 
     /** The profile list over the page, where Up, Down and Enter choose and Esc or a click outside closes it. */
@@ -405,12 +442,14 @@ public final class SettingsEditor {
             return;
         }
         Rect area = profileListArea();
-        if (ui.clicked() && !ui.pointerIn(area.x, profileButton.y, area.w, area.bottom() - profileButton.y)) {
+        int top = Math.min(area.y, pickAnchor.y), bottom = Math.max(area.bottom(), pickAnchor.bottom());
+        if (ui.clicked() && !ui.pointerIn(area.x, top, area.w, bottom - top)) {
             setMode(Mode.BROWSE);
             return;
         }
         boolean down = ui.takeKey(UiKey.DOWN), up = ui.takeKey(UiKey.UP), enter = ui.takeKey(UiKey.ENTER);
-        int rows = profileRows(), x = area.x, y = area.y, w = area.w;
+        int rows = (area.h - Ui.H - 6) / ROW, x = area.x, y = area.y, w = area.w;
+        String now = pickedNow();
         ui.beginOverlay();
         ui.panel(area, Ui.BORDER, Ui.PANEL);
         if (ui.textField("profiles.search", profileSearch, x + 2, y + 2, w - 4, Ui.H, "Search profiles", null)) picked = 0;
@@ -427,19 +466,19 @@ public final class SettingsEditor {
             String n = names.get(i);
             int ry = ly + (i - first) * ROW;
             if (i == picked) ui.fill(x + 1, ry, w - 2, ROW, Ui.CARD_HOVER);
-            if (n.equals(draft.activeProfileName())) ui.fill(x + 1, ry + 1, 2, ROW - 2, Ui.ACCENT);
+            if (n.equals(now)) ui.fill(x + 1, ry + 1, 2, ROW - 2, Ui.ACCENT);
             boolean clicked = ui.button("profiles.row." + n, x + 1, ry, w - 2, ROW, "", Ui.Style.GHOST, true, null);
             String tag = Config.isBuiltIn(n) ? BUILT_IN : "";
             int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6;
-            ui.text(ui.ellipsize(n, w - 14 - tagW), x + 6, ry + 1, Ui.TEXT);
+            ui.text(ui.ellipsize(n, w - 14 - tagW), x + 6, ry + 1, n.equals(OFF) ? Ui.MUTED : Ui.TEXT);
             if (tagW > 0) ui.text(tag, x + w - 4 - tagW, ry + 1, Ui.FAINT);
             if (clicked || (enter && i == picked)) chosen = n;
         }
         ui.endOverlay();
-        if (chosen != null) {
-            switchProfile(draft.withActiveProfile(chosen));
-            setMode(Mode.BROWSE);
-        }
+        if (chosen == null) return;
+        if (pickServer == null) switchProfile(draft.withActiveProfile(chosen));
+        else setDraft(draft.withServer(new ServerRule(pickServer, chosen.equals(OFF) ? null : chosen)));
+        setMode(Mode.BROWSE);
     }
 
     private void sidebar(int x, int y, int w, int h) {
@@ -1044,77 +1083,84 @@ public final class SettingsEditor {
         go(page.withGroup(0));
     }
 
+    /**
+     * The servers with the profile each uses: the server the player is on when it has no rule yet, a field to add one,
+     * and a row for each rule with a list to pick its profile or Albedo off.
+     */
     private void serversPage(int x, int y, int w, int h) {
-        int cy = y + ui.title(x, y, w, "Servers", "For all profiles") + 1;
-        cy += ui.paragraph("On a server in this list, Albedo uses its profile. " + draft.keys().toggle + " or " + draft.keys().cycleProfile
-                + " on the server changes it until you leave.", x, cy, w, Ui.FAINT) + GAP;
-        String active = draft.activeProfileName();
-        String here = sc.server();
-        if (here != null) {
-            ServerRule rule = draft.serverRule(here);
-            String label = "This server: " + here;
-            ui.text(ui.ellipsize(label, w / 2), x, cy + 3, Ui.TEXT);
-            if (rule == null) {
-                String use = "Use " + active + " here";
-                int bw = Math.min(ui.buttonWidth(use), w / 2);
-                if (ui.button("server.here", x + w - bw, cy, bw, Ui.H, use, Ui.Style.PRIMARY, true, "Add " + here + " to the list")) {
-                    setDraft(draft.withServer(new ServerRule(here, active)));
-                }
-            } else {
-                ui.textFit("Uses " + profileLabel(rule) + " (rule " + rule.server() + ")", x + w / 2, cy + 3, w / 2, Ui.MUTED);
+        // The open list of a server stays where its row was in the last frame; no row above or below it takes its clicks.
+        if (mode == Mode.PICK_PROFILE && pickServer != null) ui.reserveOverlay(profileListArea());
+        int cy = y + ui.title(x, y, w, "Servers", "") + 3;
+        String active = draft.activeProfileName(), here = sc.server();
+        ServerRule hereRule = here == null ? null : draft.serverRule(here);
+        if (here != null && hereRule == null) {
+            String add = "Add this server";
+            int bw = ui.buttonWidth(add);
+            ui.textFit("This server: " + here, x, cy + 3, w - bw - 6, Ui.TEXT);
+            if (ui.button("server.here", x + w - bw, cy, bw, Ui.H, add, Ui.Style.PRIMARY, true, "Add " + here + " with " + active)) {
+                setDraft(draft.withServer(new ServerRule(here, active)));
             }
             cy += Ui.H + GAP;
         }
-        String add = "Add with " + active;
-        int bw = Math.min(ui.buttonWidth(add), w / 2);
+        String add = "Add";
+        int bw = ui.buttonWidth(add);
         // Taken before the field, which would end its input on Enter.
         boolean enter = ui.isFocused("server.name") && ui.takeKey(UiKey.ENTER);
-        ui.textField("server.name", serverName, x, cy, w - bw - 4, Ui.H, "Server name, for example hypixel.net",
-                "A name also covers its subdomains: hypixel.net is also mc.hypixel.net");
+        ui.textField("server.name", serverName, x, cy, w - bw - 4, Ui.H, "Server address, for example hypixel.net",
+                "An address also covers its subdomains: hypixel.net is also mc.hypixel.net");
         String typed = ServerRule.host(serverName.text);
-        boolean replaces = draft.servers().containsKey(typed);
-        if (ui.button("server.add", x + w - bw, cy, bw, Ui.H, add, Ui.Style.NORMAL, !typed.isEmpty(),
-                replaces ? "Replace the profile of " + typed : "Add " + (typed.isEmpty() ? "the server" : typed) + " with this profile")
-                || enter && !typed.isEmpty()) {
+        boolean listed = draft.servers().containsKey(typed), canAdd = !typed.isEmpty() && !listed;
+        if (ui.button("server.add", x + w - bw, cy, bw, Ui.H, add, Ui.Style.NORMAL, canAdd,
+                listed ? typed + " is already in the list" : "Add the server with " + active) || enter && canAdd) {
             setDraft(draft.withServer(new ServerRule(typed, active)));
             serverName.set("");
-            if (replaces) say("The profile of " + typed + " is now " + active + ".");
         }
         cy += Ui.H + GAP;
         List<ServerRule> rules = new ArrayList<ServerRule>(draft.servers().values());
         if (rules.isEmpty()) {
-            ui.paragraph("No servers yet.", x, cy + 2, w, Ui.FAINT);
+            ui.paragraph("No servers.", x, cy + 2, w, Ui.FAINT);
             return;
         }
+        int pickW = ui.buttonWidth(OFF) + 10;
+        for (String n : draft.profiles().keySet()) pickW = Math.max(pickW, ui.buttonWidth(n) + 10);
+        int pw = Math.min(pickW, w / 2);
+        String hereServer = hereRule == null ? null : hereRule.server();
         RowList.draw(ui, "servers", x, cy, w, y + h - cy, rules.size(), LIST_ROW,
-                (i, rx, ry, rw, rh) -> serverRow(rx, ry, rw, rh, rules.get(i), active));
+                (i, rx, ry, rw, rh) -> serverRow(rx, ry, rw, rh, pw, rules.get(i), rules.get(i).server().equals(hereServer)));
     }
 
-    /** One server rule, which returns true when a click deleted it. */
-    private boolean serverRow(int x, int y, int w, int h, ServerRule r, String active) {
+    /** One server rule with the list of its profile, which returns true when a click deleted it. */
+    private boolean serverRow(int x, int y, int w, int h, int pickW, ServerRule r, boolean here) {
         ui.round(x, y, w, h, Ui.PANEL);
-        String use = "Use " + active, off = "Off";
-        int useW = Math.min(ui.buttonWidth(use), w / 3), offW = ui.buttonWidth(off), bx = x + w - useW - offW - 22;
-        ui.text(ui.ellipsize(r.server(), (bx - x) / 2), x + 4, y + 3, Ui.TEXT);
-        ui.text(ui.ellipsize(profileLabel(r), (bx - x) / 2 - 8), x + (bx - x) / 2 + 4, y + 3, r.profile() == null ? Ui.MUTED : Ui.ACCENT);
-        if (ui.button("server.use." + r.server(), bx, y + 1, useW, 12, use, Ui.Style.GHOST, !active.equals(r.profile()),
-                "Use " + active + " on " + r.server())) {
-            setDraft(draft.withServer(r.withProfile(active)));
+        if (here) ui.fill(x, y + 1, 2, h - 2, Ui.ACCENT);
+        int px = x + w - 19 - pickW;
+        String tag = here ? "this server" : "";
+        int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6;
+        String name = ui.ellipsize(r.server(), px - x - 10 - tagW);
+        ui.text(name, x + 5, y + 3, Ui.TEXT);
+        if (tagW > 0) ui.textFit(tag, x + 11 + ui.width(name), y + 3, px - x - 16 - ui.width(name), Ui.FAINT);
+
+        Rect button = new Rect(px, y + 1, pickW, 12);
+        boolean open = mode == Mode.PICK_PROFILE && r.server().equals(pickServer);
+        if (open) {
+            pickAnchor = button;
+            pickAnchorShown = true;
         }
-        if (ui.button("server.off." + r.server(), bx + useW + 2, y + 1, offW, 12, off, Ui.Style.GHOST, r.profile() != null,
-                "Turn Albedo off on " + r.server())) {
-            setDraft(draft.withServer(r.withProfile(null)));
+        if (ui.button("server.profile." + r.server(), px, y + 1, pickW, 12, "", Ui.Style.NORMAL, true, "The profile on " + r.server()
+                + ". " + draft.keys().toggle + " and " + draft.keys().cycleProfile + " change it there until you leave.")) {
+            openPicker(r.server(), button, open);
+            pickAnchorShown = true;
         }
+        String label = r.profile() == null ? OFF : r.profile();
+        ui.text(ui.ellipsize(label, pickW - 16), px + 5, y + 3, r.profile() == null ? Ui.MUTED : Ui.TEXT);
+        ui.text("v", px + pickW - 10, y + 3, Ui.MUTED);
+
         if (ui.confirmButton("server.del." + r.server(), x + w - 17, y + 1, 15, 12, "x", "Remove " + r.server(),
                 "Click again to remove " + r.server())) {
             setDraft(draft.withoutServer(r.server()));
             return true;
         }
         return false;
-    }
-
-    private static String profileLabel(ServerRule r) {
-        return r.profile() == null ? "Albedo off" : r.profile();
     }
 
     private void worldPage(int x, int y, int w, int h) {

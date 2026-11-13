@@ -157,7 +157,7 @@ wait 10
 # Server name.
 ui click Servers
 wait 10
-ui realclick Server name
+ui realclick Server address
 wait 10
 type hypixel.net
 wait 5

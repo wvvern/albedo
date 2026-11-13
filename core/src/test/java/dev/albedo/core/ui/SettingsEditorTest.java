@@ -305,17 +305,45 @@ class SettingsEditorTest {
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Servers");
             assertNotNull(canvas.find("This server: mc.hypixel.net"), "shows the server: " + canvas.texts.keySet());
-            click(editor, canvas, "Use quake-white here");
+            click(editor, canvas, "Add this server");
+            assertNull(canvas.find("This server: "), "the server is in the list now: " + canvas.texts.keySet());
+            assertNotNull(canvas.texts.get("this server"), "its row says so: " + canvas.texts.keySet());
 
-            click(editor, canvas, "Server name");
+            click(editor, canvas, "Server address");
             type(editor, canvas, "example.org");
             editor.keyPressed(UiKey.ENTER);
             render(editor, canvas);
             assertNotNull(canvas.find("example.org"), "Enter adds the typed server: " + canvas.texts.keySet());
-            click(editor, canvas, "Off");
+
+            // The profile of the last row: Albedo off, then back on with another profile.
+            click(editor, canvas, "quake-white");
+            click(editor, canvas, "Albedo off");
+            assertNotNull(canvas.texts.get("Albedo off"), "the row shows Albedo off: " + canvas.texts.keySet());
+            click(editor, canvas, "Albedo off");
+            click(editor, canvas, "minimal");
+            assertNull(canvas.texts.get("Albedo off"), "the list is closed and the row is on again: " + canvas.texts.keySet());
             click(editor, canvas, "Done");
             assertEquals("quake-white", sc.config().serverRule("mc.hypixel.net").profile());
-            assertNull(sc.config().serverRule("example.org").profile(), "Off turns the mod off there");
+            assertEquals("minimal", sc.config().serverRule("example.org").profile(), "a server set to off can use a profile again");
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void theProfileListOfAServerTurnsAlbedoOffThere() {
+        sc.apply(Config.defaults().withServer(new ServerRule("example.org", "minimal")));
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(533, 300);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "Servers");
+            assertNull(canvas.find("This server"), "no server line in single player: " + canvas.texts.keySet());
+            click(editor, canvas, "minimal");
+            click(editor, canvas, "Albedo off");
+            click(editor, canvas, "Done");
+            assertNull(sc.config().serverRule("example.org").profile());
         } finally {
             playOn(null);
             sc.apply(Config.defaults());
