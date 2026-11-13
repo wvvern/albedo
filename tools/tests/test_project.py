@@ -70,7 +70,3 @@ class RepositoryTest(unittest.TestCase):
     def test_an_unknown_target_is_an_error(self):
         with self.assertRaises(ToolError):
             project.find_target("fabric-0.0.1")
-
-
-if __name__ == "__main__":
-    unittest.main()

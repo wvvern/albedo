@@ -149,7 +149,3 @@ class LegacyJarTest(unittest.TestCase):
             ["the jar has no mixins.albedo.refmap.json", "dev/albedo/core/A.class has the class version 61, not 52"],
             examine(subject(LEGACY, entries)),
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

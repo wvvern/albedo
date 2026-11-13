@@ -11,13 +11,15 @@ shape are one line. A line of the list file (tools/boundaries.txt) is "<class>[|
 import argparse
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path
 
-from tools import project
+from tools import gradle, project
 
 LIST = Path(__file__).with_name("boundaries.txt")
-LOOM_MINECRAFT = Path.home() / ".gradle" / "caches" / "fabric-loom" / "minecraftMaven" / "net" / "minecraft"
+LOOM_MINECRAFT = gradle.CACHES / "fabric-loom" / "minecraftMaven" / "net" / "minecraft"
 NO_JAR = "no jar in the Loom cache"
 
 CLASS_HEADER = re.compile(r"^[a-z].*\b(?:class|interface|enum) (\S+).*\{$")
@@ -109,12 +111,11 @@ def fold(versions: list[str], shapes: list[str]) -> list[str]:
     """One line for each run of versions with the same shape."""
     lines = []
     first = 0
-    for index in range(len(versions)):
-        if index + 1 < len(versions) and shapes[index + 1] == shapes[index]:
-            continue
-        span = versions[index] if first == index else f"{versions[first]} to {versions[index]}"
-        lines.append(f"    {span}: {shapes[index]}")
-        first = index + 1
+    for same_shape, run in groupby(shapes):
+        last = first + len(list(run)) - 1
+        span = versions[first] if first == last else f"{versions[first]} to {versions[last]}"
+        lines.append(f"    {span}: {same_shape}")
+        first = last + 1
     return lines
 
 
@@ -125,7 +126,9 @@ def newest_jar(cache: Path, version: str) -> Path | None:
     return max((jar for jar in jars if jar.is_file()), key=lambda jar: jar.stat().st_mtime, default=None)
 
 
-def disassemble(jar: Path, classes: list[str]) -> Disassembly:
+def disassemble(jar: Path | None, classes: list[str]) -> Disassembly | None:
+    if jar is None:
+        return None
     # javap prints an error for a class that the jar does not have, and the classes that it has.
     result = subprocess.run(["javap", "-p", "-c", "-cp", str(jar), *classes], capture_output=True, text=True, encoding="utf-8", check=False)
     return parse_javap(result.stdout)
@@ -134,17 +137,14 @@ def disassemble(jar: Path, classes: list[str]) -> Disassembly:
 def report(rows: list[str], versions: list[str], cache: Path) -> list[str]:
     queries = [parse_query(row) for row in rows]
     classes = sorted({name for query in queries if query for name in query.classes})
-    shapes_of_version = []
-    for version in versions:
-        jar = newest_jar(cache, version)
-        disassembly = disassemble(jar, classes) if jar else None
-        shapes_of_version.append([shape(query, disassembly) if disassembly else NO_JAR for query in queries if query])
+    # Each javap run takes most of a second, so the versions run at the same time.
+    with ThreadPoolExecutor() as pool:
+        disassemblies = list(pool.map(lambda version: disassemble(newest_jar(cache, version), classes), versions))
     lines = []
-    shapes_of_query = iter(zip(*shapes_of_version, strict=True))
     for row, query in zip(rows, queries, strict=True):
         lines.append(row)
         if query:
-            lines += fold(versions, list(next(shapes_of_query)))
+            lines += fold(versions, [shape(query, disassembly) if disassembly else NO_JAR for disassembly in disassemblies])
     return lines
 
 
@@ -156,6 +156,6 @@ def main(arguments: list[str]) -> int:
     )
     parser.add_argument("--cache", type=Path, default=LOOM_MINECRAFT, help="the net/minecraft folder of the Loom cache")
     options = parser.parse_args(arguments)
-    versions = options.versions or [target.minecraft for target in project.targets() if target.loader == "fabric"]
+    versions = options.versions or [node.minecraft for node in project.nodes() if not node.legacy]
     print("\n".join(report(options.list.read_text(encoding="utf-8").splitlines(), versions, options.cache)))
     return 0

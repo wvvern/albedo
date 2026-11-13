@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageStat
 
+from tools import gradle
 from tools.report import ToolError
 
 Color = tuple[int, int, int]
@@ -40,8 +41,7 @@ STRIP_LINE_COLOR: Color = (0, 0, 0)
 
 
 def minecraft_font_sheet() -> Image.Image:
-    caches = Path.home() / ".gradle" / "caches"
-    for jar in sorted(caches.glob("*loom*/*/minecraft-client.jar"), reverse=True):
+    for jar in sorted(gradle.CACHES.glob("*loom*/*/minecraft-client.jar"), reverse=True):
         with zipfile.ZipFile(jar) as archive:
             if "assets/minecraft/textures/font/ascii.png" in archive.namelist():
                 return Image.open(io.BytesIO(archive.read("assets/minecraft/textures/font/ascii.png"))).convert("RGBA")
@@ -128,11 +128,12 @@ def rim(image: Image.Image) -> Image.Image:
     width, height = image.width + 2 * RIM_WIDTH, image.height + 2 * RIM_WIDTH
     padding = SHADOW_BLUR * 2
     canvas = Image.new("RGBA", (width + 2 * padding, height + 2 * padding), (0, 0, 0, 0))
+    outline = rounded_mask(width, height, RIM_RADIUS)
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    shadow.paste((0, 0, 0, SHADOW_ALPHA), (padding, padding + SHADOW_BLUR // 3), rounded_mask(width, height, RIM_RADIUS))
+    shadow.paste((0, 0, 0, SHADOW_ALPHA), (padding, padding + SHADOW_BLUR // 3), outline)
     canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(SHADOW_BLUR / 2)))
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    layer.paste(RIM_COLOR, (padding, padding), rounded_mask(width, height, RIM_RADIUS))
+    layer.paste(RIM_COLOR, (padding, padding), outline)
     layer.paste(image, (padding + RIM_WIDTH, padding + RIM_WIDTH), rounded_mask(image.width, image.height, RIM_RADIUS - RIM_WIDTH))
     return Image.alpha_composite(canvas, layer)
 

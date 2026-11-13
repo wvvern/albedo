@@ -3,9 +3,9 @@
 import ctypes
 import os
 from ctypes import wintypes
-from dataclasses import dataclass
 from functools import cache
-from pathlib import Path
+
+from tools.harness.session import Launch
 
 DESKTOP_NAME = "AlbedoHarness"
 GENERIC_ALL = 0x10000000
@@ -43,17 +43,6 @@ class PROCESS_INFORMATION(ctypes.Structure):
         ("dwProcessId", wintypes.DWORD),
         ("dwThreadId", wintypes.DWORD),
     )
-
-
-@dataclass(frozen=True)
-class Launch:
-    """A command line to run in a folder, with its output in a log file."""
-
-    command_line: str
-    cwd: Path
-    log: Path
-    # Variables for the process on top of the ones of this process.
-    environment: tuple[tuple[str, str], ...] = ()
 
 
 @cache

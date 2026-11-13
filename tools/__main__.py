@@ -1,6 +1,8 @@
 """Runs one command of the tools: python -m tools <command> [arguments]."""
 
+import errno
 import importlib
+import os
 import sys
 
 from tools.report import ToolError
@@ -13,7 +15,7 @@ COMMANDS = {
     "compare-jars": ("tools.jar_compare", "compare the built jars with the jars of a release"),
     "release-notes": ("tools.release_notes", "print the CHANGELOG.md section of one version"),
     "boundaries": ("tools.boundaries", "print the shape of each game member that the mod names, on each node"),
-    "ci-matrix": ("tools.ci_matrix", "print the build and publish matrix of the CI workflow"),
+    "ci-matrix": ("tools.ci_matrix", "print the build and upload rows of the CI workflow"),
     "image": ("tools.images", "frame, rim, split or compare screenshots"),
     "harness": ("tools.harness.run", "run a harness suite in the dev game of each target on a hidden desktop"),
     "optifine": ("tools.harness.optifine", "run the 1.8.9 release jar with OptiFine on a hidden desktop"),
@@ -43,7 +45,21 @@ def main(arguments: list[str]) -> int:
         return 1
 
 
+def reader_left(error: OSError) -> bool:
+    """Whether a print failed because the reader of the output, for example head, has ended; Windows gives EINVAL for it."""
+    return isinstance(error, BrokenPipeError) or (error.errno == errno.EINVAL and error.filename is None)
+
+
 if __name__ == "__main__":
     # The same bytes on Windows and Linux, for output that goes to a file or to a different tool.
     sys.stdout.reconfigure(newline="\n")
-    sys.exit(main(sys.argv[1:]))
+    try:
+        code = main(sys.argv[1:])
+        sys.stdout.flush()
+    except OSError as error:
+        if not reader_left(error):
+            raise
+        # Python flushes the output again at its end, which must not fail a second time.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        code = 1
+    sys.exit(code)

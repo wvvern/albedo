@@ -20,9 +20,9 @@ Pushing a tag such as `v1.2.0` makes CI build the jar of each target (39 now), c
 
 ## CI jobs
 
-- `plan`: runs `python -m tools ci-matrix`, which gives the other jobs their rows from the node lists and the node properties, and the number of jars.
+- `plan`: runs `python -m tools ci-matrix`, which gives the other jobs a row for each node, from the node lists and the node properties, and the number of jars.
 - `check`: lint, the tests of the tools and `:core:check`; on a tag it also extracts the notes, so a missing section stops the release.
-- `modern` (one per node) and `legacy` (one per version): build, run `python -m tools check-jar`, upload `jars-<minecraft version>`. Each builds one node in one Gradle run. The `modern` jobs only read the Gradle cache, because all nodes together exceed the repository's cache limit.
+- `build` (one per node of both builds): runs `python -m tools build` for the targets of the node and `python -m tools check-jar`, and uploads `jars-<minecraft version>`. The jobs of the modern nodes only read the Gradle cache, because all nodes together exceed the repository's cache limit.
 - `release`: on a tag, checks that each target has its jar, adds a build attestation to each, creates the GitHub release.
 - `modrinth`: one upload per loader and jar group. The Fabric upload also lists `quilt` for the nodes with `modrinth_loaders_fabric=fabric quilt`. If an upload fails, delete the partial version on Modrinth and run `.github/workflows/modrinth.yml`.
 - `modrinth-page`: sets the Modrinth description to `modrinth/DESCRIPTION.md` and replaces the gallery with the images in `modrinth/gallery.txt`. The token needs the scope "Write projects". To run it without a release: `gh workflow run modrinth-page.yml`.

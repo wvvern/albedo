@@ -72,7 +72,3 @@ class FoldTest(unittest.TestCase):
             ["    1.20 to 1.21: a", "    26.1: b", "    26.2: a"],
             fold(["1.20", "1.20.4", "1.21", "26.1", "26.2"], ["a", "a", "a", "b", "a"]),
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

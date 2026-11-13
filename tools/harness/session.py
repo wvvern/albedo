@@ -8,12 +8,12 @@ import struct
 import sys
 import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from tools import project
-from tools.harness import protocol
-from tools.harness.desktop import Launch
+from tools.harness import files, protocol, rundir
 from tools.harness.verdict import Evidence
 from tools.report import ToolError
 
@@ -25,6 +25,24 @@ EXIT_SECONDS = 30
 # A loader that fails to start leaves the Gradle process running.
 LOADER_FAILURE = 'Uncaught exception in thread "main"'
 PNG_HEADER_SIZE = 24
+
+
+@dataclass(frozen=True)
+class Launch:
+    """A command line to run in a folder, with its output in a log file."""
+
+    command_line: str
+    cwd: Path
+    log: Path
+    # Variables for the process on top of the ones of this process.
+    environment: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class Finished:
+    harness: Path
+    launch: Launch
+    images: list[Path]
 
 
 class System(Protocol):
@@ -45,10 +63,6 @@ class System(Protocol):
     def now(self) -> float: ...
 
 
-def read_text(file: Path) -> str:
-    return file.read_text(encoding="utf-8", errors="replace") if file.is_file() else ""
-
-
 def open_harness(name: str, commands: list[str], system: System) -> Path:
     """A new harness folder with the command file and the clip probe of the command cursorfree."""
     harness = HARNESS_ROOT / name
@@ -59,10 +73,8 @@ def open_harness(name: str, commands: list[str], system: System) -> Path:
     # A process of an earlier run can hold the folder, and its old log and images would then count for this run.
     if harness.exists():
         raise ToolError(f"cannot delete {harness}; stop the process that uses it")
-    harness.mkdir(parents=True)
-    probe = [sys.executable, "-I", str(Path(__file__).with_name("cursor.py"))]
-    (harness / protocol.CLIP_PROBE).write_text("".join(f"{argument}\n" for argument in probe), encoding="utf-8", newline="\n")
-    (harness / protocol.COMMANDS).write_text("".join(f"{command}\n" for command in commands), encoding="ascii", newline="\n")
+    files.write_lines(harness / protocol.CLIP_PROBE, [sys.executable, "-I", str(Path(__file__).with_name("cursor.py"))], encoding="utf-8")
+    files.write_lines(harness / protocol.COMMANDS, commands)
     return harness
 
 
@@ -74,10 +86,10 @@ def play(launch: Launch, harness: Path, timeout: float, system: System, say: Cal
         system.sleep(POLL_SECONDS)
         if not system.alive(pid):
             break
-        if LOADER_FAILURE in read_text(launch.log):
+        if LOADER_FAILURE in files.read_text(launch.log):
             say("the loader did not start")
             break
-        if protocol.ran_quit(read_text(harness / protocol.LOG).splitlines()):
+        if protocol.ran_quit(files.read_lines(harness / protocol.LOG)):
             exit_by = system.now() + EXIT_SECONDS
             while system.now() < exit_by and system.alive(pid):
                 system.sleep(1)
@@ -97,6 +109,32 @@ def collect(harness: Path, out: Path) -> list[Path]:
     return images
 
 
+def run(
+    label: str,
+    harness_name: str,
+    commands: list[str],
+    launch_of: Callable[[Path], Launch],
+    out: Path,
+    timeout: float,
+    system: System,
+) -> Finished:
+    """The sequence of each run: a new harness folder, the game until its end, and its screenshots in the output folder.
+
+    launch_of gets the harness folder after the check that no game uses it, so it is the place to change the game folder.
+    """
+
+    def say(message: str) -> None:
+        print(f"[{label}] {message}", flush=True)
+
+    harness = open_harness(harness_name, commands, system)
+    launch = launch_of(harness)
+    say("launching hidden")
+    play(launch, harness, timeout, system, say)
+    images = collect(harness, out)
+    say(f"{len(images)} screenshots -> {out}")
+    return Finished(harness, launch, images)
+
+
 def png_size(file: Path) -> tuple[int, int] | None:
     """The width and the height are the first two big-endian numbers of the IHDR chunk, at byte 16."""
     with file.open("rb") as stream:
@@ -106,9 +144,9 @@ def png_size(file: Path) -> tuple[int, int] | None:
 
 def read_evidence(harness: Path, game_log: Path, run_dir: Path) -> Evidence:
     return Evidence(
-        harness_log=read_text(harness / protocol.LOG).splitlines(),
-        game_log=read_text(game_log),
-        taken_commands=read_text(harness / protocol.TAKEN).splitlines(),
+        harness_log=files.read_lines(harness / protocol.LOG),
+        game_log=files.read_text(game_log),
+        taken_commands=files.read_lines(harness / protocol.TAKEN),
         image_sizes={image.name: png_size(image) for image in harness.glob("*.png")},
-        has_config=(run_dir / "config" / "albedo" / "config.json").is_file(),
+        has_config=rundir.mod_config(run_dir).is_file(),
     )

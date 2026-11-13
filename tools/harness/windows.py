@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from tools.harness import desktop, processes, watchdog
-from tools.harness.desktop import Launch
+from tools.harness.session import Launch
 from tools.report import ToolError
 
 

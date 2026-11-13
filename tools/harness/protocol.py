@@ -18,9 +18,14 @@ WINDOW_SIZE = (1600, 900)
 
 HOOKS = "hooks"
 QUIT = "quit"
-
-SKY_SAME = re.compile(r"^skycompare .*: same$")
-CURSOR_FREE = re.compile(r"^cursorfree: (ok|skipped)")
+SCREENSHOT = "screenshot"
+FRAMES = "frames"
+# Each command that logs its result in a later frame: the log line of a good result, and how a verdict names such lines.
+RESULTS = (
+    ("skycompare", re.compile(r"^skycompare .*: same$"), "results with 'same'"),
+    ("framechanged", re.compile(r"^framechanged "), "results"),
+    ("cursorfree", re.compile(r"^cursorfree: (ok|skipped)"), "results with 'ok'"),
+)
 # What the command line of a game that a player started has, from a launcher or from a dev run with no harness.
 PLAYER_GAME = re.compile(r"--gameDir|KnotClient|net\.minecraft\.client\.main\.Main|launchwrapper\.Launch|BootstrapLauncher")
 
@@ -56,25 +61,19 @@ def hook_ran(hook_line: str, hook: str) -> bool:
     return re.search(rf"\b{re.escape(hook)}=[1-9]", hook_line) is not None
 
 
-def count_results(log: Iterable[str], result: re.Pattern[str] | str) -> int:
-    """How many log lines are the result of a command, by a pattern or by the start of the line."""
-    if isinstance(result, str):
-        return sum(line.startswith(result) for line in log)
-    return sum(result.search(line) is not None for line in log)
-
-
-def words(command: str) -> list[str]:
-    return command.split()
+def verb(command: str) -> str:
+    """The first word of a command, or "" for an empty line."""
+    return command.split(maxsplit=1)[0] if command.strip() else ""
 
 
 def images_of(command: str, present: Iterable[str]) -> tuple[list[str], bool]:
     """The image files that a taken command made, of the files in the harness folder, and whether all of its images are there."""
-    verb, *arguments = words(command) or [""]
-    if verb == "screenshot" and arguments:
-        name = arguments[0].removesuffix(".png") + ".png"
-        found = [name] if name in present else []
+    name, *arguments = command.split() or [""]
+    if name == SCREENSHOT and arguments:
+        image = arguments[0].removesuffix(".png") + ".png"
+        found = [image] if image in present else []
         return found, bool(found)
-    if verb == "frames" and len(arguments) >= 2:
-        found = sorted(name for name in present if name.startswith(f"{arguments[1]}-") and name.endswith(".png"))
+    if name == FRAMES and len(arguments) >= 2:
+        found = sorted(image for image in present if image.startswith(f"{arguments[1]}-") and image.endswith(".png"))
         return found, len(found) >= int(arguments[0])
     return [], True

@@ -1,6 +1,7 @@
 import unittest
 
-from tools.jar_compare import differences, explained_patterns, jar_key
+from tools.jar_compare import differences, explained_patterns
+from tools.project import jar_key
 
 PATTERNS = ["fabric.mod.json", "dev/albedo/core/sky/Sky*.class"]
 
@@ -26,7 +27,3 @@ class JarCompareTest(unittest.TestCase):
         found = differences({"fabric.mod.json": "1"}, {"fabric.mod.json": "2", "dev/albedo/core/sky/SkyBox$1.class": "1"}, PATTERNS)
         self.assertEqual([True, True], [difference.explained for difference in found])
         self.assertFalse(differences({}, {"dev/albedo/core/Sky.class": "1"}, PATTERNS)[0].explained)
-
-
-if __name__ == "__main__":
-    unittest.main()

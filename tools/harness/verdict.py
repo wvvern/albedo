@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 
+from tools import project
 from tools.harness import protocol
 from tools.project import Target
 
@@ -60,7 +61,7 @@ def judge(evidence: Evidence, expected: Expectations) -> list[str]:
     if expected.loader != "fabric" and not re.search(r"with Quilt Loader \d", game):
         failures.append("the game log does not have the Quilt Loader version line")
     # The mod table of Quilt Loader names the file of each mod; the release jar of the node is in the mods folder of the run.
-    if expected.loader == "quilt" and not re.search(r"<mods>\\albedo-fabric-\S+\.jar", game):
+    if expected.loader == "quilt" and not re.search(rf"<mods>\\{project.ARCHIVE}-fabric-\S+\.jar", game):
         failures.append("the mod table of the game log does not have the release jar of Albedo")
     if "Albedo ready" not in game:
         failures.append("the game log does not have 'Albedo ready'")
@@ -94,7 +95,8 @@ def image_failures(evidence: Evidence) -> list[str]:
     for command in evidence.taken_commands:
         images, complete = protocol.images_of(command, evidence.image_sizes)
         if not complete:
-            failures.append(f"{'no image' if protocol.words(command)[0] == 'screenshot' else 'not all images'} for: {command}")
+            missing = "no image" if protocol.verb(command) == protocol.SCREENSHOT else "not all images"
+            failures.append(f"{missing} for: {command}")
         for image in images:
             size = evidence.image_sizes[image]
             if size != protocol.WINDOW_SIZE:
@@ -104,14 +106,11 @@ def image_failures(evidence: Evidence) -> list[str]:
 
 def result_failures(evidence: Evidence) -> list[str]:
     """A command that logs its result in a later frame can leave no result when the run gets to quit first."""
-    verbs = [protocol.words(command)[:1] for command in evidence.taken_commands]
+    verbs = [protocol.verb(command) for command in evidence.taken_commands]
     failures = []
-    for verb, result, what in (
-        ("skycompare", protocol.SKY_SAME, "results with 'same'"),
-        ("framechanged", "framechanged ", "results"),
-        ("cursorfree", protocol.CURSOR_FREE, "results with 'ok'"),
-    ):
-        ran, logged = verbs.count([verb]), protocol.count_results(evidence.harness_log, result)
+    for verb, good_result, what in protocol.RESULTS:
+        ran = verbs.count(verb)
+        logged = sum(good_result.search(line) is not None for line in evidence.harness_log)
         if logged < ran:
             failures.append(f"{ran} {verb} commands gave only {logged} {what}")
     return failures

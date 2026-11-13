@@ -6,7 +6,7 @@ from unittest import mock
 
 from tools import gradle
 from tools.harness import protocol, rundir, session
-from tools.harness.desktop import Launch
+from tools.harness.session import Launch
 from tools.report import ToolError
 
 
@@ -192,7 +192,3 @@ class GradleCommandLineTest(unittest.TestCase):
         self.assertEqual(
             f'"{wrapper}" --no-daemon --configure-on-demand :fabric:26.3:runClient "-Pharness=C:\\Temp\\h" "-Pbackend=vulkan" -Pquilt', line
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -141,7 +141,3 @@ class ActiveVersionTest(unittest.TestCase):
     def test_the_active_version_is_the_vcs_version(self):
         self.assertEqual([], self.problems("26.3"))
         self.assertEqual(1, len(self.problems("26.2")))
-
-
-if __name__ == "__main__":
-    unittest.main()

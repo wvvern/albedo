@@ -25,7 +25,3 @@ class SectionTest(unittest.TestCase):
     def test_a_version_with_no_section_gives_nothing(self):
         self.assertEqual("", section(CHANGELOG, "1.2"))
         self.assertEqual("", section(CHANGELOG, "9.9.9"))
-
-
-if __name__ == "__main__":
-    unittest.main()

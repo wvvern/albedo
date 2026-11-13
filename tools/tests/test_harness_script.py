@@ -84,7 +84,3 @@ class SuiteFilesTest(unittest.TestCase):
             for target in (NEWEST, BEFORE_NEW_GROUND, LEGACY_1_12):
                 commands = compose(script.read_suites([suite.stem]), target)
                 self.assertFalse([line for line in commands if script.BUILD_PREFIX.match(line)], suite.name)
-
-
-if __name__ == "__main__":
-    unittest.main()

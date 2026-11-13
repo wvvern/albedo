@@ -44,7 +44,7 @@ CI jobs and releases: [RELEASING.md](RELEASING.md).
 
 | Command | What it does |
 |---------|--------------|
-| `build [TARGET...]` | Builds release jars into `build/libs/`, one Gradle run per node. |
+| `build [TARGET...]` | Builds release jars into `build/libs/` (or `--out`), one Gradle run per node. CI builds with it. |
 | `lint` | The repository checks that Checkstyle cannot do. |
 | `check-jar JAR...` | Examines release jars (or a folder of them) with no game. |
 | `compare-jars OLD NEW` | Compares built jars with a release, entry by entry; `tools/jar-changes.txt` lists the expected differences. |
@@ -52,23 +52,23 @@ CI jobs and releases: [RELEASING.md](RELEASING.md).
 | `boundaries` | Prints the shape of each game member in `tools/boundaries.txt` on each node. |
 | `ci-matrix` | Prints the build and upload rows that `ci.yml` reads. |
 | `image frame\|rim\|split\|diff` | Makes the store page images, and compares the screenshots of two runs. |
-| `harness [TARGET...]` | Runs a harness suite in the dev game on a hidden desktop (below). |
+| `harness TARGET...` | Runs a harness suite in the dev game on a hidden desktop (below); `all` is each target. |
 | `optifine` | Runs the built 1.8.9 jar in a production client with OptiFine on a hidden desktop. |
 
 A target is `<loader>-<node>`, for example `fabric-26.3` or `forge-1.8.9`.
 
 Rules for the code in `tools/`:
 
-- `tools/project.py` is the only reader of the build layout: the node lists, the node properties, the jar names, the run folders and the Gradle task names. A tool asks it for targets and never names a node or a version list itself.
+- `tools/project.py` is the only reader of the build layout: the node lists, the node properties, the jar names, the run folders and the Gradle task names. A tool asks it for nodes and targets and never names a node or a version list itself.
 - `tools/harness/protocol.py` is the only place with the file names and log lines of `core/dev/Harness.java`.
 - Only `harness/desktop.py` and `harness/cursor.py` call Windows, only `harness/processes.py` uses psutil, and only `images.py` uses Pillow.
 - A command module parses its arguments and prints; what it decides is in functions that take data and return data, with a test in `tools/tests/`. `lint` and `check-jar` are lists of such check functions.
-- What CI runs (`lint`, `check-jar`, `release-notes`, `ci-matrix` and the tests) uses only the standard library.
+- What CI runs (`lint`, `build`, `check-jar`, `release-notes`, `ci-matrix` and the tests) uses only the standard library.
 - Check the tools with `python -m unittest discover -s tools/tests -t .` and `ruff check tools` / `ruff format tools` (settings in `pyproject.toml`).
 
 ## Game tests (harness)
 
-`python -m tools harness` starts each target's dev client on a hidden desktop and drives it with a command file made from the suites in `tools/harness/suites/` through `core/dev/Harness`. It runs on Windows only. Never run test games on the visible desktop.
+`python -m tools harness <target>...` starts each target's dev client on a hidden desktop and drives it with a command file made from the suites in `tools/harness/suites/` through `core/dev/Harness`. It runs on Windows only. Never run test games on the visible desktop.
 
 ```bash
 python -m tools harness fabric-26.3 forge-1.8.9 --suite sky-sharp --out build/run

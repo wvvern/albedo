@@ -7,9 +7,8 @@ This file imports no other file of the tools, because the game runs it as a plai
 """
 
 import ctypes
-import sys
 from ctypes import wintypes
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 
 SM_XVIRTUALSCREEN = 76
 SM_YVIRTUALSCREEN = 77
@@ -34,10 +33,7 @@ class Clip:
         return self.right - self.left < self.screen_width or self.bottom - self.top < self.screen_height
 
     def __str__(self) -> str:
-        return " ".join(
-            str(number)
-            for number in (self.left, self.top, self.right, self.bottom, self.screen_left, self.screen_top, self.screen_width, self.screen_height)
-        )
+        return " ".join(str(number) for number in astuple(self))
 
 
 def user32():
@@ -63,4 +59,3 @@ def free() -> None:
 
 if __name__ == "__main__":
     print(read() or "unreadable")
-    sys.exit(0)

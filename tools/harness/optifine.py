@@ -26,24 +26,17 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools import project
-from tools.harness import protocol, rundir, script, session
-from tools.harness.desktop import Launch
+from tools import gradle, project
+from tools.harness import files, protocol, rundir, script, session
+from tools.harness.session import Launch
 from tools.harness.windows import Windows
+from tools.project import Target
 from tools.report import ToolError
 
 VARIANTS = ("none", "default", "quake", "quake-ao", "quake-fancy")
 MINECRAFT = "1.8.9"
 WORK = project.LEGACY / "build" / "optifine"
-GAME_OPTIONS = {
-    "narrator": "0",
-    "soundCategory_master": "0.0",
-    "pauseOnLostFocus": "false",
-    "fullscreen": "false",
-    "guiScale": "0",
-    "fancyGraphics": "true",
-    "ao": "2",
-}
+GAME_OPTIONS = rundir.QUIET_OPTIONS | {"guiScale": "0", "fancyGraphics": "true", "ao": "2"}
 QUAKE_OPTIFINE_OPTIONS = {
     "ofFastRender": "true",
     "ofCustomColors": "true",
@@ -53,7 +46,8 @@ QUAKE_OPTIFINE_OPTIONS = {
     "ofBetterGrass": "2",
     "ofDynamicLights": "3",
 }
-DUMP_CLASSES = ("-Dlegacy.debugClassLoading=true", "-Dlegacy.debugClassLoadingSave=true", "-Dmixin.debug.verbose=true")
+DUMP_CLASSES = "-Dlegacy.debugClassLoading=true -Dlegacy.debugClassLoadingSave=true -Dmixin.debug.verbose=true"
+JAVA_FOLDERS = (Path.home() / ".jdks", Path(r"C:\Program Files\Eclipse Adoptium"), Path(r"C:\Program Files\Java"))
 JAVA_8_FOLDER = ("jdk8", "jdk-8", "jre8", "jre-8", "jdk1.8", "jdk-1.8", "jre1.8", "jre-1.8")
 
 
@@ -66,7 +60,7 @@ class Installation:
 
     @classmethod
     def of_this_user(cls) -> "Installation":
-        return cls(Path(os.environ["APPDATA"]) / ".minecraft", Path.home() / ".gradle" / "caches")
+        return cls(Path(os.environ["APPDATA"]) / ".minecraft", gradle.CACHES)
 
     def library(self, coordinate: str) -> Path:
         group, artifact, version = coordinate.split(":")[:3]
@@ -80,10 +74,11 @@ class Installation:
         return cached
 
     def forge_jar(self) -> Path:
-        jars = sorted((self.minecraft / "libraries" / "net" / "minecraftforge" / "forge").rglob(f"forge-{MINECRAFT}-*.jar"), key=lambda jar: jar.name)
-        if not jars:
+        jars = (self.minecraft / "libraries" / "net" / "minecraftforge" / "forge").rglob(f"forge-{MINECRAFT}-*.jar")
+        newest = max(jars, key=lambda jar: jar.name, default=None)
+        if newest is None:
             raise ToolError(f"Forge {MINECRAFT} is not installed in {self.minecraft}")
-        return jars[-1]
+        return newest
 
     def class_path(self, forge_jar: Path) -> str:
         """The libraries of Forge and of the game, each one time, then Forge and the game."""
@@ -111,9 +106,8 @@ class Installation:
 
 
 def find_java_8() -> Path:
-    roots = [Path.home() / ".jdks", Path(r"C:\Program Files\Eclipse Adoptium"), Path(r"C:\Program Files\Java")]
-    for root in roots:
-        for folder in sorted(root.glob("*")) if root.is_dir() else []:
+    for root in JAVA_FOLDERS:
+        for folder in sorted(root.glob("*")):
             java = folder / "bin" / "java.exe"
             if java.is_file() and ("1.8" in folder.name or folder.name.lower().startswith(JAVA_8_FOLDER)):
                 return java
@@ -123,23 +117,19 @@ def find_java_8() -> Path:
 def variant_options(variant: str) -> tuple[dict[str, str], dict[str, str]]:
     """The lines of options.txt and of optionsof.txt of a variant."""
     if not variant.startswith("quake"):
-        return dict(GAME_OPTIONS), {}
+        return GAME_OPTIONS, {}
     game = GAME_OPTIONS | {"fancyGraphics": "true" if variant == "quake-fancy" else "false", "ao": "2" if variant == "quake-ao" else "0"}
-    return game, dict(QUAKE_OPTIFINE_OPTIONS)
+    return game, QUAKE_OPTIFINE_OPTIONS
 
 
-def prepare_game_dir(game: Path, variant: str, mods: Path | None, option_lines: list[str]) -> None:
+def prepare_game_dir(game: Path, release: Path, variant: str, mods: Path | None, option_lines: list[str]) -> None:
     mod_dir = game / "mods"
     mod_dir.mkdir(parents=True, exist_ok=True)
     for jar in mod_dir.glob("*.jar"):
         jar.unlink()
-    target = project.find_target(f"forge-{MINECRAFT}")
-    release = target.jar(project.mod_version())
-    if not release.is_file():
-        raise ToolError(f"no {release.name}; run: python -m tools build {target.name}")
     shutil.copy2(release, mod_dir)
     if variant != "none":
-        optifine = next(iter(sorted(WORK.glob(f"*OptiFine*{MINECRAFT}*.jar"))), None)
+        optifine = min(WORK.glob(f"*OptiFine*{MINECRAFT}*.jar"), default=None)
         if optifine is None:
             raise ToolError(f"put an OptiFine {MINECRAFT} jar in {WORK}")
         shutil.copy2(optifine, mod_dir)
@@ -158,51 +148,45 @@ def production_client(java: Path, installation: Installation, forge_jar: Path, g
     assets, asset_index = installation.assets()
     width, height = protocol.WINDOW_SIZE
     arguments = [
-        "-Xmx2G",
-        f'-Djava.library.path="{installation.natives()}"',
-        f'{protocol.JVM_PROPERTY}"{harness}"',
-        *(DUMP_CLASSES if dump_classes else ()),
-        "net.minecraft.launchwrapper.Launch",
-        *("--username", "Dev", "--version", MINECRAFT, "--gameDir", f'"{game}"', "--assetsDir", f'"{assets}"', "--assetIndex", asset_index),
-        *("--uuid", "0", "--accessToken", "0", "--userProperties", "{}", "--userType", "legacy"),
-        *("--tweakClass", "net.minecraftforge.fml.common.launcher.FMLTweaker", "--width", str(width), "--height", str(height)),
+        f'"{java}" -Xmx2G -Djava.library.path="{installation.natives()}" {protocol.JVM_PROPERTY}"{harness}"',
+        DUMP_CLASSES if dump_classes else "",
+        f"net.minecraft.launchwrapper.Launch --username Dev --version {MINECRAFT}",
+        f'--gameDir "{game}" --assetsDir "{assets}" --assetIndex {asset_index}',
+        "--uuid 0 --accessToken 0 --userProperties {} --userType legacy",
+        f"--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker --width {width} --height {height}",
     ]
     # The class path is too long for cmd.exe, so it goes in the CLASSPATH variable of the game process.
     environment = (("CLASSPATH", installation.class_path(forge_jar)),)
-    return Launch(f'"{java}" {" ".join(arguments)}', game, harness / "game.log", environment)
+    return Launch(" ".join(filter(None, arguments)), game, harness / "game.log", environment)
 
 
-def run_variant(variant: str, options: argparse.Namespace, java: Path, installation: Installation, system: Windows) -> None:
-    def say(message: str) -> None:
-        print(f"[{variant}] {message}", flush=True)
-
-    target = project.find_target(f"forge-{MINECRAFT}")
-    commands = script.compose(script.read_suites([script.scene_of(target), options.suite]), target)
-    harness = session.open_harness(f"optifine-{MINECRAFT}-{variant}", commands, system)
+def run_variant(variant: str, target: Target, release: Path, options: argparse.Namespace, java: Path, system: Windows) -> None:
+    installation = Installation.of_this_user()
     game = WORK / ("game-mods" if options.mods else "game")
-    prepare_game_dir(game, variant, options.mods, options.option)
-    launch = production_client(java, installation, options.forge or installation.forge_jar(), game, harness, options.dump_classes)
-    say("launching hidden")
-    session.play(launch, harness, options.timeout, system, say)
 
+    def launch_of(harness: Path) -> Launch:
+        prepare_game_dir(game, release, variant, options.mods, options.option)
+        return production_client(java, installation, options.forge or installation.forge_jar(), game, harness, options.dump_classes)
+
+    commands = script.compose(script.read_suites([script.scene_of(target), options.suite]), target)
     out = project.ROOT / options.out / variant
-    images = session.collect(harness, out)
+    finished = session.run(variant, f"optifine-{MINECRAFT}-{variant}", commands, launch_of, out, options.timeout, system)
     # Essential saves screenshots later on its own thread, so the harness can move an empty file; the late copy is the full one.
-    for late in (harness / "screenshots").glob("*.png"):
+    for late in (finished.harness / "screenshots").glob("*.png"):
         if late.stat().st_size > 0:
             shutil.copy2(late, out)
-    for log in (launch.log, harness / protocol.LOG):
+    harness_log = finished.harness / protocol.LOG
+    for log in (finished.launch.log, harness_log):
         if log.is_file():
             shutil.copy2(log, out)
-    say(f"{len(images)} screenshots -> {out}")
-    for error in protocol.errors(session.read_text(harness / protocol.LOG).splitlines()):
-        say(error)
+    for error in protocol.errors(files.read_lines(harness_log)):
+        print(f"[{variant}] {error}", flush=True)
 
 
 def main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools optifine", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variants", nargs="+", choices=VARIANTS, default=VARIANTS, metavar="VARIANT")
-    parser.add_argument("--suite", default="shots", help="the suite in tools/harness/suites that runs after the scene (default: shots)")
+    parser.add_argument("--suite", default="shots", help="the suite in tools/harness/suites that runs after the scene (default: %(default)s)")
     parser.add_argument("--out", type=Path, default=Path("build/compat-optifine"), help="the output folder, from the repository root")
     parser.add_argument("--java", type=Path, help="the java.exe of a Java 8 (default: one in the usual folders)")
     parser.add_argument("--mods", type=Path, help='a folder of jars to add, for example the mods of a player; with its own OptiFine jar, use "none"')
@@ -213,7 +197,10 @@ def main(arguments: list[str]) -> int:
     options = parser.parse_args(arguments)
     system = Windows()
     java = options.java or find_java_8()
-    installation = Installation.of_this_user()
+    target = project.find_target(f"forge-{MINECRAFT}")
+    release = target.jar(project.mod_version())
+    if not release.is_file():
+        raise ToolError(f"no {release.name}; run: python -m tools build {target.name}")
     for variant in options.variants:
-        run_variant(variant, options, java, installation, system)
+        run_variant(variant, target, release, options, java, system)
     return 0

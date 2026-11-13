@@ -35,6 +35,7 @@ HANDLER_NAME = re.compile(r"albedo\$[A-Za-z0-9_]*[ \t]*\(")
 CONDITION = re.compile(r"//\?.*(if|elif) ")
 VERSION = re.compile(r"[0-9]+\.[0-9]+(\.[0-9]+)?")
 BOUNDARY_TABLE = "docs/ARCHITECTURE.md"
+NODE_PROPERTIES = project.node_properties_file("*")
 
 
 @dataclass(frozen=True)
@@ -114,10 +115,9 @@ def mixin_handler_names(tree: Tree) -> Iterator[Problem]:
 
 def stonecutter_active_version(tree: Tree) -> Iterator[Problem]:
     """A different active version changes the comment state of each version branch in src/."""
-    file = "modern/stonecutter.gradle"
-    wanted = f"stonecutter.active '{project.vcs_version(tree.text('modern/settings.gradle'))}'"
-    if wanted not in tree.lines(file):
-        yield Problem(file, f"the active version must be the vcsVersion of modern/settings.gradle: {wanted}")
+    wanted = f"stonecutter.active '{project.vcs_version(tree.text(project.SETTINGS))}'"
+    if wanted not in tree.lines(project.STONECUTTER):
+        yield Problem(project.STONECUTTER, f"the active version must be the vcsVersion of {project.SETTINGS}: {wanted}")
 
 
 def condition_versions(tree: Tree) -> Iterator[Problem]:
@@ -126,7 +126,7 @@ def condition_versions(tree: Tree) -> Iterator[Problem]:
     table = tree.text(BOUNDARY_TABLE)
     reported = set()
     for file in tree.files:
-        if not (file.startswith("modern/") and file.endswith(".java")):
+        if not (file.startswith(f"{project.MODERN.name}/") and file.endswith(".java")):
             continue
         for number, line in enumerate(tree.lines(file), 1):
             if not CONDITION.search(line):
@@ -140,23 +140,23 @@ def condition_versions(tree: Tree) -> Iterator[Problem]:
 
 def node_files(tree: Tree) -> Iterator[Problem]:
     """The node folders agree with the lists of modern/settings.gradle."""
-    lists = project.modern_node_lists(tree.text("modern/settings.gradle"))
-    nodes = lists["fabric"]
-    folders = {Path(file).parent.name for file in tree.matching("modern/versions/*/gradle.properties")}
+    all_nodes, *loader_lists = project.modern_node_lists(tree.text(project.SETTINGS)).items()
+    nodes = all_nodes[1]
+    folders = {Path(file).parent.name for file in tree.matching(NODE_PROPERTIES)}
     for node in sorted(folders.symmetric_difference(nodes), key=project.version_key):
-        yield Problem("modern/settings.gradle", f"the node {node} must be in the list nodes and have modern/versions/{node}/gradle.properties")
-    for loader in ("forge", "neoforge"):
-        for node in lists[loader]:
-            file = f"modern/{loader}/versions/{node}/gradle.properties"
+        yield Problem(project.SETTINGS, f"the node {node} must be in the list nodes and have {project.node_properties_file(node)}")
+    for loader, loader_nodes in loader_lists:
+        for node in loader_nodes:
+            file = project.loader_properties_file(loader, node)
             if node not in nodes:
-                yield Problem("modern/settings.gradle", f"the {loader} node {node} is not in the list nodes")
+                yield Problem(project.SETTINGS, f"the {loader} node {node} is not in the list nodes")
             elif file not in tree.files or f"loom.platform={loader}" not in tree.lines(file):
                 yield Problem(file, f"a {loader} node needs this file with loom.platform={loader}")
 
 
 def modrinth_versions(tree: Tree) -> Iterator[Problem]:
     """The game versions that a node lists on Modrinth are in the range of its Fabric jar, which is the widest range of the node."""
-    for file in tree.matching("modern/versions/*/gradle.properties"):
+    for file in tree.matching(NODE_PROPERTIES):
         properties = project.parse_properties(tree.text(file))
         lower, upper = (project.version_key(bound.lstrip("<>=")) for bound in properties["minecraft_range_fabric"].split())
         for key in ("modrinth_versions", "modrinth_versions_fabric"):

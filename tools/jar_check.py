@@ -59,7 +59,7 @@ class Subject:
         return f"JAVA_{min(self.target.java, NEWEST_MIXIN_LEVEL)}"
 
 
-def mixin_config(subject: Subject, config: str, package: str, level: str) -> Iterator[str]:
+def mixin_config(subject: Subject, config: str, package: str) -> Iterator[str]:
     """The config lists each mixin class of its package and no other class, at the Java level of the target."""
     jar = subject.jar
     if config not in jar.names:
@@ -69,23 +69,24 @@ def mixin_config(subject: Subject, config: str, package: str, level: str) -> Ite
     classes = {name.removesuffix(".class") for name in jar.children(package) if "$" not in name}
     if sorted(content.get("client", [])) != sorted(classes):
         yield f"the client list of {config} is not the list of the mixin classes in the jar"
-    if content.get("compatibilityLevel") != level:
-        yield f"the compatibilityLevel of {config} is not {level}"
+    if content.get("compatibilityLevel") != subject.mixin_level:
+        yield f"the compatibilityLevel of {config} is not {subject.mixin_level}"
 
 
 def common_mixins(subject: Subject) -> Iterator[str]:
-    yield from mixin_config(subject, "albedo.mixins.json", "dev/albedo/modern/mixin/", subject.mixin_level)
+    yield from mixin_config(subject, "albedo.mixins.json", "dev/albedo/modern/mixin/")
 
 
 def forge_mixins(subject: Subject) -> Iterator[str]:
-    """A Forge jar of a version with the light pipeline of Forge (below 1.19) also has a config for its own mixins, which the manifest names."""
+    """Only a Forge jar of a version with the light pipeline of Forge (below 1.19, as in modern/forge/build.gradle) has a config for its
+    own mixins, which the manifest names."""
     config = "albedo.forge.mixins.json"
-    needed = subject.target.loader == "forge" and not subject.target.at_least("1.19")
-    if not needed and config not in subject.jar.names:
-        return
-    yield from mixin_config(subject, config, "dev/albedo/forge/mixin/", subject.mixin_level)
-    if config in subject.jar.names and config not in subject.jar.manifest.get("MixinConfigs", ""):
-        yield f"the manifest does not name {config}"
+    if subject.target.loader == "forge" and not subject.target.at_least("1.19"):
+        yield from mixin_config(subject, config, "dev/albedo/forge/mixin/")
+        if config in subject.jar.names and config not in subject.jar.manifest.get("MixinConfigs", ""):
+            yield f"the manifest does not name {config}"
+    elif config in subject.jar.names:
+        yield f"the jar has {config}, which only a Forge jar below 1.19 needs"
 
 
 def no_dev_mixin(subject: Subject) -> Iterator[str]:
@@ -144,7 +145,7 @@ def legacy_metadata(subject: Subject) -> Iterator[str]:
 
 
 def legacy_mixins(subject: Subject) -> Iterator[str]:
-    yield from mixin_config(subject, "mixins.albedo.json", "dev/albedo/legacy/mixin/", "JAVA_8")
+    yield from mixin_config(subject, "mixins.albedo.json", "dev/albedo/legacy/mixin/")
 
 
 Check = Callable[[Subject], Iterable[str]]
@@ -164,7 +165,7 @@ def examine_file(file: Path) -> list[str]:
     except (OSError, zipfile.BadZipFile):
         return ["cannot read the jar"]
     with jar.zip:
-        return examine(Subject(jar, target, {} if target.legacy else target.properties(), project.build_properties()))
+        return examine(Subject(jar, target, target.properties(), project.build_properties()))
 
 
 def jar_files(arguments: list[Path]) -> list[Path]:

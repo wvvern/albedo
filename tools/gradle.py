@@ -1,4 +1,4 @@
-"""How the tools start Gradle in one of the two builds."""
+"""How the tools start Gradle in one of the two builds, and where Gradle keeps its files."""
 
 import os
 import subprocess
@@ -6,6 +6,7 @@ from pathlib import Path
 
 from tools.report import ToolError
 
+CACHES = Path.home() / ".gradle" / "caches"
 # Gradle configures only the projects of the requested tasks, because Loom mixes the mappings of the nodes when one run configures all of them.
 ONE_NODE = "--configure-on-demand"
 

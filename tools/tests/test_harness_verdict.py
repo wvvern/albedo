@@ -141,7 +141,3 @@ class GameRunsTest(unittest.TestCase):
         self.assertFalse(protocol.game_runs([gradle]))
         self.assertTrue(protocol.harness_game(harness, r"C:\Temp\albedo-harness\fabric-26.3"))
         self.assertFalse(protocol.harness_game(harness, r"C:\Temp\albedo-harness\forge-1.8.9"))
-
-
-if __name__ == "__main__":
-    unittest.main()

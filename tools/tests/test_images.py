@@ -38,7 +38,3 @@ class ImagesTest(unittest.TestCase):
         border = self.images.RIM_WIDTH + 2 * self.images.SHADOW_BLUR
         self.assertEqual((40 + 2 * border, 30 + 2 * border), rimmed.size)
         self.assertEqual((255, 255, 255, 255), rimmed.getpixel((border + 20, border + 15)))
-
-
-if __name__ == "__main__":
-    unittest.main()
