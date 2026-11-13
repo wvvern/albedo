@@ -21,7 +21,7 @@ Pushing a tag such as `v1.2.0` makes CI build all 39 jars, create a GitHub relea
 ## CI jobs
 
 - `check`: lint and `:core:check`; on a tag it also extracts the notes, so a missing section stops the release.
-- `modern` (one per node) and `legacy`: build, run `tools/check-jar.sh` or `tools/check-legacy-jar.sh`, upload `jars-<minecraft version>`.
+- `modern` (one per node) and `legacy`: build, run `tools/check-jar.sh` or `tools/check-legacy-jar.sh`, upload `jars-<minecraft version>`. Each builds one node in one Gradle run. Node jobs only read the Gradle cache, because all nodes together exceed the repository's cache limit.
 - `release`: on a tag, checks for 39 jars, adds a build attestation to each, creates the GitHub release.
 - `modrinth`: one upload per loader and jar group. The Fabric upload also lists `quilt` for the rows with `fabric_loaders` in the matrix. If an upload fails, delete the partial version on Modrinth and run `.github/workflows/modrinth.yml`.
 - `modrinth-page`: sets the Modrinth description to `modrinth/DESCRIPTION.md` and replaces the gallery with the images in `modrinth/gallery.txt`. The token needs the scope "Write projects". To run it without a release: `gh workflow run modrinth-page.yml`.

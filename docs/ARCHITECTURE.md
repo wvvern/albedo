@@ -173,7 +173,6 @@ A condition may only use a version from this table (`tools/lint.sh` checks). `to
   - Sodium 0.3 and 0.4 (1.17.1 to 1.19.2) need JOML in the dev run (`joml_version`), because Loom drops the nested jar. Sodium 0.2 on 1.16.5 starts without Fabric API, which the build excludes, because the API of 1.17 would add a second Fabric Loader.
   - Iris works only on Fabric 26.3, 26.2, 26.1, 1.21.11, 1.21.5 and 1.21.4. On 1.21.4 it is Sodium 0.6.13 and Iris 1.8.8, the versions of the owner instances. On the other targets you get only Sodium.
   - Sodium 0.6.13 does not start in the NeoForge 1.21.5 dev run, because it needs the Fabric rendering API.
-  - On 1.20.1, Sodium 0.5.13 (Fabric) and Embeddium 0.3.31 (Forge) have the package `me.jellysquid.mods.sodium`. `SodiumTintRedirectMixin` hooks their `getVertexColors`, as for Sodium 0.5 on 1.20.4 and 1.20.6.
   - The property `lwjgl_version` puts the LWJGL version of the game in the dev run (3.3.1 on 1.20.1, 3.3.2 on 1.20.4, 3.3.3 on 1.20.6), because Sodium 0.5 starts only with that version.
   - NeoForge 1.21.1 gets Sodium 0.6.13, the version of the owner's pack, because its dev run loads the 0.8.13 jar only as a library.
   - NeoForge from 1.20.5 and 26.x get the mod jar with no remap, because a remap drops the jar-in-jar list from which Sodium loads its mod.

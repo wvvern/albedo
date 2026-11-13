@@ -34,7 +34,7 @@ Notes:
 
 ## Renderer mods
 
-Dev runs of `tools/screenshots.ps1 -Compat <mod>` with the profile quake-white (2026-11-11). In every run the grass, leaves and vines have the profile color and the `sodiumTint` counter of the `hooks` line is above 0. Before the hook, the counter was 0 on 1.16.5, 1.19.4 and 1.20.6 and the leaves stayed green. `sodiumWater` is the water hook of Sodium 0.5 and its forks; before it the water stayed blue.
+Dev runs of `tools/screenshots.ps1 -Compat <mod>` with the profile quake-white (2026-11-11). In every run the grass, leaves and vines have the profile color and the `sodiumTint` counter of the `hooks` line is above 0. `sodiumWater` is the water hook of Sodium 0.5 and its forks.
 
 | Loader | Minecraft | Renderer mod | Tint | Water |
 |--------|-----------|--------------|------|-------|

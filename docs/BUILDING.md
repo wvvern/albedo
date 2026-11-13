@@ -10,6 +10,8 @@ cd legacy && ./gradlew build                                                # Fo
 
 Before you push: `./gradlew :core:check` in `modern/` and `bash tools/lint.sh` in the root. See [CODING_STANDARDS.md](CODING_STANDARDS.md).
 
+CI jobs and releases: [RELEASING.md](RELEASING.md).
+
 ## Modern build
 
 - A node is a folder in `modern/versions/`. `modern/settings.gradle` lists them in `nodes` (common and Fabric), `forgeNodes` and `neoforgeNodes`.
@@ -33,10 +35,6 @@ Before you push: `./gradlew :core:check` in `modern/` and `bash tools/lint.sh` i
 2. Add `<v>` to `nodes` and to `forgeNodes` or `neoforgeNodes` in `modern/settings.gradle`, and a row to the `modern` matrix in `.github/workflows/ci.yml`. `tools/lint.sh` checks the row against both.
 3. Build the node. The compile errors show the hooks that moved; fix each with a `//? if` on a boundary from ARCHITECTURE.md, adding a boundary if needed (`tools/boundaries.sh` shows what changed).
 4. Run `tools/screenshots.ps1 -Targets fabric-<v>` and check that `result.txt` starts with `PASS`.
-
-## CI
-
-`.github/workflows/ci.yml` has a `check` job (lint, `:core:check`), one `modern` job per node and one `legacy` job. Each job builds one node in one Gradle run and runs `tools/check-jar.sh` or `tools/check-legacy-jar.sh` on each jar. Node jobs only read the Gradle cache, because all nodes together exceed the repository's cache limit. Releases: [RELEASING.md](RELEASING.md).
 
 ## Game tests (harness)
 
