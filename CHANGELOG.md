@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+- fix: Fill the whole sky while a custom sky turns, in place of a tilted edge with a flat blurry color past it
+- fix: Fill the sky below the horizon in the Dusk and Aurora skies
+- fix: Keep the Dusk and Aurora skies still, as their cards show, also after a sky that turns such as Trails
+
 ## 0.7.0
 
 - feat: Pick a built-in sky from a gallery with an image of each sky, in place of the preset buttons

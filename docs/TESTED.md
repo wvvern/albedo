@@ -27,6 +27,8 @@ Results of the harness suites (`shots`, `sky-sharp`, `chroma`, `typing`, `settin
 
 Notes:
 
+- 0.7.1 changes only the custom sky (`SkyDesign.drawnExtent` and the Dusk and Aurora presets). For it, `sky-turned` passed on Forge 1.8.9 and Fabric 26.3 with `skycompare` the same, and ran on 1.8.9 with OptiFine HD U M6 pre2; the table is still from 0.7.0.
+
 - Vulkan backend: all five suites pass on 26.3 (Fabric and NeoForge). On 26.2, `sky-sharp` and `chroma` pass on both loaders; the other suites were not run on Vulkan.
 - Quilt runs use Quilt Loader 0.30.2 with the node's Fabric release jar (`--loader quilt`). Quilt remaps that jar to the dev game's names, so it was not tested in a game with intermediary names. On 26.x, Quilt Loader does not call the jar's client entry point; Albedo still starts from its first hook during resource loading and everything works, but 26.x is not listed for Quilt because it depends on that fallback.
 - On Quilt 1.18.2, 1.19.4, 1.20.1, 1.21.1, 1.21.11 and 26.3, `sky-sharp` also passed; `chroma` and `typing` were not run on Quilt.
