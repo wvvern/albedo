@@ -1,6 +1,8 @@
-# The copy of typing-modern.txt for 1.8.9, with "ui click" for "ui realclick", because 1.8.9 cannot do "ui realclick".
-# The keys and the typing go through the key messages of the LWJGL 2 window. Run it after scene-legacy.txt:
-# ./tools/screenshots.ps1 -Targets forge-1.8.9 -Shots typing-modern.txt -OutDir build\typing
+# Types into each text field of the settings screen through the keyboard path of the game, as a real keyboard does.
+# Each "ui expect" logs PASS or a line that starts with "!". A "ui" line waits for the next frame, but a key goes in at
+# once, so a "wait" follows each "ui" line that comes before a key. Run it after the scene:
+# python -m tools harness fabric-26.3 forge-1.8.9 --suite typing --out build/typing
+# A legacy target cannot do "ui realclick" and runs "ui click" in its place, and it skips the lines that start with "modern:".
 wait 60
 profile quake-white
 wait 100
@@ -15,7 +17,7 @@ wait 20
 # Texture search: letters, digits, Backspace, the arrow keys, Home, End and Delete.
 ui click Textures
 wait 10
-ui click Search textures
+ui realclick Search textures
 wait 10
 type oak2
 wait 5
@@ -38,14 +40,16 @@ ui expect search xakz
 ui pointer off
 wait 5
 screenshot t01-search
-# Ctrl+A selects all and the next letter replaces it; E is the inventory key and F9 is the settings key of Albedo.
-# F6 and F7 are not here: they are also the vanilla stream keys of 1.8.9, which open a stream screen from each screen.
+# Ctrl+A selects all and the next letter replaces it; E is the inventory key and F6, F7 and F9 are the keys of Albedo.
+# F6 and F7 are also the vanilla stream keys of 1.8.9, which open a stream screen from each screen.
 keydown LEFT_CONTROL
 wait 2
 key A
 wait 2
 keyup LEFT_CONTROL
 type e
+modern: key F6
+modern: key F7
 key F9
 wait 5
 ui expect search e
@@ -73,7 +77,7 @@ wait 20
 # Group patterns: Enter adds the typed pattern and keeps the field for the next one.
 ui click Groups
 wait 10
-ui click + New group
+ui realclick + New group
 wait 10
 type grass_block*
 wait 5
@@ -95,7 +99,7 @@ ui pointer off
 wait 5
 screenshot t02-group-patterns
 # Group name: Ctrl+A, then a new name.
-ui click Group 2
+ui realclick Group 2
 wait 10
 keydown LEFT_CONTROL
 wait 2
@@ -113,7 +117,7 @@ wait 10
 # The hex field of a color.
 ui click Look
 wait 10
-ui click #FFFFFF
+ui realclick #FFFFFF
 wait 10
 keydown LEFT_CONTROL
 wait 2
@@ -130,7 +134,7 @@ key ENTER
 wait 5
 # Profile search, then the name of a copy of the profile, where the name starts selected; the color change made the
 # custom copy of quake-white, and a narrow window shows only its name on the profile button.
-ui click quake-white-custom
+ui realclick quake-white-custom
 wait 10
 type quake
 wait 5
@@ -140,7 +144,7 @@ wait 5
 screenshot t04-profile-search
 key ESCAPE
 wait 10
-ui click Copy
+ui realclick Copy
 wait 10
 type my white
 wait 5
@@ -153,7 +157,7 @@ wait 10
 # Server name.
 ui click Servers
 wait 10
-ui click Server name
+ui realclick Server name
 wait 10
 type hypixel.net
 wait 5

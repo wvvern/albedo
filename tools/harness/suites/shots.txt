@@ -1,5 +1,5 @@
 # One screenshot for each feature on the scene of each version, to find a version where a feature does not work.
-# tools/screenshots.ps1 adds this file after scene-*.txt and writes build/screenshots/<target>/.
+# The harness command adds this file after the scene and writes build/screenshots/<target>/.
 wait 60
 # The harness game must not clip the cursor of the player, in the world and again after the settings screen closes.
 cursorfree

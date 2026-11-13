@@ -1,8 +1,8 @@
 # The images of modrinth/gallery, all with a level camera: a split of an alien planet, the turned Galaxy and quake-black, the
 # star trails, the turning Galaxy, the Nebula, the sky editor, Bevel and Outline, and quake-white with colored mobs and particles:
-# ./tools/screenshots.ps1 -Targets fabric-26.3 -Shots gallery.txt -GuiScale 2 -OutDir build\gallery
-# Then put the three split shots side by side with tools/split.py and frame all images with tools/gallery.py, with the
-# captions in modrinth/gallery.txt. Give the split a rim with tools/rim.py for modrinth/header.png.
+# python -m tools harness fabric-26.3 --suite gallery --gui-scale 2 --out build/gallery
+# Then put the three split shots side by side with "python -m tools image split" and frame all images with "image frame", with the
+# captions in modrinth/gallery.txt. Give the split a rim with "image rim" for modrinth/header.png.
 wait 60
 # 26.3 has no gamerule doMobSpawning, so peaceful keeps monsters off the horizon at night.
 run difficulty peaceful

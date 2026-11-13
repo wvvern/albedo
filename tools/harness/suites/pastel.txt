@@ -1,6 +1,6 @@
 # The built-in pastel profile with its soft Chroma colors: two screenshots 10 s apart, then frames in a row.
 # Run it after the scene, for example before chroma.txt:
-# ./tools/screenshots.ps1 -Targets fabric-26.3,forge-1.8.9 -Extra pastel.txt -Shots chroma.txt -OutDir build\chroma
+# python -m tools harness fabric-26.3 forge-1.8.9 --extra pastel --suite chroma --out build/chroma
 wait 60
 profile pastel
 wait 200

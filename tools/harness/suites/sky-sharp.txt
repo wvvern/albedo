@@ -1,5 +1,5 @@
 # Dusk, the generators of Galaxy and Nebula, the full Galaxy and Nebula with their filters, and each other filter over Dusk, with the Sharp render on and off at a field of view of 30 and 70, each with the GPU sky compared with the CPU bake and the GPU time of the sharp sky. Run it after the scene:
-# ./tools/screenshots.ps1 -Targets fabric-26.3,fabric-1.21.11,fabric-1.21.1,forge-1.8.9 -Shots sky-sharp.txt -OutDir build\sky-sharp
+# python -m tools harness fabric-26.3 fabric-1.21.11 fabric-1.21.1 forge-1.8.9 --suite sky-sharp --out build/sky-sharp
 wait 60
 profile minimal
 run time set 6000

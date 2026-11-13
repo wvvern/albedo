@@ -1,4 +1,4 @@
-# Test scene (superflat: grass at y=-61, player stands at y=-60; tools/screenshots.ps1 moves it up by 64 before 1.18). The script runs this file.
+# Test scene (superflat: grass at y=-61, player stands at y=-60; the harness command moves it up by 64 before 1.18). The command runs this file first.
 # Let the first resource load finish before opening a world.
 wait 200
 world AlbedoTest

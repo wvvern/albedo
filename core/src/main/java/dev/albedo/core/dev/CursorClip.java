@@ -5,7 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +33,7 @@ final class CursorClip {
         return "cursorfree: ok, " + shape;
     }
 
-    /** Parses the output of {@code clip.ps1}: eight numbers, or null when the line is not that. */
+    /** Parses the output of the clip probe: eight numbers, or null when the line is not that. */
     static int[] parse(String output) {
         String[] words = output.trim().split("\\s+");
         if (words.length != 8) return null;
@@ -46,18 +46,16 @@ final class CursorClip {
         return numbers;
     }
 
-    /** Reads the clip with {@code files/clip.ps1} of the harness folder and returns the log line of the check. */
+    /**
+     * Reads the clip with the probe of the harness folder and returns the log line of the check.
+     *
+     * <p>{@code clip-probe.txt} has the command line of the probe, one argument in each line, from the tool that started the game.
+     */
     static String check(File dir) {
         if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows")) return "cursorfree: skipped, not Windows";
-        List<String> command = new ArrayList<>();
-        command.add("powershell.exe");
-        command.add("-NoProfile");
-        command.add("-NonInteractive");
-        command.add("-ExecutionPolicy");
-        command.add("Bypass");
-        command.add("-File");
-        command.add(new File(dir, "files/clip.ps1").getPath());
         try {
+            List<String> command = Files.readAllLines(new File(dir, "clip-probe.txt").toPath(), StandardCharsets.UTF_8);
+            if (command.isEmpty()) return "! cursorfree: clip-probe.txt has no command";
             Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
             process.getOutputStream().close();
             byte[] bytes = readAll(process);

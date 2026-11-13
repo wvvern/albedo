@@ -1,4 +1,4 @@
-# More blocks for renderer mods (Sodium, Embeddium). Use after scene-modern.txt (screenshots.ps1 -Extra scene-compat.txt).
+# More blocks for renderer mods (Sodium, Embeddium). Use after scene-modern.txt (harness --extra scene-compat).
 # Fixed tints: lily pads on the water. Swamp grass: a swamp biome strip at the right side.
 run setblock -6 -60 -4 lily_pad
 run setblock -6 -60 -3 lily_pad
