@@ -159,4 +159,9 @@ public final class Policy {
     public boolean shadows() {
         return profile == null || profile.is(Toggle.SHADOWS);
     }
+
+    /** False when the armor that players wear should not be drawn. */
+    public boolean playerArmor() {
+        return profile == null || profile.is(Toggle.ARMOR);
+    }
 }

@@ -82,12 +82,18 @@ def tp_from_player(line: str) -> str:
     return re.sub(r"^run tp @p ~ ~ ~ ", "run execute as @p at @p run tp @p ~ ~ ~ ", line)
 
 
+def old_replaceitem(line: str) -> str:
+    """1.17 replaces the replaceitem command with item replace."""
+    return re.sub(r"^run item replace entity (\S+) (\S+) with ", r"run replaceitem entity \1 \2 ", line)
+
+
 RULES = (
     Rule(lambda target: target.legacy, legacy_click),
     Rule(lambda target: target.legacy and target.at_least("1.12"), entity_ids_of_1_12),
     Rule(lambda target: not target.legacy and not target.at_least("1.20.3"), old_grass_name),
     Rule(lambda target: not target.legacy and not target.at_least("1.18"), move_scene_up),
     Rule(lambda target: not target.legacy and not target.at_least("1.18"), tp_from_player),
+    Rule(lambda target: not target.legacy and not target.at_least("1.17"), old_replaceitem),
 )
 
 

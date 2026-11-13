@@ -9,7 +9,9 @@ public enum Toggle {
     /** Grass, flowers, ferns, vines and other small plants, hidden through their textures. */
     FOLIAGE("foliage", true),
     /** The round shadows under mobs and players, which the game reads each frame. */
-    SHADOWS("shadows", true);
+    SHADOWS("shadows", true),
+    /** The armor that players wear, which the game reads each frame. */
+    ARMOR("armor", true);
 
     public final String key;
     public final boolean defaultOn;

@@ -260,6 +260,11 @@ public final class ModernHooks {
     }
     *///?}
 
+    /** Whether the armor layer skips an entity: a player, while the profile hides player armor. */
+    public static boolean hideArmor(boolean player) {
+        return player && !Albedo.currentPolicy().playerArmor();
+    }
+
     /** The cloud option that the renderer reads in this frame, which is off while the profile hides the clouds. */
     public static net.minecraft.client.CloudStatus cloudStatus(net.minecraft.client.CloudStatus option) {
         CLOUDS.run();

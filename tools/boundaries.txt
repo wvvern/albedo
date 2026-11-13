@@ -160,6 +160,12 @@ net.minecraft.client.renderer.entity.EntityRenderDispatcher#render>OptionInstanc
 net.minecraft.client.renderer.entity.EntityRenderer#extractShadow
 net.minecraft.client.renderer.entity.EntityRenderer#extractShadow>OptionInstance.get:
 
+# Player armor
+net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer#render
+net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer#submit
+net.minecraft.client.renderer.entity.state.PlayerRenderState
+net.minecraft.client.renderer.entity.state.EntityRenderState#entityType
+
 # Settings screen and input
 net.minecraft.client.gui.GuiComponent
 net.minecraft.client.gui.GuiGraphics

@@ -59,6 +59,12 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(["run execute as @p at @p run tp @p ~ ~ ~ 90 0"], compose(["run tp @p ~ ~ ~ 90 0"], BEFORE_NEW_GROUND))
         self.assertEqual(["run tp @p ~ ~ ~ 90 0"], compose(["run tp @p ~ ~ ~ 90 0"], NEWEST))
 
+    def test_item_replace_is_replaceitem_before_1_17(self):
+        line = "run item replace entity @p armor.chest with minecraft:diamond_chestplate"
+        old = Target("fabric", "1.16.5", "1.16.5", 8, legacy=False)
+        self.assertEqual(["run replaceitem entity @p armor.chest minecraft:diamond_chestplate"], compose([line], old))
+        self.assertEqual([line], compose([line], BEFORE_NEW_GROUND))
+
     def test_1_12_names_an_entity_by_its_id_and_has_no_achievements(self):
         lines = ["run achievement give * @p", "run summon Sheep 2 4 -3", "run kill @e[type=!Player]"]
         self.assertEqual(["run summon minecraft:sheep 2 4 -3", "run kill @e[type=!player]"], compose(lines, LEGACY_1_12))

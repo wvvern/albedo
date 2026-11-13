@@ -207,6 +207,29 @@ class CoreTest {
     }
 
     @Test
+    void playerArmorToggle() {
+        // A file from before the toggle has no "armor" key, so armor stays shown, in every built-in profile too.
+        Config old = ConfigCodec.decode("{ \"activeProfile\": \"Mine\", \"profiles\": { \"Mine\": { \"shadows\": false } } }");
+        assertTrue(old.activeProfile().is(Toggle.ARMOR));
+        assertTrue(Policy.of(old).playerArmor());
+        for (Profile p : Config.defaults().profiles().values()) assertTrue(p.is(Toggle.ARMOR), p.name());
+        assertFalse(ConfigCodec.encode(old).contains("\"armor\""), "a default toggle is not written");
+
+        Config hidden = old.withProfile(old.activeProfile().with(Toggle.ARMOR, false));
+        assertFalse(Policy.of(hidden).playerArmor());
+        assertTrue(ConfigCodec.encode(hidden).contains("\"armor\": false"));
+        Config again = ConfigCodec.decode(ConfigCodec.encode(hidden));
+        assertEquals(hidden, again);
+        assertFalse(again.activeProfile().is(Toggle.ARMOR));
+        assertFalse(again.activeProfile().is(Toggle.SHADOWS), "the other toggles keep their values");
+
+        assertTrue(Policy.of(hidden.withEnabled(false)).playerArmor(), "with the mod off, armor shows");
+        assertTrue(Policy.DISABLED.playerArmor());
+        assertTrue(Policy.of(old).sameTextures(Policy.of(hidden)), "armor does not change textures");
+        assertSame(Toggle.ARMOR, Toggle.byKey("armor"));
+    }
+
+    @Test
     void groupsWhitelistAndBlacklist() {
         Appearance white = Appearance.solid(0xFFFFFFFF);
         Rule keep = new Rule("Ores", Collections.singletonList("*_ore"), Appearance.ORIGINAL, false);

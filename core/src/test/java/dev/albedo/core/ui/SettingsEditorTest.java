@@ -747,15 +747,17 @@ class SettingsEditorTest {
         click(editor, canvas, "Shading");
         click(editor, canvas, "Foliage");
         click(editor, canvas, "Entity shadows");
+        click(editor, canvas, "Player armor");
         click(editor, canvas, "Done");
         Profile p = sc.config().activeProfile();
         CategorySettings blocks = p.get(Category.BLOCKS);
         assertTrue(blocks.lookOf(blocks.ruleFor("minecraft:stone")).isOriginal());
-        // quake presets start with fullbright, shading and shadows on and foliage hidden; each click flips one
+        // quake presets start with fullbright, shading, shadows and armor on and foliage hidden; each click flips one
         assertFalse(p.is(Toggle.FULLBRIGHT));
         assertFalse(p.is(Toggle.SHADING));
         assertTrue(p.is(Toggle.FOLIAGE));
         assertFalse(p.is(Toggle.SHADOWS));
+        assertFalse(p.is(Toggle.ARMOR));
     }
 
     @Test

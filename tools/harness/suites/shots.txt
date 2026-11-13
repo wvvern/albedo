@@ -34,6 +34,23 @@ screenshot 06-settings
 settings close
 wait 10
 cursorfree
+# Player armor off hides the armor that the player wears: the third-person view from behind has the player in the middle.
+modern: run item replace entity @p armor.head with minecraft:diamond_helmet
+modern: run item replace entity @p armor.chest with minecraft:diamond_chestplate
+legacy: run replaceitem entity @p slot.armor.head minecraft:diamond_helmet
+legacy: run replaceitem entity @p slot.armor.chest minecraft:diamond_chestplate
+key F5
+wait 40
+screenshot 07-player-armor
+keepframe
+armor off
+wait 10
+framechanged armor
+screenshot 08-player-armor-hidden
+armor on
+key F5
+key F5
+wait 10
 # Pastel water must hide the floor under it: the middle of the frame changes when the water goes, with the Chroma colors held.
 profile pastel
 skyclock 0
