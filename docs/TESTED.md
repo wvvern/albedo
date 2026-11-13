@@ -28,6 +28,7 @@ Results of the harness suites (`shots`, `sky-sharp`, `chroma`, `typing`, `settin
 Notes:
 
 - 0.7.1 changes only the custom sky (`SkyDesign.drawnExtent` and the Dusk and Aurora presets). For it, `sky-turned` passed on Forge 1.8.9 and Fabric 26.3 with `skycompare` the same, and ran on 1.8.9 with OptiFine HD U M6 pre2.
+- 0.7.2 adds Player armor and changes the settings screen (Chroma Speed, Servers page). The core tests pass. `shots` with the armor check passed on Fabric and Forge 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1 and 1.20.4, NeoForge 1.20.4 and Forge 1.8.9. Mobs keep their armor on Fabric 26.3, 1.21.8 and 1.20.1 and on Forge 1.16.5 and 1.8.9.
 
 - Vulkan backend: all five suites pass on 26.3 (Fabric and NeoForge). On 26.2, `sky-sharp` and `chroma` pass on both loaders.
 - Quilt runs use Quilt Loader 0.30.2 with the node's Fabric release jar (`--loader quilt`). On 26.x, Quilt Loader does not call the jar's client entry point; Albedo still starts from its first hook during resource loading and everything works, but 26.x is not listed for Quilt because it depends on that fallback.

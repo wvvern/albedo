@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.2
+
+- feat: Add Player armor on the World page, which hides the armor that players wear
+- fix: Pick each server's profile or Albedo off from one list, so a server set to off can get a profile again
+- fix: Show the Chroma Speed slider only where the colors can move, not for mobs and players
+- fix: Keep the Chroma colors of armor trims on mobs still, like the rest of the mob
+
 ## 0.7.1
 
 - fix: Fill the whole sky while a custom sky turns, in place of a tilted edge with a flat blurry color past it
