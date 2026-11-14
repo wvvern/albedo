@@ -310,7 +310,7 @@ vec3 albedoSpikes(vec3 s, vec3 d, float flux, float maxFlux, float spikes, float
     return light;
 }
 
-// SkyGenerator.wave: a sine wave from -1 to 1 at a frequency in hertz and a phase in turns.
+// SkyMath.wave: a sine wave from -1 to 1 at a frequency in hertz and a phase in turns.
 float albedoWave(float hertz, float phase, float time) {
     return sin(2.0 * ALBEDO_PI * fract(hertz * time + phase));
 }
@@ -568,7 +568,7 @@ vec4 albedoFractal(int layer, vec3 p, vec4 field, int flags) {
     return c;
 }
 
-// The numbers of the galaxy of SkyGenerator, in galaxy units where 1 is about the radius of the disc.
+// The numbers of Galaxy, in galaxy units where 1 is about the radius of the disc.
 const float ALBEDO_GALAXY_REACH = 3.0;
 const float ALBEDO_GALAXY_JET_LENGTH = 1.4;
 const float ALBEDO_GALAXY_KNOT_CELL = 0.05;
@@ -581,7 +581,7 @@ const vec3 ALBEDO_GALAXY_NUCLEUS = vec3(1.0, 0.9047, 0.7913);
 // The light of the large halo of old stars, and the distance between the rings of a lobe for each unit of the length of its jet.
 const float ALBEDO_GALAXY_HALO = 0.4;
 const float ALBEDO_GALAXY_LOBE_RING = 0.16;
-// The numbers of the detail of the galaxy of SkyGenerator: the radius of the circle of noise of the dust threads, the grid cells of
+// The numbers of the detail of Galaxy: the radius of the circle of noise of the dust threads, the grid cells of
 // the gas regions and of the clusters, and the radius of the circle that a line of moving noise goes around.
 const float ALBEDO_GALAXY_DUST_THREADS = 1.3;
 const float ALBEDO_GALAXY_GAS_CELL = 0.1;
@@ -606,23 +606,23 @@ const float ALBEDO_GALAXY_STREAM_TURN = 0.6;
 const float ALBEDO_GALAXY_STREAM_HEAD = 3.6;
 const float ALBEDO_GALAXY_STREAM_LONG = 1.8;
 
-// A bell curve of height 1 at 0.
+// SkyMath.gauss: a bell curve of height 1 at 0.
 float albedoGauss(float v) {
     return exp(-v * v);
 }
 
-// SkyGenerator.turns: the turns at a time of a motion that makes a whole number of turns in the hour of the sky clock.
+// Galaxy.turns: the turns at a time of a motion that makes a whole number of turns in the hour of the sky clock.
 float albedoTurns(float perHour, float motion, float time) {
     return floor(perHour * motion + 0.5) * time / 3600.0;
 }
 
-// SkyGenerator.loop: noise along a line at u that goes around a circle, where one turn moves it once around, so that it comes back to its start.
+// Galaxy.loop: noise along a line at u that goes around a circle, where one turn moves it once around, so that it comes back to its start.
 float albedoLoop(float u, float turns, float lane, int seed) {
     float a = u / ALBEDO_GALAXY_LOOP - 2.0 * ALBEDO_PI * fract(turns);
     return albedoNoise(vec3(ALBEDO_GALAXY_LOOP * cos(a), ALBEDO_GALAXY_LOOP * sin(a), lane), seed);
 }
 
-// SkyGenerator.clusters: the globular clusters of a galaxy, small soft points around its halo, more of them near the bulge.
+// Galaxy.clusters: the globular clusters of a galaxy, small soft points around its halo, more of them near the bulge.
 vec3 albedoGalaxyClusters(float x, float y, float fp, float detail, int seed) {
     if (fp >= 0.5 * ALBEDO_GALAXY_CLUSTER_CELL) return vec3(0.0);
     vec2 g = vec2(x, y) / ALBEDO_GALAXY_CLUSTER_CELL;
@@ -644,7 +644,7 @@ vec3 albedoGalaxyClusters(float x, float y, float fp, float detail, int seed) {
     return sum * ALBEDO_GALAXY_NUCLEUS;
 }
 
-// SkyGenerator.stream: a stream of stars on part of a loop around a galaxy, wider and fainter behind the dwarf galaxy that it comes from.
+// Galaxy.stream: a stream of stars on part of a loop around a galaxy, wider and fainter behind the dwarf galaxy that it comes from.
 vec3 albedoGalaxyStream(float x, float y, float fp, float detail, int seed, vec3 color2) {
     float c = cos(ALBEDO_GALAXY_STREAM_TURN), s = sin(ALBEDO_GALAXY_STREAM_TURN);
     float ux = (c * x + s * y) / ALBEDO_GALAXY_STREAM_LONG, uy = -s * x + c * y;
@@ -662,7 +662,7 @@ vec3 albedoGalaxyStream(float x, float y, float fp, float detail, int seed, vec3
     return stream * ALBEDO_GALAXY_STREAM + dwarf * color2;
 }
 
-// SkyGenerator.supernova: the one new star that explodes in the disc in each slot of time, with a fast rise and a slow fall.
+// Galaxy.supernova: the one new star that explodes in the disc in each slot of time, with a fast rise and a slow fall.
 vec3 albedoGalaxySupernova(float x, float y, float qs, float fp, float motion, float time, int seed) {
     float slots = floor(8.0 + 72.0 * motion + 0.5), period = 3600.0 / slots;
     float slot = min(slots - 1.0, floor(time / period)), age = time - slot * period;
@@ -676,7 +676,7 @@ vec3 albedoGalaxySupernova(float x, float y, float qs, float fp, float motion, f
     return 2.5 * rise * (0.006 / wide) * (0.006 / wide) * (exp(-d2) + 0.04 / (1.0 + d2 / 9.0)) * ALBEDO_GALAXY_SUPERNOVA;
 }
 
-// An active galaxy at the layer center, modeled on Centaurus A and Hercules A, with a COLOR_2 bulge in a halo, COLOR_1 arms at TILT, dust and COLOR_3 jets,
+// Galaxy.sample: an active galaxy at the layer center, modeled on Centaurus A and Hercules A, with a COLOR_2 bulge in a halo, COLOR_1 arms at TILT, dust and COLOR_3 jets,
 // where DETAIL adds the fine parts and MOTION moves the jets, the nucleus and the lobes with the time.
 vec4 albedoGalaxy(int layer, vec3 p, float footprint, int flags) {
     float zz = -p.z;

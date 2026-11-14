@@ -16,7 +16,7 @@ final class SkyMath {
         return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 
-    /** A bell curve of height 1 at 0. */
+    /** A bell curve of height 1 at 0, the same as {@code albedoGauss} in the sky shader. */
     static float gauss(float v) {
         return (float) Math.exp(-v * v);
     }

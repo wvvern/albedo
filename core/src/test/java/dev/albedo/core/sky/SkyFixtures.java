@@ -26,6 +26,12 @@ final class SkyFixtures {
         return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
     }
 
+    /** A sharp sky to the horizon with the layers, the sun and the moon, a fixed light and no turn. */
+    static SkyDesign horizon(SkyLayer... layers) {
+        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON,
+                SkyDesign.Render.SHARP, SkyTurning.STILL);
+    }
+
     /** One layer with no sun or moon and a fixed light. */
     static SkyDesign single(SkyLayer layer, SkyDesign.Extent extent) {
         return new SkyDesign(Collections.singletonList(layer), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, extent);

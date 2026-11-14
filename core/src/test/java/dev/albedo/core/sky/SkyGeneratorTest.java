@@ -7,7 +7,6 @@ import dev.albedo.core.config.SkyTurning;
 import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -17,19 +16,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class SkyGeneratorTest {
     private static final int W = 128, H = 32;
 
-    private static SkyDesign of(SkyLayer... layers) {
-        return new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.SHOW, SkyDesign.Light.FIXED, SkyDesign.Extent.HORIZON,
-                SkyDesign.Render.SHARP, SkyTurning.STILL);
-    }
-
-    private static SkyLayer layer(int id, SkyLayer.Kind kind) {
-        return SkyLayer.of(id, kind);
-    }
-
     @Test
     void theSameDesignGivesTheSamePixelsAndASeedChangesThem() {
-        SkyDesign a = of(layer(1, SkyLayer.Kind.NOISE));
-        SkyDesign b = of(layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.SEED, 2));
+        SkyDesign a = horizon(SkyLayer.of(1, SkyLayer.Kind.NOISE));
+        SkyDesign b = horizon(SkyLayer.of(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.SEED, 2));
         assertArrayEquals(SkyGenerator.bake(a, W, H).argb(), SkyGenerator.bake(a, W, H).argb());
         assertFalse(Arrays.equals(SkyGenerator.bake(a, W, H).argb(), SkyGenerator.bake(b, W, H).argb()));
     }
@@ -97,7 +87,7 @@ class SkyGeneratorTest {
 
     @Test
     void noSeamWhereTheImageWrapsAndNoPinchAtTheZenith() {
-        int[] px = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.NOISE).withTransform(new Transform(0, 0, 0, 400))), W, H).argb();
+        int[] px = SkyGenerator.bake(horizon(SkyLayer.of(1, SkyLayer.Kind.NOISE).withTransform(new Transform(0, 0, 0, 400))), W, H).argb();
         for (int y = 0; y < H; y++) {
             assertTrue(Math.abs(red(px[y * W]) - red(px[y * W + W - 1])) < 24, "row " + y);
         }
@@ -111,7 +101,7 @@ class SkyGeneratorTest {
 
     @Test
     void theGradientRunsFromTheLowColorAtTheHorizonToTheHighColorAtTheZenith() {
-        SkyImage img = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.GRADIENT)), W, H);
+        SkyImage img = SkyGenerator.bake(horizon(SkyLayer.of(1, SkyLayer.Kind.GRADIENT)), W, H);
         int top = img.argb()[W / 2], bottom = img.argb()[(H - 1) * W + W / 2];
         assertTrue(Math.abs(red(top) - 0x0B) <= 3, Integer.toHexString(top));
         assertTrue(red(bottom) > 0xB0, Integer.toHexString(bottom));
@@ -122,9 +112,9 @@ class SkyGeneratorTest {
 
     @Test
     void theSkyFromThreeDegreesBelowTheHorizonHasTheFogColorOfItsDirection() {
-        SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
+        SkyLayer noise = SkyLayer.of(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 64;
-        SkyImage img = SkyGenerator.bake(of(noise), w, h);
+        SkyImage img = SkyGenerator.bake(horizon(noise), w, h);
         for (int y = row(-3, h) + 1; y < h; y++) {
             for (int x = 0; x < w; x += 7) {
                 float[] fog = img.fogRgb(SkyTurn.STILL, (float) ((x + 0.5) / w * 360 - 180), 1);
@@ -134,148 +124,10 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void galaxyDustTakesAwayLightAndJetsAddLightAlongTheAxis() {
-        int w = 512, h = 256;
-        // A tilted disc in the north, 30 degrees up, with its axis vertical.
-        SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200)).withParam(SkyLayer.Param.TILT, 60);
-        SkyLayer clean = galaxy.withParam(SkyLayer.Param.DUST, 0).withParam(SkyLayer.Param.JETS, 0);
-        int[] plain = SkyGenerator.bake(of(clean), w, h).argb();
-        int[] dusty = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.DUST, 100)), w, h).argb();
-        int[] jets = SkyGenerator.bake(of(clean.withParam(SkyLayer.Param.JETS, 100)), w, h).argb();
-        long lightPlain = 0, lightDusty = 0;
-        int darkest = 0;
-        for (int i = 0; i < plain.length; i++) {
-            assertTrue(red(dusty[i]) <= red(plain[i]) + 1, "dust only absorbs, pixel " + i);
-            darkest = Math.max(darkest, red(plain[i]) - red(dusty[i]));
-            if (red(plain[i]) < 40) continue;
-            lightPlain += red(plain[i]);
-            lightDusty += red(dusty[i]);
-        }
-        assertTrue(lightDusty < lightPlain * 0.97, "the dust takes light from the galaxy: " + lightDusty + " of " + lightPlain);
-        assertTrue(darkest > 40, "the dust lanes are dark: " + darkest);
-        // On the axis, 20 degrees over the center, the jet adds light, where the jet bends a little.
-        int y = row(50, h), added = 0;
-        for (int dx = -4; dx <= 4; dx++) {
-            int i = y * w + Math.floorMod(dx, w);
-            added = Math.max(added, blue(jets[i]) - blue(plain[i]));
-        }
-        assertTrue(added > 20, "the jet adds " + added);
-    }
-
-    @Test
-    void aGalaxyWithNoDetailAndNoMotionKeepsThePixelsOfASkyFromBeforeThem() {
-        SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200));
-        assertEquals(0, galaxy.param(SkyLayer.Param.DETAIL) + galaxy.param(SkyLayer.Param.MOTION), "a new galaxy is plain and still");
-        assertEquals(-1082905965, Arrays.hashCode(SkyGenerator.bake(design(galaxy), 512, 256).argb()));
-    }
-
-    @Test
-    void galaxyDetailAddsItsPartsAndItsDustStillOnlyAbsorbs() {
-        int w = 512, h = 256;
-        SkyLayer plain = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200)).withParam(SkyLayer.Param.TILT, 60)
-                .withParam(SkyLayer.Param.JETS, 0);
-        SkyLayer fine = plain.withParam(SkyLayer.Param.DETAIL, 100);
-        int[] before = SkyGenerator.bake(of(plain), w, h).argb(), after = SkyGenerator.bake(of(fine), w, h).argb();
-        int changed = 0;
-        for (int i = 0; i < before.length; i++) if (Math.abs(red(before[i]) - red(after[i])) > 2) changed++;
-        assertTrue(changed > 1500, "the detail changes the disc and the halo: " + changed + " pixels");
-        int[] clean = SkyGenerator.bake(of(fine.withParam(SkyLayer.Param.DUST, 0)), w, h).argb();
-        int[] dusty = SkyGenerator.bake(of(fine.withParam(SkyLayer.Param.DUST, 100)), w, h).argb();
-        for (int i = 0; i < clean.length; i++) {
-            assertTrue(red(dusty[i]) <= red(clean[i]) + 1, "the dust gives back less red light than it takes, pixel " + i);
-            assertTrue(blue(dusty[i]) <= blue(clean[i]) + 1, "and less blue light, pixel " + i);
-        }
-    }
-
-    /** The linear light of a galaxy layer at a point of its image plane in galaxy units, at a time of the sky clock. */
-    private static float[] galaxyLight(SkyLayer galaxy, float x, float y, float time, float texel) {
-        SkyGenerator.Layer l = new SkyGenerator.Layer(galaxy, program(design(galaxy)).block(), 0);
-        float size = 0.22f * galaxy.transform().scale() / 100f;
-        float px = x * size, py = y * size, len = (float) Math.sqrt(px * px + py * py + 1);
-        float[] out = new float[4];
-        SkyGenerator.galaxy(l, new float[] {px / len, py / len, -1 / len}, texel, time, out);
-        return new float[] {out[0] * out[3], out[1] * out[3], out[2] * out[3]};
-    }
-
-    private static float[] galaxyLight(SkyLayer galaxy, float x, float y, float time) {
-        return galaxyLight(galaxy, x, y, time, 0.0005f);
-    }
-
-    @Test
-    void aGalaxyMovesOnlyWithMotionAndComesBackToItsStartInTheHourOfTheSkyClock() {
-        SkyLayer still = layer(1, SkyLayer.Kind.GALAXY).withTransform(Transform.IDENTITY).withParam(SkyLayer.Param.DETAIL, 70);
-        SkyLayer moving = still.withParam(SkyLayer.Param.MOTION, 60);
-        float most = 0, wrap = 0;
-        // Points along the near jet and through the nucleus.
-        for (int i = 0; i <= 60; i++) {
-            float y = 0.02f * i;
-            assertArrayEquals(galaxyLight(still, 0.01f, y, 0), galaxyLight(still, 0.01f, y, 1234), 0f, "a still galaxy at " + y);
-            float[] start = galaxyLight(moving, 0.01f, y, 0), later = galaxyLight(moving, 0.01f, y, 7), hour = galaxyLight(moving, 0.01f, y, 3600);
-            for (int c = 0; c < 3; c++) {
-                most = Math.max(most, Math.abs(later[c] - start[c]));
-                wrap = Math.max(wrap, Math.abs(hour[c] - start[c]));
-            }
-        }
-        assertTrue(most > 0.02f, "the jet and the nucleus change in 7 seconds: " + most);
-        assertTrue(wrap < 2e-3f, "the galaxy at the end of the hour is the galaxy at its start: " + wrap);
-    }
-
-    @Test
-    void aNewStarExplodesInTheDiscOfAMovingGalaxyAndIsGoneBeforeTheNext() {
-        SkyLayer moving = layer(1, SkyLayer.Kind.GALAXY).withTransform(Transform.IDENTITY).withParam(SkyLayer.Param.JETS, 0)
-                .withParam(SkyLayer.Param.MOTION, 100);
-        // 80 slots of 45 seconds in the hour at a motion of 100, and wide pixels, so that the grid of points finds the star.
-        float most = 0, gone = 0, texel = 0.004f;
-        for (int i = -40; i <= 40; i++) {
-            for (int j = -18; j <= 18; j++) {
-                float x = 0.025f * i, y = 0.025f * j;
-                float base = galaxyLight(moving, x, y, 0, texel)[2];
-                most = Math.max(most, galaxyLight(moving, x, y, 0.6f, texel)[2] - base);
-                // The nucleus flickers, so the points near it change with the time also with no new star.
-                if (x * x + y * y > 0.09f) gone = Math.max(gone, Math.abs(galaxyLight(moving, x, y, 44.9f, texel)[2] - base));
-            }
-        }
-        assertTrue(most > 0.05f, "a new star shows in the first second of its slot: " + most);
-        assertTrue(gone < 2e-3f, "and no light of it is left at the end of the slot: " + gone);
-    }
-
-    @Test
-    void theShaderHasTheSameGalaxyNumbers() throws IOException {
-        String glsl = skyLayersSource();
-        String[] numbers = {
-            "float ALBEDO_GALAXY_REACH = " + SkyGenerator.GALAXY_REACH,
-            "float ALBEDO_GALAXY_JET_LENGTH = " + SkyGenerator.JET_LENGTH,
-            "float ALBEDO_GALAXY_KNOT_CELL = " + SkyGenerator.KNOT_CELL,
-            "vec3 ALBEDO_GALAXY_DUST_REDDENING = " + vec3(SkyGenerator.DUST_REDDENING),
-            "vec3 ALBEDO_GALAXY_HALPHA = " + vec3(SkyGenerator.HALPHA),
-            "vec3 ALBEDO_GALAXY_LOBE = " + vec3(SkyGenerator.LOBE),
-            "vec3 ALBEDO_GALAXY_NUCLEUS = " + vec3(SkyGenerator.NUCLEUS),
-            "float ALBEDO_GALAXY_DUST_THREADS = " + SkyGenerator.DUST_THREADS,
-            "float ALBEDO_GALAXY_GAS_CELL = " + SkyGenerator.GAS_CELL,
-            "float ALBEDO_GALAXY_CLUSTER_CELL = " + SkyGenerator.CLUSTER_CELL,
-            "float ALBEDO_GALAXY_LOOP = " + SkyGenerator.LOOP,
-            "vec3 ALBEDO_GALAXY_JET_END = " + vec3(SkyGenerator.JET_END),
-            "vec3 ALBEDO_GALAXY_LOBE_RIM = " + vec3(SkyGenerator.LOBE_RIM),
-            "vec3 ALBEDO_GALAXY_HOT_SPOT = " + vec3(SkyGenerator.HOT_SPOT),
-            "vec3 ALBEDO_GALAXY_BOW_SHOCK = " + vec3(SkyGenerator.BOW_SHOCK),
-            "vec3 ALBEDO_GALAXY_ION_CONE = " + vec3(SkyGenerator.ION_CONE),
-            "vec3 ALBEDO_GALAXY_GAS_CORE = " + vec3(SkyGenerator.GAS_CORE),
-            "vec3 ALBEDO_GALAXY_BULGE_CORE = " + vec3(SkyGenerator.BULGE_CORE),
-            "vec3 ALBEDO_GALAXY_BULGE_EDGE = " + vec3(SkyGenerator.BULGE_EDGE),
-            "vec3 ALBEDO_GALAXY_DUST_GLOW = " + vec3(SkyGenerator.DUST_GLOW),
-            "vec3 ALBEDO_GALAXY_STREAM = " + vec3(SkyGenerator.STREAM),
-            "vec3 ALBEDO_GALAXY_SUPERNOVA = " + vec3(SkyGenerator.SUPERNOVA),
-            "float ALBEDO_GALAXY_STREAM_TURN = " + SkyGenerator.STREAM_TURN,
-            "float ALBEDO_GALAXY_STREAM_HEAD = " + SkyGenerator.STREAM_HEAD,
-            "float ALBEDO_GALAXY_STREAM_LONG = " + SkyGenerator.STREAM_LONG};
-        for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
-    }
-
-    @Test
     void aStarHasTheSameSizeAtEachCount() {
         int w = 1024, h = 512;
-        int few = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
-        int many = lit(SkyGenerator.bake(of(layer(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
+        int few = lit(SkyGenerator.bake(horizon(SkyLayer.of(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 20)), w, h));
+        int many = lit(SkyGenerator.bake(horizon(SkyLayer.of(1, SkyLayer.Kind.STARS).withParam(SkyLayer.Param.AMOUNT, 80)), w, h));
         // The chance that a cell has a star is (0.2 + 0.8 * count) squared, about 5.4 times more at 80 than at 20, and the star size stays.
         float ratio = many / (float) few;
         assertTrue(ratio > 3.5f && ratio < 8f, "lit pixels " + few + " and " + many);
@@ -300,19 +152,19 @@ class SkyGeneratorTest {
 
     @Test
     void aBlurOfOneColorChangesNothing() {
-        SkyLayer flat = layer(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
-        SkyLayer blur = layer(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100);
+        SkyLayer flat = SkyLayer.of(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
+        SkyLayer blur = SkyLayer.of(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100);
         for (SkyDesign.Extent e : SkyDesign.Extent.values()) {
-            int[] plain = SkyGenerator.bake(of(flat).withExtent(e), W, H).argb();
-            int[] blurred = SkyGenerator.bake(of(flat, blur).withExtent(e), W, H).argb();
+            int[] plain = SkyGenerator.bake(horizon(flat).withExtent(e), W, H).argb();
+            int[] blurred = SkyGenerator.bake(horizon(flat, blur).withExtent(e), W, H).argb();
             for (int i = 0; i < plain.length; i++) assertTrue(Math.abs(red(plain[i]) - red(blurred[i])) <= 1, e + " pixel " + i);
         }
     }
 
     @Test
     void filtersAtTheHorizonDoNotReadTheRowsThatTheLayersLeaveEmpty() {
-        SkyLayer flat = layer(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
-        SkyDesign d = of(flat, layer(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100), layer(3, SkyLayer.Kind.BLOOM));
+        SkyLayer flat = SkyLayer.of(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_2, 0xFFF08A4B);
+        SkyDesign d = horizon(flat, SkyLayer.of(2, SkyLayer.Kind.BLUR).withParam(SkyLayer.Param.AMOUNT, 100), SkyLayer.of(3, SkyLayer.Kind.BLOOM));
         int w = 64, h = 512;
         int[] px = SkyGenerator.bake(d, w, h).argb();
         int high = row(45, h);
@@ -323,10 +175,10 @@ class SkyGeneratorTest {
 
     @Test
     void aFullSphereHasTheLayersAtAndBelowTheHorizon() {
-        SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
+        SkyLayer noise = SkyLayer.of(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100).withTransform(new Transform(0, 0, 0, 40));
         int w = 256, h = 1024;
-        SkyImage horizon = SkyGenerator.bake(of(noise), w, h);
-        SkyImage sphere = SkyGenerator.bake(of(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
+        SkyImage horizon = SkyGenerator.bake(horizon(noise), w, h);
+        SkyImage sphere = SkyGenerator.bake(horizon(noise).withExtent(SkyDesign.Extent.SPHERE), w, h);
         int low = row(-45, h);
         for (int x = 0; x < w; x++) {
             float[] fog = horizon.fogRgb(SkyTurn.STILL, (float) ((x + 0.5) / w * 360 - 180), 1);
@@ -352,17 +204,17 @@ class SkyGeneratorTest {
 
     @Test
     void aMaskShowsALayerOnlyWhereTheMaskLayerIsLight() {
-        SkyLayer black = layer(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_1, 0xFF000000)
+        SkyLayer black = SkyLayer.of(1, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_1, 0xFF000000)
                 .withParam(SkyLayer.Param.COLOR_2, 0xFF000000);
-        SkyLayer mask = layer(2, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.COLOR_1, 0xFF000000)
+        SkyLayer mask = SkyLayer.of(2, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.COLOR_1, 0xFF000000)
                 .withParam(SkyLayer.Param.COLOR_2, 0xFFFFFFFF).withParam(SkyLayer.Param.AMOUNT, 100).withOutput(SkyLayer.Output.MASK_ONLY);
-        SkyLayer white = layer(3, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_1, 0xFFFFFFFF)
+        SkyLayer white = SkyLayer.of(3, SkyLayer.Kind.GRADIENT).withParam(SkyLayer.Param.COLOR_1, 0xFFFFFFFF)
                 .withParam(SkyLayer.Param.COLOR_2, 0xFFFFFFFF);
-        int[] none = SkyGenerator.bake(of(black, mask), W, H).argb();
+        int[] none = SkyGenerator.bake(horizon(black, mask), W, H).argb();
         for (int p : none) assertEquals(0, red(p), "a mask layer does not show");
-        int[] light = SkyGenerator.bake(of(black, mask, white.withMask(SkyMask.of(2, SkyMask.Mode.LIGHT))), W, H).argb();
-        int[] dark = SkyGenerator.bake(of(black, mask, white.withMask(SkyMask.of(2, SkyMask.Mode.DARK))), W, H).argb();
-        int[] all = SkyGenerator.bake(of(black, mask, white), W, H).argb();
+        int[] light = SkyGenerator.bake(horizon(black, mask, white.withMask(SkyMask.of(2, SkyMask.Mode.LIGHT))), W, H).argb();
+        int[] dark = SkyGenerator.bake(horizon(black, mask, white.withMask(SkyMask.of(2, SkyMask.Mode.DARK))), W, H).argb();
+        int[] all = SkyGenerator.bake(horizon(black, mask, white), W, H).argb();
         int varied = 0;
         for (int i = 0; i < light.length; i++) {
             assertEquals(255, red(all[i]));
@@ -376,7 +228,7 @@ class SkyGeneratorTest {
     @Test
     void everyKindBakesAndAnEmptySkyIsBlack() {
         for (SkyLayer.Kind k : SkyLayer.Kind.values()) {
-            SkyImage img = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.GRADIENT), layer(2, k)), 64, 16);
+            SkyImage img = SkyGenerator.bake(horizon(SkyLayer.of(1, SkyLayer.Kind.GRADIENT), SkyLayer.of(2, k)), 64, 16);
             assertEquals(64 * 16, img.argb().length, k.key());
         }
         for (int p : SkyGenerator.bake(new SkyDesign(Collections.<SkyLayer>emptyList(), SkyDesign.Celestial.SHOW,
@@ -387,9 +239,9 @@ class SkyGeneratorTest {
 
     @Test
     void aRotatedLayerEqualsTheLayerSampledAtTheRotatedDirection() {
-        SkyLayer noise = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100);
-        int[] plain = SkyGenerator.bake(of(noise), 360, 32).argb();
-        int[] turned = SkyGenerator.bake(of(noise.withTransform(new Transform(90, 0, 0, 100))), 360, 32).argb();
+        SkyLayer noise = SkyLayer.of(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.AMOUNT, 100);
+        int[] plain = SkyGenerator.bake(horizon(noise), 360, 32).argb();
+        int[] turned = SkyGenerator.bake(horizon(noise.withTransform(new Transform(90, 0, 0, 100))), 360, 32).argb();
         for (int y = 0; y < 32; y++) {
             for (int x = 0; x < 360; x++) assertEquals(red(plain[y * 360 + x]), red(turned[y * 360 + (x + 90) % 360]), 2);
         }
@@ -435,9 +287,9 @@ class SkyGeneratorTest {
     @Test
     void theFieldImagesHoldTheSmoothNoiseAtTheTexelCenters() {
         int w = 64, h = 32;
-        SkyLayer clouds = layer(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.PULSE, 50);
-        SkyLayer fractal = layer(2, SkyLayer.Kind.FRACTAL);
-        SkyImage img = SkyGenerator.bake(of(clouds, fractal), w, h);
+        SkyLayer clouds = SkyLayer.of(1, SkyLayer.Kind.NOISE).withParam(SkyLayer.Param.PULSE, 50);
+        SkyLayer fractal = SkyLayer.of(2, SkyLayer.Kind.FRACTAL);
+        SkyImage img = SkyGenerator.bake(horizon(clouds, fractal), w, h);
         assertEquals(0, img.program().termSlot(0));
         assertEquals(1, img.program().termSlot(1));
         int tw = img.termWidth(), th = img.termHeight();
