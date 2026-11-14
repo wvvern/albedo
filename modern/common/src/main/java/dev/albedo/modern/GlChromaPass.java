@@ -4,6 +4,7 @@ package dev.albedo.modern;
 /*import dev.albedo.core.config.Chroma;
 import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import org.lwjgl.opengl.GL11;
@@ -23,7 +24,6 @@ import com.mojang.blaze3d.textures.GpuTexture;
 ^///?}
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 // The Chroma pass through the raw GL: its own GL program draws into each mip level of an atlas through a framebuffer, and
 // puts back each GL state that it changes; the GPU device before 1.21.11 has no render pass into a mip level above 0.
@@ -62,13 +62,13 @@ final class GlChromaPass implements ChromaBackend {
     }
 
     @Override
-    public int[] size(TextureAtlas atlas) {
-        int[] size = sizeOf(atlas);
-        return size[0] > 0 && size[1] > 0 ? size : null;
+    public ChromaFrames.Size size(TextureAtlas atlas) {
+        ChromaFrames.Size size = sizeOf(atlas);
+        return size.present() ? size : null;
     }
 
     // The width, height and number of mip levels of the GL texture of an atlas, on texture unit 0.
-    private static int[] sizeOf(TextureAtlas atlas) {
+    private static ChromaFrames.Size sizeOf(TextureAtlas atlas) {
         int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
@@ -78,8 +78,7 @@ final class GlChromaPass implements ChromaBackend {
             GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1};
         GlStateManager._bindTexture(previous);
         GlStateManager._activeTexture(active);
-        size[2] = ChromaTexels.mipLevels(size[0], size[1], size[2]);
-        return size;
+        return ChromaFrames.Size.clamped(size[0], size[1], size[2]);
     }
 
     // The GL name of the texture of an atlas, or 0 while a reload has not made its GPU texture.
@@ -107,7 +106,7 @@ final class GlChromaPass implements ChromaBackend {
     }
 
     @Override
-    public ChromaBackend.Target create(TextureAtlas atlas, int[] size) {
+    public ChromaBackend.Target create(TextureAtlas atlas, ChromaFrames.Size size) {
         return new Target(glId(atlas), size);
     }
 
@@ -118,22 +117,21 @@ final class GlChromaPass implements ChromaBackend {
 
     private static final class Target implements ChromaBackend.Target {
         private final int live;
-        private final int[] size;
+        private final ChromaFrames.Size size;
         private final int pristine;
         private final int texels;
         private final int[] widths;
         private final int[] heights;
         private final ByteBuffer turnBytes = MemoryUtil.memAlloc(Chroma.TURN_FLOATS * 4);
 
-        Target(int live, int[] size) {
+        Target(int live, ChromaFrames.Size size) {
             this.live = live;
-            this.size = size.clone();
-            int levels = size[2];
-            widths = new int[levels];
-            heights = new int[levels];
-            for (int level = 0; level < levels; level++) {
-                widths[level] = ChromaTexels.levelSize(size[0], level);
-                heights[level] = ChromaTexels.levelSize(size[1], level);
+            this.size = size;
+            widths = new int[size.levels];
+            heights = new int[size.levels];
+            for (int level = 0; level < size.levels; level++) {
+                widths[level] = ChromaTexels.levelSize(size.width, level);
+                heights[level] = ChromaTexels.levelSize(size.height, level);
             }
             GlState saved = GlState.ofAll();
             pristine = texture();
@@ -159,7 +157,7 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public boolean sameTexture(TextureAtlas atlas) {
             // A reload or a change of the mip levels gives the atlas new storage under the same GL name.
-            return glId(atlas) == live && Arrays.equals(size, sizeOf(atlas));
+            return glId(atlas) == live && size.equals(sizeOf(atlas));
         }
 
         @Override

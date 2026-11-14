@@ -6,6 +6,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import org.lwjgl.BufferUtils;
@@ -21,7 +22,6 @@ import org.lwjgl.opengl.GLCapabilities;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.Arrays;
 
 // The Chroma pass of the fixed function versions with an OpenGL 2.0 program and a framebuffer: it draws the hue of each moving
 // texel into each mip level of an atlas, and it puts back all GL state that it can change, with the attribute stack, where
@@ -103,13 +103,13 @@ final class FixedChromaPass implements ChromaBackend {
     }
 
     @Override
-    public int[] size(TextureAtlas atlas) {
-        int[] size = sizeOf(atlas.getId());
-        return size[0] > 0 && size[1] > 0 ? size : null;
+    public ChromaFrames.Size size(TextureAtlas atlas) {
+        ChromaFrames.Size size = sizeOf(atlas.getId());
+        return size.present() ? size : null;
     }
 
     // The width, height and number of mip levels of the GL texture of an atlas.
-    private static int[] sizeOf(int texture) {
+    private static ChromaFrames.Size sizeOf(int texture) {
         int[] out = new int[3];
         withState(() -> {
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
@@ -118,12 +118,11 @@ final class FixedChromaPass implements ChromaBackend {
             out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
         });
-        out[2] = ChromaTexels.mipLevels(out[0], out[1], out[2]);
-        return out;
+        return ChromaFrames.Size.clamped(out[0], out[1], out[2]);
     }
 
     @Override
-    public ChromaBackend.Target create(TextureAtlas atlas, int[] size) {
+    public ChromaBackend.Target create(TextureAtlas atlas, ChromaFrames.Size size) {
         return new Target(atlas.getId(), size);
     }
 
@@ -134,20 +133,20 @@ final class FixedChromaPass implements ChromaBackend {
 
     private static final class Target implements ChromaBackend.Target {
         private final int live;
-        private final int[] size;
+        private final ChromaFrames.Size size;
         private final int[] widths;
         private final int[] heights;
         private final int pristine;
         private final int texels;
 
-        Target(int live, int[] size) {
+        Target(int live, ChromaFrames.Size size) {
             this.live = live;
-            this.size = size.clone();
-            widths = new int[size[2]];
-            heights = new int[size[2]];
-            for (int level = 0; level < size[2]; level++) {
-                widths[level] = ChromaTexels.levelSize(size[0], level);
-                heights[level] = ChromaTexels.levelSize(size[1], level);
+            this.size = size;
+            widths = new int[size.levels];
+            heights = new int[size.levels];
+            for (int level = 0; level < size.levels; level++) {
+                widths[level] = ChromaTexels.levelSize(size.width, level);
+                heights[level] = ChromaTexels.levelSize(size.height, level);
             }
             pristine = texture();
             texels = texture();
@@ -173,7 +172,7 @@ final class FixedChromaPass implements ChromaBackend {
         @Override
         public boolean sameTexture(TextureAtlas atlas) {
             // A reload or a change of the mip levels gives the atlas new storage under the same GL name.
-            return atlas.getId() == live && Arrays.equals(size, sizeOf(live));
+            return atlas.getId() == live && size.equals(sizeOf(live));
         }
 
         @Override

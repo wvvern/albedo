@@ -14,6 +14,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
@@ -55,9 +56,9 @@ final class PrecompiledChromaPass implements ChromaBackend {
     }
 
     @Override
-    public int[] size(TextureAtlas atlas) {
+    public ChromaFrames.Size size(TextureAtlas atlas) {
         GpuTexture texture = texture(atlas);
-        return texture == null ? null : new int[]{texture.getWidth(0), texture.getHeight(0), texture.getMipLevels()};
+        return texture == null ? null : new ChromaFrames.Size(texture.getWidth(0), texture.getHeight(0), texture.getMipLevels());
     }
 
     // The GPU texture of an atlas, or null before its first upload.
@@ -71,8 +72,8 @@ final class PrecompiledChromaPass implements ChromaBackend {
     }
 
     @Override
-    public ChromaBackend.Target create(TextureAtlas atlas, int[] size) {
-        return new Target(atlas.getTexture(), size[2]);
+    public ChromaBackend.Target create(TextureAtlas atlas, ChromaFrames.Size size) {
+        return new Target(atlas.getTexture(), size.levels);
     }
 
     @Override

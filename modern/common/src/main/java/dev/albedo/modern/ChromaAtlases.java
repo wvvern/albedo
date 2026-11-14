@@ -1,31 +1,17 @@
 package dev.albedo.modern;
 
-import dev.albedo.core.Albedo;
-import dev.albedo.core.config.Chroma;
+import dev.albedo.core.ChromaHost;
 import dev.albedo.core.dev.Harness;
-import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyClock;
-import dev.albedo.core.texture.AtlasPaths;
-import dev.albedo.core.texture.ChromaTexels;
-import dev.albedo.core.texture.ChromaTiming;
-import dev.albedo.modern.mixin.TextureAtlasAccessor;
+import dev.albedo.core.texture.ChromaFrames;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Moves the Chroma colors of the atlas sprites in each frame on the GPU: at the start of a frame the pass draws the hue of
- * each moving texel into the atlas textures, and at the end of the frame the atlases get back the colors that Albedo
- * painted, so that the game and Albedo always write into those colors.
- */
+/** The Chroma pass of the atlas sprites on the GPU of each modern version, with the schedule of {@link ChromaFrames}. */
 final class ChromaAtlases {
     private static final ChromaBackend BACKEND = backend();
 
@@ -44,177 +30,48 @@ final class ChromaAtlases {
 
     /** The atlases whose sprites can have their hue from the pass, by location, which the sprite loaders add on worker threads. */
     private static final Set<Object> ATLASES = ConcurrentHashMap.newKeySet();
-    /** The GPU target of each atlas with moving texels, by location. */
-    private static final Map<Object, ChromaBackend.Target> TARGETS = new HashMap<>();
-    /**
-     * The sprite map of each atlas when its texels were made, by location, because 1.21.1 uploads a reloaded atlas of the
-     * same size into the same GL texture, and the atlas gets a new map in each upload.
-     */
-    private static final Map<Object, Object> LAYOUTS = new HashMap<>();
-    private static final float[] TURNS = new float[Chroma.TURN_FLOATS];
-    /** The texture paints of the core when the texels were made, so that a change makes them again. */
-    private static int paints = Integer.MIN_VALUE;
-    /** The targets that the pass recolored at the start of a frame, until their atlases get back their painted colors. */
-    private static final List<ChromaBackend.Target> RECOLORED = new ArrayList<>();
-    /** True after the pass failed, so that it does not run again in this game. */
-    private static boolean broken;
-    /** The clock time of the colors of this frame. */
-    private static double seconds;
-
-    private static final ChromaTiming TIMING = new ChromaTiming(BACKEND::timer, Harness::logChromaTimes);
+    private static final ChromaFrames<TextureAtlas> FRAMES = new ChromaFrames<>(BACKEND, ChromaHost.INSTANCE, Harness::logChromaTimes);
 
     private ChromaAtlases() {}
 
     /** Whether the pass adds the hue of the moving sprites of an atlas, which also keeps the atlas for the pass. */
     static boolean gpuHue(Object atlas) {
         ATLASES.add(atlas);
-        Albedo albedo = Albedo.get();
-        return !broken && albedo != null && albedo.chromaGpuRunning();
+        return FRAMES.gpuHue();
     }
 
     /** True while the pass moves the colors of some atlas, so that the screens draw their item icons again in each frame. */
     static boolean moving() {
-        return !TARGETS.isEmpty();
+        return FRAMES.moving();
     }
 
     /** Draws the colors of this frame into the atlases, on the render thread before the frame draws anything. */
     static void frameStart() {
-        Albedo albedo = Albedo.get();
-        if (albedo == null || broken) return;
-        // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
-        restore();
-        if (!albedo.chromaGpuRunning()) {
-            close();
-            return;
-        }
-        long start = System.nanoTime();
-        try {
-            int now = Albedo.texturePaints();
-            boolean changed = now != paints;
-            paints = now;
-            for (Object id : ATLASES) {
-                AbstractTexture texture = TextureUploads.registered(id);
-                ChromaBackend.Target target = TARGETS.get(id);
-                if (!(texture instanceof TextureAtlas)) {
-                    if (target != null) TARGETS.remove(id).close();
-                    LAYOUTS.remove(id);
-                    continue;
-                }
-                TextureAtlas atlas = (TextureAtlas) texture;
-                boolean newLayout = LAYOUTS.get(id) != ((TextureAtlasAccessor) atlas).albedo$texturesByName();
-                if (changed || newLayout || target != null && !target.sameTexture(atlas)) build(id, atlas);
-            }
-            if (TARGETS.isEmpty()) return;
-            ShaderState shader = BACKEND.compile();
-            if (shader.dead()) throw new IllegalStateException("the Chroma shader does not compile");
-            if (!shader.usable()) return;
-            seconds = SkyClock.longSeconds();
-            Chroma.turns(seconds, TURNS);
-            TIMING.frameBegin();
-            TIMING.begin(ChromaTiming.Part.RECOLOR);
-            for (ChromaBackend.Target target : TARGETS.values()) {
-                target.recolor(TURNS);
-                RECOLORED.add(target);
-            }
-            TIMING.end(ChromaTiming.Part.RECOLOR);
-        } catch (RuntimeException e) {
-            stop(e);
-        }
-        TIMING.recolorCpu(System.nanoTime() - start);
+        FRAMES.frameStart(ChromaAtlases::atlases);
     }
 
     /** Gives the atlases back their painted colors at the end of a frame, after the harness saw the frame. */
     static void frameEnd() {
-        Albedo albedo = Albedo.get();
-        if (albedo != null) albedo.frameDrawn(RECOLORED.isEmpty() ? SkyClock.longSeconds() : seconds);
-        long start = System.nanoTime();
-        TIMING.begin(ChromaTiming.Part.RESTORE);
-        restore();
-        TIMING.end(ChromaTiming.Part.RESTORE);
-        TIMING.frameEnd(System.nanoTime() - start);
-        if (!TIMING.collecting()) return;
-        long bytes = 0;
-        StringBuilder atlases = new StringBuilder();
-        for (Map.Entry<Object, ChromaBackend.Target> e : TARGETS.entrySet()) {
-            bytes += e.getValue().bytes();
-            atlases.append(atlases.length() == 0 ? "" : ", ").append(e.getKey());
-        }
-        TIMING.collect(bytes, atlases.toString());
+        FRAMES.frameEnd();
     }
 
     /** Gives the atlases back their painted colors before Albedo writes new sprites into them in the middle of a frame. */
     static void restore() {
-        if (RECOLORED.isEmpty()) return;
-        List<ChromaBackend.Target> targets = new ArrayList<>(RECOLORED);
-        RECOLORED.clear();
-        try {
-            for (ChromaBackend.Target target : targets) target.restore();
-        } catch (RuntimeException e) {
-            stop(e);
-        }
-    }
-
-    /** Makes the texels of an atlas from its sprites, and keeps a GPU target only for an atlas with moving texels. */
-    private static void build(Object id, TextureAtlas atlas) {
-        ChromaBackend.Target old = TARGETS.remove(id);
-        try {
-            buildTarget(id, atlas, old);
-        } finally {
-            // The old target closes here unless the atlas keeps it, also when a step throws.
-            if (old != null && TARGETS.get(id) != old) old.close();
-        }
-    }
-
-    /** Makes the texels of an atlas and puts its target, the old one when it fits, in place for an atlas with moving texels. */
-    private static void buildTarget(Object id, TextureAtlas atlas, ChromaBackend.Target old) {
-        Map<?, TextureAtlasSprite> sprites = ((TextureAtlasAccessor) atlas).albedo$texturesByName();
-        LAYOUTS.put(id, sprites);
-        int[] size = BACKEND.size(atlas);
-        if (size == null) {
-            paints = Integer.MIN_VALUE; // the next frame tries again
-            return;
-        }
-        int width = size[0], height = size[1];
-        ChromaTexels.Atlas texels = new ChromaTexels.Atlas(width, height, Albedo::chromaTexels);
-        String atlasName = String.valueOf(id);
-        for (TextureAtlasSprite sprite : sprites.values()) {
-            SpriteAccess access = SpriteAccess.of(sprite);
-            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(),
-                    SpriteAccess.padding(sprite, width));
-        }
-        if (!texels.moving()) return;
-        if (BACKEND.compile().dead()) throw new IllegalStateException("the Chroma shader does not compile");
-        int[][] levels = texels.levels(size[2]);
-        ChromaBackend.Target target = old;
-        if (target == null || !target.sameTexture(atlas)) {
-            target = BACKEND.create(atlas, size);
-            Albedo.get().platform().info(String.format(Locale.ROOT, "Moves the Chroma colors of %s on the GPU: %dx%d with %d mip levels, %.1f MiB",
-                    atlasName, width, height, size[2], target.bytes() / 1048576.0));
-        }
-        TARGETS.put(id, target);
-        target.texels(levels);
-    }
-
-    /** Stops the pass for this game after an error, and lets the core paint the sprites again without Chroma. */
-    private static void stop(RuntimeException e) {
-        broken = true;
-        Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. Chroma is off.", e);
-        close();
-        Albedo.get().chromaGpu(false);
-    }
-
-    private static void close() {
-        restore();
-        for (ChromaBackend.Target target : TARGETS.values()) target.close();
-        TARGETS.clear();
-        LAYOUTS.clear();
-        paints = Integer.MIN_VALUE;
+        FRAMES.restore();
     }
 
     /** Measures the next frames for the harness command chromatime, and returns false when the pass does not run. */
     static boolean time(int frames) {
-        if (TARGETS.isEmpty() || broken) return false;
-        TIMING.start(frames);
-        return true;
+        return FRAMES.time(frames);
+    }
+
+    /** The kept atlases that the texture manager has as atlases now, by location. */
+    private static Map<Object, TextureAtlas> atlases() {
+        Map<Object, TextureAtlas> out = new LinkedHashMap<>();
+        for (Object id : ATLASES) {
+            AbstractTexture texture = TextureUploads.registered(id);
+            if (texture instanceof TextureAtlas) out.put(id, (TextureAtlas) texture);
+        }
+        return out;
     }
 }

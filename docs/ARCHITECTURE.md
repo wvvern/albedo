@@ -17,6 +17,7 @@ No single toolchain builds both 1.8.9 Forge and 26.x, so there are two Gradle bu
 - `ui/Canvas` is the port for drawing (`fill`, `text`, `image`, sizes). The settings screen is an immediate-mode UI in core; each version's screen class only forwards draws and input.
 - `ui/ScriptPort` is the port from the settings screen to the harness (`ui` commands, their log lines, `realclick`). `dev/Harness` gives it through `Albedo.scriptPort`; it is null with no harness. So `ui` imports nothing from `dev`. `Albedo` is the composition root: it makes the `Harness`, so `root -> dev` stays.
 - `texture/ChromaTexels.Source` gives the Chroma texels of a sprite to `ChromaTexels.Atlas`. The adapters pass `Albedo::chromaTexels`, so `texture` does not import `Albedo`.
+- `texture/ChromaFrames.Host` is the port from the Chroma schedule to the core. The adapters pass `ChromaHost.INSTANCE`, so `texture` does not import `Albedo`.
 - Each adapter (`ModernPlatform`, `LegacyPlatform`) implements the ports, wraps pixels in a `PixelBuffer`, and its mixins call `ModernHooks` or `LegacyHooks`.
 - No loader API is used. Mixins drive tick, keys and config, so Fabric API is not needed.
 - The build generates the mixin list of each jar from the compiled classes in the `mixin` package whose names end in `Mixin`, `Accessor` or `Invoker`. Do not list mixins by hand, and do not put other classes in that package; `python -m tools check-jar` fails the jar.
@@ -83,6 +84,7 @@ Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9
 - Chroma exists only where the pass moves the colors. The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps have `gpuHue`; every other texture gets no Chroma (stand-alone textures, sheet tiles such as the 1.8.9 particles, textures over the budget). Mobs and players have no Chroma on any version, because their textures are stand-alone (`Category.hasChroma`), and the codec drops Chroma from their looks in older files. The Effects section shows Chroma only where a kind of texture is drawn from an atlas (`Albedo.chromaCanMove`, `TextureStore.movingChroma`).
 - `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels. A mip texel gets the mean of the hue that its four texels add, so a still texel counts as no hue.
 - With Edge, only the texels of the Outline line move, each with its own hue, and the other texels have speed 0. The line is the union of the lines of all frames (`Effects.edgeMask`), because the texels are the same for all frames.
+- `texture/ChromaFrames` holds the frame schedule of every family: restore first, the rebuild of the texels, the broken latch and the timing. Each adapter gives a `ChromaFrames.Backend` for the GPU work.
 - The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` with `LegacyChromaTarget` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
 - The hue comes from `Chroma.turns` on `SkyClock.longSeconds()` in double precision. An ordered 16 x 16 dither below one 8-bit step keeps slow hues moving smoothly.
 - `texture/ChromaTiming` measures the pass for the harness command `chromatime` on each family. It gives the times to a sink (`Harness::logChromaTimes`), so `texture` does not import `dev`.
@@ -97,7 +99,7 @@ Traps:
 - On 1.21.11 and NeoForge 26.3, `CommandEncoder.copyTextureToTexture` copies only mip level 0 whatever level it is given, so the other levels are copied with a draw (`chroma_copy.fsh`). Without it, sprites at the top left of the atlas turn into a checker of extreme colors.
 - 1.21.5 to 1.21.10: a render pass draws only into mip level 0 and the atlas cannot be a render target, so these versions use `GlChromaPass` on the atlas GL name, unwrapping the NeoForge validation layer (`getRealTexture`).
 - On 1.8.9 the pass pushes and pops GL attributes while its own framebuffer is bound: OptiFine Fast Render draws with no framebuffer, and `GL_BACK` is not a valid draw buffer for one.
-- If the shader fails to compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`; the core paints the sprites again without Chroma.
+- If the shader fails to compile or a GPU call fails, `ChromaFrames` logs one warning and calls `Albedo.chromaGpu(false)`; the core paints the sprites again without Chroma.
 
 ## Custom sky
 

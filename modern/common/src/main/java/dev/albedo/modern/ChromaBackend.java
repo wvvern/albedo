@@ -1,36 +1,16 @@
 package dev.albedo.modern;
 
-import dev.albedo.core.shader.ShaderState;
+import dev.albedo.core.texture.AtlasPaths;
+import dev.albedo.core.texture.ChromaFrames;
+import dev.albedo.core.texture.ChromaTexels;
 import dev.albedo.core.texture.ChromaTiming;
+import dev.albedo.modern.mixin.TextureAtlasAccessor;
 import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 
 /** The GPU work of the Chroma pass on one version: the atlas textures that it turns, and a GPU timer for the harness. */
-interface ChromaBackend {
-    /** One atlas texture with its pristine copy and its Chroma texels on the GPU. */
-    interface Target extends AutoCloseable {
-        /** Whether the atlas still uses the GPU texture of this target, which a resource reload replaces. */
-        boolean sameTexture(TextureAtlas atlas);
-
-        /** Sends the Chroma texels of each mip level, as {@code ChromaTexels} gives them. */
-        void texels(int[][] levels);
-
-        /**
-         * Copies each mip level of the atlas into the pristine copy, then draws the pristine copy with the hue of each
-         * moving texel turned into the atlas.
-         *
-         * @param turns the part of one turn of each speed, from {@code Chroma.turns}
-         */
-        void recolor(float[] turns);
-
-        /** Copies the pristine copy back into each mip level of the atlas, so that Albedo and the game write into the colors they painted. */
-        void restore();
-
-        /** The bytes of GPU memory of the pristine copy and the texels. */
-        long bytes();
-
-        @Override
-        void close();
-    }
+interface ChromaBackend extends ChromaFrames.Backend<TextureAtlas> {
+    interface Target extends ChromaFrames.Target<TextureAtlas> {}
 
     /** A GPU timer of this version for the harness timing. */
     interface Timer extends ChromaTiming.GpuTimer {
@@ -38,18 +18,27 @@ interface ChromaBackend {
         long UNAVAILABLE = 0;
     }
 
-    /**
-     * Compiles the shader of the pass on the render thread when it is not compiled, or gives it to the game again when a
-     * version needs that after a resource reload, which the pass calls in each frame before it draws.
-     *
-     * @return READY, RUNNING while the compile runs, or FAILED
-     */
-    ShaderState compile();
+    @Override
+    Target create(TextureAtlas atlas, ChromaFrames.Size size);
 
-    /** The width, height and number of mip levels of the GPU texture of an atlas, or null before the atlas has its texture. */
-    int[] size(TextureAtlas atlas);
-
-    Target create(TextureAtlas atlas, int[] size);
-
+    @Override
     Timer timer();
+
+    /**
+     * The sprite map of the atlas, because 1.21.1 uploads a reloaded atlas of the same size into the same GL texture, and
+     * the atlas gets a new map in each upload.
+     */
+    @Override
+    default Object layout(TextureAtlas atlas) {
+        return ((TextureAtlasAccessor) atlas).albedo$texturesByName();
+    }
+
+    @Override
+    default void sprites(String atlasName, TextureAtlas atlas, ChromaTexels.Atlas texels) {
+        for (TextureAtlasSprite sprite : ((TextureAtlasAccessor) atlas).albedo$texturesByName().values()) {
+            SpriteAccess access = SpriteAccess.of(sprite);
+            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(),
+                    SpriteAccess.padding(sprite, texels.width()));
+        }
+    }
 }

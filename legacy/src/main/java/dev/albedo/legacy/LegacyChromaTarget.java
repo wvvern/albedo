@@ -3,8 +3,10 @@ package dev.albedo.legacy;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.texture.TextureMap;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
@@ -21,7 +23,7 @@ import java.nio.FloatBuffer;
  * The GL texture of the block atlas with its pristine copy and its texels, into which the Chroma pass draws, where
  * withState, sizeOf, baseLevel and copy are twins of FixedChromaPass and a fix lands in both.
  */
-final class LegacyChromaTarget {
+final class LegacyChromaTarget implements ChromaFrames.Target<TextureMap> {
     /** The Chroma program, which takes its uniforms and makes the framebuffer of the pass when it compiled. */
     static final class Program extends LegacyGlProgram {
         private int turnsUniform;
@@ -65,16 +67,15 @@ final class LegacyChromaTarget {
     private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(Chroma.TURN_FLOATS);
 
     /** The GL texture of the atlas. */
-    final int live;
-    /** The width, height and number of mip levels of the atlas. */
-    final int[] size;
+    private final int live;
+    private final ChromaFrames.Size size;
     private final Program program;
     private final int framebuffer;
     private final int pristine;
     private final int texels;
 
     /** Makes the pristine copy and the texels for an atlas of this size, with a compiled program. */
-    LegacyChromaTarget(Program program, int live, int[] size) {
+    LegacyChromaTarget(Program program, int live, ChromaFrames.Size size) {
         this.program = program;
         this.framebuffer = program.framebuffer();
         this.live = live;
@@ -83,15 +84,20 @@ final class LegacyChromaTarget {
         this.texels = texture();
     }
 
-    /** Sends the texels of each mip level to the GPU. */
-    void texels(int[][] levels) {
+    @Override
+    public boolean sameTexture(TextureMap atlas) {
+        return atlas.getGlTextureId() == live && size.equals(sizeOf(framebuffer, live));
+    }
+
+    @Override
+    public void texels(int[][] levels) {
         withState(framebuffer, () -> {
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, texels);
             GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
             GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
             GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
-            for (int level = 0; level < size[2]; level++) {
+            for (int level = 0; level < size.levels; level++) {
                 ByteBuffer bytes = BufferUtils.createByteBuffer(levels[level].length * 4);
                 ChromaTexels.rgba(levels[level], bytes);
                 GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, 0, 0, width(level), height(level), GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
@@ -99,10 +105,10 @@ final class LegacyChromaTarget {
         });
     }
 
-    /** Copies each mip level of the atlas into the pristine copy, then draws the colors of these turns into the atlas. */
-    void recolor(float[] turns) {
+    @Override
+    public void recolor(float[] turns) {
         withState(framebuffer, () -> {
-            for (int level = 0; level < size[2]; level++) copy(live, pristine, level);
+            for (int level = 0; level < size.levels; level++) copy(live, pristine, level);
             GL11.glDisable(GL11.GL_BLEND);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glDisable(GL11.GL_ALPHA_TEST);
@@ -115,7 +121,7 @@ final class LegacyChromaTarget {
             TURNS.put(turns).flip();
             GL20.glUniform4(program.turnsUniform, TURNS);
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
-            for (int level = 0; level < size[2]; level++) {
+            for (int level = 0; level < size.levels; level++) {
                 OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
                 GL11.glViewport(0, 0, width(level), height(level));
                 GL20.glUniform2f(program.sizeUniform, width(level), height(level));
@@ -134,21 +140,22 @@ final class LegacyChromaTarget {
         });
     }
 
-    /** Copies each mip level of the pristine copy back into the atlas. */
-    void restore() {
+    @Override
+    public void restore() {
         withState(framebuffer, () -> {
-            for (int level = 0; level < size[2]; level++) copy(pristine, live, level);
+            for (int level = 0; level < size.levels; level++) copy(pristine, live, level);
         });
     }
 
-    /** The GPU memory of the pristine copy or of the texels. */
-    long bytes() {
+    @Override
+    public long bytes() {
         long out = 0;
-        for (int level = 0; level < size[2]; level++) out += ChromaTexels.levelBytes(width(level), height(level));
+        for (int level = 0; level < size.levels; level++) out += ChromaTexels.levelBytes(width(level), height(level));
         return out;
     }
 
-    void close() {
+    @Override
+    public void close() {
         GL11.glDeleteTextures(pristine);
         GL11.glDeleteTextures(texels);
     }
@@ -178,8 +185,8 @@ final class LegacyChromaTarget {
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, out[0]);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, size[2] - 1);
-            for (int level = 0; level < size[2]; level++) {
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, size.levels - 1);
+            for (int level = 0; level < size.levels; level++) {
                 GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA8, width(level), height(level), 0, GL11.GL_RGBA,
                         GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
             }
@@ -188,11 +195,11 @@ final class LegacyChromaTarget {
     }
 
     private int width(int level) {
-        return ChromaTexels.levelSize(size[0], level);
+        return ChromaTexels.levelSize(size.width, level);
     }
 
     private int height(int level) {
-        return ChromaTexels.levelSize(size[1], level);
+        return ChromaTexels.levelSize(size.height, level);
     }
 
     /**
@@ -229,7 +236,7 @@ final class LegacyChromaTarget {
     }
 
     /** The width, height and number of mip levels of a GL texture, with the framebuffer of the pass or 0. */
-    static int[] sizeOf(int framebuffer, int texture) {
+    static ChromaFrames.Size sizeOf(int framebuffer, int texture) {
         int[] out = new int[3];
         withState(framebuffer, () -> {
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
@@ -238,7 +245,6 @@ final class LegacyChromaTarget {
             out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
         });
-        out[2] = ChromaTexels.mipLevels(out[0], out[1], out[2]);
-        return out;
+        return ChromaFrames.Size.clamped(out[0], out[1], out[2]);
     }
 }

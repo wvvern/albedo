@@ -87,6 +87,10 @@ public final class ChromaTexels {
             }
         }
 
+        public int width() {
+            return width;
+        }
+
         /** Whether a sprite has moving colors, which the pass needs a GPU target for. */
         public boolean moving() {
             return level != null;
