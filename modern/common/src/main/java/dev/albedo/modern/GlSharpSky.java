@@ -33,27 +33,24 @@ import java.nio.ByteBuffer;
 // Draws the custom sky with the sky shader for each screen pixel through the raw GL, so that it is sharp at each
 // resolution and field of view, and puts back each GL state that it changes.
 final class GlSharpSky {
+    private static final SkyProgram.Uniform[] UNIFORMS = SkyProgram.Uniform.values();
+
     private static final class Block {
-        final float[] header = new float[4];
-        final float[] world = new float[SkyProgram.LAYERS - SkyProgram.WORLD];
-        final float[] layers = new float[SkyProgram.RING - SkyProgram.LAYERS];
-        final float[] ring = new float[SkyProgram.FLOATS - SkyProgram.RING];
+        final float[][] parts = new float[UNIFORMS.length][];
+
+        Block() {
+            for (SkyProgram.Uniform u : UNIFORMS) parts[u.ordinal()] = new float[u.length()];
+        }
 
         Block set(float[] b) {
-            System.arraycopy(b, 0, header, 0, header.length);
-            System.arraycopy(b, SkyProgram.WORLD, world, 0, world.length);
-            System.arraycopy(b, SkyProgram.LAYERS, layers, 0, layers.length);
-            System.arraycopy(b, SkyProgram.RING, ring, 0, ring.length);
+            for (SkyProgram.Uniform u : UNIFORMS) System.arraycopy(b, u.from(), parts[u.ordinal()], 0, u.length());
             return this;
         }
     }
 
     // A GL program from the classic sky shaders, and the places of its uniforms.
     private static final class Program extends GlProgram {
-        int header;
-        int world;
-        int layers;
-        int ring;
+        final int[] parts = new int[UNIFORMS.length];
         int terms;
         int modelView;
         int projection;
@@ -65,10 +62,7 @@ final class GlSharpSky {
 
         @Override
         void linked() {
-            header = uniform("SkyHeader");
-            world = uniform("SkyWorld");
-            layers = uniform("SkyLayers");
-            ring = uniform("SkyRing");
+            for (SkyProgram.Uniform u : UNIFORMS) parts[u.ordinal()] = uniform(u.glslName());
             terms = uniform("AlbedoTerms");
             modelView = uniform("ModelViewMat");
             projection = uniform("ProjMat");
@@ -78,10 +72,7 @@ final class GlSharpSky {
         // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
         void use(Block block, int termTexture, float brightness) {
             GlStateManager._glUseProgram(id());
-            GL20.glUniform4fv(header, block.header);
-            GL20.glUniform4fv(world, block.world);
-            GL20.glUniform4fv(layers, block.layers);
-            GL20.glUniform4fv(ring, block.ring);
+            for (int i = 0; i < parts.length; i++) GL20.glUniform4fv(parts[i], block.parts[i]);
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
             GL20.glUniform1i(terms, 0);
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);

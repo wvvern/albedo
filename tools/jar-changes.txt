@@ -89,6 +89,7 @@ dev/albedo/legacy/mixin/MouseGrabMixin.class A new mixin skips the LWJGL mouse g
 dev/albedo/core/dev/CursorClip.class A new class is the check of the harness command cursorfree.
 dev/albedo/core/dev/HarnessLog.class A new class has the harness log; the classes that log call it instead of Harness.log.
 dev/albedo/core/dev/HarnessImages.class A new class has the image, timing and view math of the harness checks.
+dev/albedo/core/sky/SkyProgram$Uniform.class A new enum has the names and float ranges of the plain uniforms of the sky block.
 dev/albedo/legacy/LegacyOffscreen.class A new class holds the framebuffer of the sharp sky draws of the harness.
 dev/albedo/core/dev/GlReadback.class A new class turns the GL pixel reads of the harness into opaque ARGB rows from the top.
 dev/albedo/core/dev/HarnessConfigCommands.class A new class has the parsers of the harness commands that change the config.

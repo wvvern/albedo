@@ -35,32 +35,28 @@ import javax.imageio.ImageIO;
 // resolution and field of view, with a GL program of its own: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4,
 // else the baked texture draws the sky; the twin of LegacySharpSky.
 final class FixedSharpSky {
-    private static final class Block {
-        final FloatBuffer header = BufferUtils.createFloatBuffer(4);
-        final FloatBuffer world = BufferUtils.createFloatBuffer(SkyProgram.LAYERS - SkyProgram.WORLD);
-        final FloatBuffer layers = BufferUtils.createFloatBuffer(SkyProgram.RING - SkyProgram.LAYERS);
-        final FloatBuffer ring = BufferUtils.createFloatBuffer(SkyProgram.FLOATS - SkyProgram.RING);
+    private static final SkyProgram.Uniform[] UNIFORMS = SkyProgram.Uniform.values();
 
-        Block set(float[] b) {
-            fill(header, b, 0);
-            fill(world, b, SkyProgram.WORLD);
-            fill(layers, b, SkyProgram.LAYERS);
-            fill(ring, b, SkyProgram.RING);
-            return this;
+    private static final class Block {
+        final FloatBuffer[] parts = new FloatBuffer[UNIFORMS.length];
+
+        Block() {
+            for (SkyProgram.Uniform u : UNIFORMS) parts[u.ordinal()] = BufferUtils.createFloatBuffer(u.length());
         }
 
-        private static void fill(FloatBuffer buffer, float[] values, int from) {
-            buffer.clear();
-            buffer.put(values, from, buffer.capacity()).flip();
+        Block set(float[] b) {
+            for (SkyProgram.Uniform u : UNIFORMS) {
+                FloatBuffer part = parts[u.ordinal()];
+                part.clear();
+                part.put(b, u.from(), u.length()).flip();
+            }
+            return this;
         }
     }
 
     // A GL program from the classic sky shaders, and the places of its uniforms.
     private static final class Program extends GlProgram {
-        int header;
-        int world;
-        int layers;
-        int ring;
+        final int[] parts = new int[UNIFORMS.length];
         int terms;
         int color;
 
@@ -77,10 +73,7 @@ final class FixedSharpSky {
 
         @Override
         void linked() {
-            header = uniform("SkyHeader");
-            world = uniform("SkyWorld");
-            layers = uniform("SkyLayers");
-            ring = uniform("SkyRing");
+            for (SkyProgram.Uniform u : UNIFORMS) parts[u.ordinal()] = uniform(u.glslName());
             terms = uniform("AlbedoTerms");
             color = uniform("ColorModulator");
         }
@@ -88,10 +81,7 @@ final class FixedSharpSky {
         // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
         void use(Block block, int termTexture, float brightness) {
             GlStateManager._glUseProgram(id());
-            GL20.glUniform4fv(header, block.header);
-            GL20.glUniform4fv(world, block.world);
-            GL20.glUniform4fv(layers, block.layers);
-            GL20.glUniform4fv(ring, block.ring);
+            for (int i = 0; i < parts.length; i++) GL20.glUniform4fv(parts[i], block.parts[i]);
             // The current color has no effect on a program, so the brightness is a uniform.
             GL20.glUniform4f(color, brightness, brightness, brightness, 1f);
             GL20.glUniform1i(terms, 0);

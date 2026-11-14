@@ -27,6 +27,19 @@ class SkyProgramTest {
     }
 
     @Test
+    void theUniformsCoverTheBlockInOrderAndTheShaderDeclaresThem() throws IOException {
+        String glsl = skyLayersSource();
+        int next = 0;
+        for (SkyProgram.Uniform u : SkyProgram.Uniform.values()) {
+            assertEquals(next, u.from(), u + " starts where the part before it ends");
+            assertEquals(0, u.length() % 4, u + " is a whole number of vec4 values");
+            assertTrue(glsl.contains("uniform vec4 " + u.glslName() + ";") || glsl.contains("uniform vec4 " + u.glslName() + "["), u.glslName());
+            next += u.length();
+        }
+        assertEquals(SkyProgram.FLOATS, next);
+    }
+
+    @Test
     void theShaderHasTheSameLayoutAndCodes() throws IOException {
         String glsl = skyLayersSource();
         String[] defines = {"MAX_LAYERS " + SkyDesign.MAX_LAYERS, "LAYER_VEC4S " + SkyProgram.LAYER_VEC4S, "RING " + SkyImage.RING,

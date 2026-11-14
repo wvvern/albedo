@@ -29,7 +29,7 @@
 #define ALBEDO_CLOUD_FIELD_OCTAVES 3
 
 #ifdef ALBEDO_PLAIN_UNIFORMS
-// The values of the uniform block below, for the GL programs that set them as three arrays.
+// The values of the uniform block below, for the GL programs that set each part on its own (SkyProgram.Uniform).
 uniform vec4 SkyHeader;
 uniform vec4 SkyWorld[3];
 uniform vec4 SkyLayers[ALBEDO_MAX_LAYERS * ALBEDO_LAYER_VEC4S];

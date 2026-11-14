@@ -52,6 +52,38 @@ public final class SkyProgram {
     /** The time of a still sky, in which the layers that move draw nothing, as in the CPU bake. */
     public static final float STILL = -1f;
 
+    /** The parts of the block as the plain uniforms of sky_layers.glsl, for the GL programs that set each part on its own. */
+    public enum Uniform {
+        HEADER("SkyHeader", 0, SkyProgram.WORLD),
+        WORLD("SkyWorld", SkyProgram.WORLD, SkyProgram.LAYERS),
+        LAYERS("SkyLayers", SkyProgram.LAYERS, SkyProgram.RING),
+        RING("SkyRing", SkyProgram.RING, SkyProgram.FLOATS);
+
+        private final String glslName;
+        private final int from;
+        private final int to;
+
+        Uniform(String glslName, int from, int to) {
+            this.glslName = glslName;
+            this.from = from;
+            this.to = to;
+        }
+
+        public String glslName() {
+            return glslName;
+        }
+
+        /** The float index of the first value of this part in the block. */
+        public int from() {
+            return from;
+        }
+
+        /** The number of floats of this part. */
+        public int length() {
+            return to - from;
+        }
+    }
+
     /** The kind codes of the generators in the shader. */
     static final int KIND_GRADIENT = 1, KIND_GLOW = 2, KIND_STARS = 3, KIND_NOISE = 4, KIND_FRACTAL = 5, KIND_GALAXY = 6;
     /** The kind code of a bloom, whose term image holds only the glow that it adds. */
