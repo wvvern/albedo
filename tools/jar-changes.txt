@@ -84,6 +84,9 @@ dev/albedo/modern/mixin/MojangMathFogMixin.class SetupColorFogMixin takes its pl
 dev/albedo/modern/mixin/StaticFogMixin.class The handler calls ModernFog.overrideFog, which reads the camera of the frame.
 dev/albedo/modern/mixin/FogCameraMixin.class The handler calls ModernFog.overrideFog, which reads the camera of the frame.
 dev/albedo/modern/ModernFog.class A new class has the fog color and the camera states that hide the sky, which were in ModernHooks.
+dev/albedo/modern/ModernCamera.class A new class has the version shims for the fluid and the effects of the camera.
+dev/albedo/core/sky/SkyVisibility.class A new class has the rule of the camera states that hide the sky.
+dev/albedo/core/sky/CameraFluid.class A new enum names the fluid around the camera.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.

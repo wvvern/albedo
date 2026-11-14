@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyVisibility;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 
@@ -45,34 +46,11 @@ public final class ModernFog {
 
     /** True when the fog code of the game gives the camera the fog of a fluid, blindness or darkness, which hides the sky. */
     static boolean fogHidesSky(Camera camera) {
-        //? if >=1.17 {
-        if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER) return true;
-        //?} else {
-        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.WATER)) return true;
-        *///?}
-        return skySkipped(camera);
+        return SkyVisibility.fogHidesSky(ModernCamera.fluid(camera), ModernCamera.blind(camera), ModernCamera.dark(camera));
     }
 
     /** True when the sky pass of the game draws no sky in lava, in powder snow, with blindness and with darkness; 1.17 still draws it. */
     static boolean skySkipped(Camera camera) {
-        //? if >=1.17 {
-        net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
-        if (fluid == net.minecraft.world.level.material.FogType.LAVA || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
-        //?} else {
-        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.LAVA)) return true;
-        *///?}
-        //? if >=1.21.11 {
-        net.minecraft.world.entity.Entity entity = camera.entity();
-        //?} else {
-        /*net.minecraft.world.entity.Entity entity = camera.getEntity();
-        *///?}
-        if (!(entity instanceof net.minecraft.world.entity.LivingEntity)) return false;
-        net.minecraft.world.entity.LivingEntity living = (net.minecraft.world.entity.LivingEntity) entity;
-        //? if >=1.19 {
-        return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
-                || living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS);
-        //?} else {
-        /*return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
-        *///?}
+        return SkyVisibility.skipped(ModernCamera.fluid(camera), ModernCamera.blind(camera), ModernCamera.dark(camera));
     }
 }
