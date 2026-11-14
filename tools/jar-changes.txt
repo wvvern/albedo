@@ -11,7 +11,7 @@ dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of F
 dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
 dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks, the cloud option and the flat sky hook count their runs, processSprite takes a SpriteAccess, the fog hooks moved to ModernFog, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
 dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none, and the screen shims moved to ModernScreens.
-dev/albedo/modern/ModernScreens.class A new class holds the version shims for the screens and their text.
+dev/albedo/modern/ModernScreens.class A new public class holds the version shims for the screens and their text.
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
 dev/albedo/core/sky/SkyShaderSource*.class The class is gone; ShaderSource and SkyLayerSteps have its parts.
 dev/albedo/core/shader/ShaderSource*.class A new class reads the shader files, puts the includes in them and has the dialects, where two dialects of 26.2 have a reversed depth buffer.
@@ -67,6 +67,7 @@ dev/albedo/modern/ChromaAtlases.class The class reads a sprite through SpriteAcc
 dev/albedo/modern/mixin/SpriteLoaderMixin.class The handler gives a SpriteAccess to the hook.
 dev/albedo/modern/ModernHarnessHost.class The host is split by topic, gives the hook counters and tells the harness while the loading screen shows.
 dev/albedo/modern/Harness*.class New classes have the worlds, options, window handle, mouse, keyboard, screenshots and frame pixels of the harness host, and the game rules of a new world come from a method with a variant for each version; HarnessSkins is gone with the harness commands skin, release and overlay.
+dev/albedo/modern/harness/Harness*.class The harness shims of ModernHarnessHost moved to the package harness as public classes.
 dev/albedo/modern/TextureScreen.class The class is gone with the harness command overlay, which was its only user.
 dev/albedo/modern/mixin/MinecraftFpsAccessor.class The class is gone with the harness command fps, which was its only user.
 dev/albedo/core/sky/SkyDayTime.class The hold and run methods are gone with the harness command skypartial.
@@ -110,4 +111,4 @@ dev/albedo/modern/FixedSharpSky*.class The class logs through HarnessLog, and sk
 dev/albedo/modern/FixedChromaPass*.class The Chroma timer is GlTimeQuery.
 dev/albedo/modern/GlTimeQuery.class A new class holds one GL time query for the Chroma timer and skycompare before 1.21.11.
 dev/albedo/modern/SharpSky.class The class logs through HarnessLog.
-dev/albedo/modern/KeyCodes.class A new class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.
+dev/albedo/modern/KeyCodes.class A new public class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.

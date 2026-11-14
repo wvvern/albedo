@@ -5,10 +5,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Version shims for the screens and their text. */
-final class ModernScreens {
+public final class ModernScreens {
     private ModernScreens() {}
 
-    static Component text(String text) {
+    public static Component text(String text) {
         //? if >=1.19 {
         return Component.literal(text);
         //?} else {
@@ -16,7 +16,7 @@ final class ModernScreens {
         *///?}
     }
 
-    static Screen currentScreen() {
+    public static Screen currentScreen() {
         //? if >=26.2 {
         return Minecraft.getInstance().gui.screen();
         //?} else {
@@ -24,7 +24,7 @@ final class ModernScreens {
         *///?}
     }
 
-    static void setScreen(Screen screen) {
+    public static void setScreen(Screen screen) {
         //? if >=26.2 {
         Minecraft.getInstance().gui.setScreen(screen);
         //?} else {

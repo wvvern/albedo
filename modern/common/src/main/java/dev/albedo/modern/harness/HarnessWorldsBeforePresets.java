@@ -1,4 +1,4 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 //? if <1.19 {
 /*import net.minecraft.client.Minecraft;
@@ -16,10 +16,10 @@ import net.minecraft.world.level.levelgen.WorldGenSettings;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
 
 /^* Development-only: makes the flat creative world of the test harness before the world presets of 1.19; {@code HarnessWorlds} opens it. ^/
-final class HarnessWorldsBeforePresets {
+public final class HarnessWorldsBeforePresets {
     private HarnessWorldsBeforePresets() {}
 
-    static void create(String name) {
+    public static void create(String name) {
         Minecraft mc = Minecraft.getInstance();
         LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), DataPackConfig.DEFAULT);
         //? if >=1.18 {

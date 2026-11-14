@@ -1,9 +1,10 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.modern.NativeImagePixels;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 
@@ -11,15 +12,15 @@ import java.io.File;
 import java.io.IOException;
 
 /** Development-only: saves a screenshot of the frame for the test harness. */
-final class HarnessShots {
+public final class HarnessShots {
     private HarnessShots() {}
 
-    static void take(File png) {
+    public static void take(File png) {
         frame(image -> save(image, png));
     }
 
     /** Gives the pixels of the frame to {@code done}, on the thread that reads the frame. */
-    static void pixels(Harness.FramePixels done) {
+    public static void pixels(Harness.FramePixels done) {
         frame(image -> pixels(image, done));
     }
 

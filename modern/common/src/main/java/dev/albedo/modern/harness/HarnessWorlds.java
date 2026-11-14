@@ -1,7 +1,8 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 import net.minecraft.client.Minecraft;
 //? if >=1.19 {
+import dev.albedo.modern.ModernScreens;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
@@ -20,10 +21,10 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import java.io.File;
 
 /** Development-only: opens the flat creative world of the test harness, and makes it at the first run. */
-final class HarnessWorlds {
+public final class HarnessWorlds {
     private HarnessWorlds() {}
 
-    static void open(String name) {
+    public static void open(String name) {
         Minecraft mc = Minecraft.getInstance();
         if (!new File(new File(mc.gameDirectory, "saves"), name).isDirectory()) {
             //? if >=1.19 {

@@ -5,6 +5,11 @@ import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
+import dev.albedo.modern.harness.HarnessKeyboard;
+import dev.albedo.modern.harness.HarnessMouse;
+import dev.albedo.modern.harness.HarnessOptions;
+import dev.albedo.modern.harness.HarnessShots;
+import dev.albedo.modern.harness.HarnessWorlds;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
@@ -14,8 +19,8 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 /**
- * Development-only: what the test harness needs from the game (see {@link Harness}), where the {@code Harness*} classes
- * hold the parts that change the most between versions.
+ * Development-only: what the test harness needs from the game (see {@link Harness}), where the classes of the package
+ * {@code harness} hold the parts that change the most between versions.
  */
 final class ModernHarnessHost implements HarnessHost {
     @Override

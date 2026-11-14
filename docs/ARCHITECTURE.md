@@ -5,7 +5,7 @@ Albedo is ports and adapters. The core holds almost all the code and no Minecraf
 | Module | Contents |
 |--------|----------|
 | `core/` | Plain Java 8. Config, `Policy`, texture classification and pixel math, the custom sky (bake and shaders), the settings screen (`ui/`) and the test harness (`dev/Harness`). Compiled into every jar. Unit tests. |
-| `modern/` | 1.16.5 to 26.3 on Fabric, NeoForge and Forge (up to 1.20.4), Mojang names, Stonecutter. `common/` has the adapter and the mixins; the loader folders have only the entrypoint and the config button. |
+| `modern/` | 1.16.5 to 26.3 on Fabric, NeoForge and Forge (up to 1.20.4), Mojang names, Stonecutter. `common/` has the adapter, the mixins and the development-only harness shims (`harness/`, called only from `ModernHarnessHost`); the loader folders have only the entrypoint and the config button. |
 | `legacy/` | 1.8.9 and 1.12.2 on Forge, MCP names. Shared code in `legacy/src`; per version, `legacy/versions/<mc>/` holds `Game` (static wrappers for renamed game members), `SpriteUpload` and the mixins whose targets changed. |
 
 No single toolchain builds both 1.8.9 Forge and 26.x, so there are two Gradle builds. Both compile `core/src`.

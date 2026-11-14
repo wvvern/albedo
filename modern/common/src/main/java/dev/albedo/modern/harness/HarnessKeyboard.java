@@ -1,16 +1,17 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.albedo.core.Keys;
+import dev.albedo.modern.KeyCodes;
 import dev.albedo.modern.mixin.KeyboardHandlerInvoker;
 import net.minecraft.client.Minecraft;
 
 /** Development-only: keyboard input for the test harness through the window callbacks of the keyboard handler. */
-final class HarnessKeyboard {
+public final class HarnessKeyboard {
     private HarnessKeyboard() {}
 
     /** Calls the keyboard handler as the key event of the window does, with the codes of the key in this version. */
-    static void key(Keys.Key key, boolean down, boolean ctrl) {
+    public static void key(Keys.Key key, boolean down, boolean ctrl) {
         KeyboardHandlerInvoker keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
         long handle = HarnessWindow.handle();
         int code = InputConstants.getKey(key.minecraftName).getValue();
@@ -29,7 +30,7 @@ final class HarnessKeyboard {
     }
 
     /** Calls the keyboard handler as the text event of the window does, and returns false when SDL has no text input started. */
-    static boolean character(char c) {
+    public static boolean character(char c) {
         KeyboardHandlerInvoker keyboard = (KeyboardHandlerInvoker) Minecraft.getInstance().keyboardHandler;
         long handle = HarnessWindow.handle();
         //? if >=26.3 {

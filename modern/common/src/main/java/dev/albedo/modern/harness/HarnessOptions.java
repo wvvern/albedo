@@ -1,4 +1,4 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
@@ -6,10 +6,10 @@ import net.minecraft.client.Options;
 import net.minecraft.sounds.SoundSource;
 
 /** Development-only: the options that the test harness sets, which became option objects in 1.19 and 1.19.3. */
-final class HarnessOptions {
+public final class HarnessOptions {
     private HarnessOptions() {}
 
-    static void quiet() {
+    public static void quiet() {
         Options o = Minecraft.getInstance().options;
         //? if >=1.19.3 {
         if (o.getSoundSourceOptionInstance(SoundSource.MASTER).get() != 0.0) o.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
@@ -25,7 +25,7 @@ final class HarnessOptions {
         o.pauseOnLostFocus = false;
     }
 
-    static void setFov(int degrees) {
+    public static void setFov(int degrees) {
         //? if >=1.19 {
         Minecraft.getInstance().options.fov().set(degrees);
         //?} else {

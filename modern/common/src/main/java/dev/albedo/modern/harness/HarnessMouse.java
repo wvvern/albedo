@@ -1,15 +1,16 @@
-package dev.albedo.modern;
+package dev.albedo.modern.harness;
 
 import com.mojang.blaze3d.platform.Window;
+import dev.albedo.modern.KeyCodes;
 import dev.albedo.modern.mixin.MouseHandlerInvoker;
 import net.minecraft.client.Minecraft;
 
 /** Development-only: mouse input for the test harness through the game's own path to the screen. */
-final class HarnessMouse {
+public final class HarnessMouse {
     private HarnessMouse() {}
 
     /** Calls the window callbacks of the mouse handler for a move to a GUI pixel and a press or release of the left button. */
-    static void leftButton(int guiX, int guiY, boolean down) {
+    public static void leftButton(int guiX, int guiY, boolean down) {
         Minecraft mc = Minecraft.getInstance();
         Window window = mc.getWindow();
         MouseHandlerInvoker mouse = (MouseHandlerInvoker) mc.mouseHandler;
