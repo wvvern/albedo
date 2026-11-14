@@ -21,10 +21,11 @@ class ParseTest(unittest.TestCase):
         _, runs = run.parse(["fabric-26.3", "--suite", "edges"])
         self.assertFalse(runs[0].own_folder)
 
-    def test_the_games_that_run_at_the_same_time_fit_in_the_free_memory(self):
-        self.assertEqual(4, run.game_slots(112, 4 * run.GAME_BYTES + 1))
-        self.assertEqual(3, run.game_slots(3, 100 * run.GAME_BYTES))
-        self.assertEqual(1, run.game_slots(5, 0))
+    def test_the_games_that_run_at_the_same_time_fit_in_the_free_memory_and_the_threads(self):
+        self.assertEqual(4, run.game_slots(112, 4 * run.GAME_BYTES + 1, 32))
+        self.assertEqual(21, run.game_slots(112, 100 * run.GAME_BYTES, 32))
+        self.assertEqual(3, run.game_slots(3, 100 * run.GAME_BYTES, 32))
+        self.assertEqual(1, run.game_slots(5, 0, 32))
 
     def test_the_loader_is_fabric_unless_given(self):
         _, runs = run.parse(["fabric-26.3"])

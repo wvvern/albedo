@@ -5,7 +5,8 @@ without fullbright, and the settings screen. Screenshots go to <out>/<target>/ w
 has each reason. The exit code is 1 when a target fails. tools/harness/verdict.py has what a run must show to pass.
 
 Each target runs in its own game, and all targets run at the same time. With several suites, each suite of each target runs in its own
-game, in the game folder runs/<suite> of the node, and all of these games also run at the same time, as many as the free memory holds.
+game, in the game folder runs/<suite> of the node. All of these games run at the same time, as many as the free memory and the
+hardware threads hold.
 The output of each goes to <out>/<suite>/<target>/.
 
     python -m tools harness fabric-26.3 forge-1.8.9
@@ -34,6 +35,8 @@ from tools.report import ToolError, say
 ALL = "all"
 # The memory of one hidden game and its Gradle process; the free memory divided by this is the number of games that run at the same time.
 GAME_BYTES = 3 * 1024**3
+# The hardware threads for each game. With more games, the sky bake and the game start fall behind the waits of the suites.
+THREADS_PER_GAME = 1.5
 
 
 def run_target(target: Target, options: RunOptions, system: System) -> bool:
@@ -70,8 +73,8 @@ def run_job(target: Target, options: RunOptions, system: System) -> bool:
         return False
 
 
-def game_slots(jobs: int, free_bytes: int) -> int:
-    return max(1, min(jobs, free_bytes // GAME_BYTES))
+def game_slots(jobs: int, free_bytes: int, threads: int) -> int:
+    return max(1, min(jobs, free_bytes // GAME_BYTES, int(threads / THREADS_PER_GAME)))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -149,7 +152,7 @@ def main(arguments: list[str]) -> int:
     processes.wait_for_tool(project.ROOT, "build")
     # The first suite of each target starts first, so a slow target does not wait behind the other targets.
     jobs = [(target, options) for options in runs for target in targets]
-    with ThreadPoolExecutor(max_workers=game_slots(len(jobs), psutil.virtual_memory().available)) as pool:
+    with ThreadPoolExecutor(max_workers=game_slots(len(jobs), psutil.virtual_memory().available, psutil.cpu_count())) as pool:
         passed = list(pool.map(lambda job: run_job(*job, system), jobs))
     failed = list(dict.fromkeys(target.name for (target, _), ok in zip(jobs, passed, strict=True) if not ok))
     if failed:
