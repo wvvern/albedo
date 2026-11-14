@@ -2,7 +2,6 @@ package dev.albedo.core;
 
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Chroma;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
@@ -99,13 +98,7 @@ public final class Policy {
                 return hide ? Appearance.of(Appearance.Mode.HIDDEN) : Appearance.ORIGINAL;
             }
         }
-        Appearance look = s.lookOf(group);
-        // Where Speed does not show, the colors stay still, also on the few sprites there that the GPU pass could move.
-        if (!c.hasMovingChroma() && look.chroma().moves()) {
-            Chroma chroma = look.chroma();
-            look = look.withEffects(look.bevel(), look.outline(), chroma.withOptions(0, chroma.saturation(), chroma.brightness()));
-        }
-        return look;
+        return s.lookOf(group);
     }
 
     public boolean cloudsHidden() {

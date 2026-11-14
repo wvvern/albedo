@@ -236,9 +236,9 @@ final class Labels {
     }
 
     /** The effects that are on, such as "Edge Chroma 60%, Bevel 20%", or "Off". */
-    static String effects(Appearance a, boolean bevel, boolean outline) {
+    static String effects(Appearance a, boolean chroma, boolean bevel, boolean outline) {
         StringBuilder s = new StringBuilder();
-        effect(s, outline && a.chroma().edge() ? "Edge Chroma" : "Chroma", a.chroma().strength());
+        if (chroma) effect(s, outline && a.chroma().edge() ? "Edge Chroma" : "Chroma", a.chroma().strength());
         if (bevel) effect(s, "Bevel", a.bevel());
         if (outline) effect(s, "Outline", a.outline());
         return s.length() == 0 ? "Off" : s.toString();

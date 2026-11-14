@@ -50,7 +50,7 @@ final class ChromaPass implements ChromaBackend {
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run, "Chroma shader", "The Chroma colors stay still.");
+            .build(), Runnable::run, "Chroma shader", "Chroma is off.");
 
     /** The mip level that the copy pipeline reads. */
     private static final BindGroupLayout COPY_LAYOUT = BindGroupLayout.builder()
@@ -66,7 +66,7 @@ final class ChromaPass implements ChromaBackend {
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-            .build(), Runnable::run, "Chroma copy shader", "The Chroma colors stay still.");
+            .build(), Runnable::run, "Chroma copy shader", "Chroma is off.");
 
     @Override
     public Shader compile() {

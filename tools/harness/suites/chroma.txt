@@ -1,5 +1,5 @@
 # Moving Chroma colors on the GPU: frames in a row within one tick, a longer row of frames, far blocks with mip levels,
-# the GPU colors at the time 0 against the still colors of the CPU, the GPU time of the pass, and the Effects section.
+# no Chroma while the pass is stopped, the GPU time of the pass, and the Effects section.
 # Run it after the scene in place of shots.txt:
 # python -m tools harness fabric-26.3 forge-1.8.9 --suite chroma --out build/chroma
 wait 60
@@ -26,23 +26,17 @@ wait 20
 # Back to the place of the scene, from which the player falls to the ground next to the barrier on 1.8.9.
 run tp @p 0.5 ~ 4.5 180 12
 wait 60
-# The GPU colors at the time 0 must be the still colors that the CPU paints when the pass stops. The fluids keep their
-# own colors here, because the CPU gives each frame of a block animation the next part of the hue and the GPU cannot.
-effects fluids
-wait 20
-chromacompare
-wait 20
+# A stopped pass takes Chroma away, and the pass gives it back when it starts again.
 skyclock 0
 wait 10
 screenshot c04-gpu-time0
 chromagpu off
 wait 60
-screenshot c05-cpu-still
+screenshot c05-pass-stopped
 chromagpu on
 wait 60
 screenshot c06-gpu-again
 skyclock run
-effects fluids chroma 100 speed 100
 chromatime 300
 wait 200
 # A repaint while the colors move: Bevel and Outline stack on Chroma.
@@ -55,10 +49,6 @@ reload
 wait 300
 frames 3 c08-after-reload
 wait 20
-effects fluids
-wait 20
-chromacompare
-wait 20
 # A change of the profile paints the atlas again, and the colors move again on the new paint.
 profile quake-white
 wait 40
@@ -66,9 +56,6 @@ profile pastel
 wait 100
 frames 3 c10-profile-again
 wait 20
-chromacompare
-wait 20
-effects fluids chroma 100 speed 100
 effects blocks chroma 100 speed 30 saturation 80 brightness 40
 wait 20
 settings open

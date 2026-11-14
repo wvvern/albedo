@@ -39,10 +39,9 @@ public final class SettingsEditor {
     /** The labels left of controls; the label column is as wide as the widest. */
     private static final String[] ROW_LABELS = {"Style", "Color", "Shape", "Scope", "Recolor"};
     private static final String EFFECTS = "effects";
-    /** The first effect under the Effects heading, which all categories with effects have. */
+    /** The first effect under the Effects heading, which shows only where the GPU pass moves the colors. */
     private static final String CHROMA_LABEL = "Chroma";
-    private static final String CHROMA_TIP = "Chroma: each kind of texture gets its own rainbow color";
-    private static final String CHROMA_MOVING_TIP = ", and the colors go around at the Speed below.";
+    private static final String CHROMA_TIP = "Chroma: each kind of texture gets its own rainbow color, and the colors go around at the Speed below.";
     /** The Chroma options, which show under Chroma only while it is on, with short labels that fit the second indent. */
     private static final String[] CHROMA_LABELS = {"Speed", "Vivid", "Bright"};
     private static final String[] CHROMA_IDS = {"effects.chromaSpeed", "effects.chromaSaturation", "effects.chromaBrightness"};
@@ -698,7 +697,7 @@ public final class SettingsEditor {
         Appearance.Mode m = target.mode();
         boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
         boolean recolor = m == Appearance.Mode.RECOLOR;
-        boolean effects = target.changesPixels() && category.hasChroma();
+        boolean effects = target.changesPixels() && (sc.chromaCanMove(category) || category.hasOutline());
         String shapeNote = usesShape && category == Category.PLAYERS
                 ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
         Appearance.Alpha[] shapes = Appearance.Alpha.values();
@@ -749,17 +748,15 @@ public final class SettingsEditor {
     }
 
     /**
-     * The Effects heading, and under it when it is open Chroma with its options while it is on (Speed only where the
-     * GPU pass moves the colors, Edge only with Outline), then Bevel and Outline for blocks and fluids, and Outline for
-     * items.
+     * The Effects heading, and under it when it is open Chroma with its options while it is on (only where the GPU pass
+     * moves the colors, Edge only with Outline), then Bevel and Outline for blocks and fluids, and Outline for items.
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
         boolean edges = page.category.hasOutline(), bevel = page.category.hasBevel(), open = effectsOpen;
+        boolean shows = sc.chromaCanMove(page.category);
         Chroma chroma = target.chroma();
-        boolean more = chroma.isOn() || edges, speed = sc.chromaCanMove(page.category);
-        // The Chroma options that show, as indexes into CHROMA_LABELS.
-        int[] shown = speed ? new int[]{0, 1, 2} : new int[]{1, 2};
-        int optionRows = shown.length + (edges ? 1 : 0);
+        boolean on = shows && chroma.isOn(), more = on || edges;
+        int optionRows = CHROMA_LABELS.length + (edges ? 1 : 0);
         // The first of EFFECT_LABELS that shows: Bevel needs square tiles, so items show only Outline.
         int first = bevel ? 0 : 1;
         String[] edgeLabels = Arrays.copyOfRange(EFFECT_LABELS, first, EFFECT_LABELS.length);
@@ -767,25 +764,29 @@ public final class SettingsEditor {
         int chromaH = more ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
         int optionsH = edges ? Form.rowsHeight(optionRows) : Form.slidersHeight(optionRows, false);
         int edgesH = Form.slidersHeight(edgeLabels.length, false);
+        List<String> names = new ArrayList<String>();
+        if (shows) names.add(CHROMA_LABEL);
+        if (edges) names.addAll(Arrays.asList(edgeLabels));
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
-            String tip = (open ? "Hide" : "Show") + " the effects: " + CHROMA_LABEL + (edges ? ", " + String.join(", ", edgeLabels) : "");
-            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, bevel, edges), open, tip) == open) return false;
+            String tip = (open ? "Hide" : "Show") + " the effects: " + String.join(", ", names);
+            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, shows, bevel, edges), open, tip) == open) return false;
             effectsOpen = !open;
             changed = true;
             return true; // the rows under the heading move
         }));
         if (!open) return items;
-        items.add(Column.of(chromaH, (x, y, w) -> {
-            Form form = form(x, w);
-            form.guide(y, more ? chromaH : chromaH - GAP);
-            String tip = CHROMA_TIP + (speed ? CHROMA_MOVING_TIP : ".");
-            int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, tip, chroma.strength());
-            if (strength == chroma.strength()) return false;
-            setLook(cs, index, target.withEffects(target.bevel(), target.outline(), chroma.withStrength(strength)));
-            return (strength > 0) != chroma.isOn(); // the options show or hide under it
-        }));
-        if (chroma.isOn()) {
+        if (shows) {
+            items.add(Column.of(chromaH, (x, y, w) -> {
+                Form form = form(x, w);
+                form.guide(y, more ? chromaH : chromaH - GAP);
+                int strength = form.indented().slider("effects.chroma", y, CHROMA_LABEL, CHROMA_TIP, chroma.strength());
+                if (strength == chroma.strength()) return false;
+                setLook(cs, index, target.withEffects(target.bevel(), target.outline(), chroma.withStrength(strength)));
+                return (strength > 0) != chroma.isOn(); // the options show or hide under it
+            }));
+        }
+        if (on) {
             // The options under Chroma, one indent further right with a guide line of their own.
             items.add(Column.of(optionsH, (x, y, w) -> {
                 Form form = form(x, w);
@@ -793,13 +794,12 @@ public final class SettingsEditor {
                 Form rows = form.indented();
                 rows.guide(y, Form.rowsHeight(optionRows) - 3);
                 int[] o = {chroma.speed(), chroma.saturation(), chroma.brightness()};
-                for (int row = 0; row < shown.length; row++) {
-                    int i = shown[row];
+                for (int i = 0; i < CHROMA_LABELS.length; i++) {
                     String text = i == 0 && o[i] == 0 ? "Still" : o[i] + "%";
-                    o[i] = rows.indented().slider(CHROMA_IDS[i], y + Form.rowsHeight(row), CHROMA_LABELS[i], CHROMA_TIPS[i], o[i], text);
+                    o[i] = rows.indented().slider(CHROMA_IDS[i], y + Form.rowsHeight(i), CHROMA_LABELS[i], CHROMA_TIPS[i], o[i], text);
                 }
                 boolean edge = edges
-                        ? rows.indented().toggle("effects.chromaEdge", y + Form.rowsHeight(shown.length), EDGE_LABEL, EDGE_TIP, chroma.edge())
+                        ? rows.indented().toggle("effects.chromaEdge", y + Form.rowsHeight(CHROMA_LABELS.length), EDGE_LABEL, EDGE_TIP, chroma.edge())
                         : chroma.edge();
                 Chroma next = chroma.withOptions(o[0], o[1], o[2]).withEdge(edge);
                 if (!next.equals(chroma)) setLook(cs, index, target.withEffects(target.bevel(), target.outline(), next));
@@ -817,8 +817,8 @@ public final class SettingsEditor {
                 return false;
             }));
         }
-        if (speed && chroma.moves() && sc.chromaStill()) {
-            items.add(note("The colors stay still, because the GPU cannot move them here."));
+        if (on && sc.chromaStill()) {
+            items.add(note("Chroma is off, because the GPU cannot move the colors here."));
         }
         return items;
     }

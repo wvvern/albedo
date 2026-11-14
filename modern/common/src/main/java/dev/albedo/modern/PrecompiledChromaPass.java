@@ -71,7 +71,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             return Shader.READY;
         }
         state = Compile.FAILED;
-        Albedo.get().platform().warn("Cannot compile the Chroma shader " + PIPELINE.getLocation() + ". The Chroma colors stay still.", null);
+        Albedo.get().platform().warn("Cannot compile the Chroma shader " + PIPELINE.getLocation() + ". Chroma is off.", null);
         return Shader.FAILED;
     }
 

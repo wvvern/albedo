@@ -37,23 +37,26 @@ final class Effects {
      * @param id the texture id, which gives Chroma its hue
      * @param tile whether the image is square block tiles (one per frame of an animation strip) that get Bevel
      * @param outline whether each frame gets Outline along the edge of its shape
-     * @param gpuHue whether a GPU pass adds the hue of moving Chroma colors in each frame, so that the image gets the rest of Chroma only
+     * @param gpuHue whether a GPU pass adds the hue of moving Chroma colors in each frame; a texture without it gets no Chroma,
+     *     because its colors cannot move
      * @return true if the image was changed
      */
     static boolean apply(Appearance a, PixelBuffer img, String id, boolean tile, boolean outline, boolean gpuHue) {
-        if (!a.hasEffects() || img.width() == 0 || img.height() == 0) return false;
+        Chroma c = a.chroma();
+        boolean chroma = c.isOn() && gpuHue;
+        if (!a.changesPixels() || a.bevel() == 0 && a.outline() == 0 && !chroma || img.width() == 0 || img.height() == 0) return false;
         int w = img.width(), frameH = tile || outline ? frameHeight(img) : img.height();
         int frames = img.height() / frameH;
-        Chroma c = a.chroma();
-        boolean withHue = !gpuHue || !a.chromaMoves();
+        // At Speed 0 the CPU paints the hue, because the pass adds none.
+        boolean withHue = !a.chromaMoves();
         // Outline and Edge use one line for all frames, because the texels of the GPU pass are the same for all frames of a sprite.
-        boolean edgeOn = c.isOn() && c.edge();
+        boolean edgeOn = chroma && c.edge();
         boolean[] line = outline && w >= 4 && frameH >= 4 && (edgeOn || a.outline() > 0) ? edgeMask(img, id, frameH) : null;
         boolean[] edge = edgeOn ? line : null;
         // Each frame of a block animation gets the next part of the colors, which only the CPU can do for the same reason.
         for (int f = 0; f < frames; f++) {
             int y0 = f * frameH;
-            if (c.isOn()) chroma(img, y0, frameH, hueTurns(id), tile ? 2 * Math.PI * f / frames : 0, edge, c, withHue);
+            if (chroma) chroma(img, y0, frameH, hueTurns(id), tile ? 2 * Math.PI * f / frames : 0, edge, c, withHue);
             if (!tile && !outline || w < 4 || frameH < 4) continue;
             double tileL = meanLightness(img, y0, frameH);
             if (tile && a.bevel() > 0) bevel(img, y0, frameH, tileL, a.bevel() / 100.0);

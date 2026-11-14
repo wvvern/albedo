@@ -47,8 +47,8 @@ class JudgeTest(unittest.TestCase):
         )
 
     def test_an_error_line_and_a_failed_compare_fail(self):
-        failures = judge(with_log("! unknown command: skyy", "chromacompare: DIFFERENT mean 4.1"), EXPECTED)
-        self.assertEqual(["harness error: ! unknown command: skyy", "harness compare: chromacompare: DIFFERENT mean 4.1"], failures)
+        failures = judge(with_log("! unknown command: skyy", "skycompare dusk: DIFFERENT mean 4.1"), EXPECTED)
+        self.assertEqual(["harness error: ! unknown command: skyy", "harness compare: skycompare dusk: DIFFERENT mean 4.1"], failures)
 
     def test_a_hook_that_did_not_run_fails(self):
         log = [line.replace("tint=100562", "tint=0") for line in GOOD.harness_log]

@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChromaTest {
@@ -43,12 +44,9 @@ class ChromaTest {
         Profile pastel = Presets.pastel();
         Chroma blocks = pastel.get(Category.BLOCKS).appearance().chroma();
         assertEquals(13_300, Chroma.periodMs(blocks.speed()), 300, "the block colors take about 13 s for one turn");
-        // Only the 1.21 versions keep chests in an atlas, so the block entities keep still colors on all versions.
-        assertTrue(!pastel.get(Category.BLOCK_ENTITIES).appearance().chroma().moves(), "the block entity colors stay still");
-        for (Category category : new Category[]{Category.BLOCKS, Category.BLOCK_ENTITIES}) {
-            Chroma c = pastel.get(category).appearance().chroma();
-            assertTrue(c.isOn() && c.strength() <= 60 && c.saturation() <= Chroma.DEFAULT_SATURATION, category + " colors stay soft");
-        }
+        // Only the 1.21 versions keep chests in an atlas, so the block entities get no Chroma.
+        assertFalse(pastel.get(Category.BLOCK_ENTITIES).appearance().chroma().isOn(), "the block entities have no Chroma");
+        assertTrue(blocks.isOn() && blocks.strength() <= 60 && blocks.saturation() <= Chroma.DEFAULT_SATURATION, "the block colors stay soft");
     }
 
     @Test

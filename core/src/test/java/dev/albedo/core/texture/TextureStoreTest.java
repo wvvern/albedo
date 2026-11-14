@@ -305,7 +305,7 @@ class TextureStoreTest {
     }
 
     @Test
-    void movingChromaLeavesItsHueToTheGpuPassUntilThePassStops() {
+    void movingChromaLeavesItsHueToTheGpuPassAndGoesWhenThePassStops() {
         TextureStore store = new TextureStore();
         GpuUpload upload = new GpuUpload();
         String name = "minecraft:block/stone";
@@ -326,8 +326,7 @@ class TextureStoreTest {
         repaint(store, moving);
         store.invalidateGpuHue();
         assertEquals(1, repaint(store, moving).repainted, "only the sprite whose GPU hue changed paints again");
-        lab = Recolor.lab(upload.uploads.uploads.get(1)[0]);
-        assertTrue(Math.hypot(lab[1], lab[2]) > 0.1, "a stopped pass gives still colors on the CPU");
+        assertEquals(0xFFFFFFFF, upload.uploads.uploads.get(1)[0], "a stopped pass gives no Chroma");
         assertFalse(store.chromaTexels(name, 1, 1, texels));
         assertFalse(store.chromaTexels("minecraft:block/stone_bricks", 1, 1, texels), "an unknown sprite has no texels");
     }

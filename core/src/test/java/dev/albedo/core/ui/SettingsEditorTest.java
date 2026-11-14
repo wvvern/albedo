@@ -56,6 +56,9 @@ class SettingsEditorTest {
             "grass_block_side_overlay", "dirt_path_top", "dirt_path_side"}) {
             load("minecraft:block/" + id, 0xFF7F7F7F);
         }
+        // Fluids and items are atlas sprites too, so that Chroma shows on their pages.
+        load("minecraft:block/water_still", 0xFF3F76E4);
+        load("minecraft:item/stick", 0xFF7F7F7F);
     }
 
     /** Loads a block atlas sprite, whose Chroma colors the GPU pass moves as in the game. */
@@ -196,10 +199,10 @@ class SettingsEditorTest {
         sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, c.activeProfile().get(Category.BLOCKS).withRemoveTint(false))));
         assertEquals(2, p.rebuilds);
 
-        // Off and on again: all textures repaint.
+        // Off and on again: all textures repaint, except the stick, which the default profile does not change.
         p.reset();
         sc.apply(sc.config().withEnabled(false));
-        assertEquals(10, p.uploads);
+        assertEquals(11, p.uploads);
         assertEquals(0, p.reloads);
         sc.apply(Config.defaults());
     }
@@ -613,11 +616,8 @@ class SettingsEditorTest {
             click(editor, canvas, "Fluids");
             assertNotNull(canvas.texts.get("Vivid"), "the section stays open on the next page: " + canvas.texts.keySet());
             click(editor, canvas, "Players");
-            assertNotNull(canvas.texts.get("Chroma"), "the section stays open on the page of skins: " + canvas.texts.keySet());
-            assertNull(canvas.texts.get("Bevel"), "skins have only Chroma: " + canvas.texts.keySet());
-            assertNotNull(canvas.texts.get("Vivid"), canvas.texts.keySet().toString());
-            assertNull(canvas.texts.get("Speed"), "the colors of skins cannot move: " + canvas.texts.keySet());
-            assertNull(canvas.texts.get("The GPU"), canvas.texts.keySet().toString());
+            assertNull(canvas.texts.get("Effects"), "skins have no effects, because their colors cannot move: " + canvas.texts.keySet());
+            assertNull(canvas.texts.get("Chroma"), canvas.texts.keySet().toString());
             editor.keyPressed(UiKey.ESCAPE);
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");
@@ -691,9 +691,8 @@ class SettingsEditorTest {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         Map<String, String[]> rows = new LinkedHashMap<String, String[]>();
         rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Speed", "Edge", "Bevel", "Outline", "Remove biome tint"});
-        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Edge", "Bevel", "Outline", "Remove biome tint"});
-        rows.put("Items", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Edge", "Outline"});
-        rows.put("Players", new String[]{"Style", "Color", "Shape", "Effects", "Chroma"});
+        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Speed", "Edge", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Items", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Speed", "Edge", "Outline"});
         for (int[] size : sizes) {
             for (Map.Entry<String, String[]> page : rows.entrySet()) {
                 String where = page.getKey() + " at " + size[0] + "x" + size[1];

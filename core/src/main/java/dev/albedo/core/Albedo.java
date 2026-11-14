@@ -143,7 +143,7 @@ public final class Albedo {
                 sc.store.invalidate(location);
                 sc.stale = true;
             }
-            // The GPU pass has texels only for a kept texture, so a texture over the budget keeps its hue on the CPU.
+            // The GPU pass has texels only for a kept texture, so a texture over the budget gets no Chroma.
             boolean changed = layout.paint(looks, image, kept && upload.gpuHue());
             if (changed) sc.transformedSinceSummary.incrementAndGet();
             return changed;
@@ -197,8 +197,8 @@ public final class Albedo {
     }
 
     /**
-     * Starts or stops the GPU pass of Chroma, and paints the atlas sprites again on the next client tick, because a
-     * stopped pass needs still Chroma colors in the sprites in place of the hue that the pass adds.
+     * Starts or stops the GPU pass of Chroma, and paints the atlas sprites again on the next client tick, because the
+     * sprites get no Chroma while the pass is stopped.
      */
     public void chromaGpu(boolean running) {
         if (chromaStill != running) return;
@@ -207,17 +207,17 @@ public final class Albedo {
         stale = true;
     }
 
-    /** Whether the GPU pass of Chroma is stopped, so that moving Chroma colors stay still. */
+    /** Whether the GPU pass of Chroma is stopped, so that no texture gets Chroma. */
     public boolean chromaStill() {
         return chromaStill;
     }
 
     /**
-     * Whether the Speed of Chroma means something in a category: the GPU pass moves the colors of its textures, or would
-     * where the pass stopped after an error.
+     * Whether Chroma shows in the settings of a category: the GPU pass moves the colors of its textures, or would where
+     * the pass is stopped.
      */
     public boolean chromaCanMove(Category category) {
-        return category.hasMovingChroma() && (chromaStill || store.movingChroma(category));
+        return category.hasChroma() && (chromaStill || store.movingChroma(category));
     }
 
     /**

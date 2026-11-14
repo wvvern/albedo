@@ -26,8 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EffectsTest {
     private static final int GRAY = 0xFF808080, WHITE = 0xFFFFFFFF;
 
+    /** A solid look with still Chroma, whose hue the CPU paints, so that a test sees the colors without the GPU pass. */
     private static Appearance solid(int color, int bevel, int outline, int chroma) {
-        return Appearance.solid(color).withEffects(bevel, outline, Chroma.of(chroma));
+        return Appearance.solid(color).withEffects(bevel, outline, still(Chroma.of(chroma)));
+    }
+
+    private static Chroma still(Chroma c) {
+        return c.withOptions(0, c.saturation(), c.brightness());
+    }
+
+    private static Appearance moving(int color) {
+        return Appearance.solid(color).withEffects(0, 0, Chroma.of(100));
     }
 
     private static PixelBuffer.Heap filled(int w, int h, int argb) {
@@ -311,15 +320,22 @@ class EffectsTest {
     }
 
     @Test
-    void chromaColorsStayStillOnMobsAndPlayers() {
-        Appearance moving = solid(GRAY, 0, 0, 100);
-        TextureKey trim = TextureClassifier.classify("minecraft:trims/models/armor/coast");
-        assertEquals(Category.ENTITIES, trim.category());
-        assertFalse(LayoutTest.policy(Category.ENTITIES, moving).appearanceFor(trim).chromaMoves(), "an armor trim sprite stays still with its mob");
-        TextureKey skin = TextureClassifier.classify("minecraft:skins/abc");
-        assertFalse(LayoutTest.policy(Category.PLAYERS, moving).appearanceFor(skin).chromaMoves());
-        TextureKey stone = TextureClassifier.classify("minecraft:block/stone");
-        assertTrue(LayoutTest.policy(Category.BLOCKS, moving).appearanceFor(stone).chromaMoves());
+    void mobsAndPlayersHaveNoChroma() {
+        assertFalse(Category.ENTITIES.hasChroma());
+        assertFalse(Category.PLAYERS.hasChroma());
+        assertTrue(Category.BLOCKS.hasChroma());
+    }
+
+    @Test
+    void aTextureWithoutTheGpuPassGetsNoChroma() {
+        PixelBuffer.Heap img = filled(4, 4, GRAY);
+        assertFalse(Effects.apply(solid(GRAY, 0, 0, 100), img, "minecraft:block/stone", false, false, false));
+        assertEquals(GRAY, img.getArgb(1, 1), "the colors of a stand-alone texture cannot move");
+        // The tiles of a sheet, such as the 1.8.9 particles, have no GPU pass either.
+        PixelBuffer.Heap sheet = filled(128, 128, GRAY);
+        Layout particles = Layout.of("minecraft:textures/particle/particles.png");
+        particles.paint(particles.looks(LayoutTest.policy(Category.PARTICLES, solid(GRAY, 0, 0, 100))), sheet, true);
+        assertEquals(GRAY, sheet.getArgb(1, 1));
     }
 
     @Test
@@ -327,10 +343,12 @@ class EffectsTest {
         PixelBuffer.Heap img = filled(16, 16, 0x80808080);
         LayoutTest.paint(Layout.of("minecraft:block/glass"), Collections.singletonList(solid(WHITE, 100, 100, 100)), img);
         assertEquals(0x80, Colors.alpha(img.getArgb(0, 0)));
-        assertFalse(Appearance.ORIGINAL.withEffects(100, 100, Chroma.of(100)).hasEffects());
-        assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, Chroma.of(100)).hasEffects());
+        for (Appearance.Mode m : new Appearance.Mode[]{Appearance.Mode.ORIGINAL, Appearance.Mode.HIDDEN}) {
+            Appearance a = Appearance.of(m).withEffects(100, 100, Chroma.of(100));
+            assertFalse(Effects.apply(a, filled(16, 16, GRAY), "minecraft:block/stone", true, true, true), m.name());
+        }
         PixelBuffer.Heap tiny = filled(1, 1, GRAY);
-        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, true, false); // no exception on a 1x1 image
+        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, true, true); // no exception on a 1x1 image
     }
 
     @Test
@@ -340,8 +358,8 @@ class EffectsTest {
                 a.withRecolor(50, 50, 50)}) {
             assertEquals(Arrays.asList(10, 20, 30), Arrays.asList(b.bevel(), b.outline(), b.chroma().strength()));
         }
-        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, Chroma.of(30))));
-        assertEquals(EnumSet.of(Appearance.Field.CHROMA), a.differences(a.withEffects(10, 20, Chroma.of(30).withOptions(90, 50, 50))));
+        assertEquals(EnumSet.of(Appearance.Field.BEVEL), a.differences(a.withEffects(11, 20, a.chroma())));
+        assertEquals(EnumSet.of(Appearance.Field.CHROMA), a.differences(a.withEffects(10, 20, a.chroma().withOptions(90, 50, 50))));
     }
 
     private static Config withBlocks(CategorySettings blocks) {
@@ -410,7 +428,7 @@ class EffectsTest {
         String[] ids = {"minecraft:block/stone", "minecraft:block/dirt", "minecraft:block/oak_planks"};
         for (int i = 0; i < ids.length; i++) {
             PixelBuffer.Heap img = filled(2, 2, i == 1 ? 0xFF000000 : WHITE);
-            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, false, false);
+            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, false, true);
             assertEquals(Integer.toHexString(expected[i]), Integer.toHexString(img.getArgb(0, 0)), ids[i]);
         }
     }
@@ -429,7 +447,7 @@ class EffectsTest {
 
     private static int chromaPixel(Chroma c, int color) {
         PixelBuffer.Heap img = filled(1, 1, color);
-        Effects.apply(Appearance.solid(color).withEffects(0, 0, c), img, "minecraft:block/stone", false, false, false);
+        Effects.apply(Appearance.solid(color).withEffects(0, 0, still(c)), img, "minecraft:block/stone", false, false, true);
         return img.getArgb(0, 0);
     }
 
@@ -459,7 +477,7 @@ class EffectsTest {
             int count = 0;
             for (int color : colors) {
                 PixelBuffer.Heap still = filled(16, 16, color), neutral = filled(16, 16, color);
-                Effects.apply(a, still, id, true, true, false);
+                Effects.apply(a.withEffects(a.bevel(), a.outline(), still(a.chroma())), still, id, true, true, true);
                 Effects.apply(a, neutral, id, true, true, true);
                 int[] texels = new int[16 * 16];
                 assertTrue(Effects.texels(a, id, Effects.edgeMask(filled(16, 16, color), id, 16), 16, 16, texels));
@@ -488,13 +506,13 @@ class EffectsTest {
     @Test
     void theGpuHueGoesOnlyToMovingChroma() {
         String id = "minecraft:block/stone";
-        Appearance still = solid(GRAY, 0, 0, 100).withEffects(0, 0, Chroma.of(100).withOptions(0, 50, 50));
-        PixelBuffer.Heap a = filled(4, 4, GRAY), b = filled(4, 4, GRAY);
-        Effects.apply(still, a, id, false, false, false);
+        Appearance still = solid(GRAY, 0, 0, 100);
+        PixelBuffer.Heap b = filled(4, 4, GRAY);
         Effects.apply(still, b, id, false, false, true);
-        assertEquals(a.getArgb(1, 1), b.getArgb(1, 1), "still colors stay on the CPU");
+        double[] stillLab = Recolor.lab(b.getArgb(1, 1));
+        assertTrue(Math.hypot(stillLab[1], stillLab[2]) > 0.1, "at Speed 0 the CPU paints the hue");
         assertFalse(Effects.texels(still, id, null, 4, 4, new int[16]), "still colors have no GPU texels");
-        Appearance moving = solid(GRAY, 0, 0, 100);
+        Appearance moving = moving(GRAY);
         PixelBuffer.Heap neutral = filled(4, 4, WHITE);
         Effects.apply(moving, neutral, id, false, false, true);
         double[] lab = Recolor.lab(neutral.getArgb(1, 1));
@@ -514,7 +532,7 @@ class EffectsTest {
 
     @Test
     void theGpuPassTurnsTheHueSmoothly() {
-        Appearance a = solid(GRAY, 0, 0, 100);
+        Appearance a = moving(GRAY);
         String id = "minecraft:block/stone";
         PixelBuffer.Heap neutral = filled(1, 1, GRAY);
         Effects.apply(a, neutral, id, false, false, true);

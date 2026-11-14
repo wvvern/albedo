@@ -30,7 +30,7 @@ class LayoutTest {
 
     /** Paints with the Chroma hue on the CPU. */
     static boolean paint(Layout layout, List<Appearance> looks, PixelBuffer img) {
-        return layout.paint(looks, img, false);
+        return layout.paint(looks, img, true);
     }
 
     static Layout sheet(String location) {

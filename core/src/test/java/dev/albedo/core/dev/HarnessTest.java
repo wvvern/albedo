@@ -33,25 +33,19 @@ class HarnessTest {
     }
 
     @Test
-    void theChromaCompareMeasuresTheMeanAndTheFarOffPixels() {
+    void theFrameDifferenceMeasuresTheMeanAndTheFarOffPixels() {
         int[] gray = new int[1000];
         Arrays.fill(gray, 0xFF808080);
         int[] dithered = gray.clone();
         for (int i = 0; i < dithered.length; i += 2) dithered[i] = 0xFF818080;
-        double[] d = Harness.chromaDifference(gray, dithered, Harness.CHROMA_FAR_STEP);
+        double[] d = Harness.frameDifference(gray, dithered, Harness.FAR_STEP);
         assertEquals(1 / 6.0, d[0], 1e-9, "one step in one channel of half the pixels");
         assertEquals(0, d[1], 1e-9);
-        assertTrue(Harness.chromaCompareLine(16, 9, d).startsWith("chromacompare 16x9:"));
         int[] checker = gray.clone();
         for (int i = 0; i < checker.length; i += 2) checker[i] = i % 4 == 0 ? 0xFF000000 : 0xFFF0F0F0;
-        double[] far = Harness.chromaDifference(gray, checker, Harness.CHROMA_FAR_STEP);
+        double[] far = Harness.frameDifference(gray, checker, Harness.FAR_STEP);
         assertEquals(0.5, far[1], 1e-9, "each black or light texel of the checker is far off");
-        assertTrue(Harness.chromaCompareLine(16, 9, far).startsWith("! chromacompare"));
-        int[] fewFar = gray.clone();
-        fewFar[0] = 0xFF000000;
-        assertTrue(Harness.chromaCompareLine(16, 9, Harness.chromaDifference(gray, fewFar, Harness.CHROMA_FAR_STEP)).startsWith("chromacompare"),
-                "one far pixel in a thousand is below the limits");
-        assertTrue(Harness.chromaCompareLine(16, 9, Harness.chromaDifference(gray, new int[2], Harness.CHROMA_FAR_STEP)).startsWith("!"));
+        assertEquals(1, Harness.frameDifference(gray, new int[2], Harness.FAR_STEP)[1], 1e-9, "frames of different sizes");
     }
 
     @Test

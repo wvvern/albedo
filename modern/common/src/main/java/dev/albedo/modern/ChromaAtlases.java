@@ -202,10 +202,10 @@ final class ChromaAtlases {
         target.texels(levels);
     }
 
-    /** Stops the pass for this game after an error, and lets the core paint still Chroma colors in place of it. */
+    /** Stops the pass for this game after an error, and lets the core paint the sprites again without Chroma. */
     private static void stop(RuntimeException e) {
         broken = true;
-        Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. They stay still.", e);
+        Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. Chroma is off.", e);
         close();
         Albedo.get().chromaGpu(false);
     }

@@ -206,16 +206,18 @@ public final class ConfigCodec {
             if (!category.hasOutline() && map.containsKey("chromaEdge")) {
                 throw new IllegalArgumentException("'chromaEdge' works only on blocks, fluids and items");
             }
-            if (!category.hasChroma() && map.containsKey("chroma")) {
+            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && map.containsKey("chroma")) {
                 throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
             }
-            if (!category.hasChroma() && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
+            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + CHROMA_KEYS + " have no meaning here");
             }
+            // Files from 0.7.2 and before can have Chroma on mobs and players, which cannot move there, so it goes.
+            Chroma chroma = category.hasChroma() ? decodeChroma(map, parent.chroma()) : Chroma.OFF;
             return new Appearance(mode, color, alpha,
                     percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
                     percent(map, "keepLight", parent.keepLight()), percent(map, "bevel", parent.bevel()),
-                    percent(map, "outline", parent.outline()), decodeChroma(map, parent.chroma()));
+                    percent(map, "outline", parent.outline()), chroma);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(where + ": " + e.getMessage(), e);
         }

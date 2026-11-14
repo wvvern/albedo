@@ -46,7 +46,7 @@ final class FixedChromaPass implements ChromaBackend {
         GLCapabilities caps = GL.getCapabilities();
         state = Compile.FAILED;
         if (!caps.OpenGL20 || !(caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_object)) {
-            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so the Chroma colors stay still", null);
+            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
             return;
         }
         SkyShaderSource.Dialect dialect = caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
@@ -62,7 +62,7 @@ final class FixedChromaPass implements ChromaBackend {
             if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p, 32768));
         } catch (IOException | IllegalStateException e) {
             GL20.glDeleteProgram(p);
-            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". The Chroma colors stay still.", e);
+            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". Chroma is off.", e);
             return;
         } finally {
             if (vertex != 0) GL20.glDeleteShader(vertex);

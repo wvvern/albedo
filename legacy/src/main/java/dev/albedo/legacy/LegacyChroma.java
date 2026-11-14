@@ -84,7 +84,7 @@ public final class LegacyChroma {
         if (sc == null || broken) return;
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
-        // The pass cannot reach the texture of each sprite that OptiFine Multitexture draws, so the colors then stay still.
+        // The pass cannot reach the texture of each sprite that OptiFine Multitexture draws, so Chroma is then off.
         boolean single = OptiFine.multiTexture();
         if (single != multiTexture) {
             multiTexture = single;
@@ -333,7 +333,7 @@ public final class LegacyChroma {
         ContextCapabilities caps = GLContext.getCapabilities();
         state = Compile.FAILED;
         if (!caps.OpenGL20 || !OpenGlHelper.framebufferSupported) {
-            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so the Chroma colors stay still", null);
+            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
             return false;
         }
         SkyShaderSource.Dialect dialect = caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
@@ -349,7 +349,7 @@ public final class LegacyChroma {
             if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p, 32768));
         } catch (IOException | IllegalStateException e) {
             GL20.glDeleteProgram(p);
-            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". The Chroma colors stay still.", e);
+            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". Chroma is off.", e);
             return false;
         } finally {
             if (vertex != 0) GL20.glDeleteShader(vertex);
@@ -386,11 +386,11 @@ public final class LegacyChroma {
         return shader;
     }
 
-    /** Stops the pass for this game after an error, and lets the core paint still Chroma colors in place of it. */
+    /** Stops the pass for this game after an error, and lets the core paint the sprites again without Chroma. */
     private static void stop(RuntimeException e) {
         broken = true;
         recolored = false;
-        Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. They stay still.", e);
+        Albedo.get().platform().warn("Cannot move the Chroma colors on the GPU. Chroma is off.", e);
         close();
         Albedo.get().chromaGpu(false);
     }

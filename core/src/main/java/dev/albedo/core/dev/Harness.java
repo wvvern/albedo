@@ -149,16 +149,8 @@ public final class Harness {
     static final double COMPARE_LIMIT = 0.02;
     /** The number of frames that {@code chromatime} measures. */
     private static final int CHROMA_FRAMES = 300;
-    /** The ticks that {@code chromacompare} waits for frames at the time 0, and for the still colors that the CPU paints. */
-    private static final int COMPARE_GPU_TICKS = 10, COMPARE_CPU_TICKS = 60;
-    /** The ticks that {@code chromacompare} waits for the pixels of the two frames before it stops. */
-    private static final int COMPARE_PIXEL_TICKS = 200;
     /** A pixel is far off when a channel differs by more 8-bit steps than this, which dither and rounding never do. */
-    static final int CHROMA_FAR_STEP = 48;
-    /** The largest mean difference of a channel in 8-bit steps that {@code chromacompare} accepts. */
-    static final double CHROMA_MEAN_LIMIT = 1.0;
-    /** The largest part of far-off pixels that {@code chromacompare} accepts. */
-    static final double CHROMA_FAR_LIMIT = 0.002;
+    static final int FAR_STEP = 48;
 
     /** The smallest mean difference of a channel in 8-bit steps at which {@code framechanged} says that the frame changed. */
     static final double FRAME_CHANGE_LIMIT = 8.0;
@@ -182,13 +174,6 @@ public final class Harness {
     private int burstIndex;
     /** The keys that {@code keydown} holds until {@code keyup}. */
     private final Set<Keys.Key> held = new HashSet<Keys.Key>();
-    /** The step of the running {@code chromacompare}, 0 when none runs, and the ticks that its last step waited for pixels. */
-    private int chromaStep;
-    private int chromaTicks;
-    /** The pixels of the frames of {@code chromacompare} with the GPU colors and with the CPU colors, which other threads give. */
-    private volatile int[] chromaGpuFrame, chromaCpuFrame;
-    /** The width and the height of the frame with the GPU colors. */
-    private volatile int[] chromaFrameSize;
     /** The middle of the frame of the last {@code keepframe}, which another thread gives. */
     private volatile int[] keptFrame;
 
@@ -236,11 +221,7 @@ public final class Harness {
             return;
         }
         if (burstLeft > 0) return; // the next commands wait for the screenshots of a frames command
-        if (chromaStep > 0) {
-            chromaCompareStep();
-            return;
-        }
-        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0 && chromaStep == 0) {
+        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             log("> " + line);
@@ -297,7 +278,6 @@ public final class Harness {
         else if (verb.equals("frames")) frames(arg.split("\\s+"));
         else if (verb.equals("chromagpu")) sc.chromaGpu(arg.equals("on"));
         else if (verb.equals("chromatime")) chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg));
-        else if (verb.equals("chromacompare")) chromaCompare(sc);
         else if (verb.equals("hooks")) log(hooksLine(host.hookCounters()));
         else if (verb.equals("cursorfree")) log(CursorClip.check(dir));
         else if (verb.equals("fov")) host.setFov(Integer.parseInt(arg));
@@ -346,7 +326,7 @@ public final class Harness {
             log("! framechanged " + name + ": no keepframe before it");
             return;
         }
-        host.framePixels((w, h, argb) -> log(frameChangedLine(name, chromaDifference(kept, middle(argb, w, h), CHROMA_FAR_STEP)[0])));
+        host.framePixels((w, h, argb) -> log(frameChangedLine(name, frameDifference(kept, middle(argb, w, h), FAR_STEP)[0])));
     }
 
     /** The middle part of a frame, a fifth of its width and of its height, where a check puts the thing that it looks at. */
@@ -583,57 +563,12 @@ public final class Harness {
     }
 
     /**
-     * Starts {@code chromacompare}: it holds the clock at the time 0, takes a frame with the GPU colors, stops the pass,
-     * takes a frame with the still colors that the CPU paints, starts the pass again, lets the clock run and logs how far
-     * apart the two frames are.
-     */
-    private void chromaCompare(Albedo sc) {
-        if (sc.chromaStill()) {
-            log("! chromacompare: the GPU pass of Chroma does not run");
-            return;
-        }
-        SkyClock.hold(0);
-        chromaGpuFrame = null;
-        chromaCpuFrame = null;
-        chromaFrameSize = null;
-        chromaStep = 1;
-        waitTicks = COMPARE_GPU_TICKS;
-    }
-
-    /** Does the next step of {@code chromacompare}, which holds the next commands until it logs its result. */
-    private void chromaCompareStep() {
-        Albedo sc = Albedo.get();
-        if (chromaStep == 1) {
-            host.framePixels((w, h, argb) -> {
-                chromaFrameSize = new int[]{w, h};
-                chromaGpuFrame = argb;
-            });
-            sc.chromaGpu(false);
-            chromaStep = 2;
-            waitTicks = COMPARE_CPU_TICKS;
-        } else if (chromaStep == 2) {
-            host.framePixels((w, h, argb) -> chromaCpuFrame = argb);
-            sc.chromaGpu(true);
-            SkyClock.run();
-            chromaStep = 3;
-            chromaTicks = 0;
-        } else if (chromaGpuFrame != null && chromaCpuFrame != null) {
-            int[] size = chromaFrameSize;
-            log(chromaCompareLine(size[0], size[1], chromaDifference(chromaGpuFrame, chromaCpuFrame, CHROMA_FAR_STEP)));
-            chromaStep = 0;
-        } else if (++chromaTicks > COMPARE_PIXEL_TICKS) {
-            log("! chromacompare: the game gave no frame");
-            chromaStep = 0;
-        }
-    }
-
-    /**
      * The mean difference of the color channels of two frames of the same size in 8-bit steps, and the part of the pixels
      * that have a channel more than {@code farStep} steps off.
      *
      * @return {mean, far-off part}, or {Infinity, 1} when the frames have different sizes
      */
-    static double[] chromaDifference(int[] a, int[] b, int farStep) {
+    static double[] frameDifference(int[] a, int[] b, int farStep) {
         if (a.length != b.length || a.length == 0) return new double[]{Double.POSITIVE_INFINITY, 1};
         long sum = 0;
         int far = 0;
@@ -647,14 +582,6 @@ public final class Harness {
             if (largest > farStep) far++;
         }
         return new double[]{sum / (3.0 * a.length), far / (double) a.length};
-    }
-
-    /** The log line of {@code chromacompare}, which starts with "!" when the mean or the part of far-off pixels is above its limit. */
-    static String chromaCompareLine(int width, int height, double[] d) {
-        boolean same = d[0] <= CHROMA_MEAN_LIMIT && d[1] <= CHROMA_FAR_LIMIT;
-        return String.format(Locale.ROOT, "%schromacompare %dx%d: GPU at the time 0 against the CPU still colors: mean %.2f steps"
-                        + " (limit %.1f), far-off pixels %.3f%% (limit %.1f%%): %s", same ? "" : "! ", width, height, d[0],
-                CHROMA_MEAN_LIMIT, d[1] * 100, CHROMA_FAR_LIMIT * 100, same ? "same" : "DIFFERENT");
     }
 
     /**

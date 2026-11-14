@@ -76,7 +76,7 @@ Traps:
 
 Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9 fixed pipeline), but every renderer samples the atlas. So a GPU pass recolors the atlas texture itself each frame. Repainting the block atlas on the CPU takes about 20 ms, too slow per frame.
 
-- The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps get this; everything else gets still Chroma colors at time 0. The Effects section shows Speed only where the pass moves the colors (`Albedo.chromaCanMove`): never for mobs and players, whose textures are stand-alone on every version (`Category.hasMovingChroma`, and `Policy` gives them speed 0), and elsewhere only where a kind of texture is drawn from an atlas (`TextureStore.movingChroma`).
+- Chroma exists only where the pass moves the colors. The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps have `gpuHue`; every other texture gets no Chroma (stand-alone textures, sheet tiles such as the 1.8.9 particles, textures over the budget). Mobs and players have no Chroma on any version, because their textures are stand-alone (`Category.hasChroma`), and the codec drops Chroma from their looks in older files. The Effects section shows Chroma only where a kind of texture is drawn from an atlas (`Albedo.chromaCanMove`, `TextureStore.movingChroma`).
 - `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels. A mip texel gets the mean of the hue that its four texels add, so a still texel counts as no hue.
 - With Edge, only the texels of the Outline line move, each with its own hue, and the other texels have speed 0. The line is the union of the lines of all frames (`Effects.edgeMask`), because the texels are the same for all frames.
 - The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
@@ -88,11 +88,11 @@ Traps:
 - Between frames the atlas holds the painted colors, so the game and Albedo always write into those. A repaint or reload mid-frame restores the pristine copy first (`restore`). If the previous frame's end did not run, the next start restores first, so the hue never leaks into the pristine copy.
 - Texels are rebuilt only when a moving texture changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture).
 - 1.21.8 and later bake item icons into an item atlas once; while colors move, each icon is marked animated (`ItemIconMixin`).
-- 1.8.9 with OptiFine Multitexture draws blocks from per-sprite textures, so the pass stops and sprites get still colors.
+- 1.8.9 with OptiFine Multitexture draws blocks from per-sprite textures, so the pass stops and sprites get no Chroma.
 - On 1.21.11 and NeoForge 26.3, `CommandEncoder.copyTextureToTexture` copies only mip level 0 whatever level it is given, so the other levels are copied with a draw (`chroma_copy.fsh`). Without it, sprites at the top left of the atlas turn into a checker of extreme colors.
 - 1.21.5 to 1.21.10: a render pass draws only into mip level 0 and the atlas cannot be a render target, so these versions use `GlChromaPass` on the atlas GL name, unwrapping the NeoForge validation layer (`getRealTexture`).
 - On 1.8.9 the pass pushes and pops GL attributes while its own framebuffer is bound: OptiFine Fast Render draws with no framebuffer, and `GL_BACK` is not a valid draw buffer for one.
-- If the shader fails to compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`; the core goes back to still colors.
+- If the shader fails to compile or a GPU call fails, the adapter logs one warning and calls `Albedo.chromaGpu(false)`; the core paints the sprites again without Chroma.
 
 ## Custom sky
 

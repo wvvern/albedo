@@ -33,7 +33,7 @@ final class GlChromaPass implements ChromaBackend {
         int vertexArray;
 
         Program() {
-            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", "Chroma shader", "The Chroma colors stay still.");
+            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", "Chroma shader", "Chroma is off.");
         }
 
         @Override

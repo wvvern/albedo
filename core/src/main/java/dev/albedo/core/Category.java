@@ -53,17 +53,12 @@ public enum Category {
         return this != SKY && this != CLOUDS && this != WEATHER;
     }
 
-    /** Whether Chroma means something here: wherever the textures can be recolored. */
-    public boolean hasChroma() {
-        return supportedModes().contains(Appearance.Mode.RECOLOR) && this != COLORMAPS;
-    }
-
     /**
-     * Whether Chroma colors can move here, which the GPU pass does only for atlas sprites, while mobs and players draw
+     * Whether Chroma can be here: the GPU pass moves the colors of atlas sprites only, and mobs and players use
      * stand-alone textures on every version (of mobs, only the armor trims are sprites).
      */
-    public boolean hasMovingChroma() {
-        return hasChroma() && this != ENTITIES && this != PLAYERS;
+    public boolean hasChroma() {
+        return supportedModes().contains(Appearance.Mode.RECOLOR) && this != COLORMAPS && this != ENTITIES && this != PLAYERS;
     }
 
     /** Whether Bevel means something here, which needs square tiles such as block faces. */
