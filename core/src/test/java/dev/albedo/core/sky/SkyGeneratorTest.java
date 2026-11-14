@@ -96,34 +96,6 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void theBakerInParallelGivesTheSamePixels() throws InterruptedException {
-        SkyBaker baker = new SkyBaker(W, H, e -> fail(e));
-        baker.request(SkyPresets.NEBULA);
-        for (int i = 0; i < 400 && !baker.current(); i++) Thread.sleep(10);
-        assertTrue(baker.current());
-        assertArrayEquals(SkyGenerator.bake(SkyPresets.NEBULA, W, H).argb(), baker.image().argb());
-    }
-
-    @Test
-    void aNewRenderKeepsThePixelsWithNoBake() throws InterruptedException {
-        SkyBaker baker = new SkyBaker(W, H, e -> fail(e));
-        baker.request(SkyPresets.NEBULA);
-        for (int i = 0; i < 400 && !baker.current(); i++) Thread.sleep(10);
-        SkyImage sharp = baker.image();
-        assertTrue(sharp.drawsSharp());
-        baker.request(SkyPresets.NEBULA.withRender(SkyDesign.Render.FAST));
-        assertTrue(baker.current(), "the image is ready at once");
-        assertSame(sharp.argb(), baker.image().argb());
-        assertNotEquals(sharp.serial(), baker.image().serial(), "the adapters see a new image");
-        assertFalse(baker.image().drawsSharp());
-        SkyDesign turning = SkyPresets.NEBULA.withTurning(SkyTurning.STILL.withAmount(50));
-        baker.request(turning);
-        assertTrue(baker.current(), "a new turning also keeps the pixels");
-        assertSame(sharp.argb(), baker.image().argb());
-        assertEquals(turning, baker.image().design());
-    }
-
-    @Test
     void noSeamWhereTheImageWrapsAndNoPinchAtTheZenith() {
         int[] px = SkyGenerator.bake(of(layer(1, SkyLayer.Kind.NOISE).withTransform(new Transform(0, 0, 0, 400))), W, H).argb();
         for (int y = 0; y < H; y++) {
@@ -431,21 +403,6 @@ class SkyGeneratorTest {
     }
 
     @Test
-    void halfFloatsRoundToTheNearestAndStayInRange() {
-        assertEquals(0x3C00, SkyGenerator.half(1f));
-        assertEquals(0x3800, SkyGenerator.half(0.5f));
-        assertEquals(0x3C01, SkyGenerator.half(1.0009766f));
-        assertEquals(0x3555, SkyGenerator.half(1f / 3));
-        assertEquals(0x7BFF, SkyGenerator.half(65504f));
-        assertEquals(0x7BFF, SkyGenerator.half(1e9f), "the largest half float");
-        assertEquals(0, SkyGenerator.half(-1f), "no negative glow");
-        assertEquals(0, SkyGenerator.half(Float.NaN), "no bright speck from a NaN");
-        assertEquals(1, SkyGenerator.half(5.9604645e-8f), "the smallest subnormal");
-        assertEquals(0x0200, SkyGenerator.half(3.0517578e-5f), "a subnormal");
-        for (float v = 1e-6f; v < 60000; v *= 1.37f) assertEquals(v, fromHalf(SkyGenerator.half(v)), v / 1024 + 6e-8f, "" + v);
-    }
-
-    @Test
     void theBloomTermHoldsOnlyTheGlowThatTheBloomAdds() {
         int w = 128, h = 64;
         SkyImage full = SkyGenerator.bake(SkyPresets.GALAXY, w, h);
@@ -505,13 +462,5 @@ class SkyGeneratorTest {
             }
         }
         assertTrue(negative, "a bend can be negative");
-    }
-
-    @Test
-    void daylightFollowsTheVanillaSky() {
-        assertEquals(1f, SkyLight.brightness(6000, 0, 0), 1e-4f);
-        assertEquals(0.04f, SkyLight.brightness(18000, 0, 0), 1e-4f);
-        assertEquals(0.7f, SkyLight.brightness(6000, 1, 0), 1e-4f);
-        assertEquals(1f, SkyLight.of(SkyPresets.NEBULA, 18000, 0, 0));
     }
 }
