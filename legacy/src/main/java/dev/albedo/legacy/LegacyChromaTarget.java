@@ -17,7 +17,10 @@ import org.lwjgl.opengl.GLContext;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
-/** The GL texture of the block atlas with its pristine copy and its texels, into which the Chroma pass draws. */
+/**
+ * The GL texture of the block atlas with its pristine copy and its texels, into which the Chroma pass draws, where
+ * withState, sizeOf, baseLevel and copy are twins of FixedChromaPass and a fix lands in both.
+ */
 final class LegacyChromaTarget {
     /** The Chroma program, which takes its uniforms and makes the framebuffer of the pass when it compiled. */
     static final class Program extends LegacyGlProgram {
@@ -185,11 +188,11 @@ final class LegacyChromaTarget {
     }
 
     private int width(int level) {
-        return Math.max(1, size[0] >> level);
+        return ChromaTexels.levelSize(size[0], level);
     }
 
     private int height(int level) {
-        return Math.max(1, size[1] >> level);
+        return ChromaTexels.levelSize(size[1], level);
     }
 
     /**
@@ -235,8 +238,7 @@ final class LegacyChromaTarget {
             out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
         });
-        // A texture with no mip levels can keep the default largest level of 1000.
-        out[2] = Math.max(1, Math.min(out[2], 32 - Integer.numberOfLeadingZeros(Math.max(1, Math.max(out[0], out[1])))));
+        out[2] = ChromaTexels.mipLevels(out[0], out[1], out[2]);
         return out;
     }
 }

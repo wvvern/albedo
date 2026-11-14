@@ -24,7 +24,8 @@ import java.nio.FloatBuffer;
 import java.util.Arrays;
 
 // The Chroma pass of the fixed function versions with an OpenGL 2.0 program and a framebuffer: it draws the hue of each moving
-// texel into each mip level of an atlas, and it puts back all GL state that it can change, with the attribute stack.
+// texel into each mip level of an atlas, and it puts back all GL state that it can change, with the attribute stack, where
+// withState, sizeOf, baseLevel and copy are twins of LegacyChromaTarget and a fix lands in both.
 final class FixedChromaPass implements ChromaBackend {
     // The Chroma program: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20.
     private static final class Program extends GlProgram {
@@ -117,8 +118,7 @@ final class FixedChromaPass implements ChromaBackend {
             out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
             out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
         });
-        // A texture with no mip levels can keep the default largest level of 1000.
-        out[2] = Math.max(1, Math.min(out[2], 32 - Integer.numberOfLeadingZeros(Math.max(1, Math.max(out[0], out[1])))));
+        out[2] = ChromaTexels.mipLevels(out[0], out[1], out[2]);
         return out;
     }
 
@@ -146,8 +146,8 @@ final class FixedChromaPass implements ChromaBackend {
             widths = new int[size[2]];
             heights = new int[size[2]];
             for (int level = 0; level < size[2]; level++) {
-                widths[level] = Math.max(1, size[0] >> level);
-                heights[level] = Math.max(1, size[1] >> level);
+                widths[level] = ChromaTexels.levelSize(size[0], level);
+                heights[level] = ChromaTexels.levelSize(size[1], level);
             }
             pristine = texture();
             texels = texture();

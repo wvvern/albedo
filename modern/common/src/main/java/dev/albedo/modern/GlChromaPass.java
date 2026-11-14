@@ -78,8 +78,7 @@ final class GlChromaPass implements ChromaBackend {
             GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1};
         GlStateManager._bindTexture(previous);
         GlStateManager._activeTexture(active);
-        // A texture with no mip levels can keep the default largest level of 1000.
-        size[2] = Math.max(1, Math.min(size[2], 32 - Integer.numberOfLeadingZeros(Math.max(1, Math.max(size[0], size[1])))));
+        size[2] = ChromaTexels.mipLevels(size[0], size[1], size[2]);
         return size;
     }
 
@@ -133,8 +132,8 @@ final class GlChromaPass implements ChromaBackend {
             widths = new int[levels];
             heights = new int[levels];
             for (int level = 0; level < levels; level++) {
-                widths[level] = Math.max(1, size[0] >> level);
-                heights[level] = Math.max(1, size[1] >> level);
+                widths[level] = ChromaTexels.levelSize(size[0], level);
+                heights[level] = ChromaTexels.levelSize(size[1], level);
             }
             GlState saved = GlState.ofAll();
             pristine = texture();

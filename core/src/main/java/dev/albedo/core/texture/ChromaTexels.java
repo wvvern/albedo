@@ -12,6 +12,21 @@ public final class ChromaTexels {
 
     private ChromaTexels() {}
 
+    /**
+     * The mip levels of the pass for an atlas texture: the levels of the texture, and none below a level of 1 by 1.
+     *
+     * @param maxLevelPlusOne {@code GL_TEXTURE_MAX_LEVEL} of the texture plus 1
+     */
+    public static int mipLevels(int width, int height, int maxLevelPlusOne) {
+        // A texture with no mip levels can keep the default largest level of 1000.
+        return Math.max(1, Math.min(maxLevelPlusOne, 32 - Integer.numberOfLeadingZeros(Math.max(1, Math.max(width, height)))));
+    }
+
+    /** The width or height of a mip level, which is never below 1. */
+    public static int levelSize(int size, int level) {
+        return Math.max(1, size >> level);
+    }
+
     /** The GPU memory that the pass adds for one level of an atlas: the texel texture and the pristine copy, 4 bytes for each texel. */
     public static long levelBytes(int width, int height) {
         return 2L * 4 * width * height;
@@ -82,7 +97,7 @@ public final class ChromaTexels {
             if (level == null) throw new IllegalStateException("the atlas has no moving sprite");
             int[][] out = new int[count][];
             out[0] = level;
-            for (int i = 1; i < count; i++) out[i] = halve(out[i - 1], Math.max(1, width >> (i - 1)), Math.max(1, height >> (i - 1)));
+            for (int i = 1; i < count; i++) out[i] = halve(out[i - 1], levelSize(width, i - 1), levelSize(height, i - 1));
             return out;
         }
     }

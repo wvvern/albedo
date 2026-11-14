@@ -67,6 +67,16 @@ class ChromaTexelsTest {
     }
 
     @Test
+    void theMipLevelsStopAtALevelOfOneTexel() {
+        assertEquals(12, ChromaTexels.mipLevels(2048, 1024, 1001), "the default largest level of 1000");
+        assertEquals(1, ChromaTexels.mipLevels(0, 0, 1001));
+        assertEquals(4, ChromaTexels.mipLevels(16, 16, 4));
+        assertEquals(1, ChromaTexels.mipLevels(16, 16, 0));
+        assertEquals(256, ChromaTexels.levelSize(2048, 3));
+        assertEquals(1, ChromaTexels.levelSize(2, 5), "a level is never below one texel");
+    }
+
+    @Test
     void anAtlasWithNoMovingSpriteKeepsNoLevel() {
         ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(4096, 4096, (location, w, h, out) -> false);
         atlas.sprite("minecraft:block/not_kept", 0, 0, 16, 16, 0);
