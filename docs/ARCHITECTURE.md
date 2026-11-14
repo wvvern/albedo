@@ -61,7 +61,7 @@ Every change (screen, key, harness, config file) goes to `Albedo.apply`, which s
 1. Sky, fog, fullbright, shadows, player armor, player capes and clouds read the policy each frame.
 2. `TextureStore.repaint` repaints each texture whose look changed from its kept original.
 3. `Platform.finishRepaint` uploads the results.
-4. If tints or shading changed, `Platform.rebuildChunks` rebuilds the chunk meshes.
+4. If tints or shading changed (`Policy.sameMeshes`), `Platform.rebuildChunks` rebuilds the chunk meshes.
 5. Only if an upload fails or the store is over its memory budget does `Platform.reloadResources` reload everything.
 
 Traps:

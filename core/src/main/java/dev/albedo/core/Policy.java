@@ -55,6 +55,12 @@ public final class Policy {
         return textureLooks(profile).equals(textureLooks(other.profile)) && profile.is(Toggle.FOLIAGE) == other.profile.is(Toggle.FOLIAGE);
     }
 
+    /** Whether both policies give the chunk meshes the same shading and tints. */
+    public boolean sameMeshes(Policy other) {
+        return shading() == other.shading() && removeTint(Category.BLOCKS) == other.removeTint(Category.BLOCKS)
+                && removeTint(Category.FLUIDS) == other.removeTint(Category.FLUIDS);
+    }
+
     /** The categories of a profile with only the part of the sky layers that changes textures, so that a layer edit repaints nothing. */
     private static Map<Category, CategorySettings> textureLooks(Profile p) {
         Map<Category, CategorySettings> out = new EnumMap<Category, CategorySettings>(Category.class);

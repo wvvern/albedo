@@ -817,7 +817,7 @@ public final class SettingsEditor {
                 return false;
             }));
         }
-        if (on && albedo.chromaStill()) {
+        if (on && !albedo.chromaGpuRunning()) {
             items.add(note("Chroma is off, because the GPU cannot move the colors here."));
         }
         return items;

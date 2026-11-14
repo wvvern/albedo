@@ -13,9 +13,6 @@ import dev.albedo.core.texture.TextureStore;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,15 +22,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class Albedo {
     public static final String MOD_ID = "albedo";
     public static final String NAME = "Albedo";
-    private static final int WATCH_INTERVAL_TICKS = 20;
+    /** The ticks between two reads of the time stamp of the config file and two summary log lines. */
+    private static final int SLOW_TICK_INTERVAL = 20;
     /** The size of the sky image in the world: about 5.7 texels for each degree on both axes of the full sphere. */
     private static final int SKY_WIDTH = 2048, SKY_HEIGHT = 1024;
+    private static final int COLORMAP_SIZE = 256;
 
     private static volatile Albedo instance;
 
     private final Platform platform;
-    private final File dir;
-    private final File configFile;
+    private final ConfigFile file;
+    private final HotKeys hotKeys = new HotKeys();
     private final Harness harness;
     /** The config as the file stores it. */
     private volatile Config config;
@@ -48,21 +47,18 @@ public final class Albedo {
     /** The sky in the world, which bakes only when a config with new layers is applied. */
     private final SkyBaker skyBaker;
 
-    private long lastModified;
     private int ticks;
     /** A worker thread recorded a texture while the policy changed, so the next client tick repaints it. */
     private volatile boolean stale;
-    /** True after the adapter stopped its GPU pass of Chroma. */
-    private volatile boolean chromaStill;
+    /** False after the adapter stopped its GPU pass of Chroma. */
+    private volatile boolean chromaGpuRunning = true;
     private final AtomicInteger transformedSinceSummary = new AtomicInteger();
     /** The size of the downloaded textures that the log last showed. */
     private long loggedDownloadedBytes;
-    private final boolean[] keyWasDown = new boolean[3];
 
     private Albedo(Platform platform) {
         this.platform = platform;
-        this.dir = new File(platform.configDir(), MOD_ID);
-        this.configFile = new File(dir, "config.json");
+        this.file = new ConfigFile(platform);
         this.harness = Harness.fromSystemProperty(platform);
         this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
@@ -71,7 +67,7 @@ public final class Albedo {
     public static synchronized Albedo init(Platform platform) {
         if (instance == null) {
             Albedo albedo = new Albedo(platform);
-            albedo.loadOrCreate();
+            albedo.setConfig(albedo.file.loadOrCreate());
             instance = albedo;
             platform.info(NAME + " ready on " + platform.describe() + ", " + albedo.config.state());
         }
@@ -165,8 +161,6 @@ public final class Albedo {
         }
     }
 
-    private static final int COLORMAP_SIZE = 256;
-
     /** Drops the kept original of a texture that the game released, for example a downloaded skin. */
     public static void forgetTexture(String location) {
         Albedo albedo = instance;
@@ -201,15 +195,15 @@ public final class Albedo {
      * sprites get no Chroma while the pass is stopped.
      */
     public void chromaGpu(boolean running) {
-        if (chromaStill != running) return;
-        chromaStill = !running;
+        if (running == chromaGpuRunning) return;
+        chromaGpuRunning = running;
         store.invalidateGpuHue();
         stale = true;
     }
 
-    /** Whether the GPU pass of Chroma is stopped, so that no texture gets Chroma. */
-    public boolean chromaStill() {
-        return chromaStill;
+    /** Whether the GPU pass of Chroma runs; while it is stopped, no texture gets Chroma. */
+    public boolean chromaGpuRunning() {
+        return chromaGpuRunning;
     }
 
     /**
@@ -217,7 +211,7 @@ public final class Albedo {
      * the pass is stopped.
      */
     public boolean chromaCanMove(Category category) {
-        return category.hasChroma() && (chromaStill || store.movingChroma(category));
+        return category.hasChroma() && (!chromaGpuRunning || store.movingChroma(category));
     }
 
     /**
@@ -237,24 +231,19 @@ public final class Albedo {
     /** @param screenOpen true while a GUI is open (keys are ignored then so typing doesn't toggle). */
     public void clientTick(boolean screenOpen) {
         watchServer();
-        Config.KeyBinds keys = config.keys();
-        if (pressed(0, keys.toggle, screenOpen)) toggle();
-        if (pressed(1, keys.cycleProfile, screenOpen)) cycleProfile();
-        if (pressed(2, keys.settings, screenOpen)) platform.openSettings();
+        for (Config.KeyBinds.Action a : hotKeys.pressed(config.keys(), key -> !screenOpen && platform.isKeyDown(key))) {
+            switch (a) {
+                case TOGGLE: toggle(); break;
+                case CYCLE_PROFILE: cycleProfile(); break;
+                default: platform.openSettings(); break;
+            }
+        }
 
-        if (++ticks % WATCH_INTERVAL_TICKS == 0) {
-            int transformed = transformedSinceSummary.getAndSet(0);
-            if (transformed > 0) {
-                platform.info("Changed " + transformed + " textures with profile '" + config().activeProfileName() + "'");
-            }
-            long downloaded = store.downloadedBytes();
-            if (downloaded != loggedDownloadedBytes) {
-                loggedDownloadedBytes = downloaded;
-                platform.info("Keeps " + (downloaded + 1023) / 1024 + " KiB of downloaded skins, capes and elytra");
-            }
-            if (configFile.lastModified() != lastModified) {
+        if (++ticks % SLOW_TICK_INTERVAL == 0) {
+            logSummary();
+            if (file.changedOnDisk()) {
                 Policy before = policy;
-                if (load()) {
+                if (reload()) {
                     platform.showMessage(NAME + ": config reloaded");
                     refresh(before);
                 }
@@ -264,12 +253,17 @@ public final class Albedo {
         if (harness != null) harness.tick();
     }
 
-    private boolean pressed(int slot, String keyName, boolean screenOpen) {
-        Keys.Key key = Keys.byName(keyName);
-        boolean down = !screenOpen && key != null && platform.isKeyDown(key);
-        boolean edge = down && !keyWasDown[slot];
-        keyWasDown[slot] = down;
-        return edge;
+    /** Logs the textures changed and the size of the downloaded textures, each when it changed. */
+    private void logSummary() {
+        int transformed = transformedSinceSummary.getAndSet(0);
+        if (transformed > 0) {
+            platform.info("Changed " + transformed + " textures with profile '" + config().activeProfileName() + "'");
+        }
+        long downloaded = store.downloadedBytes();
+        if (downloaded != loggedDownloadedBytes) {
+            loggedDownloadedBytes = downloaded;
+            platform.info("Keeps " + (downloaded + 1023) / 1024 + " KiB of downloaded skins, capes and elytra");
+        }
     }
 
     public void toggle() {
@@ -301,7 +295,7 @@ public final class Albedo {
         Policy old = policy;
         setConfig(saved);
         if (effective.equals(before) && saved.equals(previous)) return RefreshResult.painted(0, false, 0);
-        save();
+        file.save(saved);
         if (!effective.state().equals(before.state())) platform.showMessage(NAME + ": " + effective.state());
         return refresh(old);
     }
@@ -354,8 +348,7 @@ public final class Albedo {
         }
         if (r.needReload > 0) return RefreshResult.reloaded(r.needReload + " textures cannot be repainted");
         if (!flushed) return RefreshResult.reloaded("the repainted textures cannot be sent to the GPU");
-        boolean meshes = old.shading() != now.shading() || old.removeTint(Category.BLOCKS) != now.removeTint(Category.BLOCKS)
-                || old.removeTint(Category.FLUIDS) != now.removeTint(Category.FLUIDS);
+        boolean meshes = !old.sameMeshes(now);
         if (meshes) platform.rebuildChunks();
         return RefreshResult.painted(r.repainted, meshes, (System.nanoTime() - start) / 1000000);
     }
@@ -365,33 +358,14 @@ public final class Albedo {
         update();
     }
 
-    private void loadOrCreate() {
-        if (configFile.isFile() && load()) return;
-        if (configFile.isFile()) backUpInvalidFile();
-        setConfig(Config.defaults());
-        if (!configFile.isFile()) save();
-    }
-
-    /** Keeps a copy of a config file that does not load, because the next save writes over it. */
-    private void backUpInvalidFile() {
-        File copy = new File(dir, "config.invalid.json");
-        try {
-            Files.copy(configFile.toPath(), copy.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            platform.warn("The config file is not valid. A copy is in " + copy + ".", null);
-        } catch (IOException e) {
-            platform.warn("Cannot copy " + configFile, e);
-        }
-    }
-
     /** @return false if the file is not valid, which keeps the current config */
-    private boolean load() {
-        lastModified = configFile.lastModified();
+    private boolean reload() {
         try {
-            setConfig(ConfigCodec.decode(read(configFile)));
+            setConfig(file.load());
             return true;
-        } catch (Exception e) {
-            platform.warn("Config file " + configFile + " is not valid. The previous settings stay.", e);
-            if (config != null) platform.showMessage(NAME + ": config error - " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            file.warnInvalid(e);
+            platform.showMessage(NAME + ": config error - " + e.getMessage());
             return false;
         }
     }
@@ -399,24 +373,8 @@ public final class Albedo {
     /** Writes the profile to {@code profiles/<name>.json} and copies the same text to the clipboard. */
     public File exportProfile(Profile p) throws IOException {
         String json = ConfigCodec.encodeProfileFile(p);
-        File out = new File(new File(dir, "profiles"), p.name().replaceAll("[^A-Za-z0-9_.-]", "_") + ".json");
-        Files.createDirectories(out.getParentFile().toPath());
-        Files.write(out.toPath(), json.getBytes(StandardCharsets.UTF_8));
+        File out = file.exportProfile(p.name(), json);
         platform.setClipboard(json);
         return out;
-    }
-
-    private void save() {
-        try {
-            dir.mkdirs();
-            Files.write(configFile.toPath(), ConfigCodec.encode(config).getBytes(StandardCharsets.UTF_8));
-            lastModified = configFile.lastModified();
-        } catch (IOException e) {
-            platform.warn("Cannot save " + configFile, e);
-        }
-    }
-
-    private static String read(File f) throws IOException {
-        return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
     }
 }

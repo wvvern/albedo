@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Converts {@link Config} to and from JSON such as the example below, where an unknown key is an error so that a
@@ -55,7 +56,8 @@ public final class ConfigCodec {
         for (String key : CHROMA_KEYS) FIELD_KEYS.put(key, Appearance.Field.CHROMA);
     }
     private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
-    private static final List<String> KEY_KEYS = Arrays.asList("toggle", "cycleProfile", "settings");
+    private static final List<String> KEY_KEYS = Collections.unmodifiableList(
+            Arrays.stream(Config.KeyBinds.Action.values()).map(a -> a.key).collect(Collectors.toList()));
     private static final List<String> CATEGORY_KEYS = plus(LOOK_KEYS, "removeTint", "onlyGroups", "groups");
     private static final List<String> SKY_CATEGORY_KEYS = plus(CATEGORY_KEYS, SkyCodec.KEYS.toArray(new String[0]));
     private static final List<String> GROUP_KEYS = plus(LOOK_KEYS, "name", "match");
@@ -99,9 +101,7 @@ public final class ConfigCodec {
     public static Config decode(String json) {
         Map<String, Object> root = object(Json.parse(json), "root", ROOT_KEYS);
         Map<String, Object> keys = root.containsKey("keys") ? object(root.get("keys"), "keys", KEY_KEYS) : Collections.<String, Object>emptyMap();
-        Config.KeyBinds d = Config.KeyBinds.DEFAULT;
-        Config.KeyBinds binds = new Config.KeyBinds(str(keys, "toggle", d.toggle), str(keys, "cycleProfile", d.cycleProfile),
-                str(keys, "settings", d.settings));
+        Config.KeyBinds binds = Config.KeyBinds.of(a -> str(keys, a.key, Config.KeyBinds.DEFAULT.get(a)));
 
         Map<String, Profile> profiles = new LinkedHashMap<String, Profile>();
         Object rawProfiles = root.get("profiles");
@@ -239,9 +239,7 @@ public final class ConfigCodec {
         root.put("enabled", config.enabled());
         root.put("activeProfile", config.activeProfileName());
         Map<String, Object> keys = new LinkedHashMap<String, Object>();
-        keys.put("toggle", config.keys().toggle);
-        keys.put("cycleProfile", config.keys().cycleProfile);
-        keys.put("settings", config.keys().settings);
+        for (Config.KeyBinds.Action a : Config.KeyBinds.Action.values()) keys.put(a.key, config.keys().get(a));
         root.put("keys", keys);
         if (!config.servers().isEmpty()) {
             Map<String, Object> servers = new LinkedHashMap<String, Object>();

@@ -7,11 +7,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 
 /** The whole user configuration, immutable so that each edit produces a new instance. */
 public final class Config {
     /** Key names (see {@link dev.albedo.core.Keys}); "NONE" disables a key. */
     public static final class KeyBinds {
+        /** What a key does, with its JSON key in the config file. */
+        public enum Action {
+            TOGGLE("toggle"), CYCLE_PROFILE("cycleProfile"), SETTINGS("settings");
+
+            public final String key;
+
+            Action(String key) {
+                this.key = key;
+            }
+        }
+
         public static final KeyBinds DEFAULT = new KeyBinds("F6", "F7", "F9");
 
         public final String toggle;
@@ -22,6 +34,19 @@ public final class Config {
             this.toggle = toggle;
             this.cycleProfile = cycleProfile;
             this.settings = settings;
+        }
+
+        /** The key binds with the key name that {@code keyName} gives for each action. */
+        public static KeyBinds of(Function<Action, String> keyName) {
+            return new KeyBinds(keyName.apply(Action.TOGGLE), keyName.apply(Action.CYCLE_PROFILE), keyName.apply(Action.SETTINGS));
+        }
+
+        public String get(Action action) {
+            switch (action) {
+                case TOGGLE: return toggle;
+                case CYCLE_PROFILE: return cycleProfile;
+                default: return settings;
+            }
         }
 
         @Override

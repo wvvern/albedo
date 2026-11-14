@@ -73,7 +73,7 @@ final class ChromaAtlases {
     static boolean gpuHue(Object atlas) {
         ATLASES.add(atlas);
         Albedo albedo = Albedo.get();
-        return !broken && albedo != null && !albedo.chromaStill();
+        return !broken && albedo != null && albedo.chromaGpuRunning();
     }
 
     /** True while the pass moves the colors of some atlas, so that the screens draw their item icons again in each frame. */
@@ -87,7 +87,7 @@ final class ChromaAtlases {
         if (albedo == null || broken) return;
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
-        if (albedo.chromaStill()) {
+        if (!albedo.chromaGpuRunning()) {
             close();
             return;
         }

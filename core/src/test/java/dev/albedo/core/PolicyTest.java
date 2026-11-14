@@ -74,6 +74,20 @@ class PolicyTest {
     }
 
     @Test
+    void shadingAndTheTintsOfBlocksAndFluidsChangeMeshes() {
+        Config c = Config.defaults();
+        Profile profile = c.activeProfile();
+        Policy p = Policy.of(c);
+        assertTrue(p.sameMeshes(Policy.of(c.withProfile(profile.with(Toggle.FULLBRIGHT, false)))));
+        assertTrue(p.sameMeshes(Policy.of(c.withProfile(profile.with(Category.ITEMS, profile.get(Category.ITEMS).withRemoveTint(true))))));
+        assertFalse(p.sameMeshes(Policy.of(c.withProfile(profile.with(Toggle.SHADING, !p.shading())))));
+        for (Category tinted : new Category[]{Category.BLOCKS, Category.FLUIDS}) {
+            CategorySettings flipped = profile.get(tinted).withRemoveTint(!p.removeTint(tinted));
+            assertFalse(p.sameMeshes(Policy.of(c.withProfile(profile.with(tinted, flipped)))), tinted.name());
+        }
+    }
+
+    @Test
     void foliageHidesPlantsButNotLeavesOrGrassBlocks() {
         Policy hidden = Policy.of(Config.defaults()); // quake-white hides foliage
         for (String plant : new String[]{"block/short_grass", "block/tall_grass_top", "block/poppy", "block/oak_sapling",

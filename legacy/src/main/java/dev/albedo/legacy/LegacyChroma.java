@@ -75,7 +75,7 @@ public final class LegacyChroma {
     /** Whether the pass adds the hue of the moving sprites of the block atlas. */
     static boolean gpuHue() {
         Albedo albedo = Albedo.get();
-        return !broken && albedo != null && !albedo.chromaStill();
+        return !broken && albedo != null && albedo.chromaGpuRunning();
     }
 
     /** Draws the colors of this frame into the atlas, before the frame draws anything. */
@@ -90,7 +90,7 @@ public final class LegacyChroma {
             lastMultiTexture = multiTexture;
             albedo.chromaGpu(!multiTexture);
         }
-        if (albedo.chromaStill()) {
+        if (!albedo.chromaGpuRunning()) {
             close();
             return;
         }
