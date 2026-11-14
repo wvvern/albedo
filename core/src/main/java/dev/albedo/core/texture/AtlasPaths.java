@@ -39,12 +39,7 @@ public final class AtlasPaths {
     }
 
     static String atlasName(String atlas) {
-        String a = atlas.toLowerCase(Locale.ROOT);
-        int colon = a.indexOf(':');
-        if (colon >= 0) a = a.substring(colon + 1);
-        int slash = a.lastIndexOf('/');
-        if (slash >= 0) a = a.substring(slash + 1);
-        if (a.endsWith(".png")) a = a.substring(0, a.length() - 4);
-        return a;
+        String a = ResourcePath.strip(atlas.toLowerCase(Locale.ROOT));
+        return a.substring(a.lastIndexOf('/') + 1);
     }
 }

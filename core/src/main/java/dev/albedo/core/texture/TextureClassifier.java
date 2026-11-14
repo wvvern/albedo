@@ -25,7 +25,7 @@ public final class TextureClassifier {
         String folder = downloadedFolder(location);
         if (folder != null) return new TextureKey(Category.PLAYERS, "minecraft:" + folder);
         int colon = location.indexOf(':');
-        return colon < 0 ? classify("minecraft", location) : classify(location.substring(0, colon), location.substring(colon + 1));
+        return classify(colon < 0 ? "minecraft" : location.substring(0, colon), location);
     }
 
     /** Whether a texture is a player skin, cape or elytra that the game downloads, which has no resource file. */
@@ -43,14 +43,12 @@ public final class TextureClassifier {
 
     /** Whether a texture is one piece of a connected texture (OptiFine, MCPatcher or Continuity), which Bevel and Outline leave alone. */
     public static boolean isConnected(String location) {
-        return normalise(location.substring(location.indexOf(':') + 1)).contains("/ctm/");
+        return normalise(location).contains("/ctm/");
     }
 
-    static String normalise(String path) {
-        String p = path.toLowerCase(Locale.ROOT).replace('\\', '/');
-        if (p.startsWith("textures/")) p = p.substring("textures/".length());
-        if (p.endsWith(".png")) p = p.substring(0, p.length() - 4);
-        return p;
+    /** The lower-case path of a location with forward slashes and without the parts of {@link ResourcePath#strip}. */
+    static String normalise(String location) {
+        return ResourcePath.strip(location.toLowerCase(Locale.ROOT).replace('\\', '/'));
     }
 
     /**
@@ -71,8 +69,8 @@ public final class TextureClassifier {
         return path;
     }
 
-    private static TextureKey classify(String namespace, String path) {
-        String p = optiFine(normalise(path));
+    private static TextureKey classify(String namespace, String location) {
+        String p = optiFine(normalise(location));
         int slash = p.indexOf('/');
         String folder = slash < 0 ? p : p.substring(0, slash);
         String rest = slash < 0 ? p : p.substring(slash + 1);
