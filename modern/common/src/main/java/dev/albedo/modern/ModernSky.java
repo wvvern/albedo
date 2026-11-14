@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.SkyDesign;
+import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
@@ -13,9 +14,11 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 //?}
 
+import java.io.File;
+
 /**
  * The version-independent parts of the custom sky. {@link #frameStart} calls the family class: {@code FixedSky},
- * {@code GlSky}, {@code PrecompiledSky} or {@code PearlSky}.
+ * {@code GlSky}, {@code PrecompiledSky} or {@code PearlSky}. {@link #drawEquirect} calls the sharp sky class of the family.
  */
 public final class ModernSky {
     static final float RADIUS = 100f;
@@ -39,6 +42,21 @@ public final class ModernSky {
         /*PrecompiledSky.frameStart();
         *///?} elif gl_sky {
         /*GlSky.frameStart();
+        *///?}
+    }
+
+    /** Draws the sky with the sky shader into an equirectangular PNG for the harness, with the family class. */
+    static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png,
+                                Harness.SkyDone done) {
+        //? if gl_fixed {
+        /*return FixedSharpSky.drawEquirect(sky, values, width, height, repeat, view, png, done);
+        *///?}
+        //? if renderpearl {
+        return SharpSky.drawEquirect(sky, values, width, height, repeat, view, png, done);
+        //?} elif device_sky {
+        /*return PrecompiledSharpSky.drawEquirect(sky, values, width, height, repeat, view, png, done);
+        *///?} elif gl_sky {
+        /*return GlSharpSky.drawEquirect(sky, values, width, height, repeat, view, png, done);
         *///?}
     }
 

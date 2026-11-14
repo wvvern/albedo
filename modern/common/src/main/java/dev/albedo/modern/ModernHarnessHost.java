@@ -4,6 +4,7 @@ import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
+import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 
@@ -136,33 +137,14 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public boolean drawSharpSky(Harness.SkyDraw d, Harness.SkyDone done) {
-        //? if gl_fixed {
-        /*return FixedSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
-        *///?}
-        //? if >=26.3 {
-        return SharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
-        //?} elif >=1.21.6 {
-        /*return PrecompiledSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
-        *///?} elif gl_sky {
-        /*return GlSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
-        *///?}
+        return ModernSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
     }
 
     @Override
     public boolean cloudsDrawn() {
-        Minecraft mc = Minecraft.getInstance();
-        //? if >=26.1 {
-        if (mc.options.getCloudStatus() == net.minecraft.client.CloudStatus.OFF) return false;
-        //?} else {
-        /*if (mc.options.getCloudsType() == net.minecraft.client.CloudStatus.OFF) return false;
-        *///?}
-        //? if >=26.2 {
-        return hasCloudCells(mc.levelRenderer.cloudRenderer());
-        //?} elif >=1.21.2 {
-        /*return hasCloudCells(mc.levelRenderer.getCloudRenderer());
-        *///?} else {
-        /*return true;
-        *///?}
+        if (ModernOptions.cloudStatus(Minecraft.getInstance().options) == CloudStatus.OFF) return false;
+        Object renderer = ModernOptions.cloudRenderer();
+        return renderer == null || hasCloudCells(renderer);
     }
 
     /** Whether the cloud renderer holds the cells of clouds.png, which it draws nothing without; the dev run has Mojang names. */
