@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tools import gradle, project
 from tools.harness import protocol, rundir, script, verdict
-from tools.harness.session import Launch
+from tools.harness.launch import Launch
 from tools.harness.verdict import Expectations, Loader
 from tools.project import Target
 

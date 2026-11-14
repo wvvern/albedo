@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 from tools.harness import protocol, session
-from tools.harness.session import Launch
+from tools.harness.launch import Launch
 from tools.report import ToolError
 from tools.tests.fixtures import temp_dir
 

@@ -5,7 +5,7 @@ import os
 from ctypes import wintypes
 from functools import cache
 
-from tools.harness.session import Launch
+from tools.harness.launch import Launch
 
 DESKTOP_NAME = "AlbedoHarness"
 GENERIC_ALL = 0x10000000

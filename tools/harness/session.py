@@ -14,6 +14,7 @@ from typing import Protocol
 
 from tools import project, report
 from tools.harness import files, protocol, rundir
+from tools.harness.launch import Launch
 from tools.harness.verdict import Evidence
 from tools.report import ToolError
 
@@ -26,17 +27,6 @@ EXIT_SECONDS = 30
 # A loader that fails to start leaves the Gradle process running.
 LOADER_FAILURE = 'Uncaught exception in thread "main"'
 PNG_HEADER_SIZE = 24
-
-
-@dataclass(frozen=True)
-class Launch:
-    """A command line to run in a folder, with its output in a log file."""
-
-    command_line: str
-    cwd: Path
-    log: Path
-    # Variables for the process on top of the ones of this process.
-    environment: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)

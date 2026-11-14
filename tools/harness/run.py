@@ -27,6 +27,7 @@ from pathlib import Path
 from tools import gradle, project
 from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
+from tools.harness.launch import Launch
 from tools.harness.session import System
 from tools.harness.verdict import Loader
 from tools.project import Target
@@ -42,7 +43,7 @@ THREADS_PER_GAME = 1.5
 def run_target(target: Target, options: RunOptions, system: System) -> bool:
     """Runs one target, writes its output folder and tells whether it passed."""
 
-    def launch_of(harness: Path) -> session.Launch:
+    def launch_of(harness: Path) -> Launch:
         devrun.prepare_run_dir(target, options)
         return devrun.launch(target, harness, options)
 

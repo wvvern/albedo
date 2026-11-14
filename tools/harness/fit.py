@@ -17,7 +17,7 @@ from pathlib import Path
 from tools import project
 from tools.harness import protocol
 from tools.harness.cursor import SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
-from tools.harness.session import Launch
+from tools.harness.launch import Launch
 
 Size = tuple[int, int]
 

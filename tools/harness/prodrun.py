@@ -9,7 +9,7 @@ from pathlib import Path
 
 from tools import gradle, project
 from tools.harness import protocol, rundir
-from tools.harness.session import Launch
+from tools.harness.launch import Launch
 from tools.report import ToolError
 
 MINECRAFT = "1.8.9"

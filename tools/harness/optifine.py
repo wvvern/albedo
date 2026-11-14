@@ -26,8 +26,9 @@ from pathlib import Path
 from tools import project
 from tools.harness import files, protocol, rundir, script, session
 from tools.harness.devrun import RunOptions
+from tools.harness.launch import Launch
 from tools.harness.prodrun import MINECRAFT, WORK, Installation, find_java_8, prepare_game_dir, production_client
-from tools.harness.session import Launch, System
+from tools.harness.session import System
 from tools.project import Target
 from tools.report import ToolError
 
