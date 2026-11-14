@@ -8,13 +8,11 @@ public final class SkyDayTime {
     /** A larger step in one tick is a jump, for example from a time command, which shows at once. */
     static final long MAX_STEP = 100;
 
-    private static long previous;
-    private static long current;
-
-    private SkyDayTime() {}
+    private long previous;
+    private long current;
 
     /** Records the day time of the world at the end of each client tick, which the frames until the next tick move to. */
-    public static void tick(long dayTime) {
+    public void tick(long dayTime) {
         previous = current;
         current = dayTime;
     }
@@ -24,7 +22,7 @@ public final class SkyDayTime {
      *
      * @param partialTick the part of a tick from the last tick to this frame, from 0 to 1
      */
-    public static double at(float partialTick) {
+    public double at(float partialTick) {
         long step = current - previous;
         return step < 0 || step > MAX_STEP ? current : previous + step * (double) partialTick;
     }

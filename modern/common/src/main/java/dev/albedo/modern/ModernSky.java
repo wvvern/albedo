@@ -19,6 +19,7 @@ import org.joml.Matrix4fc;
  */
 public final class ModernSky {
     static final float RADIUS = 100f;
+    private static final SkyDayTime DAY_TIME = new SkyDayTime();
     private static java.lang.reflect.Method irisInUse;
     private static Object iris;
     private static boolean irisLooked;
@@ -118,13 +119,13 @@ public final class ModernSky {
     /** Records the day time at the end of each client tick, for the frames until the next tick. */
     static void tick() {
         ClientLevel level = Minecraft.getInstance().level;
-        if (level != null) SkyDayTime.tick(dayTime(level));
+        if (level != null) DAY_TIME.tick(dayTime(level));
     }
 
     /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
     static SkyTurn turn(SkyImage img) {
         ClientLevel level = Minecraft.getInstance().level;
-        return SkyTurn.at(img.design().turning(), level == null ? 0 : SkyDayTime.at(partialTick()));
+        return SkyTurn.at(img.design().turning(), level == null ? 0 : DAY_TIME.at(partialTick()));
     }
 
     /** The part of a tick from the last tick to this frame. */

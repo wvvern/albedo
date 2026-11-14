@@ -30,6 +30,7 @@ import java.nio.FloatBuffer;
  */
 public final class LegacySky {
     private static final float RADIUS = 100f;
+    private static final SkyDayTime DAY_TIME = new SkyDayTime();
     private static DynamicTexture texture;
     private static long uploaded = -1;
     private static int sphere;
@@ -83,14 +84,14 @@ public final class LegacySky {
     /** Records the day time at the end of each client tick, for the frames until the next tick. */
     static void tick() {
         World world = Game.world();
-        if (world != null) SkyDayTime.tick(world.getWorldTime());
+        if (world != null) DAY_TIME.tick(world.getWorldTime());
     }
 
     /** The rotation of the custom sky in this frame, for the sky sphere and the fog. */
     private static SkyTurn turn(SkyImage img) {
         Minecraft mc = Minecraft.getMinecraft();
         float partialTick = ((MinecraftAccessor) mc).albedo$timer().renderPartialTicks;
-        return SkyTurn.at(img.design().turning(), Game.world() == null ? 0 : SkyDayTime.at(partialTick));
+        return SkyTurn.at(img.design().turning(), Game.world() == null ? 0 : DAY_TIME.at(partialTick));
     }
 
     /**
