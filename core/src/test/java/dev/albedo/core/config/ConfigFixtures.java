@@ -2,6 +2,8 @@ package dev.albedo.core.config;
 
 import dev.albedo.core.Category;
 
+import java.util.Collections;
+
 /** Configs and looks that tests in more than one package build. */
 public final class ConfigFixtures {
     private ConfigFixtures() {
@@ -11,6 +13,11 @@ public final class ConfigFixtures {
     public static Config with(Category category, CategorySettings settings) {
         Config c = Config.defaults();
         return c.withProfile(c.activeProfile().with(category, settings));
+    }
+
+    /** The sky settings in the style "layers" with this design. */
+    public static CategorySettings layers(SkyDesign sky) {
+        return new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false, Collections.<Rule>emptyList(), sky);
     }
 
     /** A solid look with still Chroma, whose hue the CPU paints, so that a test sees the colors without the GPU pass. */

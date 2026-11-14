@@ -4,8 +4,7 @@ import dev.albedo.core.Category;
 import dev.albedo.core.sky.SkyPresets;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
-
+import static dev.albedo.core.config.ConfigFixtures.layers;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyCodecTest {
@@ -13,10 +12,6 @@ class SkyCodecTest {
         Config c = Config.defaults();
         Profile p = c.activeProfile().renamed("night").with(Category.SKY, sky);
         return c.withImportedProfile(p);
-    }
-
-    private static CategorySettings layers(SkyDesign d) {
-        return new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false, Collections.<Rule>emptyList(), d);
     }
 
     /** The config file with one profile, "night", whose sky is the JSON object {@code sky}. */

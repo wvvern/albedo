@@ -4,6 +4,7 @@ import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.ConfigCodec;
+import dev.albedo.core.config.ConfigFixtures;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.SkyDesign;
@@ -90,8 +91,7 @@ class PolicyTest {
     @Test
     void skyEditsDoNotRepaintTexturesButTheSunSwitchDoes() {
         Profile base = Config.defaults().activeProfile();
-        CategorySettings sky = new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                Collections.<Rule>emptyList(), SkyPresets.DUSK);
+        CategorySettings sky = ConfigFixtures.layers(SkyPresets.DUSK);
         Policy a = Policy.of(base.with(Category.SKY, sky));
         Policy b = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withLayer(0,
                 SkyPresets.DUSK.layers().get(0).withOpacity(40)))));

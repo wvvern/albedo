@@ -4,9 +4,8 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.CoreFixture;
 import dev.albedo.core.config.Appearance;
-import dev.albedo.core.config.CategorySettings;
 import dev.albedo.core.config.Config;
-import dev.albedo.core.config.Rule;
+import dev.albedo.core.config.ConfigFixtures;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
@@ -35,8 +34,7 @@ class SkyLayersEditorTest {
     /** The user's own profile with this sky in the style "layers". */
     private static Config withSky(SkyDesign sky) {
         Config c = withOwnProfile();
-        return c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
-                false, Collections.<Rule>emptyList(), sky)));
+        return c.withProfile(c.activeProfile().with(Category.SKY, ConfigFixtures.layers(sky)));
     }
 
     /** The sky design of the active profile in the saved config. */
