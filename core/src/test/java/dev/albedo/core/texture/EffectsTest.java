@@ -230,6 +230,15 @@ class EffectsTest {
         int[] texels = new int[16 * 16];
         assertTrue(layout.chromaTexels(Collections.singletonList(edgeChroma(50)), original, 16, 16, texels));
         for (int i = 0; i < texels.length; i++) assertEquals(union[i], ChromaTexels.speed(texels[i]) > 0, "texel " + i);
+
+        // Outline uses the same line, so that the texels with less hue are the pixels the CPU outlined.
+        PixelBuffer.Heap lined = original.copy(), bare = original.copy();
+        Appearance outlined = Appearance.solid(WHITE).withEffects(0, 100, Chroma.of(100));
+        LayoutTest.paint(layout, Collections.singletonList(outlined), lined);
+        LayoutTest.paint(layout, Collections.singletonList(outlined.withEffects(0, 0, outlined.chroma())), bare);
+        for (int i = 0; i < 16 * 32; i++) {
+            if (Colors.alpha(bare.argb()[i]) != 0) assertEquals(union[i % 256], lined.argb()[i] != bare.argb()[i], "outlined " + i);
+        }
     }
 
     @Test
@@ -459,7 +468,7 @@ class EffectsTest {
                     String where = Integer.toHexString(color) + " with " + Arrays.toString(edges) + " at " + i + ": "
                             + Integer.toHexString(cpu) + " vs " + Integer.toHexString(gpu);
                     // The CPU fits a color into sRGB before the edge effects change its lightness, and the pass only after them.
-                    // Edge hues go around all hues, and near the edge of sRGB one step of the 8-bit amount moves a channel more.
+                    // Edge reaches hues near the edge of sRGB, where one step of the 8-bit amount moves a channel more.
                     if (edges[0] == 0 && edges[1] == 0 && edges[2] == 0) assertTrue(maxChannelDifference(cpu, gpu) <= 3, where);
                     double d = distance(cpu, gpu);
                     assertTrue(d < 0.06, where);

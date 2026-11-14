@@ -51,7 +51,7 @@ public final class SettingsEditor {
         "Vivid (saturation): how strong the colors are.",
         "Bright (brightness): how light the colors are."};
     private static final String EDGE_LABEL = "Edge";
-    private static final String EDGE_TIP = "Edge: Chroma colors only the line around each block or item, and the colors go around it.";
+    private static final String EDGE_TIP = "Edge: Chroma colors only the line around each block or item, in a ring of hues.";
     /** The effects after Chroma in the order they apply: blocks and fluids have both, items only Outline. */
     private static final String[] EFFECT_LABELS = {"Bevel", "Outline"};
     private static final String[] EFFECT_TIPS = {
@@ -331,8 +331,10 @@ public final class SettingsEditor {
             ui.text(Albedo.NAME, x, y + 3, Ui.TEXT);
             tx += titleW;
         }
-        boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(),
-                "Turn " + Albedo.NAME + " on or off (" + draft.keys().toggle + ")");
+        String enabledTip = "Turn " + Albedo.NAME + " on or off (" + draft.keys().toggle + ")";
+        boolean on = ui.toggle("enabled", tx, y + 2, draft.enabled(), enabledTip);
+        // A click on the On or Off text flips the switch too.
+        if (ui.press("enabled.label", tx + 20, y, stateW - 20, Ui.H)) on = !on;
         if (on != draft.enabled()) setDraft(draft.withEnabled(on));
         ui.text(on ? "On" : "Off", tx + 22, y + 3, on ? Ui.TEXT : Ui.MUTED);
 

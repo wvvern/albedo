@@ -1,7 +1,8 @@
-# Outline on the shape of cutout blocks and items, and Edge Chroma, still and moving.
+# Outline on the shape of cutout blocks and items, and Edge Chroma, still and moving. Run it after the scene:
+# python -m tools harness fabric-26.3 forge-1.8.9 --suite edges --out build/edges
 wait 60
 run tp @e[type=!player] 0 -300 0
-run setblock -6 -60 -5 ladder[facing=south]
+modern: run setblock -6 -60 -5 ladder[facing=south]
 run setblock -1 -60 -2 rail
 run setblock 0 -60 -2 oak_sapling
 run setblock 1 -60 -2 dandelion

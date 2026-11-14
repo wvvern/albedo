@@ -46,8 +46,10 @@ final class Effects {
         int frames = img.height() / frameH;
         Chroma c = a.chroma();
         boolean withHue = !gpuHue || !a.chromaMoves();
-        // Edge colors one line for all frames, because the texels of the GPU pass are the same for all frames of a sprite.
-        boolean[] edge = c.isOn() && c.edge() && outline && w >= 4 && frameH >= 4 ? edgeMask(img, id, frameH) : null;
+        // Outline and Edge use one line for all frames, because the texels of the GPU pass are the same for all frames of a sprite.
+        boolean edgeOn = c.isOn() && c.edge();
+        boolean[] line = outline && w >= 4 && frameH >= 4 && (edgeOn || a.outline() > 0) ? edgeMask(img, id, frameH) : null;
+        boolean[] edge = edgeOn ? line : null;
         // Each frame of a block animation gets the next part of the colors, which only the CPU can do for the same reason.
         for (int f = 0; f < frames; f++) {
             int y0 = f * frameH;
@@ -55,7 +57,7 @@ final class Effects {
             if (!tile && !outline || w < 4 || frameH < 4) continue;
             double tileL = meanLightness(img, y0, frameH);
             if (tile && a.bevel() > 0) bevel(img, y0, frameH, tileL, a.bevel() / 100.0);
-            if (outline && a.outline() > 0) outline(img, id, y0, frameH, tileL, a.outline() / 100.0);
+            if (outline && a.outline() > 0) outline(img, line, y0, tileL, a.outline() / 100.0);
         }
         return true;
     }
@@ -204,10 +206,9 @@ final class Effects {
         }
     }
 
-    /** Moves the pixels on the line of a frame toward a color that is darker than the tile, or lighter for a dark tile. */
-    private static void outline(PixelBuffer img, String id, int y0, int frameH, double tileL, double s) {
+    /** Moves the pixels of {@code line} in a frame toward a color that is darker than the tile, or lighter for a dark tile. */
+    private static void outline(PixelBuffer img, boolean[] line, int y0, double tileL, double s) {
         double target = tileL < 0.45 ? Math.min(1, tileL + OUTLINE_CONTRAST) : Math.max(0, tileL - OUTLINE_CONTRAST);
-        boolean[] line = line(img, id, y0, frameH);
         for (int i = 0; i < line.length; i++) {
             if (line[i]) shiftLightness(img, i % img.width(), y0 + i / img.width(), target, s);
         }
