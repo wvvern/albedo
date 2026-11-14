@@ -19,153 +19,38 @@ Screenshots and logs go to <out>/<variant>/. The variants are OptiFine settings:
 """
 
 import argparse
-import json
-import os
 import shutil
-import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools import gradle, project
+from tools import project
 from tools.harness import files, protocol, rundir, script, session
-from tools.harness.session import Launch
-from tools.harness.windows import Windows
+from tools.harness.devrun import RunOptions
+from tools.harness.prodrun import MINECRAFT, WORK, Installation, find_java_8, prepare_game_dir, production_client
+from tools.harness.session import Launch, System
 from tools.project import Target
 from tools.report import ToolError
 
 VARIANTS = ("none", "default", "quake", "quake-ao", "quake-fancy")
-MINECRAFT = "1.8.9"
-WORK = project.LEGACY / "build" / "optifine"
-GAME_OPTIONS = rundir.QUIET_OPTIONS | {"guiScale": "0", "fancyGraphics": "true", "ao": "2"}
-QUAKE_OPTIFINE_OPTIONS = {
-    "ofFastRender": "true",
-    "ofCustomColors": "true",
-    "ofConnectedTextures": "2",
-    "ofNaturalTextures": "true",
-    "ofClearWater": "true",
-    "ofBetterGrass": "2",
-    "ofDynamicLights": "3",
-}
-DUMP_CLASSES = "-Dlegacy.debugClassLoading=true -Dlegacy.debugClassLoadingSave=true -Dmixin.debug.verbose=true"
-JAVA_FOLDERS = (Path.home() / ".jdks", Path(r"C:\Program Files\Eclipse Adoptium"), Path(r"C:\Program Files\Java"))
-JAVA_8_FOLDER = ("jdk8", "jdk-8", "jre8", "jre-8", "jdk1.8", "jdk-1.8", "jre1.8", "jre-1.8")
 
 
 @dataclass(frozen=True)
-class Installation:
-    """The folders of the launcher and of Gradle that have the files of a production client."""
-
-    minecraft: Path
-    gradle_caches: Path
-
-    @classmethod
-    def of_this_user(cls) -> "Installation":
-        return cls(Path(os.environ["APPDATA"]) / ".minecraft", gradle.CACHES)
-
-    def library(self, coordinate: str) -> Path:
-        group, artifact, version = coordinate.split(":")[:3]
-        file = f"{artifact}-{version}.jar"
-        installed = self.minecraft / "libraries" / Path(*group.split(".")) / artifact / version / file
-        if installed.is_file():
-            return installed
-        cached = next((self.gradle_caches / "modules-2" / "files-2.1" / group / artifact / version).rglob(file), None)
-        if cached is None:
-            raise ToolError(f"library not found: {coordinate}")
-        return cached
-
-    def forge_jar(self) -> Path:
-        jars = (self.minecraft / "libraries" / "net" / "minecraftforge" / "forge").rglob(f"forge-{MINECRAFT}-*.jar")
-        newest = max(jars, key=lambda jar: jar.name, default=None)
-        if newest is None:
-            raise ToolError(f"Forge {MINECRAFT} is not installed in {self.minecraft}")
-        return newest
-
-    def class_path(self, forge_jar: Path) -> str:
-        """The libraries of Forge and of the game, each one time, then Forge and the game."""
-        with zipfile.ZipFile(forge_jar) as archive:
-            forge = json.loads(archive.read("version.json"))
-        vanilla = json.loads((self.minecraft / "versions" / MINECRAFT / f"{MINECRAFT}.json").read_text(encoding="utf-8"))
-        jars: dict[str, Path] = {}
-        for library in forge["libraries"] + vanilla["libraries"]:
-            name = library["name"]
-            key = ":".join(name.split(":")[:2])
-            allowed = "rules" not in library or any(rule["action"] == "allow" and "os" not in rule for rule in library["rules"])
-            if key not in jars and allowed and "natives" not in library and not name.startswith("net.minecraftforge:forge:"):
-                jars[key] = self.library(name)
-        return ";".join(str(jar) for jar in [*jars.values(), forge_jar, self.minecraft / "versions" / MINECRAFT / f"{MINECRAFT}.jar"])
-
-    def assets(self) -> tuple[Path, str]:
-        """The assets folder and the asset index: the ones of the legacy build, or the ones of the launcher."""
-        loom = self.gradle_caches / "essential-loom" / "assets"
-        if (loom / "indexes" / f"{MINECRAFT}-1.8.json").is_file():
-            return loom, f"{MINECRAFT}-1.8"
-        return self.minecraft / "assets", "1.8"
-
-    def natives(self) -> Path:
-        return self.gradle_caches / "essential-loom" / MINECRAFT / "natives"
+class OptiFineOptions:
+    suite: str = RunOptions.suite
+    out: Path = Path("build/compat-optifine")
+    timeout: int = RunOptions.timeout
+    mods: Path | None = None
+    forge: Path | None = None
+    dump_classes: bool = False
+    option_lines: tuple[str, ...] = ()
 
 
-def find_java_8() -> Path:
-    for root in JAVA_FOLDERS:
-        for folder in sorted(root.glob("*")):
-            java = folder / "bin" / "java.exe"
-            if java.is_file() and ("1.8" in folder.name or folder.name.lower().startswith(JAVA_8_FOLDER)):
-                return java
-    raise ToolError("no Java 8 found; use --java <path to java.exe>")
-
-
-def variant_options(variant: str) -> tuple[dict[str, str], dict[str, str]]:
-    """The lines of options.txt and of optionsof.txt of a variant."""
-    if not variant.startswith("quake"):
-        return GAME_OPTIONS, {}
-    game = GAME_OPTIONS | {"fancyGraphics": "true" if variant == "quake-fancy" else "false", "ao": "2" if variant == "quake-ao" else "0"}
-    return game, QUAKE_OPTIFINE_OPTIONS
-
-
-def prepare_game_dir(game: Path, release: Path, variant: str, mods: Path | None, option_lines: list[str]) -> None:
-    mod_dir = game / "mods"
-    mod_dir.mkdir(parents=True, exist_ok=True)
-    for jar in mod_dir.glob("*.jar"):
-        jar.unlink()
-    shutil.copy2(release, mod_dir)
-    if variant != "none":
-        optifine = min(WORK.glob(f"*OptiFine*{MINECRAFT}*.jar"), default=None)
-        if optifine is None:
-            raise ToolError(f"put an OptiFine {MINECRAFT} jar in {WORK}")
-        shutil.copy2(optifine, mod_dir)
-    for jar in mods.glob("*.jar") if mods else []:
-        shutil.copy2(jar, mod_dir)
-    game_options, optifine_options = variant_options(variant)
-    options_file = game / "options.txt"
-    rundir.write_options(options_file, rundir.read_options(options_file) | game_options | rundir.parse_option_lines(option_lines))
-    (game / "optionsof.txt").unlink(missing_ok=True)
-    if optifine_options:
-        rundir.write_options(game / "optionsof.txt", optifine_options)
-    rundir.reset_mod_state(game)
-
-
-def production_client(java: Path, installation: Installation, forge_jar: Path, game: Path, harness: Path, dump_classes: bool) -> Launch:
-    assets, asset_index = installation.assets()
-    width, height = protocol.WINDOW_SIZE
-    arguments = [
-        f'"{java}" -Xmx2G -Djava.library.path="{installation.natives()}" {protocol.JVM_PROPERTY}"{harness}"',
-        DUMP_CLASSES if dump_classes else "",
-        f"net.minecraft.launchwrapper.Launch --username Dev --version {MINECRAFT}",
-        f'--gameDir "{game}" --assetsDir "{assets}" --assetIndex {asset_index}',
-        "--uuid 0 --accessToken 0 --userProperties {} --userType legacy",
-        f"--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker --width {width} --height {height}",
-    ]
-    # The class path is too long for cmd.exe, so it goes in the CLASSPATH variable of the game process.
-    environment = (("CLASSPATH", installation.class_path(forge_jar)),)
-    return Launch(" ".join(filter(None, arguments)), game, harness / "game.log", environment)
-
-
-def run_variant(variant: str, target: Target, release: Path, options: argparse.Namespace, java: Path, system: Windows) -> None:
+def run_variant(variant: str, target: Target, release: Path, options: OptiFineOptions, java: Path, system: System) -> None:
     installation = Installation.of_this_user()
     game = WORK / ("game-mods" if options.mods else "game")
 
     def launch_of(harness: Path) -> Launch:
-        prepare_game_dir(game, release, variant, options.mods, options.option)
+        prepare_game_dir(game, release, variant, options.mods, options.option_lines)
         return production_client(java, installation, options.forge or installation.forge_jar(), game, harness, options.dump_classes)
 
     commands = script.compose(script.read_suites([script.scene_of(target), options.suite]), target)
@@ -183,25 +68,45 @@ def run_variant(variant: str, target: Target, release: Path, options: argparse.N
         print(f"[{variant}] {error}", flush=True)
 
 
-def main(arguments: list[str]) -> int:
+def parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m tools optifine", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variants", nargs="+", choices=VARIANTS, default=VARIANTS, metavar="VARIANT")
-    parser.add_argument("--suite", default="shots", help="the suite in tools/harness/suites that runs after the scene (default: %(default)s)")
-    parser.add_argument("--out", type=Path, default=Path("build/compat-optifine"), help="the output folder, from the repository root")
+    suite_help = "the suite in tools/harness/suites that runs after the scene (default: %(default)s)"
+    parser.add_argument("--suite", default=OptiFineOptions.suite, help=suite_help)
+    parser.add_argument("--out", type=Path, default=OptiFineOptions.out, help="the output folder, from the repository root")
     parser.add_argument("--java", type=Path, help="the java.exe of a Java 8 (default: one in the usual folders)")
     parser.add_argument("--mods", type=Path, help='a folder of jars to add, for example the mods of a player; with its own OptiFine jar, use "none"')
     parser.add_argument("--forge", type=Path, help="a Forge 1.8.9 universal jar in place of the installed one (some mods need 11.15.1.2318)")
     parser.add_argument("--dump-classes", action="store_true", help="the transformed classes go to CLASSLOADER_TEMP of the game folder")
-    parser.add_argument("--timeout", type=int, default=600, metavar="SECONDS")
-    option_help = "one more line of options.txt, for example useVbo:true"
-    parser.add_argument("--option", action="append", default=[], type=rundir.key_value, metavar="KEY:VALUE", help=option_help)
-    options = parser.parse_args(arguments)
+    parser.add_argument("--timeout", type=int, default=OptiFineOptions.timeout, metavar="SECONDS")
+    rundir.add_option_argument(parser, "useVbo:true")
+    return parser
+
+
+def options_of(parsed: argparse.Namespace) -> OptiFineOptions:
+    return OptiFineOptions(
+        suite=parsed.suite,
+        out=parsed.out,
+        timeout=parsed.timeout,
+        mods=parsed.mods,
+        forge=parsed.forge,
+        dump_classes=parsed.dump_classes,
+        option_lines=tuple(parsed.option),
+    )
+
+
+def main(arguments: list[str]) -> int:
+    # Only a real run needs psutil and Windows, so the tests of the options run without them.
+    from tools.harness.windows import Windows
+
+    parsed = parser().parse_args(arguments)
+    options = options_of(parsed)
     system = Windows()
-    java = options.java or find_java_8()
+    java = parsed.java or find_java_8()
     target = project.find_target(f"forge-{MINECRAFT}")
     release = target.jar(project.mod_version())
     if not release.is_file():
         raise ToolError(f"no {release.name}; run: python -m tools build {target.name}")
-    for variant in options.variants:
+    for variant in parsed.variants:
         run_variant(variant, target, release, options, java, system)
     return 0

@@ -1,5 +1,6 @@
 """Writes the files that a game reads at its start into its game folder."""
 
+import argparse
 import shutil
 from pathlib import Path
 
@@ -28,6 +29,12 @@ def key_value(line: str) -> str:
     if ":" not in line:
         raise ValueError(line)
     return line
+
+
+def add_option_argument(parser: argparse.ArgumentParser, example: str) -> None:
+    """The argument --option, one more line of options.txt each time."""
+    help_text = f"one more line of options.txt, for example {example}"
+    parser.add_argument("--option", action="append", default=[], type=key_value, metavar="KEY:VALUE", help=help_text)
 
 
 def parse_option_lines(lines: list[str]) -> dict[str, str]:
