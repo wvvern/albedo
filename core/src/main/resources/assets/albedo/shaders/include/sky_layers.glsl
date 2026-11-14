@@ -1555,4 +1555,23 @@ vec3 albedoEncode(vec3 linear, ivec2 pixel) {
     return clamp(floor(srgb + 0.5), 0.0, 255.0) / 255.0;
 }
 
+// The sRGB color of a pixel of the equirectangular image at uv, or of a camera view when corner is not zero.
+vec3 albedoEquirectPixel(vec2 uv, vec3 corner, ivec2 pixel) {
+    float lon = uv.x * 2.0 * ALBEDO_PI;
+    float el = radians(90.0 - uv.y * 180.0);
+    bool view = dot(corner, corner) > 0.0;
+    vec3 dir = view ? normalize(corner) : vec3(cos(el) * sin(lon), sin(el), -cos(el) * cos(lon));
+    // The width of one pixel of the view, or of one texel at the horizon as the bake uses for its stars.
+    float footprint = view ? max(length(dFdx(dir)), length(dFdy(dir))) : 2.0 * ALBEDO_PI * abs(dFdx(uv.x));
+    return albedoEncode(albedoSky(dir, footprint), pixel);
+}
+
+// The sRGB color of a pixel of the sky sphere at a point around the camera.
+vec3 albedoSharpPixel(vec3 position, ivec2 pixel) {
+    vec3 dir = normalize(position);
+    // The angle across one pixel, outside all branches so that the derivatives are defined.
+    float footprint = max(length(dFdx(dir)), length(dFdy(dir)));
+    return albedoEncode(albedoSky(dir, footprint), pixel);
+}
+
 #endif

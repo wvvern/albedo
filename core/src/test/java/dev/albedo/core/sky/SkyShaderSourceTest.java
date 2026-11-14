@@ -31,6 +31,21 @@ class SkyShaderSourceTest {
     }
 
     @Test
+    void onlyAClassicFragmentShaderDeclaresTheFragmentOutput() throws IOException {
+        for (SkyShaderSource.Dialect dialect : SkyShaderSource.Dialect.values()) {
+            for (String name : new String[] {SkyShaderSource.SHARP, SkyShaderSource.EQUIRECT, SkyShaderSource.CHROMA}) {
+                String text = SkyShaderSource.classic(name, true, dialect);
+                assertFalse(text.contains("fragColor") || text.contains("ALBEDO_FRAG_COLOR"), dialect + " " + name + ".vsh");
+            }
+            for (String name : new String[] {SkyShaderSource.SHARP, SkyShaderSource.EQUIRECT, SkyShaderSource.CHROMA, SkyShaderSource.BLACK}) {
+                String text = SkyShaderSource.classic(name, false, dialect);
+                assertEquals(1, count(text, "out vec4 fragColor;"), dialect + " " + name + ".fsh");
+                assertFalse(text.contains("#include"), dialect + " " + name + ".fsh");
+            }
+        }
+    }
+
+    @Test
     void theBakedSkyShaderIsOneTextWithNoSkyInclude() throws IOException {
         for (boolean vertex : new boolean[] {true, false}) {
             String text = SkyShaderSource.classic(SkyShaderSource.BAKED, vertex, SkyShaderSource.Dialect.UNIFORMS_150);
