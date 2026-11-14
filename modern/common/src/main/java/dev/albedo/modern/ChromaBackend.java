@@ -1,5 +1,6 @@
 package dev.albedo.modern;
 
+import dev.albedo.core.shader.ShaderState;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 
 /** The GPU work of the Chroma pass on one version: the atlas textures that it turns, and a GPU timer for the harness. */
@@ -36,21 +37,23 @@ interface ChromaBackend {
 
         void end();
 
-        /** The time in nanoseconds, or -1 while the GPU did not give it yet. */
+        /** The {@link #nanos} of a timer that the GPU cannot run. */
+        long UNAVAILABLE = 0;
+
+        /** The time in nanoseconds, or -1 while the GPU did not give it yet, or {@link #UNAVAILABLE}. */
         long nanos();
 
         @Override
         void close();
     }
 
-    /** The state of the shader of the pass after {@link #compile}. */
-    enum Shader { READY, COMPILING, FAILED }
-
     /**
      * Compiles the shader of the pass on the render thread when it is not compiled, or gives it to the game again when a
      * version needs that after a resource reload, which the pass calls in each frame before it draws.
+     *
+     * @return READY, RUNNING while the compile runs, or FAILED
      */
-    Shader compile();
+    ShaderState compile();
 
     /** The width, height and number of mip levels of the GPU texture of an atlas, or null before the atlas has its texture. */
     int[] size(TextureAtlas atlas);

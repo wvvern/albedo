@@ -5,6 +5,7 @@ package dev.albedo.modern;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
@@ -35,8 +36,6 @@ import javax.imageio.ImageIO;
 // resolution and field of view, with a GL program of its own: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4,
 // else the baked texture draws the sky.
 final class FixedSharpSky {
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
     private static final class Block {
         final FloatBuffer header = BufferUtils.createFloatBuffer(4);
         final FloatBuffer world = BufferUtils.createFloatBuffer(SkyProgram.LAYERS - SkyProgram.WORLD);
@@ -61,7 +60,7 @@ final class FixedSharpSky {
     private static final class Program {
         final String name;
         final String steps;
-        Compile state = Compile.NOT_STARTED;
+        ShaderState state = ShaderState.NOT_STARTED;
         int id;
         int header;
         int world;
@@ -76,19 +75,19 @@ final class FixedSharpSky {
         }
 
         boolean ready() {
-            if (state == Compile.NOT_STARTED) compile();
-            return state == Compile.READY;
+            if (state == ShaderState.NOT_STARTED) compile();
+            return state.usable();
         }
 
         void close() {
-            if (state == Compile.READY) GL20.glDeleteProgram(id);
-            state = Compile.FAILED;
+            if (state.usable()) GL20.glDeleteProgram(id);
+            state = state.to(ShaderState.CLOSED);
         }
 
         private void compile() {
             SkyShaderSource.Dialect dialect = dialect();
             if (dialect == null) {
-                state = Compile.FAILED;
+                state = state.to(ShaderState.FAILED);
                 Albedo.get().platform().info("The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image");
                 return;
             }
@@ -106,7 +105,7 @@ final class FixedSharpSky {
                 }
             } catch (IOException | IllegalStateException e) {
                 GL20.glDeleteProgram(program);
-                state = Compile.FAILED;
+                state = state.to(ShaderState.FAILED);
                 Albedo.get().platform().warn("Cannot compile the sharp sky shader " + name + ". The sky draws from the baked image.", e);
                 return;
             } finally {
@@ -120,7 +119,7 @@ final class FixedSharpSky {
             ring = GL20.glGetUniformLocation(program, "SkyRing");
             terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
             color = GL20.glGetUniformLocation(program, "ColorModulator");
-            state = Compile.READY;
+            state = state.to(ShaderState.READY);
             Albedo.get().platform().info("Compiled the sharp sky shader " + name + " as " + dialect);
         }
 

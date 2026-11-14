@@ -117,6 +117,7 @@ Invariants:
 - A sky that turns is drawn and baked around the full sphere (`SkyDesign.drawnExtent`), whatever its extent: the turn brings the part of the design below its horizon up into the sky, and a horizon sky would end there at a tilted line with the horizon color past it. Read `drawnExtent`, not `extent`, wherever the sky is drawn. Harness suite `sky-turned` shows each preset half a turn on.
 - A render mode or turning change does not rebake (`SkyDesign.baked`), except star trails, which the bake draws.
 - Never dispatch on the layer kind at run time in a layer step: the NVIDIA compiler stops inlining at about seven such steps and the sky gets about 60 percent slower. Never index a constant array with a per-pixel value: it moves to local memory. Measure shader changes with `skytime 3840 2160` on 26.3; 26.x goes through SPIR-V.
+- Each GL program and pipeline of the mod keeps its compile phase in one core `ShaderState`. A failed or closed shader never compiles again.
 
 Traps by version:
 

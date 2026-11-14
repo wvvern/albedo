@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 //? if gl_chroma {
 /*import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -56,8 +57,8 @@ final class GlChromaPass implements ChromaBackend {
     private static final Program PROGRAM = new Program();
 
     @Override
-    public Shader compile() {
-        return PROGRAM.ready() ? Shader.READY : Shader.FAILED;
+    public ShaderState compile() {
+        return PROGRAM.ready() ? ShaderState.READY : ShaderState.FAILED;
     }
 
     @Override

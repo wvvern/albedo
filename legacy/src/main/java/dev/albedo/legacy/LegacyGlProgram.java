@@ -1,6 +1,7 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
@@ -12,14 +13,12 @@ class LegacyGlProgram {
     /** The length of the buffer that takes the info log of the GL. */
     private static final int INFO_LOG_LENGTH = 32768;
 
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
     private final String name;
     private final String steps;
     private final SkyShaderSource.Dialect dialect;
     private final String what;
     private final String fallback;
-    private Compile state = Compile.NOT_STARTED;
+    private ShaderState state = ShaderState.NOT_STARTED;
     private int id;
 
     /** A program of a shader file with the words of the log lines, which never compiles with a null dialect. */
@@ -33,8 +32,8 @@ class LegacyGlProgram {
 
     /** Compiles the program on its first use, and returns true when it compiled. */
     final boolean ready() {
-        if (state == Compile.NOT_STARTED) compile();
-        return state == Compile.READY;
+        if (state == ShaderState.NOT_STARTED) compile();
+        return state.usable();
     }
 
     final int id() {
@@ -49,13 +48,17 @@ class LegacyGlProgram {
     void linked() {}
 
     final void close() {
-        if (state == Compile.READY) GL20.glDeleteProgram(id);
-        state = Compile.FAILED;
+        if (state.usable()) GL20.glDeleteProgram(id);
+        state = state.to(ShaderState.CLOSED);
     }
 
     private void compile() {
-        state = Compile.FAILED;
-        if (dialect == null) return;
+        // A throw that no catch takes leaves RUNNING, so the program never compiles again.
+        state = state.to(ShaderState.RUNNING);
+        if (dialect == null) {
+            state = state.to(ShaderState.FAILED);
+            return;
+        }
         int program = GL20.glCreateProgram();
         int vertex = 0;
         int fragment = 0;
@@ -70,6 +73,7 @@ class LegacyGlProgram {
             }
         } catch (IOException | IllegalStateException e) {
             GL20.glDeleteProgram(program);
+            state = state.to(ShaderState.FAILED);
             Albedo.get().platform().warn("Cannot compile the " + what + " " + name + ". " + fallback, e);
             return;
         } finally {
@@ -77,7 +81,7 @@ class LegacyGlProgram {
             if (fragment != 0) GL20.glDeleteShader(fragment);
         }
         id = program;
-        state = Compile.READY;
+        state = state.to(ShaderState.READY);
         linked();
         Albedo.get().platform().info("Compiled the " + what + " " + name + " as " + dialect);
     }

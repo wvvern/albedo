@@ -4,6 +4,7 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.platform.GlStateManager;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -26,9 +27,7 @@ import java.util.Arrays;
 // The Chroma pass of the fixed function versions with an OpenGL 2.0 program and a framebuffer: it draws the hue of each moving
 // texel into each mip level of an atlas, and it puts back all GL state that it can change, with the attribute stack.
 final class FixedChromaPass implements ChromaBackend {
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
-    private static Compile state = Compile.NOT_STARTED;
+    private static ShaderState state = ShaderState.NOT_STARTED;
     private static int program;
     private static int turnsUniform;
     private static int sizeUniform;
@@ -37,15 +36,17 @@ final class FixedChromaPass implements ChromaBackend {
 
     // Compiles the program on its first use: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20.
     @Override
-    public Shader compile() {
-        if (state == Compile.NOT_STARTED) build();
-        return state == Compile.READY ? Shader.READY : Shader.FAILED;
+    public ShaderState compile() {
+        if (state == ShaderState.NOT_STARTED) build();
+        return state.usable() ? ShaderState.READY : ShaderState.FAILED;
     }
 
     private static void build() {
         GLCapabilities caps = GL.getCapabilities();
-        state = Compile.FAILED;
+        // A throw that no catch takes leaves RUNNING, so the program never compiles again.
+        state = state.to(ShaderState.RUNNING);
         if (!caps.OpenGL20 || !(caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_object)) {
+            state = state.to(ShaderState.FAILED);
             Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
             return;
         }
@@ -62,6 +63,7 @@ final class FixedChromaPass implements ChromaBackend {
             if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p, 32768));
         } catch (IOException | IllegalStateException e) {
             GL20.glDeleteProgram(p);
+            state = state.to(ShaderState.FAILED);
             Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". Chroma is off.", e);
             return;
         } finally {
@@ -79,7 +81,7 @@ final class FixedChromaPass implements ChromaBackend {
             GL20.glUniform1i(texelsUniform, 1);
         });
         framebuffer = GlStateManager.glGenFramebuffers();
-        state = Compile.READY;
+        state = state.to(ShaderState.READY);
         Albedo.get().platform().info("Compiled the Chroma shader " + SkyShaderSource.CHROMA + " as " + dialect);
     }
 

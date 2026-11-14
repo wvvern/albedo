@@ -13,6 +13,7 @@ import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.renderpearl.api.pipeline.ShaderSource;
 import com.mojang.renderpearl.api.pipeline.ShaderType;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
@@ -28,14 +29,13 @@ import java.util.concurrent.Executor;
  * call when the executor runs the compile at once.
  */
 final class PearlPipeline {
-    private enum Compile { NOT_STARTED, RUNNING, READY, FAILED }
-
     private final RenderPipeline pipeline;
     private final Executor executor;
     private final String steps;
     /** The name of the shader in the log, and what the game does when it cannot compile. */
     private final String name, fallback;
-    private Compile state = Compile.NOT_STARTED;
+    private ShaderState state = ShaderState.NOT_STARTED;
+    /** The compile while RUNNING, else null. */
     private CompletableFuture<CompiledRenderPipeline.Pending> pending;
     private CompiledRenderPipeline compiled;
 
@@ -60,25 +60,29 @@ final class PearlPipeline {
     /** Frees the compiled pipeline, also one that is still compiling, whose result goes free on the render thread when it comes. */
     void close() {
         if (compiled != null) compiled.close();
-        if (state == Compile.RUNNING) pending.thenAcceptAsync(PearlPipeline::closeLate, Minecraft.getInstance());
+        if (state == ShaderState.RUNNING) pending.thenAcceptAsync(PearlPipeline::closeLate, Minecraft.getInstance());
         compiled = null;
-        state = Compile.FAILED;
+        pending = null;
+        state = state.to(ShaderState.CLOSED);
     }
 
-    /** Whether the compile failed, which it does at once in the call that starts it with an executor that runs at once. */
-    boolean failed() {
-        return state == Compile.FAILED;
+    /**
+     * Starts or finishes the compile on the render thread and returns the state after it, which is FAILED at once when an
+     * executor that runs at once fails the compile.
+     */
+    ShaderState compile() {
+        if (state == ShaderState.NOT_STARTED) start();
+        if (state == ShaderState.RUNNING && pending.isDone()) finish();
+        return state;
     }
 
     /** Starts or finishes the compile on the render thread, and returns the compiled pipeline once it is ready, else null. */
     CompiledRenderPipeline get() {
-        if (state == Compile.NOT_STARTED) start();
-        if (state == Compile.RUNNING && pending.isDone()) finish();
-        return state == Compile.READY ? compiled : null;
+        return compile().usable() ? compiled : null;
     }
 
     private void start() {
-        state = Compile.RUNNING;
+        state = state.to(ShaderState.RUNNING);
         try {
             pending = RenderSystem.getDevice().compilePipeline(pipeline, new Source(pipeline, steps), executor);
         } catch (IOException | RuntimeException e) {
@@ -87,8 +91,10 @@ final class PearlPipeline {
     }
 
     private void finish() {
+        CompletableFuture<CompiledRenderPipeline.Pending> done = pending;
+        pending = null;
         try {
-            compiled = pending.join().finishCompile();
+            compiled = done.join().finishCompile();
         } catch (RuntimeException e) {
             fail(e);
             return;
@@ -96,13 +102,13 @@ final class PearlPipeline {
         if (compiled == null) {
             fail(null);
         } else {
-            state = Compile.READY;
+            state = state.to(ShaderState.READY);
             Albedo.get().platform().info("Compiled the " + name + " " + pipeline.getLocation());
         }
     }
 
     private void fail(Throwable e) {
-        state = Compile.FAILED;
+        state = state.to(ShaderState.FAILED);
         compiled = null;
         Albedo.get().platform().warn("Cannot compile the " + name + " " + pipeline.getLocation() + ". " + fallback, e);
     }

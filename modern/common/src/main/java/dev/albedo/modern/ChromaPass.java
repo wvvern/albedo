@@ -19,6 +19,7 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
@@ -69,10 +70,10 @@ final class ChromaPass implements ChromaBackend {
             .build(), Runnable::run, "Chroma copy shader", "Chroma is off.");
 
     @Override
-    public Shader compile() {
-        CompiledRenderPipeline chroma = PIPELINE.get(), copy = COPY.get();
-        if (chroma != null && copy != null) return Shader.READY;
-        return PIPELINE.failed() || COPY.failed() ? Shader.FAILED : Shader.COMPILING;
+    public ShaderState compile() {
+        ShaderState chroma = PIPELINE.compile(), copy = COPY.compile();
+        if (chroma.usable() && copy.usable()) return ShaderState.READY;
+        return chroma.dead() || copy.dead() ? ShaderState.FAILED : ShaderState.RUNNING;
     }
 
     @Override

@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 //? if gl_chroma {
 /*import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
@@ -13,14 +14,12 @@ import java.io.IOException;
 class GlProgram {
     private static final SkyShaderSource.Dialect DIALECT = SkyShaderSource.Dialect.UNIFORMS_150;
 
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
     private final String vertex;
     private final String fragment;
     private final String steps;
     private final String what;
     private final String fallback;
-    private Compile state = Compile.NOT_STARTED;
+    private ShaderState state = ShaderState.NOT_STARTED;
     private int id;
 
     // A program from the vertex shader of one file and the fragment shader of an other, where what and fallback are the words of the log lines.
@@ -34,8 +33,8 @@ class GlProgram {
 
     // Compiles the program on its first use, and returns true when it compiled.
     final boolean ready() {
-        if (state == Compile.NOT_STARTED) compile();
-        return state == Compile.READY;
+        if (state == ShaderState.NOT_STARTED) compile();
+        return state.usable();
     }
 
     final int id() {
@@ -50,8 +49,8 @@ class GlProgram {
     void linked() {}
 
     final void close() {
-        if (state == Compile.READY) GL20.glDeleteProgram(id);
-        state = Compile.FAILED;
+        if (state.usable()) GL20.glDeleteProgram(id);
+        state = state.to(ShaderState.CLOSED);
     }
 
     private void compile() {
@@ -72,7 +71,7 @@ class GlProgram {
             }
         } catch (IOException | IllegalStateException e) {
             GL20.glDeleteProgram(program);
-            state = Compile.FAILED;
+            state = state.to(ShaderState.FAILED);
             Albedo.get().platform().warn("Cannot compile the " + what + " " + fragment + ". " + fallback, e);
             return;
         } finally {
@@ -80,7 +79,7 @@ class GlProgram {
             if (fragmentShader != 0) GL20.glDeleteShader(fragmentShader);
         }
         id = program;
-        state = Compile.READY;
+        state = state.to(ShaderState.READY);
         linked();
         Albedo.get().platform().info("Compiled the " + what + " " + fragment);
     }

@@ -3,6 +3,7 @@ package dev.albedo.modern;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.ChromaTexels;
@@ -109,9 +110,9 @@ final class ChromaAtlases {
                 if (changed || newLayout || target != null && !target.sameTexture(atlas)) build(id, atlas);
             }
             if (TARGETS.isEmpty()) return;
-            ChromaBackend.Shader shader = BACKEND.compile();
-            if (shader == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");
-            if (shader == ChromaBackend.Shader.COMPILING) return;
+            ShaderState shader = BACKEND.compile();
+            if (shader.dead()) throw new IllegalStateException("the Chroma shader does not compile");
+            if (!shader.usable()) return;
             seconds = SkyClock.longSeconds();
             Chroma.turns(seconds, TURNS);
             if (timedLeft > 0) frameTimers = new ChromaBackend.Timer[]{BACKEND.timer(), BACKEND.timer()};
@@ -190,7 +191,7 @@ final class ChromaAtlases {
             texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(), padding);
         }
         if (!texels.moving()) return;
-        if (BACKEND.compile() == ChromaBackend.Shader.FAILED) throw new IllegalStateException("the Chroma shader does not compile");
+        if (BACKEND.compile().dead()) throw new IllegalStateException("the Chroma shader does not compile");
         int[][] levels = texels.levels(size[2]);
         ChromaBackend.Target target = old;
         if (target == null || !target.sameTexture(atlas)) {

@@ -13,6 +13,7 @@ import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -45,9 +46,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             .build();
 
     // The state of the compile, which the game does again after each resource reload.
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
-    private static Compile state = Compile.NOT_STARTED;
+    private static ShaderState state = ShaderState.NOT_STARTED;
 
     // The complete text of a shader of the mod, with the Chroma include in it.
     private static String source(Identifier id, ShaderType type) {
@@ -60,19 +59,19 @@ final class PrecompiledChromaPass implements ChromaBackend {
     }
 
     @Override
-    public Shader compile() {
-        if (state == Compile.FAILED) return Shader.FAILED;
+    public ShaderState compile() {
+        if (state.dead()) return state;
         // A resource reload empties the pipeline cache, so the pipelines go to the game in each frame before the pass uses them.
         var device = RenderSystem.getDevice();
         if (device.precompilePipeline(PIPELINE, PrecompiledChromaPass::source).isValid()
                 && device.precompilePipeline(COPY, PrecompiledChromaPass::source).isValid()) {
-            if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the Chroma shader " + PIPELINE.getLocation());
-            state = Compile.READY;
-            return Shader.READY;
+            if (state == ShaderState.NOT_STARTED) Albedo.get().platform().info("Compiled the Chroma shader " + PIPELINE.getLocation());
+            state = state.to(ShaderState.READY);
+            return state;
         }
-        state = Compile.FAILED;
+        state = state.to(ShaderState.FAILED);
         Albedo.get().platform().warn("Cannot compile the Chroma shader " + PIPELINE.getLocation() + ". Chroma is off.", null);
-        return Shader.FAILED;
+        return state;
     }
 
     @Override
@@ -214,15 +213,15 @@ final class PrecompiledChromaPass implements ChromaBackend {
 
     // A GPU timer query around the work of the pass, which the game allows only one at a time.
     private static final class Timer implements ChromaBackend.Timer {
+        // Null when the GPU timer is in use; the pass calls nanos() only after begin().
         private DeviceApi.Timer query;
-        private boolean failed;
 
         @Override
         public void begin() {
             try {
                 query = DeviceApi.Timer.begin();
             } catch (IllegalStateException e) {
-                failed = true;
+                query = null;
             }
         }
 
@@ -233,8 +232,8 @@ final class PrecompiledChromaPass implements ChromaBackend {
 
         @Override
         public long nanos() {
-            if (failed) return 0;
-            OptionalLong t = query == null ? OptionalLong.empty() : query.value();
+            if (query == null) return UNAVAILABLE;
+            OptionalLong t = query.value();
             return t.isPresent() ? t.getAsLong() : -1;
         }
 

@@ -14,6 +14,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
@@ -41,15 +42,13 @@ import java.util.OptionalLong;
 // Draws the custom sky with the sky shader for each screen pixel from 1.21.6 to 26.2, so that it is sharp at each resolution and
 // field of view, from pipelines that the game compiles from the complete shader text of the mod.
 final class PrecompiledSharpSky {
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
     // A pipeline whose shaders come from the jar of the mod, because the game does not load the shaders of a mod as resources.
     private static final class Pipeline {
         final RenderPipeline pipeline;
         final String name;
         final String fragment;
         final String steps;
-        Compile state = Compile.NOT_STARTED;
+        ShaderState state = ShaderState.NOT_STARTED;
 
         // The game keeps a compiled shader by its id, so the fragment shader of each sky gets its own id: the name of its file and n.
         Pipeline(int n, String name, String fragment, String steps) {
@@ -61,14 +60,14 @@ final class PrecompiledSharpSky {
 
         // Gives the pipeline to the game before each use, because a resource reload empties the pipeline cache, and returns true when it compiled.
         boolean ready() {
-            if (state == Compile.FAILED) return false;
+            if (state.dead()) return false;
             if (RenderSystem.getDevice().precompilePipeline(pipeline,
                     (id, type) -> source(type == ShaderType.VERTEX ? name : fragment, type, steps)).isValid()) {
-                if (state == Compile.NOT_STARTED) Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
-                state = Compile.READY;
+                if (state == ShaderState.NOT_STARTED) Albedo.get().platform().info("Compiled the sharp sky shader " + pipeline.getLocation());
+                state = state.to(ShaderState.READY);
                 return true;
             }
-            state = Compile.FAILED;
+            state = state.to(ShaderState.FAILED);
             Albedo.get().platform().warn("Cannot compile the sharp sky shader " + pipeline.getLocation() + ". The sky draws from the baked image.", null);
             return false;
         }
