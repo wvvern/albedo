@@ -127,7 +127,7 @@ def condition_versions(tree: Tree) -> Iterator[Problem]:
     table = tree.text(BOUNDARY_TABLE)
     reported = set()
     for file in tree.files:
-        if not (file.startswith(f"{project.MODERN.name}/") and file.endswith(".java")):
+        if not (file.startswith(f"{project.MODERN_DIR}/") and file.endswith(".java")):
             continue
         for number, line in enumerate(tree.lines(file), 1):
             if not CONDITION.search(line):

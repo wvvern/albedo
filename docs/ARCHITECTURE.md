@@ -174,8 +174,8 @@ A condition may only use a version from this table (`python -m tools lint` check
 
 ## Compat mods in the dev run
 
-- Add `-Pcompat=sodium`, `embeddium`, `rubidium` or `iris` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
-  - Sodium runs on Fabric 1.16.5 to 1.21.x, Embeddium on Forge 1.16.5, 1.18.2, 1.19.2 and 1.20.1 and NeoForge 1.20.4, Rubidium on Forge 1.16.5 to 1.20.1 (not 1.17.1). Forge 1.17.1 and 1.20.4 have no Embeddium or Rubidium. Embeddium does not start on NeoForge 1.20.6 and 1.21.4, because a lambda name of its `ClientLevel` mixin is not in their NeoForge build.
+- Add `-Pcompat=sodium`, `embeddium`, `rubidium`, `iris` or `oculus` to a modern `runClient` to add that mod to the dev run. The versions are in `modern/versions/<v>/gradle.properties`.
+  - Sodium runs on Fabric 1.16.5 to 1.21.x, Embeddium on Forge 1.16.5, 1.18.2, 1.19.2 and 1.20.1 and NeoForge 1.20.4, Rubidium on Forge 1.16.5 to 1.20.1 (not 1.17.1), Oculus on Forge 1.20.1 only. Forge 1.17.1 and 1.20.4 have no Embeddium or Rubidium. Embeddium does not start on NeoForge 1.20.6 and 1.21.4, because a lambda name of its `ClientLevel` mixin is not in their NeoForge build.
   - Sodium 0.3 and 0.4 (1.17.1 to 1.19.2) need JOML in the dev run (`joml_version`), because Loom drops the nested jar. Sodium 0.2 on 1.16.5 starts without Fabric API, which the build excludes, because the API of 1.17 would add a second Fabric Loader.
   - Iris works only on Fabric 26.3, 26.2, 26.1, 1.21.11, 1.21.5 and 1.21.4. On 1.21.4 it is Sodium 0.6.13 and Iris 1.8.8, the versions of the owner instances. On the other targets you get only Sodium.
   - Sodium 0.6.13 does not start in the NeoForge 1.21.5 dev run, because it needs the Fabric rendering API.

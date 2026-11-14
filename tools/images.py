@@ -26,6 +26,8 @@ OUTLINE: Color = (0, 0, 0)
 SLOT_DARK: Color = (55, 55, 55)
 CAPTION: Color = (64, 64, 64)
 FONT_PIXEL = 4
+# The width of a space in the font, which has no pixels to measure.
+SPACE_WIDTH = 3
 PANEL_PADDING = 6 * GUI_PIXEL
 
 RIM_RADIUS = 18
@@ -62,7 +64,7 @@ class PixelFont:
 
     def glyph_width(self, code: int) -> int:
         if chr(code) == " ":
-            return 3
+            return SPACE_WIDTH
         box = self.glyph(code).getchannel("A").getbbox()
         return box[2] if box else 0
 
@@ -90,24 +92,23 @@ def frame(shot: Image.Image, caption: str, font: PixelFont) -> Image.Image:
     text = font.render(caption, CAPTION)
     text = text.resize((text.width * FONT_PIXEL, text.height * FONT_PIXEL), Image.NEAREST)
 
-    unit = GUI_PIXEL
     # The outline, the highlight and the shade of the panel, and the bevel of the slot around the image.
-    edge, slot = 3 * unit, unit
+    edge, slot = 3 * GUI_PIXEL, GUI_PIXEL
     width = shot.width + 2 * (edge + PANEL_PADDING + slot)
     height = shot.height + 2 * (edge + slot) + PANEL_PADDING + text.height + 2 * PANEL_PADDING
-    width -= width % unit
-    height -= height % unit
+    width -= width % GUI_PIXEL
+    height -= height % GUI_PIXEL
 
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
     # The outline has notched corners, as on vanilla panels.
-    draw.rectangle((unit, 0, width - unit - 1, height - 1), fill=OUTLINE)
-    draw.rectangle((0, unit, width - 1, height - unit - 1), fill=OUTLINE)
-    draw.rectangle((unit, unit, width - unit - 1, height - unit - 1), fill=PANEL)
-    bevel(draw, unit, unit, width - unit, height - unit, LIGHT, SHADE)
+    draw.rectangle((GUI_PIXEL, 0, width - GUI_PIXEL - 1, height - 1), fill=OUTLINE)
+    draw.rectangle((0, GUI_PIXEL, width - 1, height - GUI_PIXEL - 1), fill=OUTLINE)
+    draw.rectangle((GUI_PIXEL, GUI_PIXEL, width - GUI_PIXEL - 1, height - GUI_PIXEL - 1), fill=PANEL)
+    bevel(draw, GUI_PIXEL, GUI_PIXEL, width - GUI_PIXEL, height - GUI_PIXEL, LIGHT, SHADE)
     # The two corners where the highlight meets the shade have the panel color.
-    draw.rectangle((width - 2 * unit, unit, width - unit - 1, 2 * unit - 1), fill=PANEL)
-    draw.rectangle((unit, height - 2 * unit, 2 * unit - 1, height - unit - 1), fill=PANEL)
+    draw.rectangle((width - 2 * GUI_PIXEL, GUI_PIXEL, width - GUI_PIXEL - 1, 2 * GUI_PIXEL - 1), fill=PANEL)
+    draw.rectangle((GUI_PIXEL, height - 2 * GUI_PIXEL, 2 * GUI_PIXEL - 1, height - GUI_PIXEL - 1), fill=PANEL)
 
     left = top = edge + PANEL_PADDING
     bevel(draw, left, top, left + shot.width + 2 * slot, top + shot.height + 2 * slot, SLOT_DARK, LIGHT)

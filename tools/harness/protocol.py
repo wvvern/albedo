@@ -7,6 +7,7 @@ A screenshot is <folder>/<name>.png. The command cursorfree runs the command lin
 
 import re
 from collections.abc import Iterable
+from pathlib import Path
 
 COMMANDS = "commands.txt"
 TAKEN = "commands.taken"
@@ -30,7 +31,7 @@ RESULTS = (
 PLAYER_GAME = re.compile(r"--gameDir|KnotClient|net\.minecraft\.client\.main\.Main|launchwrapper\.Launch|BootstrapLauncher")
 
 
-def names_harness(command_line: str, harness: object) -> bool:
+def names_harness(command_line: str, harness: str | Path) -> bool:
     """Whether a command line names a harness folder, and not a folder whose name only starts with the name of this one."""
     return re.search(re.escape(str(harness)) + r"(?![\w.-])", command_line) is not None
 

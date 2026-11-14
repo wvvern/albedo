@@ -17,5 +17,4 @@ settings open
 wait 20
 screenshot s4-reopened
 settings close
-hooks
 quit

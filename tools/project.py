@@ -8,7 +8,8 @@ from pathlib import Path
 from tools.report import ToolError
 
 ROOT = Path(__file__).resolve().parent.parent
-MODERN = ROOT / "modern"
+MODERN_DIR = "modern"
+MODERN = ROOT / MODERN_DIR
 LEGACY = ROOT / "legacy"
 
 # The files of the layout, from the repository root.

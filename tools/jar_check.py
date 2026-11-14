@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 from tools import project
 from tools.project import Target
@@ -28,10 +28,16 @@ class Jar:
         self.zip = zipfile.ZipFile(file)
         self.names = frozenset(self.zip.namelist())
 
+    def __enter__(self) -> "Jar":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.zip.close()
+
     def text(self, name: str) -> str:
         return self.zip.read(name).decode("utf-8")
 
-    def json(self, name: str):
+    def json(self, name: str) -> Any:
         return json.loads(self.text(name))
 
     def children(self, folder: str) -> set[str]:
@@ -51,7 +57,7 @@ class Subject:
 
     jar: Jar
     target: Target
-    node: dict[str, str]
+    node_properties: dict[str, str]
     build: dict[str, str]
 
     @property
@@ -119,7 +125,7 @@ def expect(file: str, what: str, actual: str | None, wanted: str) -> Iterator[st
 
 def loader_metadata(subject: Subject) -> Iterator[str]:
     """The metadata of the loader asks for the version ranges of the node."""
-    jar, loader, node = subject.jar, subject.target.loader, subject.node
+    jar, loader, node = subject.jar, subject.target.loader, subject.node_properties
     if loader == "fabric":
         depends = jar.json("fabric.mod.json").get("depends", {})
         yield from expect("fabric.mod.json", "minecraft range", depends.get("minecraft"), node["minecraft_range_fabric"])
@@ -164,7 +170,7 @@ def examine_file(file: Path) -> list[str]:
         jar = Jar(file)
     except (OSError, zipfile.BadZipFile):
         return ["cannot read the jar"]
-    with jar.zip:
+    with jar:
         try:
             return examine(Subject(jar, target, target.properties(), project.build_properties()))
         except (KeyError, ValueError) as error:

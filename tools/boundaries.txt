@@ -217,8 +217,11 @@ com.mojang.blaze3d.platform.InputConstants#MOD_CONTROL
 com.mojang.blaze3d.platform.InputConstants#isKeyDown
 com.mojang.blaze3d.platform.Window#getWindow
 com.mojang.blaze3d.platform.Window#handle
+com.mojang.blaze3d.platform.InputConstants#KEY_A
+com.mojang.blaze3d.platform.InputConstants#PRESS
 
 # Adapter and harness host
+net.minecraft.client.Options#narrator
 net.minecraft.client.Minecraft#levelExtractor
 net.minecraft.client.renderer.LevelRenderer#allChanged
 net.minecraft.client.Minecraft#getMainRenderTarget
@@ -303,12 +306,10 @@ com.mojang.blaze3d.platform.GlStateManager#_glDeleteFramebuffers
 com.mojang.blaze3d.platform.GlStateManager#_genTexture
 com.mojang.blaze3d.platform.GlStateManager#_glUseProgram
 net.minecraft.world.level.levelgen.FlatLevelSource
-net.minecraft.client.Options#narrator
 com.mojang.blaze3d.platform.Window#updateVsync
-net.minecraft.client.gui.Gui#setOverlayMessage
 net.minecraft.network.chat.TextComponent
-com.mojang.blaze3d.platform.InputConstants#KEY_A
-com.mojang.blaze3d.platform.InputConstants#PRESS
+
+# Mouse grab
 net.minecraft.client.MouseHandler#grabMouse
 net.minecraft.client.MouseHandler#releaseMouse
 net.minecraft.client.MouseHandler#grabMouse>InputConstants.grabOrReleaseMouse

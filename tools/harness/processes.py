@@ -8,8 +8,6 @@ from pathlib import Path
 import psutil
 
 JAVA_NAMES = ("java.exe", "javaw.exe")
-
-
 WAIT_SECONDS = 5
 
 
@@ -24,11 +22,10 @@ def tool_runs(root: Path, tool: str) -> bool:
 
 def wait_for_tool(root: Path, tool: str) -> None:
     """Waits while a `python -m tools <tool>` runs in the folder root, because the harness and the build write the same build output."""
-    said = False
+    if not tool_runs(root, tool):
+        return
+    print(f"waiting for 'python -m tools {tool}' in {root} to end", flush=True)
     while tool_runs(root, tool):
-        if not said:
-            print(f"waiting for 'python -m tools {tool}' in {root} to end", flush=True)
-            said = True
         time.sleep(WAIT_SECONDS)
 
 

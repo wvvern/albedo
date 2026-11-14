@@ -1,4 +1,6 @@
-# Each preset half a turn into a turning, also Dusk and Aurora, which stand still until a player turns them, from high in the air so that the sky below the horizon shows as over the void of a sky island. No part of any sky may end at a line or show the plain horizon color over a large area. Run it after the scene:
+# Each preset half a turn into a turning, also Dusk and Aurora, which stand still until a player turns them, from high in
+# the air so that the sky below the horizon shows as over the void of a sky island. No part of any sky may end at a line or
+# show the plain horizon color over a large area. Run it after the scene:
 # python -m tools harness forge-1.8.9 fabric-26.3 --suite sky-turned --out build/sky-turned
 wait 60
 profile minimal

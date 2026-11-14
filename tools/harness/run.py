@@ -76,7 +76,9 @@ def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
     parser.add_argument("--extra", nargs="+", default=[], metavar="SUITE", help="more suites, between the scene and the suite")
     parser.add_argument("--out", type=Path, default=RunOptions.out, help="the output folder, from the repository root (default: %(default)s)")
     parser.add_argument("--timeout", type=int, default=RunOptions.timeout, metavar="SECONDS")
-    parser.add_argument("--compat", default=RunOptions.compat, metavar="MOD", help="a dev-only renderer mod: sodium, embeddium, rubidium or iris")
+    parser.add_argument(
+        "--compat", default=RunOptions.compat, metavar="MOD", help="a dev-only renderer mod: sodium, embeddium, rubidium, iris or oculus"
+    )
     parser.add_argument("--shader-pack", type=Path, help="a shader pack for --compat iris; without it, Iris has shaders off")
     parser.add_argument("--config", type=Path, help="a config.json that the game starts with in place of the default config")
     parser.add_argument(

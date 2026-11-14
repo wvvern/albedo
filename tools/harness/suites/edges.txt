@@ -33,5 +33,4 @@ effects blocks chroma 100 speed 60 edge 1 outline 50
 effects fluids chroma 100 speed 60 edge 1
 wait 200
 screenshot e3-edge-moving
-hooks
 quit

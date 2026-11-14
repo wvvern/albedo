@@ -49,7 +49,7 @@ class Finished:
 class System(Protocol):
     """What a run needs from the operating system."""
 
-    def uses(self, harness: Path) -> bool: ...
+    def game_uses(self, harness: Path) -> bool: ...
 
     def start(self, launch: Launch, harness: Path) -> int: ...
 
@@ -66,7 +66,7 @@ def open_harness(name: str, commands: list[str], system: System) -> Path:
     """A new harness folder with the command file and the clip probe of the command cursorfree."""
     harness = HARNESS_ROOT / name
     # A run of the same name from a different shell would lose its folder.
-    if system.uses(harness):
+    if system.game_uses(harness):
         raise ToolError(f"a game with the harness {harness} is already running")
     # The window fit and the cursor watch of the previous run hold a log in the folder for a few seconds after its game ends.
     for _ in range(DELETE_TRIES):

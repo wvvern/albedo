@@ -13,6 +13,7 @@ from pathlib import Path
 
 from tools import project
 from tools.harness import protocol
+from tools.harness.cursor import SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
 from tools.harness.session import Launch
 
 Size = tuple[int, int]
@@ -24,8 +25,6 @@ FRAME = 0x00C00000 | 0x00040000 | 0x00080000 | 0x00020000 | 0x00010000
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
-SM_CXVIRTUALSCREEN = 78
-SM_CYVIRTUALSCREEN = 79
 POLL_SECONDS = 0.5
 
 

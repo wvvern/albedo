@@ -21,7 +21,7 @@ class FakeSystem:
         self.time = 0.0
         self.stopped = False
 
-    def uses(self, harness: Path) -> bool:
+    def game_uses(self, harness: Path) -> bool:
         return harness.name == "busy"
 
     def start(self, launch: Launch, harness: Path) -> int:

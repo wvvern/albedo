@@ -55,7 +55,6 @@ dev/albedo/modern/ExtractorCanvas.class A new class has the canvas of 26.x.
 dev/albedo/modern/GraphicsCanvas.class A new class has the canvas of the versions before 26.1.
 dev/albedo/modern/CanvasImages.class A new class has the images of the canvas.
 dev/albedo/modern/TextureUploads*.class The sprite upload of each family is a class of its own, and the load step of a stand-alone texture is a method with a variant for 1.21.4 to 1.21.10, which ReloadableTextureUpload has.
-dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change on 1.21.1, because the file has a variant for 1.21.4 to 1.21.10.
 dev/albedo/modern/DeviceAtlasUpload.class A new class has the sprite upload through the GPU device.
 dev/albedo/modern/GlAtlasUpload.class A new class has the sprite upload of 1.21.1.
 dev/albedo/modern/SpriteAccess.class A new class gives the pixels and the name of a sprite.

@@ -18,7 +18,7 @@ class Windows:
         # Made once here, before the targets start on threads of their own.
         desktop.hidden_desktop()
 
-    def uses(self, harness: Path) -> bool:
+    def game_uses(self, harness: Path) -> bool:
         # The Gradle process of a dev run names the folder before its game does.
         return any(protocol.names_harness(line, harness) for line in processes.java_command_lines())
 
