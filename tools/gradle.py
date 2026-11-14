@@ -24,7 +24,15 @@ def hidden_command_line(build_dir: Path, task: str, properties: dict[str, str | 
     return " ".join([f'"{wrapper(build_dir)}"', "--no-daemon", ONE_NODE, task, *flags])
 
 
-def run(build_dir: Path, *arguments: str) -> None:
-    result = subprocess.run([str(wrapper(build_dir)), ONE_NODE, *arguments], cwd=build_dir, check=False)
+def run(build_dir: Path, *arguments: str, log: Path | None = None) -> None:
+    """Runs Gradle with its output in this console, or in the file log."""
+    command = [str(wrapper(build_dir)), ONE_NODE, *arguments]
+    if log is None:
+        result = subprocess.run(command, cwd=build_dir, check=False)
+    else:
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with log.open("w", encoding="utf-8") as output:
+            result = subprocess.run(command, cwd=build_dir, check=False, stdout=output, stderr=subprocess.STDOUT)
     if result.returncode != 0:
-        raise ToolError(f"the build failed: gradlew {' '.join(arguments)} in {build_dir}")
+        where = f", output in {log}" if log else ""
+        raise ToolError(f"the build failed: gradlew {' '.join(arguments)} in {build_dir}{where}")

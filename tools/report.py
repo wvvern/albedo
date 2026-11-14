@@ -1,7 +1,14 @@
 """How every command reports: one line for each problem, and one error type for a failure of the command itself."""
 
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+
+
+def say(label: str, message: str) -> None:
+    """Prints one line for a target or node, in one write, so that the lines of threads that run at the same time do not mix."""
+    sys.stdout.write(f"[{label}] {message}\n")
+    sys.stdout.flush()
 
 
 class ToolError(Exception):

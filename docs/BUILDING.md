@@ -44,7 +44,7 @@ CI jobs and releases: [RELEASING.md](RELEASING.md).
 
 | Command | What it does |
 |---------|--------------|
-| `build [TARGET...]` | Builds release jars into `build/libs/` (or `--out`), one Gradle run per node. CI builds with it. |
+| `build [TARGET...]` | Builds release jars into `build/libs/` (or `--out`), one Gradle run per node, up to 8 at the same time with the output of each in `build/logs/<node>.log`. Waits while a harness of the same checkout runs. CI builds with it. |
 | `lint` | The repository checks that Checkstyle cannot do. |
 | `check-jar JAR...` | Examines release jars (or a folder of them) with no game. |
 | `compare-jars OLD NEW` | Compares built jars with a release, entry by entry; `tools/jar-changes.txt` lists the expected differences. |
