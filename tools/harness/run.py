@@ -23,10 +23,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from tools import project
-from tools.harness import devrun, files, processes, rundir, script, session, verdict
+from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
-from tools.harness.windows import Windows
 from tools.project import Target
 from tools.report import ToolError
 
@@ -124,6 +123,10 @@ def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
 
 
 def main(arguments: list[str]) -> int:
+    # Only a real run needs psutil and Windows, so the tests of parse run without them.
+    from tools.harness import processes
+    from tools.harness.windows import Windows
+
     targets, runs = parse(arguments)
     system = Windows()
     processes.wait_for_tool(project.ROOT, "build")

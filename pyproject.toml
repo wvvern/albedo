@@ -1,7 +1,0 @@
-# The style of the Python tools in tools/ (docs/CODING_STANDARDS.md). The tools are not a package to install.
-[tool.ruff]
-line-length = 150
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PTH", "RET", "RUF"]
