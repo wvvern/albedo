@@ -35,7 +35,6 @@ import javax.imageio.ImageIO;
 final class FixedSharpSky {
     private enum Compile { NOT_STARTED, READY, FAILED }
 
-    // The block of a sky program as the four uniform arrays of the shader, which set fills again for each draw.
     private static final class Block {
         final FloatBuffer header = BufferUtils.createFloatBuffer(4);
         final FloatBuffer world = BufferUtils.createFloatBuffer(SkyProgram.LAYERS - SkyProgram.WORLD);
@@ -74,13 +73,11 @@ final class FixedSharpSky {
             this.steps = steps;
         }
 
-        // Compiles the program on its first use, and returns true when it compiled.
         boolean ready() {
             if (state == Compile.NOT_STARTED) compile();
             return state == Compile.READY;
         }
 
-        // Deletes the GL program.
         void close() {
             if (state == Compile.READY) GL20.glDeleteProgram(id);
             state = Compile.FAILED;
@@ -231,7 +228,6 @@ final class FixedSharpSky {
         saved.restore();
     }
 
-    // A compiled shader of a type, or an exception with the log of the GL.
     private static int shader(int type, String source) {
         int shader = GL20.glCreateShader(type);
         GL20.glShaderSource(shader, source);

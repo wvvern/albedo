@@ -36,7 +36,7 @@ final class PrecompiledChromaPass implements ChromaBackend {
             .withCull(false), null)
             .build();
 
-    // A draw that copies one mip level, because the texture copy of 1.21.11 copies only the level 0.
+    // Copies mip levels above 0; see copy().
     private static final RenderPipeline COPY = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.colorOnly(RenderPipeline.builder()), "AlbedoSource")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))

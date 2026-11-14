@@ -42,7 +42,6 @@ class GlProgram {
         return id;
     }
 
-    // The place of a uniform of the compiled program.
     final int uniform(String name) {
         return GL20.glGetUniformLocation(id, name);
     }
@@ -50,7 +49,6 @@ class GlProgram {
     // Takes the places of the uniforms after the program compiled.
     void linked() {}
 
-    // Deletes the GL program.
     final void close() {
         if (state == Compile.READY) GL20.glDeleteProgram(id);
         state = Compile.FAILED;

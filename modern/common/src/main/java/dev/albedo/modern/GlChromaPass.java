@@ -253,7 +253,6 @@ final class GlChromaPass implements ChromaBackend {
         }
     }
 
-    // A GL time query around the work of the pass.
     private static final class Timer implements ChromaBackend.Timer {
         private final int query = GL15.glGenQueries();
 

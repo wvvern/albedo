@@ -83,7 +83,6 @@ final class FixedChromaPass implements ChromaBackend {
         Albedo.get().platform().info("Compiled the Chroma shader " + SkyShaderSource.CHROMA + " as " + dialect);
     }
 
-    // A compiled shader of a type, or an exception with the log of the GL.
     private static int shader(int type, String source) {
         int shader = GL20.glCreateShader(type);
         GL20.glShaderSource(shader, source);
@@ -292,7 +291,6 @@ final class FixedChromaPass implements ChromaBackend {
         }
     }
 
-    // A GL time query around the work of the pass.
     private static final class Timer implements ChromaBackend.Timer {
         private final int query = GL15.glGenQueries();
 

@@ -30,7 +30,6 @@ import java.nio.ByteBuffer;
 // Draws the custom sky with the sky shader for each screen pixel through the raw GL, so that it is sharp at each
 // resolution and field of view, and puts back each GL state that it changes.
 final class GlSharpSky {
-    // The block of a sky program as the four uniform arrays of the shader, which set fills again for each draw.
     private static final class Block {
         final float[] header = new float[4];
         final float[] world = new float[SkyProgram.LAYERS - SkyProgram.WORLD];

@@ -53,7 +53,6 @@ public final class PearlSky {
 
     private PearlSky() {}
 
-    /** Starts a frame, which forgets the sharp sky of the last frame that still waits. */
     static void frameStart() {
         DEFER.frameStart();
     }

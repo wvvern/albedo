@@ -57,7 +57,7 @@ final class ChromaPass implements ChromaBackend {
             .withUniform("AlbedoSource", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
-    // A draw that copies one mip level, because the texture copy of NeoForge 26.3 copies only the level 0.
+    // Copies mip levels above 0; see copy().
     private static final SharpSky.Pipeline COPY = new SharpSky.Pipeline(RenderPipeline.builder()
             .withBindGroupLayout(COPY_LAYOUT)
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))

@@ -46,7 +46,6 @@ public final class ModernSky {
         return Albedo.skyImage() != null && !vanillaWithPack();
     }
 
-    /** True when the custom sky hides the vanilla stars. */
     public static boolean hidesStars() {
         SkyImage img = Albedo.skyImage();
         return img != null && !vanillaWithPack() && img.design().celestial() == SkyDesign.Celestial.HIDE;

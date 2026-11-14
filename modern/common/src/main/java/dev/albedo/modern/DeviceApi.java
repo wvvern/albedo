@@ -67,7 +67,6 @@ final class DeviceApi {
     private DeviceApi() {}
 
     //? if >=1.21.11 {
-    // The id of a resource of the mod.
     static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(Albedo.MOD_ID, path);
     }
@@ -113,7 +112,6 @@ final class DeviceApi {
         ^///?}
     }
 
-    // A uniform block of the mod with this name.
     static RenderPipeline.Builder uniformBlock(RenderPipeline.Builder builder, String name) {
         //? if >=26.2 {
         return builder.withBindGroupLayout(BindGroupLayout.builder().withUniform(name, UniformType.UNIFORM_BUFFER).build());
@@ -122,7 +120,6 @@ final class DeviceApi {
         ^///?}
     }
 
-    // A sampler of the mod with this name.
     static RenderPipeline.Builder sampler(RenderPipeline.Builder builder, String name) {
         //? if >=26.2 {
         return builder.withBindGroupLayout(BindGroupLayout.builder().withSampler(name).build());
@@ -165,7 +162,6 @@ final class DeviceApi {
         ^///?}
     }
 
-    // The render target of the frame of the game.
     static RenderTarget mainTarget() {
         //? if >=26.2 {
         return Minecraft.getInstance().gameRenderer.mainRenderTarget();
@@ -292,7 +288,6 @@ final class DeviceApi {
             RenderSystem.getDevice().createCommandEncoder().writeTimestamp(pool, 0);
         }
 
-        // Ends the time of the work since begin.
         void end() {
             RenderSystem.getDevice().createCommandEncoder().writeTimestamp(pool, 1);
         }
