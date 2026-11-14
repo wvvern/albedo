@@ -471,7 +471,7 @@ final class SkyLayersEditor {
         String use = "Use this sky";
         int uw = ui.buttonWidth(use);
         if (ui.button("sky.use", x + w - uw, y, uw, Ui.H, use, Ui.Style.PRIMARY, chosen != null,
-                chosen == null ? "Click a sky first" : "Replace all layers with the " + chosen.name() + " sky")) {
+                chosen == null ? "Click a sky first" : "Replace all layers with the " + Labels.presetName(chosen.key()) + " sky")) {
             set.accept(started(chosen, design));
             go(SkyPage.LIST);
             return;

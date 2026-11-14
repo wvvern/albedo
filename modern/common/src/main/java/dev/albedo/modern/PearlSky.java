@@ -17,6 +17,7 @@ import com.mojang.renderpearl.api.textures.FilterMode;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -55,7 +56,7 @@ public final class PearlSky {
     }
 
     private static GpuBuffer buildSphere() {
-        float[] v = SkyImage.sphere(ModernSky.RADIUS);
+        float[] v = SkyMesh.sphere(ModernSky.RADIUS);
         vertexCount = v.length / 5;
         return PearlPipeline.vertexBuffer("Albedo sky sphere", v);
     }

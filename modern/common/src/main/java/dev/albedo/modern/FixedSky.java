@@ -7,6 +7,7 @@ import com.mojang.math.Matrix4f;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -167,7 +168,7 @@ public final class FixedSky {
         if (sphere != 0) return;
         sphere = GL11.glGenLists(1);
         GL11.glNewList(sphere, GL11.GL_COMPILE);
-        FixedSharpSky.drawTriangles(SkyImage.sphere(ModernSky.RADIUS));
+        FixedSharpSky.drawTriangles(SkyMesh.sphere(ModernSky.RADIUS));
         GL11.glEndList();
     }
 }

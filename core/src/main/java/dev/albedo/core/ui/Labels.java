@@ -199,6 +199,32 @@ final class Labels {
         }
     }
 
+    /** The name of the card of a {@link dev.albedo.core.sky.SkyPresets.Preset} key. */
+    static String presetName(String key) {
+        switch (key) {
+            case "dusk": return "Dusk";
+            case "nebula": return "Nebula";
+            case "galaxy": return "Galaxy";
+            case "meteors": return "Meteors";
+            case "aurora": return "Aurora";
+            case "trails": return "Trails";
+            default: throw new IllegalArgumentException("no preset " + key);
+        }
+    }
+
+    /** One short sentence with no period for the card of a {@link dev.albedo.core.sky.SkyPresets.Preset} key. */
+    static String presetDescription(String key) {
+        switch (key) {
+            case "dusk": return "An orange sunset with the first stars";
+            case "nebula": return "Pink and violet clouds that slowly pulse";
+            case "galaxy": return "A galaxy with two blue jets over the stars";
+            case "meteors": return "A shower of shooting stars on a clear night";
+            case "aurora": return "Green northern lights over a starry night";
+            case "trails": return "Stars that turn and draw long arcs";
+            default: throw new IllegalArgumentException("no preset " + key);
+        }
+    }
+
     static String blend(SkyLayer.Blend b) {
         switch (b) {
             case ADD: return "Add";

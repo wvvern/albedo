@@ -139,24 +139,25 @@ final class SkyGallery {
         boolean hovered = ui.hover(x, y, w, l.cardH);
         ui.panel(new Rect(x, y, w, l.cardH), chosen ? Ui.ACCENT : hovered ? Ui.BORDER : Ui.PANEL, hovered ? Ui.CARD_HOVER : Ui.PANEL);
         int tx = x + PAD + 2, tw = w - 2 * (PAD + 2);
+        String id = "sky.gallery." + p.key(), name = Labels.presetName(p.key()), description = Labels.presetDescription(p.key());
         if (!l.hasImage()) {
-            ui.text(ui.ellipsize(p.name(), tw), tx, y + (l.cardH - Ui.LINE) / 2 + 1, Ui.TEXT);
-            ui.tip(x, y, w, l.cardH, p.description());
-            return ui.press("sky.gallery." + p.key(), x, y, w, l.cardH);
+            ui.text(ui.ellipsize(name, tw), tx, y + (l.cardH - Ui.LINE) / 2 + 1, Ui.TEXT);
+            ui.tip(x, y, w, l.cardH, description);
+            return ui.press(id, x, y, w, l.cardH);
         }
         CanvasImage img = image(p);
         if (img == null) ui.fill(x + PAD, y + PAD, w - 2 * PAD, l.imageH, Ui.CARD);
-        else ui.c.image("sky.gallery." + p.key(), img, x + PAD, y + PAD, w - 2 * PAD, l.imageH);
+        else ui.c.image(id, img, x + PAD, y + PAD, w - 2 * PAD, l.imageH);
         int ty = y + PAD + l.imageH + 3;
-        ui.text(ui.ellipsize(p.name(), tw), tx, ty, Ui.TEXT);
-        List<String> text = ui.wrap(p.description(), tw);
+        ui.text(ui.ellipsize(name, tw), tx, ty, Ui.TEXT);
+        List<String> text = ui.wrap(description, tw);
         boolean cut = text.size() > l.lines;
         for (int i = 0; i < Math.min(l.lines, text.size()); i++) {
             String line = cut && i == l.lines - 1 ? ui.ellipsize(text.get(i) + " " + text.get(i + 1), tw) : text.get(i);
             ui.text(line, tx, ty + Ui.LINE + 2 + i * (Ui.LINE + 1), Ui.MUTED);
         }
-        if (cut || tw < ui.width(p.name())) ui.tip(x, y, w, l.cardH, p.description());
-        return ui.press("sky.gallery." + p.key(), x, y, w, l.cardH);
+        if (cut || tw < ui.width(name)) ui.tip(x, y, w, l.cardH, description);
+        return ui.press(id, x, y, w, l.cardH);
     }
 
     /** The image of a card, or null while its bake runs. */

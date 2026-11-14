@@ -6,6 +6,7 @@ import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyLight;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyTurn;
 import dev.albedo.legacy.mixin.MinecraftAccessor;
 import net.minecraft.client.Minecraft;
@@ -202,7 +203,7 @@ public final class LegacySky {
         if (sphere != 0) return;
         sphere = GLAllocation.generateDisplayLists(1);
         GL11.glNewList(sphere, GL11.GL_COMPILE);
-        Game.drawTriangles(SkyImage.sphere(RADIUS));
+        Game.drawTriangles(SkyMesh.sphere(RADIUS));
         GL11.glEndList();
     }
 

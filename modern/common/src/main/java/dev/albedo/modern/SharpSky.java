@@ -28,6 +28,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyTurn;
@@ -277,7 +278,7 @@ final class SharpSky {
             target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
             uniforms = upload(values, "Albedo sky compare block");
             terms = Terms.upload(sky, "Albedo sky compare terms");
-            quad = PearlPipeline.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+            quad = PearlPipeline.vertexBuffer("Albedo sky compare quad", SkyMesh.quad(view));
             timer = RenderSystem.getDevice().createTimestampQueryPool(2);
         }
 

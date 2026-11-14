@@ -5,6 +5,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -217,7 +218,7 @@ final class LegacySharpSky {
         equirect.use(new Block().set(values), texture, 1f);
         LegacyGpuTimer timer = new LegacyGpuTimer();
         timer.begin();
-        for (int i = 0; i < repeat; i++) Game.drawTriangles(SkyImage.quad(view));
+        for (int i = 0; i < repeat; i++) Game.drawTriangles(SkyMesh.quad(view));
         timer.end();
         long nanos = LegacyGpuTimer.supported() ? timer.nanos() / repeat : -1;
         timer.close();

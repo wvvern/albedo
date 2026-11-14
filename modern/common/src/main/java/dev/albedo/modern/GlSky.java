@@ -6,6 +6,7 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.Colors;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
@@ -73,7 +74,7 @@ public final class GlSky {
             uploaded = img.serial();
             saved.restore();
         }
-        if (sphere == null) sphere = new GlMesh(SkyImage.sphere(ModernSky.RADIUS));
+        if (sphere == null) sphere = new GlMesh(SkyMesh.sphere(ModernSky.RADIUS));
     }
 
     // Writes the baked image into the texture on unit 0, with a linear filter and a repeat only around the sky.

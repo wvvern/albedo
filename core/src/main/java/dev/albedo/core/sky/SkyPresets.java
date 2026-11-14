@@ -107,25 +107,23 @@ public final class SkyPresets {
             .withTurning(new SkyTurning(100, 1, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.NORMAL, 0, 45, 60));
 
     private static final List<Preset> ALL = Collections.unmodifiableList(Arrays.asList(
-            new Preset("dusk", "Dusk", "An orange sunset with the first stars", 270, DUSK),
-            new Preset("nebula", "Nebula", "Pink and violet clouds that slowly pulse", 180, NEBULA),
-            new Preset("galaxy", "Galaxy", "A galaxy with two blue jets over the stars", 135, GALAXY),
-            new Preset("meteors", "Meteors", "A shower of shooting stars on a clear night", 45, METEORS),
-            new Preset("aurora", "Aurora", "Green northern lights over a starry night", 0, AURORA),
-            new Preset("trails", "Trails", "Stars that turn and draw long arcs", 0, TRAILS)));
+            new Preset("dusk", 270, DUSK),
+            new Preset("nebula", 180, NEBULA),
+            new Preset("galaxy", 135, GALAXY),
+            new Preset("meteors", 45, METEORS),
+            new Preset("aurora", 0, AURORA),
+            new Preset("trails", 0, TRAILS)));
 
     private SkyPresets() {}
 
-    /** A built-in sky with the texts and the view of its card in the editor. */
+    /** A built-in sky with the view of its card in the editor; the ui package holds its texts. */
     public static final class Preset {
-        private final String key, name, description;
+        private final String key;
         private final int facing;
         private final SkyDesign design;
 
-        Preset(String key, String name, String description, int facing, SkyDesign design) {
+        Preset(String key, int facing, SkyDesign design) {
             this.key = key;
-            this.name = name;
-            this.description = description;
             this.facing = facing;
             this.design = design;
         }
@@ -135,11 +133,6 @@ public final class SkyPresets {
 
         /** The name in harness commands and widget ids: lower-case letters and digits. */
         public String key() { return key; }
-
-        public String name() { return name; }
-
-        /** One short sentence for a player. */
-        public String description() { return description; }
 
         public SkyDesign design() { return design; }
     }

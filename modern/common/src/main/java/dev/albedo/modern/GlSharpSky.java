@@ -6,6 +6,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -186,7 +187,7 @@ final class GlSharpSky {
         if (!equirect.ready()) return false;
         GlState saved = GlState.ofAll();
         int texture = uploadTerms(sky);
-        GlMesh quad = new GlMesh(SkyImage.quad(view));
+        GlMesh quad = new GlMesh(SkyMesh.quad(view));
         int color = colorTexture(width, height);
         int framebuffer = GlStateManager.glGenFramebuffers();
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer);

@@ -104,9 +104,10 @@ class SkyLayersEditorTest {
         d.click("Sky");
         d.click("Skies");
         for (SkyPresets.Preset p : SkyPresets.all()) {
-            assertNotNull(d.find(p.name()), "each sky has a card: " + d.labels());
+            String name = Labels.presetName(p.key());
+            assertNotNull(d.find(name), "each sky has a card: " + d.labels());
             CanvasImage img = d.awaitImage("sky.gallery." + p.key(), shown -> true);
-            assertNotNull(img, "the card of " + p.name() + " has an image: " + d.canvas.images.keySet());
+            assertNotNull(img, "the card of " + name + " has an image: " + d.canvas.images.keySet());
             assertTrue(img.height() > img.width() / 4 && img.height() < img.width() / 2, "the image ends a little below the horizon");
         }
 
@@ -155,7 +156,7 @@ class SkyLayersEditorTest {
         EditorDriver d = EditorDriver.open(320, 200);
         d.click("Sky");
         d.click("Skies");
-        String last = SkyPresets.all().get(SkyPresets.all().size() - 1).name();
+        String last = Labels.presetName(SkyPresets.all().get(SkyPresets.all().size() - 1).key());
         assertNull(d.find(last), "the last card is below the window: " + d.labels());
         int[] first = d.find("Dusk");
         for (int i = 0; i < 10 && d.find(last) == null; i++) d.scrollAt(first[0], first[1]);

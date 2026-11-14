@@ -16,6 +16,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
@@ -300,7 +301,7 @@ final class PrecompiledSharpSky {
             target = DeviceApi.target("Albedo sky compare", width, height);
             uniforms = upload(values, "Albedo sky compare block");
             terms = Terms.upload(sky, "Albedo sky compare terms");
-            quad = DeviceApi.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+            quad = DeviceApi.vertexBuffer("Albedo sky compare quad", SkyMesh.quad(view));
         }
 
         @Override

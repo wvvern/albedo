@@ -7,6 +7,7 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
@@ -309,7 +310,7 @@ final class FixedSharpSky {
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        for (int i = 0; i < repeat; i++) drawTriangles(SkyImage.quad(view));
+        for (int i = 0; i < repeat; i++) drawTriangles(SkyMesh.quad(view));
         long nanos = -1;
         if (timed) {
             GL15.glEndQuery(GL33.GL_TIME_ELAPSED);

@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyMesh;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.joml.Vector4f;
 
@@ -37,7 +38,7 @@ public final class PrecompiledSky {
     }
 
     private static GpuBuffer buildSphere() {
-        float[] v = SkyImage.sphere(ModernSky.RADIUS);
+        float[] v = SkyMesh.sphere(ModernSky.RADIUS);
         vertexCount = v.length / 5;
         return DeviceApi.vertexBuffer("Albedo sky sphere", v);
     }
