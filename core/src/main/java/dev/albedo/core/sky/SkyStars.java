@@ -239,10 +239,10 @@ final class SkyStars {
         // The distance across the trail is the difference of the angles from the axis of the star and the point.
         float d = (float) (Math.atan2(Math.sqrt(Math.max(0f, 1 - sh * sh)), sh) - Math.atan2(radius, h)), ad = Math.abs(d);
         if (ad >= cut) return;
-        float across = (float) Math.exp(-d * d / (2 * width * width)) * (1 - SkyGenerator.smooth(0.75f * cut, cut, ad));
+        float across = (float) Math.exp(-d * d / (2 * width * width)) * (1 - SkyMath.smooth(0.75f * cut, cut, ad));
         float x = back / trail, fade = (1 - x) * (1 - x);
         // The trail starts in the core of the star and fades to nothing at its end.
-        float start = SkyGenerator.smooth(0, 3 * width, back * radius);
+        float start = SkyMath.smooth(0, 3 * width, back * radius);
         // The peak falls with the width, as the core of a star does, so that a trail keeps its light at each footprint.
         float k = trailLight * TRAIL_GAIN * CORE * scale / width * (float) Math.sqrt(s[3]) * across * fade * start;
         color(s[4], work, 3);
@@ -294,10 +294,10 @@ final class SkyStars {
         if (trail > 0 && !t.detail) flux *= spread(s);
         if (twinkle > 0 && t.detail) {
             // A bright star twinkles more near the horizon, where its light goes through more air.
-            float air = 1 - SkyGenerator.smooth(0.05f, 0.75f, s[0] * up[0] + s[1] * up[1] + s[2] * up[2]);
-            float change = twinkle * (TWINKLE_ZENITH + TWINKLE_HORIZON * air) * (0.35f + 0.65f * SkyGenerator.smooth(0.2f, 6f, flux));
-            tint = TWINKLE_COLOR * change * air * SkyGenerator.wave((s[6] - s[5]) * time + s[7] + s[8]);
-            flux *= 1 + change * (0.6f * SkyGenerator.wave(s[5] * time + s[7]) + 0.4f * SkyGenerator.wave(s[6] * time + s[8]));
+            float air = 1 - SkyMath.smooth(0.05f, 0.75f, s[0] * up[0] + s[1] * up[1] + s[2] * up[2]);
+            float change = twinkle * (TWINKLE_ZENITH + TWINKLE_HORIZON * air) * (0.35f + 0.65f * SkyMath.smooth(0.2f, 6f, flux));
+            tint = TWINKLE_COLOR * change * air * SkyMath.wave((s[6] - s[5]) * time + s[7] + s[8]);
+            flux *= 1 + change * (0.6f * SkyMath.wave(s[5] * time + s[7]) + 0.4f * SkyMath.wave(s[6] * time + s[8]));
         }
         float blur = PIXEL * footprint, blur2 = blur * blur;
         // The footprint widens the core, and its peak falls with the width, not the area, so that a star smaller than a pixel stays visible.
@@ -318,7 +318,7 @@ final class SkyStars {
         work[3] *= 1 + tint;
         work[5] *= 1 - tint;
         // The light goes to 0 before the edge of the reach, so that no star is cut.
-        float fade = 1 - SkyGenerator.smooth(0.8f * reach, reach, d);
+        float fade = 1 - SkyMath.smooth(0.8f * reach, reach, d);
         for (int c = 0; c < 3; c++) light[c] += work[3 + c] * fade * (glow + work[c]);
     }
 

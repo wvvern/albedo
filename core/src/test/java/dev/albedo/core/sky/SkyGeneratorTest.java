@@ -421,7 +421,7 @@ class SkyGeneratorTest {
                 for (int c = 0; c < 3; c++) {
                     int shift = 16 - 8 * c;
                     float added = Oklab.toLinear(full.argb()[y * w + x] >> shift) - Oklab.toLinear(below.argb()[y * w + x] >> shift);
-                    float term = fromHalf(full.terms()[((y / 2) * (w / 2) + x / 2) * 4 + c]);
+                    float term = HalfFloat.decode(full.terms()[((y / 2) * (w / 2) + x / 2) * 4 + c]);
                     error += Math.abs(added - term);
                     glow = Math.max(glow, term);
                     count++;
@@ -450,14 +450,14 @@ class SkyGeneratorTest {
                 float x = dir[0], y = dir[1], z = dir[2];
                 int noise = (ty * tw + tx) * 4, bend = ((th + ty) * tw + tx) * 4;
                 float coarse = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, 0, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES);
-                assertEquals(coarse * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f, "the coarse octaves of the clouds");
+                assertEquals(coarse * 0.5f + 0.5f, HalfFloat.decode(img.terms()[noise]), 1e-3f, "the coarse octaves of the clouds");
                 float fine = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES,
                         SkyGenerator.CLOUD_OCTAVES);
                 assertEquals(Noise.fbm(x * 2.5f, y * 2.5f, z * 2.5f, 1, SkyGenerator.CLOUD_OCTAVES), coarse + fine, 1e-5f, "the parts add up");
-                assertEquals(Noise.noise(x * 2.2f, y * 2.2f, z * 2.2f, 1 + 71), fromHalf(img.terms()[noise + 1]), 1e-3f, "the pulse noise");
+                assertEquals(Noise.noise(x * 2.2f, y * 2.2f, z * 2.2f, 1 + 71), HalfFloat.decode(img.terms()[noise + 1]), 1e-3f, "the pulse noise");
                 float bendX = Noise.fbm(x * 1.6f + 5.2f, y * 1.6f + 1.3f, z * 1.6f + 2.8f, 1 + 11, 4);
-                assertEquals(bendX, fromHalf(img.terms()[bend]), 2e-3f, "the bend of the fractal");
-                assertEquals(0f, fromHalf(img.terms()[bend + 3]), "a fractal with no pulse");
+                assertEquals(bendX, HalfFloat.decode(img.terms()[bend]), 2e-3f, "the bend of the fractal");
+                assertEquals(0f, HalfFloat.decode(img.terms()[bend + 3]), "a fractal with no pulse");
                 negative |= bendX < -0.01f;
             }
         }

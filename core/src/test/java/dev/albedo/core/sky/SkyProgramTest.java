@@ -290,7 +290,7 @@ class SkyProgramTest {
                 for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
                     for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += Oklab.toLinear(img.argb()[y * w + x] >> 8);
                 }
-                error += Math.abs(sum / 4 - fromHalf(img.terms()[(ty * (w / 2) + tx) * 4 + 1]));
+                error += Math.abs(sum / 4 - HalfFloat.decode(img.terms()[(ty * (w / 2) + tx) * 4 + 1]));
                 count++;
             }
         }

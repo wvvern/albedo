@@ -22,13 +22,9 @@ public final class Transform {
      */
     public Transform(int yaw, int pitch, int roll, int scale) {
         this.yaw = ((yaw % 360) + 360) % 360;
-        this.pitch = clamp(pitch, MIN_PITCH, MAX_PITCH);
-        this.roll = clamp(roll, MIN_ROLL, MAX_ROLL);
-        this.scale = clamp(scale, MIN_SCALE, MAX_SCALE);
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
+        this.pitch = Range.clamp(pitch, MIN_PITCH, MAX_PITCH);
+        this.roll = Range.clamp(roll, MIN_ROLL, MAX_ROLL);
+        this.scale = Range.clamp(scale, MIN_SCALE, MAX_SCALE);
     }
 
     public int scale() { return scale; }

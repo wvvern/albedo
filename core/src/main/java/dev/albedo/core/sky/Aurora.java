@@ -1,6 +1,6 @@
 package dev.albedo.core.sky;
 
-import static dev.albedo.core.sky.SkyGenerator.smooth;
+import static dev.albedo.core.sky.SkyMath.smooth;
 
 /**
  * Java twin of {@code albedoAurora}: a near and a far folded curtain toward the layer center, with a soft lower edge and rays

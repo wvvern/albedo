@@ -66,18 +66,14 @@ public final class SkyTurning {
      * @param trailLight the light of the trails in percent, from 0 to 100
      */
     public SkyTurning(int amount, int speed, Clock clock, int poleHeight, Direction direction, int pole, int trails, int trailLight) {
-        this.amount = clamp(amount, 0, FULL_AMOUNT);
-        this.speed = clamp(speed, 1, MAX_SPEED);
+        this.amount = Range.clamp(amount, 0, FULL_AMOUNT);
+        this.speed = Range.clamp(speed, 1, MAX_SPEED);
         this.clock = clock;
-        this.poleHeight = clamp(poleHeight, 0, MAX_POLE_HEIGHT);
+        this.poleHeight = Range.clamp(poleHeight, 0, MAX_POLE_HEIGHT);
         this.direction = direction;
-        this.pole = clamp(pole, 0, MAX_POLE);
-        this.trails = clamp(trails, 0, MAX_TRAILS);
-        this.trailLight = clamp(trailLight, 0, 100);
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
+        this.pole = Range.clamp(pole, 0, MAX_POLE);
+        this.trails = Range.clamp(trails, 0, MAX_TRAILS);
+        this.trailLight = Range.clamp(trailLight, 0, 100);
     }
 
     public int amount() { return amount; }

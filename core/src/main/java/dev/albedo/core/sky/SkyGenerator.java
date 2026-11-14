@@ -9,6 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.IntConsumer;
 
+import static dev.albedo.core.sky.SkyMath.clamp;
+import static dev.albedo.core.sky.SkyMath.clamp01;
+import static dev.albedo.core.sky.SkyMath.gauss;
+import static dev.albedo.core.sky.SkyMath.smooth;
+import static dev.albedo.core.sky.SkyMath.wave;
+
 /**
  * Bakes a {@link SkyDesign} into a {@link SkyImage} in one pass from the bottom layer up, in linear light, where each
  * generator works on directions (no seam, no pinch at the zenith) and each filter size is in degrees, as a still sky at
@@ -410,7 +416,7 @@ public final class SkyGenerator {
             double lon = (tx + 0.5) / termW * 2 * Math.PI;
             l.local(cos * (float) Math.sin(lon), sin, -cos * (float) Math.cos(lon), local);
             field(l, local, f);
-            for (int c = 0; c < 4; c++) terms[base + tx * 4 + c] = signedHalf(f[c]);
+            for (int c = 0; c < 4; c++) terms[base + tx * 4 + c] = HalfFloat.encodeSigned(f[c]);
         }
     }
 
@@ -488,11 +494,6 @@ public final class SkyGenerator {
             k = (peak + room * (1 - (float) Math.exp(-peak * (k - 1) / room))) / peak;
         }
         for (int c = 0; c < 3; c++) rgb[c] *= k;
-    }
-
-    /** A sine wave from -1 to 1 at a number of turns, where only the part after the point counts, so that a large time keeps its precision. */
-    static float wave(float turns) {
-        return (float) Math.sin(2 * Math.PI * (turns - Math.floor(turns)));
     }
 
     /** Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend. */
@@ -762,11 +763,6 @@ public final class SkyGenerator {
         out[3] = a;
     }
 
-    /** A bell curve of height 1 at 0. */
-    private static float gauss(float v) {
-        return (float) Math.exp(-v * v);
-    }
-
     /** The turns at a time of a motion that makes a whole number of turns in the hour of the sky clock, {@code perHour} of them at a motion of 1. */
     static float turns(float perHour, float motion, float time) {
         return (float) Math.floor(perHour * motion + 0.5f) * time / 3600f;
@@ -964,29 +960,10 @@ public final class SkyGenerator {
                     if (y >= used) continue;
                     for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += tmp[(y * w + Math.min(w - 1, x)) * 4 + c];
                 }
-                terms[base + tx * 4 + c] = half(sum / 4 * k);
+                terms[base + tx * 4 + c] = HalfFloat.encode(sum / 4 * k);
             }
-            terms[base + tx * 4 + 3] = half(1);
+            terms[base + tx * 4 + 3] = HalfFloat.encode(1);
         }
-    }
-
-    /** The IEEE half float bits of a value that can be negative, limited to the range from -65504 to 65504. */
-    static short signedHalf(float v) {
-        return v < 0 ? (short) (half(-v) | 0x8000) : half(v);
-    }
-
-    /** The IEEE half float bits of a value, which is limited to the range from 0 to 65504 and rounded to the nearest half float. */
-    static short half(float v) {
-        // This test is also false for NaN, which then gives 0 as a negative value does.
-        if (!(v > 0)) return 0;
-        int bits = Float.floatToIntBits(Math.min(65504f, v));
-        int exp = (bits >>> 23) - 127 + 15;
-        int mantissa = bits & 0x7FFFFF;
-        if (exp > 0) return (short) (((exp << 10) | (mantissa >> 13)) + ((mantissa >> 12) & 1));
-        // A value below the smallest normal half float is a subnormal: its mantissa with the hidden bit, moved right.
-        if (exp < -10) return 0;
-        int shift = 14 - exp;
-        return (short) (((mantissa | 0x800000) + (1 << (shift - 1))) >> shift);
     }
 
     /** Cells of equal size in degrees in the layer frame, in rows whose cell count follows the width of the sky at their height. */
@@ -1140,19 +1117,5 @@ public final class SkyGenerator {
             float bottom = src[(yb * w + xa) * 4 + c] * (1 - tx) + src[(yb * w + xb) * 4 + c] * tx;
             out[c] = top * (1 - ty) + bottom * ty;
         }
-    }
-
-    /** The smoothstep of {@code t} from {@code a} to {@code b}, the same as {@code albedoSmooth} in the sky shader. */
-    static float smooth(float a, float b, float t) {
-        float x = clamp01((t - a) / (b - a));
-        return x * x * (3 - 2 * x);
-    }
-
-    private static float clamp01(float v) {
-        return v < 0 ? 0 : v > 1 ? 1 : v;
-    }
-
-    private static double clamp(double v, double lo, double hi) {
-        return v < lo ? lo : v > hi ? hi : v;
     }
 }

@@ -2,6 +2,8 @@ package dev.albedo.core.sky;
 
 import dev.albedo.core.config.SkyLayer;
 
+import static dev.albedo.core.sky.SkyMath.smooth;
+
 /**
  * The shooting stars of a meteors layer, the same model as {@code albedoMeteor} in the sky shader: each slot of time has
  * some channels, and the hash of a slot, a channel and the seed tells whether a meteor starts in it and where it goes,
@@ -151,11 +153,6 @@ public final class SkyMeteors {
                 light[i] = Math.max(light[i], value * (dx == 0 ? 1 - fx : fx) * (dy == 0 ? 1 - fy : fy));
             }
         }
-    }
-
-    private static float smooth(float from, float to, float x) {
-        float t = Math.max(0, Math.min(1, (x - from) / (to - from)));
-        return t * t * (3 - 2 * t);
     }
 
     private static float unit(int slot, int channel, int value, int seed) {

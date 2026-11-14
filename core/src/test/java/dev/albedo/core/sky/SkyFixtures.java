@@ -58,12 +58,6 @@ final class SkyFixtures {
         return (int) Math.round((SkyImage.TOP - elevation) / (SkyImage.TOP - SkyImage.BOTTOM) * h - 0.5);
     }
 
-    static float fromHalf(short bits) {
-        int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
-        float v = exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
-        return (bits & 0x8000) != 0 ? -v : v;
-    }
-
     /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
     static String skyLayersSource() throws IOException {
         return SkyShaderSource.read("include/sky_layers.glsl");

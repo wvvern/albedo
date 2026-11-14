@@ -82,9 +82,9 @@ final class DeepField {
                     float prof = (float) Math.exp(-r / size) * lum * ratio / thin;
                     // The arms of a young galaxy show only when the pixels are small enough for them.
                     float wave = 0.5f + 0.5f * (float) Math.cos(2 * ((float) Math.atan2(v, u) - 2.6f * (float) Math.log(r / size + 0.25f)));
-                    float arms = SkyGenerator.smooth(0.5f, 0.6f, young) * SkyGenerator.smooth(3 * footprint, 6 * footprint, size);
+                    float arms = SkyMath.smooth(0.5f, 0.6f, young) * SkyMath.smooth(3 * footprint, 6 * footprint, size);
                     prof *= 1 + arms * (0.9f * wave * wave - 0.45f);
-                    prof *= 1 - SkyGenerator.smooth(0.8f * reach, reach, (float) Math.sqrt(d2));
+                    prof *= 1 - SkyMath.smooth(0.8f * reach, reach, (float) Math.sqrt(d2));
                     for (int c = 0; c < 3; c++) {
                         float warm = block[SkyProgram.at(index, SkyProgram.COLOR_1) + c], blue = block[SkyProgram.at(index, SkyProgram.COLOR_2) + c];
                         light[c] += (warm + (blue - warm) * young) * prof;
@@ -104,9 +104,9 @@ final class DeepField {
         if (band < 0.003f) return;
         float az = (float) Math.atan2(p[0], -p[2]) / CLOUD_LENGTH;
         float shape = Noise.fbm(p[0] * 3.2f, p[1] * 3.2f, p[2] * 3.2f, seed + 11, 5);
-        float body = band * (0.3f + 0.7f * (float) Math.exp(-az * az)) * SkyGenerator.smooth(-0.45f, 0.35f, shape + 0.15f);
+        float body = band * (0.3f + 0.7f * (float) Math.exp(-az * az)) * SkyMath.smooth(-0.45f, 0.35f, shape + 0.15f);
         float bend = 0.3f * shape;
-        float rift = SkyGenerator.smooth(0.35f, 0.8f, Noise.ridged(p[0] * 3.6f + bend, p[1] * 3.6f + bend, p[2] * 3.6f + bend, seed + 12, 4));
+        float rift = SkyMath.smooth(0.35f, 0.8f, Noise.ridged(p[0] * 3.6f + bend, p[1] * 3.6f + bend, p[2] * 3.6f + bend, seed + 12, 4));
         body *= 1 - 0.8f * rift;
         float glow = cloud * body * (0.7f + 0.5f * Noise.fbmSoft(p[0] * 14f, p[1] * 14f, p[2] * 14f, seed + 13, 4, footprint * 14f));
         for (int c = 0; c < 3; c++) light[c] += glow * CLOUD_GLOW[c];
@@ -138,7 +138,7 @@ final class DeepField {
                     if (d2 >= reach * reach) continue;
                     float flux = Math.min(0.7f, 0.03f * (float) Math.pow((((h >>> 12) & 4095) + 0.5f) / 4096f, -1 / 1.3f));
                     float glow = cloud * 2 * flux * core / (float) Math.sqrt(core2) * (float) Math.exp(-d2 / (2 * core2))
-                            * (1 - SkyGenerator.smooth(0.8f * reach, reach, (float) Math.sqrt(d2)));
+                            * (1 - SkyMath.smooth(0.8f * reach, reach, (float) Math.sqrt(d2)));
                     SkyStars.color(((h & 4095) + 0.5f) / 4096f, color, 0);
                     for (int c = 0; c < 3; c++) light[c] += color[c] * glow;
                 }

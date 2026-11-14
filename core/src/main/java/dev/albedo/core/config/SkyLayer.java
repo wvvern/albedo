@@ -70,7 +70,7 @@ public final class SkyLayer {
 
         /** The value kept inside its range; colors are not changed. */
         public int clamp(int value) {
-            return isColor() ? value : Math.max(min, Math.min(max, value));
+            return isColor() ? value : Range.clamp(value, min, max);
         }
     }
 
@@ -185,7 +185,7 @@ public final class SkyLayer {
         this.id = id;
         this.kind = kind;
         this.blend = blend;
-        this.opacity = Math.max(0, Math.min(100, opacity));
+        this.opacity = Range.clamp(opacity, 0, 100);
         this.output = output;
         this.mask = mask;
         EnumMap<Param, Integer> all = new EnumMap<Param, Integer>(Param.class);
