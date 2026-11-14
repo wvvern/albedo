@@ -97,8 +97,8 @@ public final class SkyMeteors {
 
     /**
      * Adds the meteors of a layer to the top rows of a bake as a long exposure shows them: the whole path of each head that
-     * starts in {@code seconds} seconds, brighter to its end. A bake has no meteors, because each lives for about a second, so a
-     * still image such as a card of the editor shows them only with this.
+     * starts in {@code seconds} seconds, brighter to its end, because a bake has no meteors (each lives for about a second)
+     * and a still image such as a card of the editor shows them only with this.
      *
      * @param layer the index of a meteors layer of the design of {@code img}
      * @param argb the top rows of {@code img}, which this method changes

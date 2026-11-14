@@ -105,8 +105,8 @@ public final class ChromaTexels {
 
     /**
      * The texels of the next mip level, half as wide and high, because the pass turns each mip level of the atlas on its
-     * own. Each gets the speed of the first moving texel of its 2 by 2 block and the mean of the hue the four texels add,
-     * where a texel of speed 0 adds none, so that the hue matches a mip level of the painted colors.
+     * own, each with the speed of the first moving texel of its 2 by 2 block and the mean of the hue the four texels add
+     * (a texel of speed 0 adds none), so that the hue matches a mip level of the painted colors.
      */
     public static int[] halve(int[] texels, int w, int h) {
         int nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);

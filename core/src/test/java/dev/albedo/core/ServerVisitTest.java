@@ -11,7 +11,7 @@ import static dev.albedo.core.CoreFixture.withOwnProfile;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** The server rules: they change the config in effect for a visit, and the file keeps the player's own choice. */
-class ServerRuleTest {
+class ServerVisitTest {
     private final Albedo albedo = CoreFixture.albedo();
 
     @BeforeEach
