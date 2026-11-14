@@ -17,6 +17,7 @@ jobs:
     env:
       API: https://api.modrinth.com/v2/project/${{ vars.MODRINTH_PROJECT_ID }}
       TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      USER_AGENT: ${{ github.repository }} (GitHub Actions)
     steps:
       - uses: actions/checkout@v7
       - name: Description
@@ -26,23 +27,29 @@ jobs:
           sed "s#/albedo/master/#/albedo/$GITHUB_SHA/#g" modrinth/DESCRIPTION.md > description.md
           jq -n --rawfile body description.md '{body: $body}' > body.json
           curl -fsS -X PATCH "$API" -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
-            -H "User-Agent: $GITHUB_REPOSITORY (GitHub Actions)" --data @body.json
+            -H "User-Agent: $USER_AGENT" --data @body.json
       - name: Gallery
         run: |
-          modrinth() { curl -fsS -H "Authorization: $TOKEN" -H "User-Agent: $GITHUB_REPOSITORY (GitHub Actions)" "$@"; }
+          modrinth() { curl -fsS -H "Authorization: $TOKEN" -H "User-Agent: $USER_AGENT" "$@"; }
+          trim() { local s="${1#"${1%%[![:space:]]*}"}"; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+          files=()
+          titles=()
+          mapfile -t rows < <(grep -v '^#' modrinth/gallery.txt)
+          for row in "${rows[@]}"; do
+            IFS='=' read -r file title <<< "$row"
+            files+=("$(trim "$file")")
+            titles+=("$(trim "$title")")
+          done
           # Check that each listed image exists before the old gallery is removed.
-          grep -v '^#' modrinth/gallery.txt | while IFS='=' read -r file title; do
-            test -f "modrinth/gallery/$(echo $file)" || { echo "Missing modrinth/gallery/$file"; exit 1; }
+          for file in "${files[@]}"; do
+            test -f "modrinth/gallery/$file" || { echo "Missing modrinth/gallery/$file"; exit 1; }
           done
           modrinth "$API" | jq -r '.gallery[].url' | while read -r url; do
             modrinth -X DELETE "$API/gallery?url=$(jq -rn --arg u "$url" '$u|@uri')"
           done
-          n=0
-          grep -v '^#' modrinth/gallery.txt | while IFS='=' read -r file title; do
-            file=$(echo $file); title=$(echo $title)
-            featured=$([ $n -eq 0 ] && echo true || echo false)
-            query="ext=png&featured=$featured&ordering=$n&title=$(jq -rn --arg t "$title" '$t|@uri')"
-            modrinth -X POST "$API/gallery?$query" -H "Content-Type: image/png" --data-binary "@modrinth/gallery/$file"
-            echo "Uploaded $file"
-            n=$((n + 1))
+          for n in "${!files[@]}"; do
+            featured=$([ "$n" -eq 0 ] && echo true || echo false)
+            query="ext=png&featured=$featured&ordering=$n&title=$(jq -rn --arg t "${titles[n]}" '$t|@uri')"
+            modrinth -X POST "$API/gallery?$query" -H "Content-Type: image/png" --data-binary "@modrinth/gallery/${files[n]}"
+            echo "Uploaded ${files[n]}"
           done

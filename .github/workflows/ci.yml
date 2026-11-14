@@ -23,9 +23,11 @@ jobs:
   plan:
     name: Plan
     runs-on: ubuntu-latest
-    # A row for each node of modern/ and legacy/, for its build job and its uploads; tools/ci_matrix.py has the keys of a row.
+    # A row for each node of modern/ and legacy/ for its build job, and a row for each jar for its Modrinth upload.
+    # tools/ci_matrix.py has the keys of a row.
     outputs:
       nodes: ${{ steps.matrix.outputs.nodes }}
+      uploads: ${{ steps.matrix.outputs.uploads }}
       jars: ${{ steps.matrix.outputs.jars }}
     steps:
       - uses: actions/checkout@v7
@@ -49,10 +51,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - run: python3 -m tools lint
       - name: Check the tools
+        env:
+          RUFF: ruff==0.17.5
         run: |
           python3 -m unittest discover -s tools/tests -t .
-          pipx run ruff==0.17.5 check tools
-          pipx run ruff==0.17.5 format --check tools
+          pipx run "$RUFF" check tools
+          pipx run "$RUFF" format --check tools
       - run: ./gradlew --configure-on-demand :core:check -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64
         working-directory: modern
       - name: Release notes
@@ -138,57 +142,22 @@ jobs:
           gh release create "$TAG" dist/*.jar --repo "$GITHUB_REPOSITORY" --title "Albedo ${TAG#v}" --notes-file notes.md
 
   modrinth:
-    name: Modrinth ${{ matrix.target.mc }}
+    name: Modrinth ${{ matrix.upload.loader }} ${{ matrix.upload.mc }}
     # Needs the repository variable MODRINTH_PROJECT_ID and the secret MODRINTH_TOKEN.
     if: vars.MODRINTH_PROJECT_ID != ''
-    needs: [plan, check, release]
-    runs-on: ubuntu-latest
+    needs: [plan, release]
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(needs.plan.outputs.nodes) }}
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: jars-${{ matrix.target.mc }}
-          path: dist
-      # Each loader has its own step, which also runs when the step of a different loader failed.
-      - name: Fabric
-        if: ${{ !cancelled() && contains(matrix.target.loaders, 'fabric') }}
-        uses: Kir-Antipov/mc-publish@v3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: dist/albedo-fabric-*.jar
-          name: Albedo ${{ env.TAG }} for fabric ${{ matrix.target.mc }}
-          version: ${{ env.TAG }}+fabric-${{ matrix.target.mc }}
-          loaders: ${{ matrix.target.fabric_loaders || 'fabric' }}
-          game-versions: ${{ matrix.target.fabric_game_versions || matrix.target.game_versions }}
-          changelog: ${{ needs.check.outputs.notes }}
-      - name: Forge
-        if: ${{ !cancelled() && contains(matrix.target.loaders, 'forge') }}
-        uses: Kir-Antipov/mc-publish@v3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: dist/albedo-forge-*.jar
-          name: Albedo ${{ env.TAG }} for forge ${{ matrix.target.mc }}
-          version: ${{ env.TAG }}+forge-${{ matrix.target.mc }}
-          loaders: forge
-          game-versions: ${{ matrix.target.game_versions }}
-          changelog: ${{ needs.check.outputs.notes }}
-      - name: NeoForge
-        if: ${{ !cancelled() && contains(matrix.target.loaders, 'neoforge') }}
-        uses: Kir-Antipov/mc-publish@v3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: dist/albedo-neoforge-*.jar
-          name: Albedo ${{ env.TAG }} for neoforge ${{ matrix.target.mc }}
-          version: ${{ env.TAG }}+neoforge-${{ matrix.target.mc }}
-          loaders: neoforge
-          game-versions: ${{ matrix.target.game_versions }}
-          changelog: ${{ needs.check.outputs.notes }}
+        upload: ${{ fromJSON(needs.plan.outputs.uploads) }}
+    uses: ./.github/workflows/modrinth.yml
+    with:
+      tag: ${{ github.ref_name }}
+      loader: ${{ matrix.upload.loader }}
+      mc: ${{ matrix.upload.mc }}
+      modrinth_loaders: ${{ matrix.upload.modrinth_loaders }}
+      game_versions: ${{ matrix.upload.game_versions }}
+    secrets: inherit
 
   modrinth-page:
     name: Modrinth page

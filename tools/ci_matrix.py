@@ -1,52 +1,62 @@
 """Prints the outputs of the plan job of .github/workflows/ci.yml, one "name=value" line each.
 
-nodes  a row for each node of the two builds: what its build job builds, and what its Modrinth uploads list
-jars   how many jars a release has
+nodes    a row for each node of the two builds, for its build job
+uploads  a row for each jar, for its Modrinth upload with .github/workflows/modrinth.yml
+jars     how many jars a release has
 
-The keys of a row:
-  mc                    the Minecraft version, which is the end of the jar names
-  java, gradle_java     the Java of the node and the Java that runs Gradle
-  targets               the targets of "python -m tools build", with a space between them
-  loaders               the loaders of the node
-  cache                 whether the build job writes the Gradle cache; the entries of all modern nodes together are larger than
-                        the cache limit of the repository
-  game_versions         the released versions of the jars, from modrinth_versions of the node
-  fabric_game_versions  the released versions of the Fabric jar, when modrinth_versions_fabric gives it more
-  fabric_loaders        the Modrinth loaders of the Fabric jar, from modrinth_loaders_fabric
+The keys of a nodes row:
+  mc                the Minecraft version, which is the end of the jar names
+  java, gradle_java the Java of the node and the Java that runs Gradle
+  targets           the targets of "python -m tools build", with a space between them
+  cache             whether the build job writes the Gradle cache; the entries of all modern nodes together are larger than the
+                    cache limit of the repository
 
-A value with more than one version or loader has one in each line, which is what mc-publish reads.
+The keys of an uploads row, which are the inputs of modrinth.yml:
+  mc                the Minecraft version of the jar
+  loader            the loader of the jar
+  modrinth_loaders  the Modrinth loaders of the jar; for Fabric, modrinth_loaders_fabric of the node when it is set
+  game_versions     the released versions of the jar, from modrinth_versions of the node; for Fabric, modrinth_versions_fabric
+                    when it is set
+
+A value with more than one version or loader has a space between them.
 """
 
 import argparse
 import json
 
 from tools import project
-from tools.project import Node
+from tools.project import Node, Target
 
 
-def lines(words: str) -> str:
-    return "\n".join(words.split())
-
-
-def row(node: Node, properties: dict[str, str]) -> dict:
-    """The row of one node, where a key of the Fabric upload is there only when the node sets its property."""
-    made = {
+def row(node: Node) -> dict:
+    """The build row of one node."""
+    return {
         "mc": node.minecraft,
         "java": node.java,
         "gradle_java": node.gradle_java,
         "targets": " ".join(target.name for target in node.targets),
-        "loaders": [target.loader for target in node.targets],
         "cache": node.legacy,
-        "game_versions": lines(properties.get("modrinth_versions", node.minecraft)),
     }
-    for key, name in (("fabric_game_versions", "modrinth_versions_fabric"), ("fabric_loaders", "modrinth_loaders_fabric")):
-        if name in properties:
-            made[key] = lines(properties[name])
-    return made
+
+
+def upload(target: Target, properties: dict[str, str]) -> dict:
+    """The upload row of one jar, from the properties of its node."""
+    versions = properties.get("modrinth_versions", target.minecraft)
+    loaders = target.loader
+    if target.loader == "fabric":
+        versions = properties.get("modrinth_versions_fabric", versions)
+        loaders = properties.get("modrinth_loaders_fabric", loaders)
+    return {
+        "mc": target.minecraft,
+        "loader": target.loader,
+        "modrinth_loaders": " ".join(loaders.split()),
+        "game_versions": " ".join(versions.split()),
+    }
 
 
 def outputs(nodes: tuple[Node, ...]) -> dict[str, object]:
-    return {"nodes": [row(node, node.properties()) for node in nodes], "jars": sum(len(node.targets) for node in nodes)}
+    uploads = [upload(target, node.properties()) for node in nodes for target in node.targets]
+    return {"nodes": [row(node) for node in nodes], "uploads": uploads, "jars": len(uploads)}
 
 
 def main(arguments: list[str]) -> int:

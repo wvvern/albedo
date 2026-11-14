@@ -1,9 +1,26 @@
-# Uploads the jars of one loader and Minecraft version from an existing GitHub release to Modrinth.
-# Use it when the Modrinth job of a release failed:
-# gh workflow run modrinth.yml -f tag=v0.4.0 -f loader=fabric -f mc=1.21.1 -f game_versions="1.21 1.21.1"
+# Uploads the jar of one loader and Minecraft version from an existing GitHub release to Modrinth.
+# ci.yml calls it for each upload row of tools/ci_matrix.py. Use it by hand when an upload of a release failed:
+# gh workflow run modrinth.yml -f tag=v0.4.0 -f loader=fabric -f mc=1.21.1 -f modrinth_loaders="fabric quilt" -f game_versions="1.21 1.21.1"
 name: Modrinth upload
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      loader:
+        type: string
+        required: true
+      mc:
+        type: string
+        required: true
+      modrinth_loaders:
+        type: string
+        required: true
+      game_versions:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -15,6 +32,9 @@ on:
       mc:
         description: Minecraft version in the jar name, for example 1.21.1
         required: true
+      modrinth_loaders:
+        description: Modrinth loaders, separated by spaces (default the loader)
+        required: false
       game_versions:
         description: Game versions, separated by spaces
         required: true
@@ -29,19 +49,23 @@ jobs:
       TAG: ${{ inputs.tag }}
       LOADER: ${{ inputs.loader }}
       MC: ${{ inputs.mc }}
+      MODRINTH_LOADERS: ${{ inputs.modrinth_loaders || inputs.loader }}
       GAME_VERSIONS: ${{ inputs.game_versions }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      # The default branch, whose tools and CHANGELOG.md also cover each older tag.
+      # A call checks out the tag. A dispatch checks out the default branch, whose tools and CHANGELOG.md also cover each older tag.
       - uses: actions/checkout@v7
       - name: Download the jar from the release
         run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "albedo-$LOADER-*+$MC.jar" --dir dist
-      - name: Read the game versions and the changelog
+      - name: Read the loaders, the game versions and the changelog
         id: meta
         run: |
           {
+            echo "loaders<<EOF"
+            echo "$MODRINTH_LOADERS" | tr -s ' ' '\n'
+            echo "EOF"
             echo "versions<<EOF"
-            echo "$GAME_VERSIONS" | tr ' ' '\n'
+            echo "$GAME_VERSIONS" | tr -s ' ' '\n'
             echo "EOF"
             echo "notes<<EOF"
             python3 -m tools release-notes "$TAG"
@@ -54,6 +78,6 @@ jobs:
           files: dist/*.jar
           name: Albedo ${{ inputs.tag }} for ${{ inputs.loader }} ${{ inputs.mc }}
           version: ${{ inputs.tag }}+${{ inputs.loader }}-${{ inputs.mc }}
-          loaders: ${{ inputs.loader }}
+          loaders: ${{ steps.meta.outputs.loaders }}
           game-versions: ${{ steps.meta.outputs.versions }}
           changelog: ${{ steps.meta.outputs.notes }}
