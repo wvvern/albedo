@@ -5,15 +5,13 @@ import dev.albedo.core.config.Chroma;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.texture.ChromaTexels;
+import dev.albedo.core.texture.ChromaTiming;
 import dev.albedo.legacy.mixin.TextureMapAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -40,12 +38,7 @@ public final class LegacyChroma {
     /** The clock time of the colors of this frame. */
     private static double seconds;
 
-    /** The frames that the harness still measures, the GPU timers of the measured frames and their times. */
-    private static int timedLeft;
-    private static final List<LegacyGpuTimer[]> PENDING = new ArrayList<LegacyGpuTimer[]>();
-    private static final List<long[]> TIMES = new ArrayList<long[]>();
-    private static LegacyGpuTimer[] frameTimers;
-    private static long cpuStart;
+    private static final ChromaTiming TIMING = new ChromaTiming(LegacyGpuTimer::new, Harness::logChromaTimes);
 
     private LegacyChroma() {}
 
@@ -81,15 +74,15 @@ public final class LegacyChroma {
             if (target == null) return;
             seconds = SkyClock.longSeconds();
             Chroma.turns(seconds, TURN_VALUES);
-            if (timedLeft > 0) frameTimers = new LegacyGpuTimer[]{new LegacyGpuTimer(), new LegacyGpuTimer()};
-            begin(0);
+            TIMING.frameBegin();
+            TIMING.begin(ChromaTiming.Part.RECOLOR);
             target.recolor(TURN_VALUES);
-            end(0);
+            TIMING.end(ChromaTiming.Part.RECOLOR);
             recolored = true;
         } catch (RuntimeException e) {
             stop(e);
         }
-        cpuStart = System.nanoTime() - start;
+        TIMING.recolorCpu(System.nanoTime() - start);
     }
 
     /** Gives the atlas back its painted colors at the end of a frame, after the harness saw the frame. */
@@ -97,16 +90,11 @@ public final class LegacyChroma {
         Albedo albedo = Albedo.get();
         if (albedo != null) albedo.frameDrawn(recolored ? seconds : SkyClock.longSeconds());
         long start = System.nanoTime();
-        begin(1);
+        TIMING.begin(ChromaTiming.Part.RESTORE);
         restore();
-        end(1);
-        if (frameTimers != null) {
-            PENDING.add(frameTimers);
-            TIMES.add(new long[]{cpuStart + System.nanoTime() - start});
-            frameTimers = null;
-            timedLeft--;
-        }
-        if (!PENDING.isEmpty()) collectTimes();
+        TIMING.end(ChromaTiming.Part.RESTORE);
+        TIMING.frameEnd(System.nanoTime() - start);
+        if (TIMING.collecting()) TIMING.collect(target == null ? 0 : target.bytes(), "the block atlas");
     }
 
     /** Gives the atlas back its painted colors before Albedo or the game writes new sprites into it in the middle of a frame. */
@@ -168,45 +156,10 @@ public final class LegacyChroma {
         paints = Integer.MIN_VALUE;
     }
 
-    /** Starts the GPU timer of one part of a measured frame. */
-    private static void begin(int part) {
-        if (frameTimers != null) frameTimers[part].begin();
-    }
-
-    private static void end(int part) {
-        if (frameTimers != null) frameTimers[part].end();
-    }
-
     /** Measures the next frames for the harness command chromatime, and returns false when the pass does not run. */
     static boolean time(int frames) {
         if (target == null || broken) return false;
-        // A measurement that did not end yet gives way to the new one, and its queries go.
-        for (LegacyGpuTimer[] timers : PENDING) close(timers);
-        if (frameTimers != null) close(frameTimers);
-        frameTimers = null;
-        TIMES.clear();
-        PENDING.clear();
-        timedLeft = frames;
+        TIMING.start(frames);
         return true;
-    }
-
-    private static void close(LegacyGpuTimer[] timers) {
-        for (LegacyGpuTimer timer : timers) timer.close();
-    }
-
-    /** Takes the GPU times that the GPU gave, and logs all times when the last measured frame has its times. */
-    private static void collectTimes() {
-        int done = TIMES.size() - PENDING.size();
-        for (Iterator<LegacyGpuTimer[]> it = PENDING.iterator(); it.hasNext(); done++) {
-            LegacyGpuTimer[] timers = it.next();
-            if (!timers[1].available()) return;
-            long[] row = TIMES.get(done);
-            TIMES.set(done, new long[]{row[0], timers[0].nanos(), timers[1].nanos()});
-            close(timers);
-            it.remove();
-        }
-        if (timedLeft > 0) return;
-        Harness.logChromaTimes(TIMES, target == null ? 0 : target.bytes(), "the block atlas");
-        TIMES.clear();
     }
 }

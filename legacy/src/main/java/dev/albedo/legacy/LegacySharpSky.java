@@ -214,7 +214,7 @@ final class LegacySharpSky {
         timer.begin();
         for (int i = 0; i < repeat; i++) Game.drawTriangles(SkyMesh.quad(view));
         timer.end();
-        long nanos = LegacyGpuTimer.supported() ? timer.nanos() / repeat : -1;
+        long nanos = LegacyGpuTimer.supported() ? timer.waitNanos() / repeat : -1;
         timer.close();
         return nanos;
     }

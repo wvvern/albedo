@@ -85,6 +85,7 @@ Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9
 - With Edge, only the texels of the Outline line move, each with its own hue, and the other texels have speed 0. The line is the union of the lines of all frames (`Effects.edgeMask`), because the texels are the same for all frames.
 - The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` with `LegacyChromaTarget` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
 - The hue comes from `Chroma.turns` on `SkyClock.longSeconds()` in double precision. An ordered 16 x 16 dither below one 8-bit step keeps slow hues moving smoothly.
+- `texture/ChromaTiming` measures the pass for the harness command `chromatime` on each family. It gives the times to a sink (`Harness::logChromaTimes`), so `texture` does not import `dev`.
 - Memory cost is twice the atlas with mips (42.6 MiB for a 2048 x 2048 block atlas).
 
 Traps:

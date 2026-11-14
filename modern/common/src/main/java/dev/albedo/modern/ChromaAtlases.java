@@ -7,6 +7,7 @@ import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.ChromaTexels;
+import dev.albedo.core.texture.ChromaTiming;
 import dev.albedo.modern.mixin.TextureAtlasAccessor;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -14,7 +15,6 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -61,12 +61,7 @@ final class ChromaAtlases {
     /** The clock time of the colors of this frame. */
     private static double seconds;
 
-    /** The frames that the harness still measures, and the times of the measured frames. */
-    private static int timedLeft;
-    private static final List<ChromaBackend.Timer[]> PENDING = new ArrayList<>();
-    private static final List<long[]> TIMES = new ArrayList<>();
-    private static ChromaBackend.Timer[] frameTimers;
-    private static long cpuStart;
+    private static final ChromaTiming TIMING = new ChromaTiming(BACKEND::timer, Harness::logChromaTimes);
 
     private ChromaAtlases() {}
 
@@ -115,17 +110,17 @@ final class ChromaAtlases {
             if (!shader.usable()) return;
             seconds = SkyClock.longSeconds();
             Chroma.turns(seconds, TURNS);
-            if (timedLeft > 0) frameTimers = new ChromaBackend.Timer[]{BACKEND.timer(), BACKEND.timer()};
-            if (frameTimers != null) frameTimers[0].begin();
+            TIMING.frameBegin();
+            TIMING.begin(ChromaTiming.Part.RECOLOR);
             for (ChromaBackend.Target target : TARGETS.values()) {
                 target.recolor(TURNS);
                 RECOLORED.add(target);
             }
-            if (frameTimers != null) frameTimers[0].end();
+            TIMING.end(ChromaTiming.Part.RECOLOR);
         } catch (RuntimeException e) {
             stop(e);
         }
-        cpuStart = System.nanoTime() - start;
+        TIMING.recolorCpu(System.nanoTime() - start);
     }
 
     /** Gives the atlases back their painted colors at the end of a frame, after the harness saw the frame. */
@@ -133,16 +128,18 @@ final class ChromaAtlases {
         Albedo albedo = Albedo.get();
         if (albedo != null) albedo.frameDrawn(RECOLORED.isEmpty() ? SkyClock.longSeconds() : seconds);
         long start = System.nanoTime();
-        if (frameTimers != null) frameTimers[1].begin();
+        TIMING.begin(ChromaTiming.Part.RESTORE);
         restore();
-        if (frameTimers != null) {
-            frameTimers[1].end();
-            PENDING.add(frameTimers);
-            TIMES.add(new long[]{cpuStart + System.nanoTime() - start});
-            frameTimers = null;
-            timedLeft--;
+        TIMING.end(ChromaTiming.Part.RESTORE);
+        TIMING.frameEnd(System.nanoTime() - start);
+        if (!TIMING.collecting()) return;
+        long bytes = 0;
+        StringBuilder atlases = new StringBuilder();
+        for (Map.Entry<Object, ChromaBackend.Target> e : TARGETS.entrySet()) {
+            bytes += e.getValue().bytes();
+            atlases.append(atlases.length() == 0 ? "" : ", ").append(e.getKey());
         }
-        if (!PENDING.isEmpty()) collectTimes();
+        TIMING.collect(bytes, atlases.toString());
     }
 
     /** Gives the atlases back their painted colors before Albedo writes new sprites into them in the middle of a frame. */
@@ -222,40 +219,7 @@ final class ChromaAtlases {
     /** Measures the next frames for the harness command chromatime, and returns false when the pass does not run. */
     static boolean time(int frames) {
         if (TARGETS.isEmpty() || broken) return false;
-        // A measurement that did not end yet gives way to the new one, and its timers close.
-        for (ChromaBackend.Timer[] t : PENDING) closeTimers(t);
-        if (frameTimers != null) closeTimers(frameTimers);
-        frameTimers = null;
-        TIMES.clear();
-        PENDING.clear();
-        timedLeft = frames;
+        TIMING.start(frames);
         return true;
-    }
-
-    private static void closeTimers(ChromaBackend.Timer[] timers) {
-        for (ChromaBackend.Timer t : timers) t.close();
-    }
-
-    /** Takes the GPU times that the GPU gave, and logs all times when the last measured frame has its times. */
-    private static void collectTimes() {
-        int done = TIMES.size() - PENDING.size();
-        for (Iterator<ChromaBackend.Timer[]> it = PENDING.iterator(); it.hasNext(); done++) {
-            ChromaBackend.Timer[] t = it.next();
-            long start = t[0].nanos(), end = t[1].nanos();
-            if (start < 0 || end < 0) return;
-            long[] row = TIMES.get(done);
-            TIMES.set(done, new long[]{row[0], start, end});
-            closeTimers(t);
-            it.remove();
-        }
-        if (timedLeft > 0) return;
-        long bytes = 0;
-        StringBuilder atlases = new StringBuilder();
-        for (Map.Entry<Object, ChromaBackend.Target> e : TARGETS.entrySet()) {
-            bytes += e.getValue().bytes();
-            atlases.append(atlases.length() == 0 ? "" : ", ").append(e.getKey());
-        }
-        Harness.logChromaTimes(TIMES, bytes, atlases.toString());
-        TIMES.clear();
     }
 }

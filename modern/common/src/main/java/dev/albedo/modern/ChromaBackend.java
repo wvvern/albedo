@@ -1,6 +1,7 @@
 package dev.albedo.modern;
 
 import dev.albedo.core.shader.ShaderState;
+import dev.albedo.core.texture.ChromaTiming;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 
 /** The GPU work of the Chroma pass on one version: the atlas textures that it turns, and a GPU timer for the harness. */
@@ -31,20 +32,10 @@ interface ChromaBackend {
         void close();
     }
 
-    /** The GPU time between {@link #begin} and {@link #end}, which the GPU gives some frames later. */
-    interface Timer extends AutoCloseable {
-        void begin();
-
-        void end();
-
+    /** A GPU timer of this version for the harness timing. */
+    interface Timer extends ChromaTiming.GpuTimer {
         /** The {@link #nanos} of a timer that the GPU cannot run. */
         long UNAVAILABLE = 0;
-
-        /** The time in nanoseconds, or -1 while the GPU did not give it yet, or {@link #UNAVAILABLE}. */
-        long nanos();
-
-        @Override
-        void close();
     }
 
     /**
