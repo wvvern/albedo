@@ -72,8 +72,8 @@ final class ChromaAtlases {
     /** Whether the pass adds the hue of the moving sprites of an atlas, which also keeps the atlas for the pass. */
     static boolean gpuHue(Object atlas) {
         ATLASES.add(atlas);
-        Albedo sc = Albedo.get();
-        return !broken && sc != null && !sc.chromaStill();
+        Albedo albedo = Albedo.get();
+        return !broken && albedo != null && !albedo.chromaStill();
     }
 
     /** True while the pass moves the colors of some atlas, so that the screens draw their item icons again in each frame. */
@@ -83,11 +83,11 @@ final class ChromaAtlases {
 
     /** Draws the colors of this frame into the atlases, on the render thread before the frame draws anything. */
     static void frameStart() {
-        Albedo sc = Albedo.get();
-        if (sc == null || broken) return;
+        Albedo albedo = Albedo.get();
+        if (albedo == null || broken) return;
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
-        if (sc.chromaStill()) {
+        if (albedo.chromaStill()) {
             close();
             return;
         }
@@ -129,8 +129,8 @@ final class ChromaAtlases {
 
     /** Gives the atlases back their painted colors at the end of a frame, after the harness saw the frame. */
     static void frameEnd() {
-        Albedo sc = Albedo.get();
-        if (sc != null) sc.frameDrawn(RECOLORED.isEmpty() ? SkyClock.longSeconds() : seconds);
+        Albedo albedo = Albedo.get();
+        if (albedo != null) albedo.frameDrawn(RECOLORED.isEmpty() ? SkyClock.longSeconds() : seconds);
         long start = System.nanoTime();
         if (frameTimers != null) frameTimers[1].begin();
         restore();

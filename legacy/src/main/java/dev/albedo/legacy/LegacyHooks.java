@@ -61,8 +61,8 @@ public final class LegacyHooks {
 
     public static void clientTick() {
         LegacySky.tick();
-        Albedo sc = Albedo.get();
-        if (sc != null) sc.clientTick(Minecraft.getMinecraft().currentScreen != null);
+        Albedo albedo = Albedo.get();
+        if (albedo != null) albedo.clientTick(Minecraft.getMinecraft().currentScreen != null);
     }
 
     /**

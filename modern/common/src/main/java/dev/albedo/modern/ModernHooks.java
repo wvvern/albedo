@@ -61,8 +61,8 @@ public final class ModernHooks {
 
     public static void clientTick() {
         ModernSky.tick();
-        Albedo sc = Albedo.get();
-        if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
+        Albedo albedo = Albedo.get();
+        if (albedo != null) albedo.clientTick(ModernPlatform.currentScreen() != null);
     }
 
     public static void frameStart() {

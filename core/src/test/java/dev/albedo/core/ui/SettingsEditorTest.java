@@ -46,11 +46,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class SettingsEditorTest {
     @TempDir
     static Path dir;
-    static Albedo sc;
+    static Albedo albedo;
 
     @BeforeAll
     static void init() {
-        sc = Albedo.init(new FakePlatform(dir.toFile()));
+        albedo = Albedo.init(new FakePlatform(dir.toFile()));
         load("minecraft:block/oak_leaves", 0xFF2E7D32);
         for (String id : new String[]{"stone", "dirt", "gravel", "grass_block_top", "grass_block_side", "grass_block_snow",
             "grass_block_side_overlay", "dirt_path_top", "dirt_path_side"}) {
@@ -66,7 +66,7 @@ class SettingsEditorTest {
         Albedo.processTexture(location, new PixelBuffer.Heap(1, 1, new int[]{argb}), new TextureStore.Upload() {
             @Override
             public boolean upload(PixelBuffer pixels) {
-                ((FakePlatform) sc.platform()).uploads++;
+                ((FakePlatform) albedo.platform()).uploads++;
                 return true;
             }
 
@@ -85,8 +85,8 @@ class SettingsEditorTest {
 
     @Test
     void aChangeToABuiltInProfileMakesACopyAndSaysSo() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         assertNotNull(canvas.find("built-in"), "the header says the profile is built in: " + canvas.texts.keySet());
@@ -95,32 +95,32 @@ class SettingsEditorTest {
         click(editor, canvas, "Average");
         assertNotNull(canvas.find("is built in"), "says where the change went: " + canvas.texts.keySet());
         click(editor, canvas, "Done");
-        assertEquals("quake-white-custom", sc.config().activeProfileName());
-        assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
-        assertEquals(Appearance.Mode.SOLID, sc.config().profiles().get("quake-white").get(Category.BLOCKS).appearance().mode());
+        assertEquals("quake-white-custom", albedo.config().activeProfileName());
+        assertEquals(Appearance.Mode.AVERAGE, albedo.config().activeProfile().get(Category.BLOCKS).appearance().mode());
+        assertEquals(Appearance.Mode.SOLID, albedo.config().profiles().get("quake-white").get(Category.BLOCKS).appearance().mode());
     }
 
     @Test
     void aClickOnTheOnTextTurnsAlbedoOff() throws Exception {
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(533, 300);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "On");
             assertNotNull(canvas.find("Off"), "the switch shows Off: " + canvas.texts.keySet());
             click(editor, canvas, "Done");
-            assertFalse(sc.config().enabled());
+            assertFalse(albedo.config().enabled());
             assertFalse(saved().enabled());
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void theProfileListFiltersAsYouType() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Profile: quake-white");
@@ -130,24 +130,24 @@ class SettingsEditorTest {
         editor.keyPressed(UiKey.ENTER);
         render(editor, canvas);
         click(editor, canvas, "Done");
-        assertEquals("minimal", sc.config().activeProfileName());
+        assertEquals("minimal", albedo.config().activeProfileName());
 
         // A click on a row selects it too.
-        editor = new SettingsEditor(sc);
+        editor = new SettingsEditor(albedo);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Profile: minimal");
         click(editor, canvas, "quake-black");
         click(editor, canvas, "Done");
-        assertEquals("quake-black", sc.config().activeProfileName());
+        assertEquals("quake-black", albedo.config().activeProfileName());
     }
 
     @Test
     void theGroupInputNamesTheCategoryAndTakesRegularExpressions() {
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
         load("minecraft:particle/flame", 0xFFFF8000);
         load("minecraft:particle/generic_0", 0xFF808080);
         load("minecraft:particle/generic_1", 0xFF808080);
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Particles");
@@ -163,71 +163,71 @@ class SettingsEditorTest {
         type(editor, canvas, "/(");
         assertNotNull(canvas.find("Not a valid regular expression"), "says why: " + canvas.texts.keySet());
         click(editor, canvas, "Done");
-        CategorySettings particles = sc.config().activeProfile().get(Category.PARTICLES);
+        CategorySettings particles = albedo.config().activeProfile().get(Category.PARTICLES);
         assertEquals(Collections.singletonList("/^fl/"), particles.rules().get(0).patterns());
         assertNotNull(particles.ruleFor("minecraft:flame"));
     }
 
     @Test
     void settingsChangesRepaintInsteadOfReloading() {
-        FakePlatform p = (FakePlatform) sc.platform();
-        sc.apply(Config.defaults());
+        FakePlatform p = (FakePlatform) albedo.platform();
+        albedo.apply(Config.defaults());
         p.reset();
-        Config c = sc.config();
+        Config c = albedo.config();
 
         // Fullbright and the sky color are read each frame: nothing to repaint.
-        RefreshResult r = sc.apply(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)));
+        RefreshResult r = albedo.apply(c.withProfile(c.activeProfile().with(Toggle.FULLBRIGHT, false)));
         assertEquals(RefreshResult.Outcome.UNCHANGED, r.outcome);
         assertEquals(0, p.uploads + p.reloads + p.rebuilds);
 
         // A new group repaints its blocks only.
-        c = sc.config();
+        c = albedo.config();
         Rule ground = new Rule("Ground", Collections.singletonList("dirt"), Appearance.solid(0xFFFF0000), false);
         CategorySettings blocks = c.activeProfile().get(Category.BLOCKS);
         List<Rule> groups = new ArrayList<Rule>(blocks.rules());
         groups.add(0, ground);
-        r = sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks.withRules(groups))));
+        r = albedo.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks.withRules(groups))));
         assertEquals(RefreshResult.Outcome.REPAINTED, r.outcome);
         assertEquals(1, r.repainted);
         assertEquals(1, p.uploads);
 
         // Shading and tints are in the chunk meshes: rebuild them, never reload.
-        c = sc.config();
-        r = sc.apply(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)));
+        c = albedo.config();
+        r = albedo.apply(c.withProfile(c.activeProfile().with(Toggle.SHADING, false)));
         assertEquals(RefreshResult.Outcome.REBUILT_CHUNKS, r.outcome);
-        c = sc.config();
-        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, c.activeProfile().get(Category.BLOCKS).withRemoveTint(false))));
+        c = albedo.config();
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, c.activeProfile().get(Category.BLOCKS).withRemoveTint(false))));
         assertEquals(2, p.rebuilds);
 
         // Off and on again: all textures repaint, except the stick, which the default profile does not change.
         p.reset();
-        sc.apply(sc.config().withEnabled(false));
+        albedo.apply(albedo.config().withEnabled(false));
         assertEquals(11, p.uploads);
         assertEquals(0, p.reloads);
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
     }
 
     @Test
     void aRepaintThatCannotReachTheGpuReloads() {
-        FakePlatform p = (FakePlatform) sc.platform();
-        sc.apply(Config.defaults());
+        FakePlatform p = (FakePlatform) albedo.platform();
+        albedo.apply(Config.defaults());
         p.reset();
         p.flushFails = true;
         try {
-            RefreshResult r = sc.apply(sc.config().withEnabled(false));
+            RefreshResult r = albedo.apply(albedo.config().withEnabled(false));
             assertEquals(RefreshResult.Outcome.RELOADED, r.outcome);
             assertNotNull(r.reason);
             assertEquals(1, p.reloads, "the core reloads, the adapter does not");
         } finally {
             p.flushFails = false;
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void anEditInAGroupOfABuiltInProfileKeepsTheGroupOpenAndEscWorks() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
@@ -246,8 +246,8 @@ class SettingsEditorTest {
         editor.keyPressed(UiKey.ESCAPE); // the screen closes
         render(editor, canvas);
         assertTrue(editor.isClosed());
-        assertEquals("quake-white-custom", sc.config().activeProfileName());
-        sc.apply(Config.defaults());
+        assertEquals("quake-white-custom", albedo.config().activeProfileName());
+        albedo.apply(Config.defaults());
     }
 
     private static Config saved() throws Exception {
@@ -255,88 +255,88 @@ class SettingsEditorTest {
     }
 
     private static void playOn(String server) {
-        ((FakePlatform) sc.platform()).server = server;
-        sc.clientTick(false);
+        ((FakePlatform) albedo.platform()).server = server;
+        albedo.clientTick(false);
     }
 
     @Test
     void aServerRuleSetsTheProfileOnlyWhileThePlayerIsThere() throws Exception {
-        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        albedo.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
         try {
             playOn("mc.hypixel.net:25565");
-            assertEquals("quake-black", sc.config().activeProfileName());
+            assertEquals("quake-black", albedo.config().activeProfileName());
             assertEquals("test", saved().activeProfileName(), "the file keeps the player's own profile");
 
-            sc.apply(sc.storedConfig().withServer(new ServerRule("example.org", null)));
-            assertEquals("quake-black", sc.config().activeProfileName(), "an edit to the file keeps the rule");
+            albedo.apply(albedo.storedConfig().withServer(new ServerRule("example.org", null)));
+            assertEquals("quake-black", albedo.config().activeProfileName(), "an edit to the file keeps the rule");
             assertEquals("test", saved().activeProfileName());
 
             playOn(null);
-            assertEquals("test", sc.config().activeProfileName());
+            assertEquals("test", albedo.config().activeProfileName());
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void aProfileChoiceOnAServerLastsOnlyForTheVisit() throws Exception {
-        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        albedo.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
         try {
             playOn("mc.hypixel.net");
-            sc.apply(sc.storedConfig(), new Config.State(true, "minimal")); // F7 and the profile list do this
-            assertEquals("minimal", sc.config().activeProfileName());
-            sc.toggle();
-            assertFalse(sc.config().enabled(), "F6 also changes only the visit");
+            albedo.apply(albedo.storedConfig(), new Config.State(true, "minimal")); // F7 and the profile list do this
+            assertEquals("minimal", albedo.config().activeProfileName());
+            albedo.toggle();
+            assertFalse(albedo.config().enabled(), "F6 also changes only the visit");
             assertEquals("test", saved().activeProfileName(), "the file keeps the player's own profile");
             assertTrue(saved().enabled());
             playOn(null);
-            assertEquals("test", sc.config().activeProfileName());
-            assertTrue(sc.config().enabled());
+            assertEquals("test", albedo.config().activeProfileName());
+            assertTrue(albedo.config().enabled());
             playOn("mc.hypixel.net");
-            assertEquals("quake-black", sc.config().activeProfileName(), "the rule applies again on the next visit");
+            assertEquals("quake-black", albedo.config().activeProfileName(), "the rule applies again on the next visit");
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void offStaysOffAfterTheRuleOfTheServerIsRemoved() throws Exception {
-        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        albedo.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
         try {
             playOn("mc.hypixel.net");
-            sc.apply(sc.storedConfig(), new Config.State(true, "minimal"));
-            sc.apply(sc.storedConfig().withoutServer("hypixel.net"));
-            sc.apply(sc.storedConfig(), new Config.State(false, "test")); // the On switch and Apply do this
-            assertFalse(sc.config().enabled(), "off in the world");
+            albedo.apply(albedo.storedConfig(), new Config.State(true, "minimal"));
+            albedo.apply(albedo.storedConfig().withoutServer("hypixel.net"));
+            albedo.apply(albedo.storedConfig(), new Config.State(false, "test")); // the On switch and Apply do this
+            assertFalse(albedo.config().enabled(), "off in the world");
             assertFalse(saved().enabled(), "off in the file");
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void aNewRuleForTheCurrentServerAppliesAtOnce() throws Exception {
-        sc.apply(withOwnProfile());
+        albedo.apply(withOwnProfile());
         try {
             playOn("example.org");
-            sc.apply(sc.storedConfig().withServer(new ServerRule("example.org", null)));
-            assertFalse(sc.config().enabled(), "off on this server");
+            albedo.apply(albedo.storedConfig().withServer(new ServerRule("example.org", null)));
+            assertFalse(albedo.config().enabled(), "off on this server");
             assertTrue(saved().enabled(), "and on everywhere else");
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void theServersPageAddsTheCurrentServer() {
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
         try {
             playOn("mc.hypixel.net");
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(533, 300);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Servers");
@@ -359,19 +359,19 @@ class SettingsEditorTest {
             click(editor, canvas, "minimal");
             assertNull(canvas.texts.get("Albedo off"), "the list is closed and the row is on again: " + canvas.texts.keySet());
             click(editor, canvas, "Done");
-            assertEquals("quake-white", sc.config().serverRule("mc.hypixel.net").profile());
-            assertEquals("minimal", sc.config().serverRule("example.org").profile(), "a server set to off can use a profile again");
+            assertEquals("quake-white", albedo.config().serverRule("mc.hypixel.net").profile());
+            assertEquals("minimal", albedo.config().serverRule("example.org").profile(), "a server set to off can use a profile again");
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void theProfileListOfAServerTurnsAlbedoOffThere() {
-        sc.apply(Config.defaults().withServer(new ServerRule("example.org", "minimal")));
+        albedo.apply(Config.defaults().withServer(new ServerRule("example.org", "minimal")));
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(533, 300);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Servers");
@@ -379,10 +379,10 @@ class SettingsEditorTest {
             click(editor, canvas, "minimal");
             click(editor, canvas, "Albedo off");
             click(editor, canvas, "Done");
-            assertNull(sc.config().serverRule("example.org").profile());
+            assertNull(albedo.config().serverRule("example.org").profile());
         } finally {
             playOn(null);
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -392,9 +392,9 @@ class SettingsEditorTest {
         Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, Appearance.Alpha.KEEP, 80, 0, 0);
         Rule own = new Rule("Own", Collections.singletonList("stone"), look.withRecolor(60, 0, 0), false);
         CategorySettings blocks = new CategorySettings(look, false, Collections.singletonList(own));
-        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(533, 300);
             editor.render(canvas, 0, 0);
             assertNotNull(canvas.find("Detail"), "Recolor shows its sliders: " + canvas.texts.keySet());
@@ -406,11 +406,11 @@ class SettingsEditorTest {
             editor.mouseReleased();
             render(editor, canvas);
             click(editor, canvas, "Done");
-            CategorySettings saved = sc.config().activeProfile().get(Category.BLOCKS);
+            CategorySettings saved = albedo.config().activeProfile().get(Category.BLOCKS);
             assertEquals(0, saved.appearance().detail());
             assertEquals(60, saved.lookOf(saved.rules().get(0)).detail(), "the group keeps its own value");
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -418,16 +418,16 @@ class SettingsEditorTest {
     void theRecolorLookFitsSmallWindows() {
         Config c = withOwnProfile();
         Appearance look = new Appearance(Appearance.Mode.RECOLOR, 0xFFC0A080, Appearance.Alpha.KEEP, 80, 20, 0);
-        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, new CategorySettings(look, false, Collections.<Rule>emptyList()))));
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, new CategorySettings(look, false, Collections.<Rule>emptyList()))));
         try {
             for (int[] size : new int[][]{{320, 200}, {320, 240}, {427, 240}}) {
-                SettingsEditor editor = new SettingsEditor(sc);
+                SettingsEditor editor = new SettingsEditor(albedo);
                 RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
                 editor.render(canvas, 0, 0); // the canvas fails the test for anything drawn outside the screen
                 assertNotNull(canvas.find("Shape"), "the Shape row shows at " + size[0] + "x" + size[1] + ": " + canvas.texts.keySet());
             }
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -439,8 +439,8 @@ class SettingsEditorTest {
 
     @Test
     void escClosesTheHeaderModeFirst() {
-        sc.apply(withOwnProfile());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(withOwnProfile());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
 
@@ -461,14 +461,14 @@ class SettingsEditorTest {
         editor.keyPressed(UiKey.ESCAPE);
         render(editor, canvas);
         assertTrue(editor.isClosed());
-        assertEquals("test", sc.config().activeProfileName());
-        sc.apply(Config.defaults());
+        assertEquals("test", albedo.config().activeProfileName());
+        albedo.apply(Config.defaults());
     }
 
     @Test
     void groupWithTypedBlocks() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
@@ -482,7 +482,7 @@ class SettingsEditorTest {
         render(editor, canvas);
         click(editor, canvas, "Done");
 
-        CategorySettings blocks = sc.config().activeProfile().get(Category.BLOCKS);
+        CategorySettings blocks = albedo.config().activeProfile().get(Category.BLOCKS);
         Rule g = blocks.rules().get(blocks.rules().size() - 1);
         assertEquals(Arrays.asList("grass_block*", "dirt"), g.patterns());
         assertEquals(Appearance.Mode.SOLID, blocks.lookOf(blocks.ruleFor("minecraft:grass_block_snow")).mode());
@@ -494,22 +494,22 @@ class SettingsEditorTest {
         Config c = Config.defaults();
         Rule keep = new Rule("Keep", Collections.singletonList("stone"), Appearance.ORIGINAL, false);
         CategorySettings blocks = c.activeProfile().get(Category.BLOCKS).withRules(Collections.singletonList(keep));
-        sc.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.BLOCKS, blocks)));
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
         click(editor, canvas, "Only groups");
         assertNotNull(canvas.find("it first."), "explains why: " + canvas.texts.keySet());
         click(editor, canvas, "Done");
-        assertFalse(sc.config().activeProfile().get(Category.BLOCKS).onlyGroups());
+        assertFalse(albedo.config().activeProfile().get(Category.BLOCKS).onlyGroups());
     }
 
     @Test
     void exportThenImportMakesAnEqualProfileUnderAFreeName() {
-        sc.apply(Config.defaults());
-        FakePlatform platform = (FakePlatform) sc.platform();
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        FakePlatform platform = (FakePlatform) albedo.platform();
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Export");
@@ -518,16 +518,16 @@ class SettingsEditorTest {
         click(editor, canvas, "Import");
         click(editor, canvas, "Done");
 
-        Config c = sc.config();
+        Config c = albedo.config();
         assertEquals("quake-white-2", c.activeProfileName());
         assertEquals(c.profiles().get("quake-white").renamed("quake-white-2"), c.activeProfile());
 
         platform.clipboard = "{\"enabled\": true}";
-        editor = new SettingsEditor(sc);
+        editor = new SettingsEditor(albedo);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Import");
         assertNotNull(canvas.find("Cannot import"), "shows the error: " + canvas.texts.keySet());
-        assertEquals(c, sc.config());
+        assertEquals(c, albedo.config());
     }
 
     private static void type(SettingsEditor editor, RecordingCanvas canvas, String text) {
@@ -542,8 +542,8 @@ class SettingsEditorTest {
 
     @Test
     void theFrameOfAStyleChangeAlreadyShowsTheNewLayout() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         int[] at = canvas.find("Recolor");
@@ -571,9 +571,9 @@ class SettingsEditorTest {
 
     @Test
     void theEffectsSectionOpensAndClosesAndTheRowsBelowMoveInTheSameFrame() {
-        sc.apply(withEffects());
+        albedo.apply(withEffects());
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(640, 360);
             editor.render(canvas, 0, 0);
             assertNull(canvas.texts.get("Bevel"), "the section starts closed: " + canvas.texts.keySet());
@@ -596,15 +596,15 @@ class SettingsEditorTest {
             assertNull(canvas.texts.get("Bevel"), "a second click closes the section: " + canvas.texts.keySet());
             assertEquals(closedY, canvas.find("Remove biome tint")[1]);
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void theEffectsHeadingTakesNoKeysAndStaysOpenOnOtherPages() {
-        sc.apply(withEffects());
+        albedo.apply(withEffects());
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(533, 300);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
@@ -622,7 +622,7 @@ class SettingsEditorTest {
             render(editor, canvas);
             assertTrue(editor.isClosed(), "Esc still closes the screen");
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -632,9 +632,9 @@ class SettingsEditorTest {
         Profile p = on.activeProfile();
         Appearance look = p.get(Category.BLOCKS).appearance();
         Config off = on.withProfile(p.with(Category.BLOCKS, p.get(Category.BLOCKS).withAppearance(look.withEffects(20, 0, Chroma.OFF))));
-        sc.apply(off);
+        albedo.apply(off);
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(960, 540);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
@@ -642,8 +642,8 @@ class SettingsEditorTest {
             assertNull(canvas.texts.get("Speed"), "no options while Chroma is off: " + canvas.texts.keySet());
             int bevelOff = canvas.find("Bevel")[1];
 
-            sc.apply(on);
-            editor = new SettingsEditor(sc);
+            albedo.apply(on);
+            editor = new SettingsEditor(albedo);
             canvas.texts.clear();
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
@@ -654,24 +654,24 @@ class SettingsEditorTest {
             }
             assertTrue(canvas.find("Bevel")[1] > bevelOff, "Bevel moves down under the options");
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
     @Test
     void theSpeedSliderSaysStillAtZeroAndChangesTheSavedChroma() {
-        sc.apply(withEffects());
+        albedo.apply(withEffects());
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(960, 540);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Effects");
             pressTrackStart(editor, canvas, "effects.chromaSpeed");
             assertNotNull(canvas.texts.get("Still"), "speed 0 shows as Still: " + canvas.texts.keySet());
             script(editor, canvas, "click Apply");
-            assertEquals(0, sc.storedConfig().activeProfile().get(Category.BLOCKS).appearance().chroma().speed());
+            assertEquals(0, albedo.storedConfig().activeProfile().get(Category.BLOCKS).appearance().chroma().speed());
         } finally {
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -696,8 +696,8 @@ class SettingsEditorTest {
         for (int[] size : sizes) {
             for (Map.Entry<String, String[]> page : rows.entrySet()) {
                 String where = page.getKey() + " at " + size[0] + "x" + size[1];
-                sc.apply(withEffects());
-                SettingsEditor editor = new SettingsEditor(sc);
+                albedo.apply(withEffects());
+                SettingsEditor editor = new SettingsEditor(albedo);
                 editor.ui.tipDelay = Integer.MAX_VALUE; // tooltips may cover the footer
                 RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
                 editor.render(canvas, 0, 0);
@@ -730,25 +730,25 @@ class SettingsEditorTest {
                 assertNotNull(canvas.texts.get(last), "the last row shows at the end on " + where + ": " + canvas.texts.keySet());
             }
         }
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
     }
 
     @Test
     void choosingAStyleAndDoneSavesIt() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Average");
         click(editor, canvas, "Done");
         assertTrue(editor.isClosed());
-        assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
+        assertEquals(Appearance.Mode.AVERAGE, albedo.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
     @Test
     void theEditorGivesATextCursorOnlyWhileAFieldTakesTyping() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         render(editor, canvas);
         assertNull(editor.textCursor());
@@ -770,8 +770,8 @@ class SettingsEditorTest {
 
     @Test
     void perTextureOverrideAndFullbright() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Textures");
@@ -787,7 +787,7 @@ class SettingsEditorTest {
         click(editor, canvas, "Player armor");
         click(editor, canvas, "Player cape");
         click(editor, canvas, "Done");
-        Profile p = sc.config().activeProfile();
+        Profile p = albedo.config().activeProfile();
         CategorySettings blocks = p.get(Category.BLOCKS);
         assertTrue(blocks.lookOf(blocks.ruleFor("minecraft:stone")).isOriginal());
         // quake presets start with fullbright, shading, shadows, armor and capes on and foliage hidden; each click flips one
@@ -801,21 +801,21 @@ class SettingsEditorTest {
 
     @Test
     void escapeDiscardsNothingAndClosesCancelDiscards() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(427, 240);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Gray");
         click(editor, canvas, "Discard");
         assertTrue(editor.isClosed());
-        assertEquals(Appearance.Mode.SOLID, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
+        assertEquals(Appearance.Mode.SOLID, albedo.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
     @Test
     void deletingAProfileNeedsASecondClickAndEscCancelsIt() {
-        sc.apply(withOwnProfile());
-        int before = sc.config().profiles().size();
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(withOwnProfile());
+        int before = albedo.config().profiles().size();
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Delete");
@@ -824,22 +824,22 @@ class SettingsEditorTest {
         render(editor, canvas);
         assertFalse(editor.isClosed(), "Esc first cancels the pending delete");
         click(editor, canvas, "Done");
-        assertEquals(before, sc.config().profiles().size(), "one click only arms the button");
+        assertEquals(before, albedo.config().profiles().size(), "one click only arms the button");
 
-        editor = new SettingsEditor(sc);
+        editor = new SettingsEditor(albedo);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Delete");
         click(editor, canvas, "Delete");
         click(editor, canvas, "Done");
-        assertEquals(before - 1, sc.config().profiles().size());
+        assertEquals(before - 1, albedo.config().profiles().size());
     }
 
     @Test
     void deletingAGroupNeedsASecondClick() {
-        sc.apply(Config.defaults());
-        int before = sc.config().activeProfile().get(Category.BLOCKS).rules().size();
+        albedo.apply(Config.defaults());
+        int before = albedo.config().activeProfile().get(Category.BLOCKS).rules().size();
         assertTrue(before > 0, "the default profile has a group");
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
@@ -847,22 +847,22 @@ class SettingsEditorTest {
         click(editor, canvas, "Groups");     // a click somewhere else disarms it
         click(editor, canvas, "x");
         click(editor, canvas, "Done");
-        assertEquals(before, sc.config().activeProfile().get(Category.BLOCKS).rules().size());
+        assertEquals(before, albedo.config().activeProfile().get(Category.BLOCKS).rules().size());
 
-        editor = new SettingsEditor(sc);
+        editor = new SettingsEditor(albedo);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
         click(editor, canvas, "x");
         click(editor, canvas, "x");
         click(editor, canvas, "Done");
-        assertEquals(before - 1, sc.config().activeProfile().get(Category.BLOCKS).rules().size());
+        assertEquals(before - 1, albedo.config().activeProfile().get(Category.BLOCKS).rules().size());
     }
 
     @Test
     void renameSavesWithSaveAndCancelKeepsTheName() {
-        sc.apply(withOwnProfile());
-        String name = sc.config().activeProfileName();
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(withOwnProfile());
+        String name = albedo.config().activeProfileName();
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Rename");
@@ -873,13 +873,13 @@ class SettingsEditorTest {
         type(editor, canvas, "mine");
         click(editor, canvas, "Save");
         click(editor, canvas, "Done");
-        assertEquals("mine", sc.config().activeProfileName());
+        assertEquals("mine", albedo.config().activeProfileName());
     }
 
     @Test
     void smallWindowStillShowsEveryPageEntryAndWholeStyleNames() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(320, 200);
         editor.render(canvas, 0, 0);
         for (String label : new String[]{"World", "Weather", "Vanilla", "Average", "Gray", "Hide", "Done", "Apply"}) {
@@ -889,8 +889,8 @@ class SettingsEditorTest {
 
     @Test
     void tooltipShowsInFullNearThePointer() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         editor.ui.tipDelay = 0;
         RecordingCanvas canvas = new RecordingCanvas(320, 200);
         editor.render(canvas, 0, 0);
@@ -903,8 +903,8 @@ class SettingsEditorTest {
 
     @Test
     void theStyleRowHasTheSamePlaceWithAndWithoutGroups() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         int blocks = canvas.find("Style")[1];
@@ -918,8 +918,8 @@ class SettingsEditorTest {
 
     @Test
     void theToastDoesNotCoverTheOpenSuggestions() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
@@ -934,8 +934,8 @@ class SettingsEditorTest {
 
     @Test
     void anArmedDeleteTipStaysInThePanelAndOffTheButtons() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Groups");
@@ -954,14 +954,14 @@ class SettingsEditorTest {
     void clickingEverywhereAtEverySizeNeverFailsOrDrawsOutside() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         for (int[] size : sizes) {
-            sc.apply(Config.defaults());
-            SettingsEditor editor = new SettingsEditor(sc);
+            albedo.apply(Config.defaults());
+            SettingsEditor editor = new SettingsEditor(albedo);
             editor.ui.tipDelay = 0;
             RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
             for (int y = 0; y < size[1]; y += 9) {
                 for (int x = 0; x < size[0]; x += 13) {
                     if (editor.isClosed()) {
-                        editor = new SettingsEditor(sc);
+                        editor = new SettingsEditor(albedo);
                         editor.ui.tipDelay = 0;
                     }
                     editor.mousePressed();
@@ -979,13 +979,13 @@ class SettingsEditorTest {
 
     /** The sky design of the active profile in the saved config. */
     private static SkyDesign savedSky() {
-        return sc.config().activeProfile().get(Category.SKY).sky();
+        return albedo.config().activeProfile().get(Category.SKY).sky();
     }
 
     @Test
     void theSkyLayersEditorAddsMovesMasksAndDeletesLayers() {
-        sc.apply(withOwnProfile());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(withOwnProfile());
+        SettingsEditor editor = new SettingsEditor(albedo);
         editor.ui.tipDelay = 0;
         RecordingCanvas canvas = new RecordingCanvas(640, 360);
         editor.render(canvas, 0, 0);
@@ -994,7 +994,7 @@ class SettingsEditorTest {
         assertNotNull(canvas.find("Gradient 1"), "a new custom sky starts from Dusk: " + canvas.texts.keySet());
         click(editor, canvas, "Apply");
         assertEquals(SkyPresets.DUSK, savedSky());
-        assertEquals(Appearance.Mode.LAYERS, sc.config().activeProfile().get(Category.SKY).appearance().mode());
+        assertEquals(Appearance.Mode.LAYERS, albedo.config().activeProfile().get(Category.SKY).appearance().mode());
 
         click(editor, canvas, "+ Add layer");
         assertNotNull(canvas.find("Make"), "the add screen: " + canvas.texts.keySet());
@@ -1049,9 +1049,9 @@ class SettingsEditorTest {
     @Test
     void eachCardOfTheGalleryGetsItsImage() throws InterruptedException {
         Config c = withOwnProfile();
-        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
                 false, Collections.<Rule>emptyList(), SkyPresets.DUSK))));
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(960, 540);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Sky");
@@ -1117,9 +1117,9 @@ class SettingsEditorTest {
     @Test
     void theCardsScrollInAShortWindowAndAClickKeepsTheirPlace() {
         Config c = withOwnProfile();
-        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
                 false, Collections.<Rule>emptyList(), SkyPresets.DUSK))));
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(320, 200);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Sky");
@@ -1143,9 +1143,9 @@ class SettingsEditorTest {
     @Test
     void theMotionSectionTurnsTheSkyAndShowsTheOptionsOnlyWhileItTurns() {
         Config c = withOwnProfile();
-        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
                 false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.STILL)))));
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(640, 360);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Sky");
@@ -1219,10 +1219,10 @@ class SettingsEditorTest {
     void thePreviewTurnsWithTheClock() throws InterruptedException {
         SkyTurning real = new SkyTurning(100, 10, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.NORMAL, 0);
         Config c = withOwnProfile();
-        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
                 false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(real)))));
         try {
-            SettingsEditor editor = new SettingsEditor(sc);
+            SettingsEditor editor = new SettingsEditor(albedo);
             RecordingCanvas canvas = new RecordingCanvas(960, 540);
             editor.render(canvas, 0, 0);
             click(editor, canvas, "Sky");
@@ -1242,7 +1242,7 @@ class SettingsEditorTest {
             assertFalse(Arrays.equals(start.argb(), quarter.argb()), "a quarter turn later the preview shows another part of the sky");
         } finally {
             SkyClock.run();
-            sc.apply(Config.defaults());
+            albedo.apply(Config.defaults());
         }
     }
 
@@ -1250,9 +1250,9 @@ class SettingsEditorTest {
     void theAddPageScrollsToEveryKindOnASmallScreen() {
         Config c = withOwnProfile();
         List<SkyLayer> one = Collections.singletonList(SkyLayer.of(1, SkyLayer.Kind.GRADIENT));
-        sc.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
+        albedo.apply(c.withProfile(c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false,
                 false, Collections.<Rule>emptyList(), SkyPresets.GALAXY.withLayers(one)))));
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(320, 200);
         editor.render(canvas, 0, 0);
         click(editor, canvas, "Sky");
@@ -1281,8 +1281,8 @@ class SettingsEditorTest {
                 Config c = withOwnProfile();
                 Profile p = c.activeProfile().with(Category.SKY, new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
                         Collections.<Rule>emptyList(), SkyPresets.GALAXY.withTurning(SkyTurning.STILL.withAmount(50))));
-                sc.apply(c.withProfile(p));
-                SettingsEditor editor = new SettingsEditor(sc);
+                albedo.apply(c.withProfile(p));
+                SettingsEditor editor = new SettingsEditor(albedo);
                 editor.ui.tipDelay = 0;
                 RecordingCanvas canvas = new RecordingCanvas(size[0], size[1]);
                 editor.render(canvas, 0, 0);
@@ -1306,15 +1306,15 @@ class SettingsEditorTest {
 
     @Test
     void aScriptedClickOnALabelThatIsNotDrawnFailsTheRun() throws Exception {
-        sc.apply(Config.defaults());
+        albedo.apply(Config.defaults());
         File harness = new File(dir.toFile(), "harness");
         System.setProperty("albedo.harness", harness.getPath());
         try {
-            Harness.fromSystemProperty(sc.platform());
+            Harness.fromSystemProperty(albedo.platform());
         } finally {
             System.clearProperty("albedo.harness");
         }
-        SettingsEditor editor = new SettingsEditor(sc);
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         script(editor, canvas, "click No such label");
@@ -1328,8 +1328,8 @@ class SettingsEditorTest {
 
     @Test
     void aRealClickGivesTheLabelPositionAndLeavesThePressToTheGame() {
-        sc.apply(Config.defaults());
-        SettingsEditor editor = new SettingsEditor(sc);
+        albedo.apply(Config.defaults());
+        SettingsEditor editor = new SettingsEditor(albedo);
         RecordingCanvas canvas = new RecordingCanvas(533, 300);
         editor.render(canvas, 0, 0);
         int[] average = canvas.find("Average");
@@ -1346,7 +1346,7 @@ class SettingsEditorTest {
         editor.mouseReleased();
         render(editor, canvas);
         click(editor, canvas, "Done");
-        assertEquals(Appearance.Mode.AVERAGE, sc.config().activeProfile().get(Category.BLOCKS).appearance().mode());
+        assertEquals(Appearance.Mode.AVERAGE, albedo.config().activeProfile().get(Category.BLOCKS).appearance().mode());
     }
 
     private static void click(SettingsEditor editor, RecordingCanvas canvas, String label) {

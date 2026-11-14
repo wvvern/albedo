@@ -129,7 +129,7 @@ public final class SettingsEditor {
         }
     }
 
-    private final Albedo sc;
+    private final Albedo albedo;
     final Ui ui;
     private final GroupMatches matches = new GroupMatches();
     private final ScriptedInput script = new ScriptedInput();
@@ -168,12 +168,12 @@ public final class SettingsEditor {
     private final TextField profileSearch = new TextField(32, TextField.ANY);
     private final TextField serverName = new TextField(64, c -> Character.isLetterOrDigit(c) || ".-:[]".indexOf(c) >= 0);
 
-    public SettingsEditor(final Albedo sc) {
-        this.sc = sc;
-        this.ui = new Ui(() -> sc.platform().clipboard());
+    public SettingsEditor(final Albedo albedo) {
+        this.albedo = albedo;
+        this.ui = new Ui(() -> albedo.platform().clipboard());
         this.picker = new ColorPicker(ui);
-        this.skyLayers = new SkyLayersEditor(ui, () -> changed = true, e -> sc.platform().warn("Cannot make the sky preview", e));
-        this.saved = sc.config();
+        this.skyLayers = new SkyLayersEditor(ui, () -> changed = true, e -> albedo.platform().warn("Cannot make the sky preview", e));
+        this.saved = albedo.config();
         setDraft(saved);
     }
 
@@ -564,7 +564,7 @@ public final class SettingsEditor {
         String lookTip = category.hasGroups() ? "The look of all " + name.toLowerCase(Locale.ROOT) + " textures that are not in a group"
                 : "The look of the " + name.toLowerCase(Locale.ROOT);
         String[] labels = category.hasGroups()
-                ? new String[]{"Look", "Groups " + cs.rules().size(), "Textures " + sc.catalog(category).size()} : new String[]{"Look"};
+                ? new String[]{"Look", "Groups " + cs.rules().size(), "Textures " + albedo.catalog(category).size()} : new String[]{"Look"};
         String[] tips = category.hasGroups()
                 ? new String[]{lookTip, "Sets of textures that have their own look", "All loaded textures. Click one to put it in a group."}
                 : new String[]{lookTip};
@@ -697,7 +697,7 @@ public final class SettingsEditor {
         Appearance.Mode m = target.mode();
         boolean usesShape = target.changesPixels() && category != Category.SKY && category != Category.CLOUDS;
         boolean recolor = m == Appearance.Mode.RECOLOR;
-        boolean effects = target.changesPixels() && (sc.chromaCanMove(category) || category.hasOutline());
+        boolean effects = target.changesPixels() && (albedo.chromaCanMove(category) || category.hasOutline());
         String shapeNote = usesShape && category == Category.PLAYERS
                 ? "Skins always keep their shape. Shape changes only capes and elytra." : null;
         Appearance.Alpha[] shapes = Appearance.Alpha.values();
@@ -753,7 +753,7 @@ public final class SettingsEditor {
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
         boolean edges = page.category.hasOutline(), bevel = page.category.hasBevel(), open = effectsOpen;
-        boolean shows = sc.chromaCanMove(page.category);
+        boolean shows = albedo.chromaCanMove(page.category);
         Chroma chroma = target.chroma();
         boolean on = shows && chroma.isOn(), more = on || edges;
         int optionRows = CHROMA_LABELS.length + (edges ? 1 : 0);
@@ -817,7 +817,7 @@ public final class SettingsEditor {
                 return false;
             }));
         }
-        if (on && sc.chromaStill()) {
+        if (on && albedo.chromaStill()) {
             items.add(note("Chroma is off, because the GPU cannot move the colors here."));
         }
         return items;
@@ -926,7 +926,7 @@ public final class SettingsEditor {
     /** The group's patterns as removable chips, and an input that suggests matching textures while typing. */
     private void patternsEditor(int x, int y, int w, int bottom, CategorySettings cs, int index) {
         Category category = page.category;
-        Map<String, Integer> catalog = sc.catalog(category);
+        Map<String, Integer> catalog = albedo.catalog(category);
         String members = Labels.members(category);
         Form form = form(x, w);
         form.label(y, Ui.H, members, null);
@@ -1048,7 +1048,7 @@ public final class SettingsEditor {
     /** Every texture seen in this category; clicking one opens its group, or starts a group with it. */
     private void texturesTab(int x, int y, int w, int h, CategorySettings cs) {
         Category category = page.category;
-        Map<String, Integer> catalog = sc.catalog(category);
+        Map<String, Integer> catalog = albedo.catalog(category);
         List<String> ids = new ArrayList<String>();
         String q = search.text.trim().toLowerCase(Locale.ROOT);
         for (String id : catalog.keySet()) if (q.isEmpty() || id.contains(q)) ids.add(id);
@@ -1105,7 +1105,7 @@ public final class SettingsEditor {
         // The open list of a server stays where its row was in the last frame; no row above or below it takes its clicks.
         if (mode == Mode.PICK_PROFILE && pickServer != null) ui.reserveOverlay(profileListArea());
         int cy = y + ui.title(x, y, w, "Servers", "") + 3;
-        String active = draft.activeProfileName(), here = sc.server();
+        String active = draft.activeProfileName(), here = albedo.server();
         ServerRule hereRule = here == null ? null : draft.serverRule(here);
         if (here != null && hereRule == null) {
             String add = "Add this server";
@@ -1243,16 +1243,16 @@ public final class SettingsEditor {
 
     private void exportProfile() {
         try {
-            File file = sc.exportProfile(profile());
+            File file = albedo.exportProfile(profile());
             say("Saved to profiles/" + file.getName() + " and copied to the clipboard.");
         } catch (IOException e) {
-            sc.platform().warn("Cannot export the profile", e);
+            albedo.platform().warn("Cannot export the profile", e);
             sayError("Cannot save the file: " + e.getMessage());
         }
     }
 
     private void importProfile() {
-        String text = sc.platform().clipboard();
+        String text = albedo.platform().clipboard();
         if (text == null || text.trim().isEmpty()) {
             sayError("The clipboard is empty. Copy the text of a profile file, then click Import.");
             return;
@@ -1268,7 +1268,7 @@ public final class SettingsEditor {
     private void apply() {
         RefreshResult r = save();
         // A server rule can make the state in effect differ from the draft, so the screen shows what is in effect.
-        saved = sc.config();
+        saved = albedo.config();
         setDraft(saved);
         say(r.outcome == RefreshResult.Outcome.RELOADED ? "Saved. Resources reload because " + r.reason + "." : "Saved.");
     }
@@ -1281,13 +1281,13 @@ public final class SettingsEditor {
 
     /** Gives the draft to the core as the file stores it, with the on or off state and profile only if the player changed them. */
     private RefreshResult save() {
-        Config.State stored = sc.storedConfig().state();
+        Config.State stored = albedo.storedConfig().state();
         // A rename of the shown profile also renames the stored one when they are the same profile.
         if (!draft.profiles().containsKey(stored.profile) && stored.profile.equals(saved.activeProfileName())) {
             stored = new Config.State(stored.enabled, draft.activeProfileName());
         }
         Config.State shown = draft.state();
-        return sc.apply(draft.withState(stored), shown.equals(saved.state()) ? null : shown);
+        return albedo.apply(draft.withState(stored), shown.equals(saved.state()) ? null : shown);
     }
 
     private Profile profile() { return draft.activeProfile(); }

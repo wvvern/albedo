@@ -74,23 +74,23 @@ public final class LegacyChroma {
 
     /** Whether the pass adds the hue of the moving sprites of the block atlas. */
     static boolean gpuHue() {
-        Albedo sc = Albedo.get();
-        return !broken && sc != null && !sc.chromaStill();
+        Albedo albedo = Albedo.get();
+        return !broken && albedo != null && !albedo.chromaStill();
     }
 
     /** Draws the colors of this frame into the atlas, before the frame draws anything. */
     public static void frameStart() {
-        Albedo sc = Albedo.get();
-        if (sc == null || broken) return;
+        Albedo albedo = Albedo.get();
+        if (albedo == null || broken) return;
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
         // The pass cannot reach the texture of each sprite that OptiFine Multitexture draws, so Chroma is then off.
         boolean multiTexture = OptiFine.multiTexture();
         if (multiTexture != lastMultiTexture) {
             lastMultiTexture = multiTexture;
-            sc.chromaGpu(!multiTexture);
+            albedo.chromaGpu(!multiTexture);
         }
-        if (sc.chromaStill()) {
+        if (albedo.chromaStill()) {
             close();
             return;
         }
@@ -117,8 +117,8 @@ public final class LegacyChroma {
 
     /** Gives the atlas back its painted colors at the end of a frame, after the harness saw the frame. */
     public static void frameEnd() {
-        Albedo sc = Albedo.get();
-        if (sc != null) sc.frameDrawn(recolored ? seconds : SkyClock.longSeconds());
+        Albedo albedo = Albedo.get();
+        if (albedo != null) albedo.frameDrawn(recolored ? seconds : SkyClock.longSeconds());
         long start = System.nanoTime();
         begin(1);
         restore();

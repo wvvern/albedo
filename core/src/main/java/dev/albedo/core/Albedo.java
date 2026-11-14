@@ -70,10 +70,10 @@ public final class Albedo {
     /** Starts the core once; later calls return the same instance. */
     public static synchronized Albedo init(Platform platform) {
         if (instance == null) {
-            Albedo sc = new Albedo(platform);
-            sc.loadOrCreate();
-            instance = sc;
-            platform.info(NAME + " ready on " + platform.describe() + ", " + sc.config.state());
+            Albedo albedo = new Albedo(platform);
+            albedo.loadOrCreate();
+            instance = albedo;
+            platform.info(NAME + " ready on " + platform.describe() + ", " + albedo.config.state());
         }
         return instance;
     }
@@ -85,8 +85,8 @@ public final class Albedo {
 
     /** The policy for any thread at any time, which is the disabled policy before {@link #init}. */
     public static Policy currentPolicy() {
-        Albedo sc = instance;
-        return sc == null ? Policy.DISABLED : sc.policy;
+        Albedo albedo = instance;
+        return albedo == null ? Policy.DISABLED : albedo.policy;
     }
 
     /** The config in effect, which on a server has the rule's state or the state the player chose there. */
@@ -117,8 +117,8 @@ public final class Albedo {
      * reads on the render thread.
      */
     public static SkyImage skyImage() {
-        Albedo sc = instance;
-        return sc == null || sc.policy.skyStyle() != Policy.SkyStyle.LAYERS ? null : sc.skyBaker.image();
+        Albedo albedo = instance;
+        return albedo == null || albedo.policy.skyStyle() != Policy.SkyStyle.LAYERS ? null : albedo.skyBaker.image();
     }
 
     public Platform platform() { return platform; }
@@ -131,24 +131,24 @@ public final class Albedo {
      * @return true if the image was changed
      */
     public static boolean processTexture(String location, PixelBuffer image, TextureStore.Upload upload) {
-        Albedo sc = instance;
-        if (sc == null || sc.store.repainting()) return false;
+        Albedo albedo = instance;
+        if (albedo == null || albedo.store.repainting()) return false;
         try {
-            Policy policy = sc.policy;
+            Policy policy = albedo.policy;
             Layout layout = Layout.of(location);
             List<Appearance> looks = layout.looks(policy);
-            boolean kept = sc.store.record(location, layout, image, upload, looks);
+            boolean kept = albedo.store.record(location, layout, image, upload, looks);
             // The client thread can apply a new policy while a worker thread loads this texture with the old one.
-            if (sc.policy != policy) {
-                sc.store.invalidate(location);
-                sc.stale = true;
+            if (albedo.policy != policy) {
+                albedo.store.invalidate(location);
+                albedo.stale = true;
             }
             // The GPU pass has texels only for a kept texture, so a texture over the budget gets no Chroma.
             boolean changed = layout.paint(looks, image, kept && upload.gpuHue());
-            if (changed) sc.transformedSinceSummary.incrementAndGet();
+            if (changed) albedo.transformedSinceSummary.incrementAndGet();
             return changed;
         } catch (RuntimeException e) {
-            sc.platform.warn("Cannot change texture " + location, e);
+            albedo.platform.warn("Cannot change texture " + location, e);
             return false;
         }
     }
@@ -169,20 +169,20 @@ public final class Albedo {
 
     /** Drops the kept original of a texture that the game released, for example a downloaded skin. */
     public static void forgetTexture(String location) {
-        Albedo sc = instance;
-        if (sc != null) sc.store.forget(location);
+        Albedo albedo = instance;
+        if (albedo != null) albedo.store.forget(location);
     }
 
     /** True on the thread of a running repaint, where load hooks must skip their work. */
     public static boolean repainting() {
-        Albedo sc = instance;
-        return sc != null && sc.store.repainting();
+        Albedo albedo = instance;
+        return albedo != null && albedo.store.repainting();
     }
 
     /** {@link TextureStore#paints} of the instance, or 0 before init. */
     public static int texturePaints() {
-        Albedo sc = instance;
-        return sc == null ? 0 : sc.store.paints();
+        Albedo albedo = instance;
+        return albedo == null ? 0 : albedo.store.paints();
     }
 
     /**
@@ -192,8 +192,8 @@ public final class Albedo {
      * @return false when the colors of the sprite do not move on the GPU, which leaves {@code out} as it is
      */
     public static boolean chromaTexels(String location, int w, int h, int[] out) {
-        Albedo sc = instance;
-        return sc != null && sc.store.chromaTexels(location, w, h, out);
+        Albedo albedo = instance;
+        return albedo != null && albedo.store.chromaTexels(location, w, h, out);
     }
 
     /**
