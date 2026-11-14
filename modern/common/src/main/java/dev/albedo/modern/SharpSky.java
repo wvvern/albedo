@@ -8,7 +8,6 @@ import com.mojang.renderpearl.api.GpuFormat;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.commands.CommandEncoder;
-import com.mojang.renderpearl.api.commands.GpuQueryPool;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
 import com.mojang.renderpearl.api.pipeline.BlendFunction;
@@ -231,7 +230,7 @@ final class SharpSky {
         CompareResources res = new CompareResources(sky, values, width, height, view);
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         try {
-            encoder.writeTimestamp(res.timer, 0);
+            res.timer = DeviceApi.Timer.begin();
             for (int i = 0; i < repeat; i++) {
                 try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", res.target.getColorTextureView(), Optional.empty())) {
                     pass.setPipeline(pipeline);
@@ -241,7 +240,7 @@ final class SharpSky {
                     pass.draw(6, 1, 0, 0);
                 }
             }
-            encoder.writeTimestamp(res.timer, 1);
+            res.timer.end();
         } catch (RuntimeException e) {
             res.close();
             throw e;
@@ -256,9 +255,8 @@ final class SharpSky {
                 }
             }
             image.close();
-            OptionalLong[] t = res.timer.getValues(0, 2);
-            long nanos = t[0].isPresent() && t[1].isPresent()
-                    ? (long) ((t[1].getAsLong() - t[0].getAsLong()) * RenderSystem.getDevice().getDeviceInfo().timestampPeriod() / repeat) : -1;
+            OptionalLong t = res.timer.value();
+            long nanos = t.isPresent() ? t.getAsLong() / repeat : -1;
             res.close();
             done.accept(argb, nanos);
         });
@@ -271,7 +269,8 @@ final class SharpSky {
         final GpuBuffer uniforms;
         final Terms terms;
         final GpuBuffer quad;
-        final GpuQueryPool timer;
+        /** The GPU time of the draws, which starts after the uploads. */
+        DeviceApi.Timer timer;
 
         /** @param view the sky directions of the corners of a camera view, or null for the equirectangular image */
         CompareResources(SkyImage sky, float[] values, int width, int height, float[] view) {
@@ -279,12 +278,11 @@ final class SharpSky {
             uniforms = upload(values, "Albedo sky compare block");
             terms = Terms.upload(sky, "Albedo sky compare terms");
             quad = PearlPipeline.vertexBuffer("Albedo sky compare quad", SkyMesh.quad(view));
-            timer = RenderSystem.getDevice().createTimestampQueryPool(2);
         }
 
         @Override
         public void close() {
-            timer.close();
+            if (timer != null) timer.close();
             target.destroyBuffers();
             uniforms.close();
             terms.close();

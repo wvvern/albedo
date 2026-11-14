@@ -1,5 +1,6 @@
 package dev.albedo.modern;
 
+//? if device_sky || renderpearl {
 //? if device_sky {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -11,7 +12,6 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
@@ -27,6 +27,7 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import java.util.OptionalDouble;
 //? if >=26.2 {
 import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.PrimitiveTopology;
@@ -50,19 +51,34 @@ import com.mojang.blaze3d.platform.CompareOp;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL33;
 ^///?}
+//? if >=1.21.11 {
+import com.mojang.blaze3d.textures.GpuSampler;
+//?}
 //? if >=1.21.11 && <26.2 {
 import com.mojang.blaze3d.systems.GpuQuery;
 //?}
+*///?} else {
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.GpuQueryPool;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import java.util.Optional;
+//?}
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.nio.ByteBuffer;
-import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-// The calls of the GPU device that changed from 1.21.6 to 26.2, for the sky and the Chroma pass of these versions.
+// The calls of the GPU device that changed from 1.21.6 to 26.3, for the sky of 1.21.6 to 26.2 and the Chroma pass from 1.21.11.
 final class DeviceApi {
     private DeviceApi() {}
 
-    // The blend and the depth test of a pipeline that never writes depth, which the builder takes in other calls from 26.1, and
+    //? if device_sky {
+    /*// The blend and the depth test of a pipeline that never writes depth, which the builder takes in other calls from 26.1, and
     // with a reversed depth buffer from 26.2, where the test passes the far depth 0 of the sky.
     static RenderPipeline.Builder state(RenderPipeline.Builder builder, boolean additive, boolean depthTest) {
         //? if >=26.2 {
@@ -175,15 +191,6 @@ final class DeviceApi {
         ^///?}
     }
 
-    // A render pass that keeps the colors of the view, with no depth.
-    static RenderPass pass(String label, GpuTextureView color) {
-        //? if >=26.2 {
-        return RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, Optional.empty());
-        //?} else {
-        /^return RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, OptionalInt.empty());
-        ^///?}
-    }
-
     // A render pass that keeps the colors and the depth of the views.
     static RenderPass pass(String label, GpuTextureView color, GpuTextureView depth) {
         //? if >=26.2 {
@@ -203,24 +210,6 @@ final class DeviceApi {
         //?} else {
         /^pass.setVertexBuffer(0, vertices);
         pass.draw(0, count);
-        ^///?}
-    }
-
-    // Draws vertices that the vertex shader makes from their number alone.
-    static void draw(RenderPass pass, int count) {
-        //? if >=26.2 {
-        pass.draw(count, 1, 0, 0);
-        //?} else {
-        /^pass.draw(0, count);
-        ^///?}
-    }
-
-    // A texture with 8 bits for each of the four channels.
-    static GpuTexture texture(String label, int usage, int width, int height, int levels) {
-        //? if >=26.2 {
-        return RenderSystem.getDevice().createTexture(() -> label, usage, GpuFormat.RGBA8_UNORM, width, height, 1, levels);
-        //?} else {
-        /^return RenderSystem.getDevice().createTexture(() -> label, usage, TextureFormat.RGBA8, width, height, 1, levels);
         ^///?}
     }
 
@@ -253,17 +242,61 @@ final class DeviceApi {
         /^return RenderSystem.getDynamicUniforms().writeTransform(modelView, color, new Vector3f(), new Matrix4f(), 0f);
         ^///?}
     }
+    *///?}
+
+    // A render pass that keeps the colors of the view, with no depth.
+    static RenderPass pass(String label, GpuTextureView color) {
+        //? if >=26.2 {
+        return RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, Optional.empty());
+        //?} else {
+        /*return RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, OptionalInt.empty());
+        *///?}
+    }
+
+    // Draws vertices that the vertex shader makes from their number alone.
+    static void draw(RenderPass pass, int count) {
+        //? if >=26.2 {
+        pass.draw(count, 1, 0, 0);
+        //?} else {
+        /*pass.draw(0, count);
+        *///?}
+    }
+
+    // A texture with 8 bits for each of the four channels.
+    static GpuTexture texture(String label, int usage, int width, int height, int levels) {
+        //? if >=26.2 {
+        return RenderSystem.getDevice().createTexture(() -> label, usage, GpuFormat.RGBA8_UNORM, width, height, 1, levels);
+        //?} else {
+        /*return RenderSystem.getDevice().createTexture(() -> label, usage, TextureFormat.RGBA8, width, height, 1, levels);
+        *///?}
+    }
 
     // Writes RGBA bytes into a mip level of a texture.
     static void write(CommandEncoder encoder, GpuTexture texture, ByteBuffer rgba, int level, int width, int height) {
         //? if >=26.2 {
         encoder.writeToTexture(texture, rgba, level, 0, 0, 0, width, height);
         //?} elif >=1.21.10 {
-        /^encoder.writeToTexture(texture, rgba, NativeImage.Format.RGBA, level, 0, 0, 0, width, height);
-        ^///?} else {
-        /^encoder.writeToTexture(texture, rgba.asIntBuffer(), NativeImage.Format.RGBA, level, 0, 0, 0, width, height);
-        ^///?}
+        /*encoder.writeToTexture(texture, rgba, NativeImage.Format.RGBA, level, 0, 0, 0, width, height);
+        *///?} else {
+        /*encoder.writeToTexture(texture, rgba.asIntBuffer(), NativeImage.Format.RGBA, level, 0, 0, 0, width, height);
+        *///?}
     }
+
+    //? if device_chroma {
+    // The sampler with nearest filters and a clamp at the edges.
+    static GpuSampler nearest() {
+        return RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
+    }
+
+    // Binds a texture view with a sampler to a sampler of the pass.
+    static void bindTexture(RenderPass pass, String name, GpuTextureView view, GpuSampler sampler) {
+        //? if renderpearl {
+        pass.setUniform(name, view, sampler);
+        //?} else {
+        /*pass.bindTexture(name, view, sampler);
+        *///?}
+    }
+    //?}
 
     // A GPU time query, of the timestamps of the device from 26.2, of its time query from 1.21.11 and of the GL before it.
     static final class Timer {
@@ -289,7 +322,7 @@ final class DeviceApi {
             pool.close();
         }
         //?} elif >=1.21.11 {
-        /^private final GpuQuery query;
+        /*private final GpuQuery query;
 
         private Timer() {
             query = RenderSystem.getDevice().createCommandEncoder().timerQueryBegin();
@@ -306,8 +339,8 @@ final class DeviceApi {
         void close() {
             query.close();
         }
-        ^///?} else {
-        /^private final int query = GL15.glGenQueries();
+        *///?} else {
+        /*private final int query = GL15.glGenQueries();
 
         private Timer() {
             GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
@@ -325,7 +358,7 @@ final class DeviceApi {
         void close() {
             GL15.glDeleteQueries(query);
         }
-        ^///?}
+        *///?}
 
         // Starts a time, and throws IllegalStateException when the game allows no second time query now.
         static Timer begin() {
@@ -333,4 +366,4 @@ final class DeviceApi {
         }
     }
 }
-*///?}
+//?}
