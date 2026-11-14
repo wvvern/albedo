@@ -1,7 +1,7 @@
 package dev.albedo.modern;
 
-//? if >=1.19 {
 import net.minecraft.client.Minecraft;
+//? if >=1.19 {
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
@@ -15,6 +15,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.level.DataPackConfig;
 *///?}
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
+//?}
 
 import java.io.File;
 
@@ -24,16 +25,27 @@ final class HarnessWorlds {
 
     static void open(String name) {
         Minecraft mc = Minecraft.getInstance();
-        if (new File(new File(mc.gameDirectory, "saves"), name).isDirectory()) {
-            //? if >=1.20.5 {
-            mc.createWorldOpenFlows().openWorld(name, () -> ModernPlatform.setScreen(null));
-            //?} elif >=1.20.3 {
-            /*mc.createWorldOpenFlows().checkForBackupAndLoad(name, () -> ModernPlatform.setScreen(null));
-            *///?} else {
-            /*mc.createWorldOpenFlows().loadLevel(ModernPlatform.currentScreen(), name);
+        if (!new File(new File(mc.gameDirectory, "saves"), name).isDirectory()) {
+            //? if >=1.19 {
+            create(mc, name);
+            //?} else {
+            /*HarnessWorldsBeforePresets.create(name);
             *///?}
             return;
         }
+        //? if >=1.20.5 {
+        mc.createWorldOpenFlows().openWorld(name, () -> ModernScreens.setScreen(null));
+        //?} elif >=1.20.3 {
+        /*mc.createWorldOpenFlows().checkForBackupAndLoad(name, () -> ModernScreens.setScreen(null));
+        *///?} elif >=1.19 {
+        /*mc.createWorldOpenFlows().loadLevel(ModernScreens.currentScreen(), name);
+        *///?} else {
+        /*mc.loadLevel(name);
+        *///?}
+    }
+
+    //? if >=1.19 {
+    private static void create(Minecraft mc, String name) {
         //? if >=26.1 {
         LevelSettings settings = new LevelSettings(name, GameType.CREATIVE,
                 new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true, WorldDataConfiguration.DEFAULT);
@@ -47,7 +59,7 @@ final class HarnessWorlds {
         //? if >=1.20.3 {
         mc.createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(42L, false, false),
                 registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
-                ModernPlatform.currentScreen());
+                ModernScreens.currentScreen());
         //?} elif >=1.19.3 {
         /*mc.createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(42L, false, false),
                 registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions());
@@ -72,5 +84,5 @@ final class HarnessWorlds {
         return new net.minecraft.world.level.GameRules();
     }
     *///?}
+    //?}
 }
-//?}

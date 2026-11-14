@@ -15,18 +15,12 @@ import net.minecraft.world.level.levelgen.FlatLevelSource;
 import net.minecraft.world.level.levelgen.WorldGenSettings;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
 
-import java.io.File;
+/^* Development-only: makes the flat creative world of the test harness before the world presets of 1.19; {@code HarnessWorlds} opens it. ^/
+final class HarnessWorldsBeforePresets {
+    private HarnessWorldsBeforePresets() {}
 
-/^* Development-only: opens the flat creative world of the test harness, and makes it at the first run, before the world presets of 1.19. ^/
-final class HarnessWorldsOld {
-    private HarnessWorldsOld() {}
-
-    static void open(String name) {
+    static void create(String name) {
         Minecraft mc = Minecraft.getInstance();
-        if (new File(new File(mc.gameDirectory, "saves"), name).isDirectory()) {
-            mc.loadLevel(name);
-            return;
-        }
         LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), DataPackConfig.DEFAULT);
         //? if >=1.18 {
         RegistryAccess registries = RegistryAccess.BUILTIN.get();

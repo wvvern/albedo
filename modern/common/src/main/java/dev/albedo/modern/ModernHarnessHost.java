@@ -34,11 +34,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void openWorld(String name) {
-        //? if >=1.19 {
         HarnessWorlds.open(name);
-        //?} else {
-        /*HarnessWorldsOld.open(name);
-        *///?}
     }
 
     @Override
@@ -87,7 +83,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public void closeScreen() {
-        ModernPlatform.setScreen(null);
+        ModernScreens.setScreen(null);
     }
 
     @Override
@@ -109,7 +105,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     @Override
     public boolean settingsOpen() {
-        return ModernPlatform.currentScreen() instanceof SettingsScreen;
+        return ModernScreens.currentScreen() instanceof SettingsScreen;
     }
 
     @Override

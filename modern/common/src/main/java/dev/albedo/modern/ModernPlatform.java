@@ -5,9 +5,7 @@ import dev.albedo.core.Keys;
 import dev.albedo.core.Platform;
 import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.network.chat.Component;
 //? if >=1.18 {
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +35,6 @@ final class ModernPlatform implements Platform {
     /** Takes the config folder of the loader, or null when a mixin starts the mod before the loader entrypoint. */
     ModernPlatform(File loaderConfigDir) {
         this.loaderConfigDir = loaderConfigDir;
-    }
-
-    static Component text(String text) {
-        //? if >=1.19 {
-        return Component.literal(text);
-        //?} else {
-        /*return new net.minecraft.network.chat.TextComponent(text);
-        *///?}
     }
 
     @Override
@@ -106,9 +96,9 @@ final class ModernPlatform implements Platform {
     public void showMessage(String message) {
         Minecraft mc = Minecraft.getInstance();
         //? if >=26.1 {
-        if (mc.player != null) mc.player.sendOverlayMessage(text(message));
+        if (mc.player != null) mc.player.sendOverlayMessage(ModernScreens.text(message));
         //?} else {
-        /*mc.gui.setOverlayMessage(text(message), false);
+        /*mc.gui.setOverlayMessage(ModernScreens.text(message), false);
         *///?}
     }
 
@@ -143,7 +133,7 @@ final class ModernPlatform implements Platform {
 
     @Override
     public void openSettings() {
-        setScreen(new SettingsScreen(currentScreen()));
+        ModernScreens.setScreen(new SettingsScreen(ModernScreens.currentScreen()));
     }
 
     @Override
@@ -159,21 +149,5 @@ final class ModernPlatform implements Platform {
     @Override
     public Harness.Host harnessHost() {
         return new ModernHarnessHost();
-    }
-
-    static Screen currentScreen() {
-        //? if >=26.2 {
-        return Minecraft.getInstance().gui.screen();
-        //?} else {
-        /*return Minecraft.getInstance().screen;
-        *///?}
-    }
-
-    static void setScreen(Screen screen) {
-        //? if >=26.2 {
-        Minecraft.getInstance().gui.setScreen(screen);
-        //?} else {
-        /*Minecraft.getInstance().setScreen(screen);
-        *///?}
     }
 }

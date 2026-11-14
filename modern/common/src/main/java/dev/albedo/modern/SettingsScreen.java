@@ -14,7 +14,7 @@ public final class SettingsScreen extends Screen {
     private final CanvasImages images = new CanvasImages();
 
     public SettingsScreen(Screen parent) {
-        super(ModernPlatform.text(Albedo.NAME));
+        super(ModernScreens.text(Albedo.NAME));
         this.parent = parent;
         ModernHooks.bootstrap();
         this.editor = new SettingsEditor(Albedo.get());
@@ -27,7 +27,7 @@ public final class SettingsScreen extends Screen {
 
     @Override
     public void onClose() {
-        ModernPlatform.setScreen(parent);
+        ModernScreens.setScreen(parent);
     }
 
     //? if >=26.1 {
