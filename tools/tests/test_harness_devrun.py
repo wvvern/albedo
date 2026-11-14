@@ -1,4 +1,3 @@
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -7,11 +6,12 @@ from tools import project
 from tools.harness import devrun, rundir, verdict
 from tools.harness.devrun import RunOptions
 from tools.project import Target
+from tools.tests.fixtures import FABRIC_26_3 as FABRIC
+from tools.tests.fixtures import FORGE_1_20_1 as FORGE
+from tools.tests.fixtures import LEGACY_1_8_9 as LEGACY
+from tools.tests.fixtures import NEOFORGE_26_3 as NEOFORGE
+from tools.tests.fixtures import temp_dir
 
-FABRIC = Target("fabric", "26.3", "26.3", 25, legacy=False)
-NEOFORGE = Target("neoforge", "26.3", "26.3", 25, legacy=False)
-FORGE = Target("forge", "1.20.1", "1.20.1", 17, legacy=False)
-LEGACY = Target("forge", "1.8.9", "1.8.9", 8, legacy=True)
 HARNESS = Path("harness")
 
 
@@ -76,7 +76,7 @@ class RunDirTest(unittest.TestCase):
         self.assertEqual(("enableB3DValidationLayer", "false"), devrun.loader_config(NEOFORGE, renderer_mod=True)["neoforge-client.toml"])
 
     def test_the_game_folder_of_a_run(self):
-        run_dir = Path(tempfile.mkdtemp())
+        run_dir = temp_dir(self)
         (run_dir / "mods").mkdir()
         (run_dir / "mods" / "albedo-fabric-0.6.2+26.3.jar").write_bytes(b"jar")
         (run_dir / "mods" / "sodium.jar").write_bytes(b"jar")

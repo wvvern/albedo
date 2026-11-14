@@ -1,14 +1,13 @@
 import shutil
 import struct
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from tools import gradle
-from tools.harness import protocol, rundir, session
+from tools.harness import protocol, session
 from tools.harness.session import Launch
 from tools.report import ToolError
+from tools.tests.fixtures import temp_dir
 
 
 class FakeSystem:
@@ -45,7 +44,7 @@ class FakeSystem:
 
 class PlayTest(unittest.TestCase):
     def setUp(self):
-        self.harness = Path(tempfile.mkdtemp())
+        self.harness = temp_dir(self)
         self.launch = Launch("game", self.harness, self.harness / "game.log")
         self.said: list[str] = []
 
@@ -87,7 +86,7 @@ class PlayTest(unittest.TestCase):
 
 class OpenHarnessTest(unittest.TestCase):
     def setUp(self):
-        self.root = Path(tempfile.mkdtemp())
+        self.root = temp_dir(self)
         self.system = FakeSystem(self.root, Launch("game", self.root, self.root / "game.log"), ends_at=None)
         patch = mock.patch.object(session, "HARNESS_ROOT", self.root)
         patch.start()
@@ -110,10 +109,27 @@ class OpenHarnessTest(unittest.TestCase):
             session.open_harness("busy", ["quit"], self.system)
         self.assertTrue((self.root / "busy" / "log.txt").is_file())
 
+    def test_a_held_harness_folder_gets_a_few_seconds_to_free(self):
+        harness = self.root / "held"
+        harness.mkdir()
+        system = FakeSystem(harness, Launch("", self.root, self.root / "log"), ends_at=None)
+        tries = []
+        real = shutil.rmtree
+
+        def rmtree(path, ignore_errors=False):
+            tries.append(path)
+            if len(tries) == 3:
+                real(path, ignore_errors=True)
+
+        with mock.patch("shutil.rmtree", rmtree):
+            session.open_harness("held", ["quit"], system)
+        self.assertEqual(3, len(tries))
+        self.assertEqual(2, system.time)
+
 
 class FilesTest(unittest.TestCase):
     def setUp(self):
-        self.dir = Path(tempfile.mkdtemp())
+        self.dir = temp_dir(self)
 
     def png(self, name: str, width: int, height: int) -> Path:
         file = self.dir / name
@@ -145,24 +161,6 @@ class FilesTest(unittest.TestCase):
         self.assertEqual(["a.png", "b.png"], [image.name for image in session.collect(self.dir, out)])
         self.assertEqual(["a.png", "b.png"], sorted(file.name for file in out.iterdir()))
 
-    def test_a_held_harness_folder_gets_a_few_seconds_to_free(self):
-        harness = session.HARNESS_ROOT / "held"
-        harness.mkdir(parents=True, exist_ok=True)
-        system = FakeSystem(harness, Launch("", self.dir, self.dir / "log"), ends_at=None)
-        tries = []
-        real = shutil.rmtree
-
-        def rmtree(path, ignore_errors=False):
-            tries.append(path)
-            if len(tries) == 3:
-                real(path, ignore_errors=True)
-
-        with mock.patch("shutil.rmtree", rmtree):
-            session.open_harness("held", ["quit"], system)
-        real(harness, ignore_errors=True)
-        self.assertEqual(3, len(tries))
-        self.assertEqual(2, system.time)
-
     def test_collect_goes_on_when_the_old_folder_cannot_be_removed(self):
         self.png("a.png", 1, 1)
         out = self.dir / "out"
@@ -170,57 +168,3 @@ class FilesTest(unittest.TestCase):
         with mock.patch("shutil.rmtree"):
             self.assertEqual(["a.png"], [image.name for image in session.collect(self.dir, out)])
         self.assertTrue((out / "a.png").is_file())
-
-    def test_an_option_of_the_command_line_needs_its_colon(self):
-        self.assertEqual("useVbo:false", rundir.key_value("useVbo:false"))
-        with self.assertRaises(ValueError):
-            rundir.key_value("useVbo=false")
-
-    def test_options_are_lines_of_key_and_value(self):
-        file = self.dir / "run" / "options.txt"
-        rundir.write_options(file, {"narrator": "0", "lastServer": "host:25565"})
-        self.assertEqual("narrator:0\nlastServer:host:25565\n", file.read_text())
-        self.assertEqual({"narrator": "0", "lastServer": "host:25565"}, rundir.read_options(file))
-        self.assertEqual({}, rundir.read_options(self.dir / "none.txt"))
-
-    def test_a_toml_key_goes_to_the_top_in_place_of_its_old_line(self):
-        file = self.dir / "config" / "fml.toml"
-        rundir.set_toml_key(file, "earlyWindowControl", "false")
-        self.assertEqual("earlyWindowControl = false\n", file.read_text())
-        file.write_text("earlyWindowControl=true\nearlyWindowControlFlag = 1\n[table]\nkey = 2\n")
-        rundir.set_toml_key(file, "earlyWindowControl", "false")
-        self.assertEqual("earlyWindowControl = false\nearlyWindowControlFlag = 1\n[table]\nkey = 2\n", file.read_text())
-
-    def test_iris_gets_its_pack_and_its_switch(self):
-        pack = self.dir / "pack.zip"
-        pack.write_bytes(b"zip")
-        run_dir = self.dir / "run"
-        rundir.write_iris_properties(run_dir, pack)
-        self.assertEqual("disableUpdateMessage=true\nenableShaders=true\nshaderPack=pack.zip\n", (run_dir / "config" / "iris.properties").read_text())
-        self.assertTrue((run_dir / "shaderpacks" / "pack.zip").is_file())
-        rundir.write_iris_properties(run_dir, None)
-        self.assertEqual("disableUpdateMessage=true\nenableShaders=false\n", (run_dir / "config" / "iris.properties").read_text())
-
-    def test_the_mod_starts_from_its_default_config_and_a_new_world(self):
-        run_dir = self.dir / "run"
-        config = run_dir / "config" / "albedo" / "config.json"
-        (run_dir / "saves" / rundir.WORLD).mkdir(parents=True)
-        config.parent.mkdir(parents=True)
-        config.write_text("{}")
-        rundir.reset_mod_state(run_dir)
-        self.assertFalse(config.exists())
-        self.assertFalse((run_dir / "saves" / rundir.WORLD).exists())
-        given = self.dir / "given.json"
-        given.write_text('{"profile": "quake-white"}')
-        rundir.reset_mod_state(run_dir, given)
-        self.assertEqual('{"profile": "quake-white"}', config.read_text())
-
-
-class GradleCommandLineTest(unittest.TestCase):
-    def test_each_property_that_is_set_is_a_flag(self):
-        properties = {"harness": r"C:\Temp\h", "compat": "", "backend": "vulkan", "vulkanValidation": False, "quilt": True}
-        line = gradle.hidden_command_line(Path("modern"), ":fabric:26.3:runClient", properties)
-        wrapper = gradle.wrapper(Path("modern"))
-        self.assertEqual(
-            f'"{wrapper}" --no-daemon --configure-on-demand :fabric:26.3:runClient "-Pharness=C:\\Temp\\h" "-Pbackend=vulkan" -Pquilt', line
-        )

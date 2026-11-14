@@ -1,12 +1,16 @@
 import io
 import json
-import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
 from tools.jar_check import Jar, Subject, examine, examine_file
 from tools.project import Target
+from tools.tests.fixtures import FABRIC_1_18_2 as FABRIC
+from tools.tests.fixtures import FABRIC_26_3, FORGE_1_20_1, temp_dir
+from tools.tests.fixtures import FORGE_1_18_2 as FORGE
+from tools.tests.fixtures import LEGACY_1_8_9 as LEGACY
+from tools.tests.fixtures import NEOFORGE_1_18_2 as NEOFORGE
 
 NODE = {
     "minecraft_range_fabric": ">=1.18.2 <1.19",
@@ -35,11 +39,15 @@ def mixins(names: list[str], level: str) -> str:
     return json.dumps({"compatibilityLevel": level, "client": names})
 
 
-def subject(target: Target, entries: dict[str, str | bytes]) -> Subject:
-    data = io.BytesIO()
-    with zipfile.ZipFile(data, "w") as jar:
+def write_jar(file: Path | io.BytesIO, entries: dict[str, str | bytes]) -> None:
+    with zipfile.ZipFile(file, "w") as jar:
         for name, content in entries.items():
             jar.writestr(name, content)
+
+
+def subject(target: Target, entries: dict[str, str | bytes]) -> Subject:
+    data = io.BytesIO()
+    write_jar(data, entries)
     return Subject(Jar(data), target, NODE, BUILD)
 
 
@@ -52,12 +60,6 @@ def fabric_jar(changes: dict[str, str | bytes] | None = None) -> dict[str, str |
         "fabric.mod.json": json.dumps({"depends": {"minecraft": ">=1.18.2 <1.19", "fabricloader": ">=0.15.0"}}),
     }
     return entries | (changes or {})
-
-
-FABRIC = Target("fabric", "1.18.2", "1.18.2", 17, legacy=False)
-FORGE = Target("forge", "1.18.2", "1.18.2", 17, legacy=False)
-NEOFORGE = Target("neoforge", "1.18.2", "1.18.2", 17, legacy=False)
-LEGACY = Target("forge", "1.8.9", "1.8.9", 8, legacy=True)
 
 
 class ModernJarTest(unittest.TestCase):
@@ -73,10 +75,9 @@ class ModernJarTest(unittest.TestCase):
         self.assertEqual(["the compatibilityLevel of albedo.mixins.json is not JAVA_17"], examine(subject(FABRIC, entries)))
 
     def test_the_mixin_level_stops_at_21(self):
-        target = Target("fabric", "26.3", "26.3", 25, legacy=False)
         entries = {name: class_file(25) if name.endswith(".class") else content for name, content in fabric_jar().items()}
         entries["albedo.mixins.json"] = mixins(["AMixin", "BAccessor"], "JAVA_21")
-        self.assertEqual([], examine(subject(target, entries)))
+        self.assertEqual([], examine(subject(FABRIC_26_3, entries)))
 
     def test_a_class_of_the_wrong_java_version_fails_once(self):
         entries = fabric_jar({"dev/albedo/core/A.class": class_file(21), "dev/albedo/core/B.class": class_file(21)})
@@ -87,9 +88,8 @@ class ModernJarTest(unittest.TestCase):
         self.assertEqual(["fabric.mod.json has the minecraft range >=1.18, not >=1.18.2 <1.19"], examine(subject(FABRIC, entries)))
 
     def test_a_new_forge_jar_must_not_have_the_forge_mixin_config(self):
-        target = Target("forge", "1.20.1", "1.20.1", 17, legacy=False)
         entries = self.forge_jar()
-        self.assertEqual(["the jar has albedo.forge.mixins.json, which only a Forge jar below 1.19 needs"], examine(subject(target, entries)))
+        self.assertEqual(["the jar has albedo.forge.mixins.json, which only a Forge jar below 1.19 needs"], examine(subject(FORGE_1_20_1, entries)))
 
     def test_the_mixin_of_the_dev_run_fails(self):
         entries = fabric_jar({"dev/albedo/forge/dev/TransformationMixin.class": class_file(17)})
@@ -161,11 +161,12 @@ class LegacyJarTest(unittest.TestCase):
 class JarFileTest(unittest.TestCase):
     """Jar files with the name of a target of this repository."""
 
+    def jar_file(self) -> Path:
+        return temp_dir(self) / LEGACY.jar_name("1.0.0")
+
     def problems(self, entries: dict[str, str | bytes]) -> list[str]:
-        file = Path(tempfile.mkdtemp()) / "albedo-forge-1.0.0+1.8.9.jar"
-        with zipfile.ZipFile(file, "w") as jar:
-            for name, content in entries.items():
-                jar.writestr(name, content)
+        file = self.jar_file()
+        write_jar(file, entries)
         return examine_file(file)
 
     def test_a_jar_with_no_metadata_file_is_a_problem_of_the_jar(self):
@@ -180,6 +181,6 @@ class JarFileTest(unittest.TestCase):
         self.assertTrue(problems[0].startswith("a check cannot read the jar: "), problems[0])
 
     def test_a_file_that_is_no_jar_is_a_problem(self):
-        file = Path(tempfile.mkdtemp()) / "albedo-forge-1.0.0+1.8.9.jar"
+        file = self.jar_file()
         file.write_bytes(b"not a zip")
         self.assertEqual(["cannot read the jar"], examine_file(file))

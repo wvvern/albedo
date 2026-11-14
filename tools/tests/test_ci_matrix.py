@@ -1,12 +1,11 @@
 import unittest
 
 from tools import ci_matrix, project
-from tools.project import Node, Target
+from tools.project import Node
+from tools.tests.fixtures import FABRIC_26_1, LEGACY_1_8_9, NEOFORGE_26_1
 
-FABRIC = Target("fabric", "26.1", "26.1.2", 25, legacy=False)
-NEOFORGE = Target("neoforge", "26.1", "26.1.2", 25, legacy=False)
-MODERN = Node("26.1", False, (FABRIC, NEOFORGE))
-LEGACY = Node("1.8.9", True, (Target("forge", "1.8.9", "1.8.9", 8, legacy=True),))
+MODERN = Node("26.1", False, (FABRIC_26_1, NEOFORGE_26_1))
+LEGACY = Node("1.8.9", True, (LEGACY_1_8_9,))
 
 
 class RowTest(unittest.TestCase):

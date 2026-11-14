@@ -2,13 +2,11 @@ import unittest
 
 from tools.harness import script
 from tools.harness.script import compose
-from tools.project import Target
+from tools.tests.fixtures import FABRIC_1_16_5, FABRIC_1_20_1, FABRIC_26_3, FORGE_1_17_1, LEGACY_1_8_9, LEGACY_1_12_2
 
-NEWEST = Target("fabric", "26.3", "26.3", 25, legacy=False)
-BEFORE_NEW_GRASS = Target("fabric", "1.20.1", "1.20.1", 17, legacy=False)
-BEFORE_NEW_GROUND = Target("forge", "1.17.1", "1.17.1", 16, legacy=False)
-LEGACY_1_8 = Target("forge", "1.8.9", "1.8.9", 8, legacy=True)
-LEGACY_1_12 = Target("forge", "1.12.2", "1.12.2", 8, legacy=True)
+NEWEST = FABRIC_26_3
+BEFORE_NEW_GRASS = FABRIC_1_20_1
+BEFORE_NEW_GROUND = FORGE_1_17_1
 
 
 class ComposeTest(unittest.TestCase):
@@ -18,15 +16,15 @@ class ComposeTest(unittest.TestCase):
 
     def test_the_hook_counters_are_logged_before_each_quit(self):
         self.assertEqual(["wait 5", "hooks", "quit"], compose(["wait 5", "quit"], NEWEST))
-        self.assertEqual(["hooks", "quit "], compose(["quit "], LEGACY_1_8))
+        self.assertEqual(["hooks", "quit "], compose(["quit "], LEGACY_1_8_9))
 
     def test_a_line_of_one_build_runs_only_there(self):
         lines = ["modern: key F6", "legacy: key F9", "key A"]
         self.assertEqual(["key F6", "key A"], compose(lines, NEWEST))
-        self.assertEqual(["key F9", "key A"], compose(lines, LEGACY_1_8))
+        self.assertEqual(["key F9", "key A"], compose(lines, LEGACY_1_8_9))
 
     def test_a_legacy_target_clicks_with_no_real_click(self):
-        self.assertEqual(["ui click + New group"], compose(["ui realclick + New group"], LEGACY_1_12))
+        self.assertEqual(["ui click + New group"], compose(["ui realclick + New group"], LEGACY_1_12_2))
 
     def test_short_grass_has_its_old_name_before_1_20_3(self):
         self.assertEqual(["run setblock 8 -60 -4 grass"], compose(["run setblock 8 -60 -4 short_grass"], BEFORE_NEW_GRASS))
@@ -61,31 +59,30 @@ class ComposeTest(unittest.TestCase):
 
     def test_item_replace_is_replaceitem_before_1_17(self):
         line = "run item replace entity @p armor.chest with minecraft:diamond_chestplate"
-        old = Target("fabric", "1.16.5", "1.16.5", 8, legacy=False)
-        self.assertEqual(["run replaceitem entity @p armor.chest minecraft:diamond_chestplate"], compose([line], old))
+        self.assertEqual(["run replaceitem entity @p armor.chest minecraft:diamond_chestplate"], compose([line], FABRIC_1_16_5))
         self.assertEqual([line], compose([line], BEFORE_NEW_GROUND))
 
     def test_1_12_names_an_entity_by_its_id_and_has_no_achievements(self):
         lines = ["run achievement give * @p", "run summon Sheep 2 4 -3", "run kill @e[type=!Player]"]
-        self.assertEqual(["run summon minecraft:sheep 2 4 -3", "run kill @e[type=!player]"], compose(lines, LEGACY_1_12))
-        self.assertEqual(lines, compose(lines, LEGACY_1_8))
+        self.assertEqual(["run summon minecraft:sheep 2 4 -3", "run kill @e[type=!player]"], compose(lines, LEGACY_1_12_2))
+        self.assertEqual(lines, compose(lines, LEGACY_1_8_9))
 
     def test_1_12_names_an_entity_of_two_words_with_an_underscore(self):
         lines = ["run summon ArmorStand 2 4 -3 {Rotation:[180f,0f]}", "run replaceitem entity @e[type=ArmorStand] slot.armor.chest x"]
         self.assertEqual(
             ["run summon minecraft:armor_stand 2 4 -3 {Rotation:[180f,0f]}", "run replaceitem entity @e[type=armor_stand] slot.armor.chest x"],
-            compose(lines, LEGACY_1_12),
+            compose(lines, LEGACY_1_12_2),
         )
 
     def test_1_8_has_no_elytra(self):
         lines = ["run replaceitem entity @p slot.armor.chest minecraft:elytra", "keepframe", "framechanged elytra"]
-        self.assertEqual(["keepframe"], compose(lines, LEGACY_1_8))
-        self.assertEqual(lines, compose(lines, LEGACY_1_12))
+        self.assertEqual(["keepframe"], compose(lines, LEGACY_1_8_9))
+        self.assertEqual(lines, compose(lines, LEGACY_1_12_2))
 
 
 class SuiteFilesTest(unittest.TestCase):
     def test_each_target_has_a_scene(self):
-        for target in (NEWEST, LEGACY_1_8):
+        for target in (NEWEST, LEGACY_1_8_9):
             self.assertTrue(script.suite_file(script.scene_of(target)).is_file())
 
     def test_a_suite_has_its_name_with_or_without_the_file_type(self):
@@ -99,6 +96,6 @@ class SuiteFilesTest(unittest.TestCase):
 
     def test_each_suite_composes_for_each_build(self):
         for suite in script.SUITES.glob("*.txt"):
-            for target in (NEWEST, BEFORE_NEW_GROUND, LEGACY_1_12):
+            for target in (NEWEST, BEFORE_NEW_GROUND, LEGACY_1_12_2):
                 commands = compose(script.read_suites([suite.stem]), target)
                 self.assertFalse([line for line in commands if script.BUILD_PREFIX.match(line)], suite.name)

@@ -1,13 +1,12 @@
-import tempfile
 import unittest
-from pathlib import Path
 
 from tools import lint
 from tools.lint import Tree
+from tools.tests.fixtures import temp_dir
 
 
-def tree_of(files: dict[str, bytes]) -> Tree:
-    root = Path(tempfile.mkdtemp())
+def tree_of(test: unittest.TestCase, files: dict[str, bytes]) -> Tree:
+    root = temp_dir(test)
     for name, data in files.items():
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes(data)
@@ -20,10 +19,10 @@ def messages(problems) -> list[str]:
 
 class TextHygieneTest(unittest.TestCase):
     def test_a_clean_file_has_no_problem(self):
-        self.assertEqual([], messages(lint.text_hygiene(tree_of({"a.txt": b"one\ntwo\n"}))))
+        self.assertEqual([], messages(lint.text_hygiene(tree_of(self, {"a.txt": b"one\ntwo\n"}))))
 
     def test_each_rule_names_its_line(self):
-        tree = tree_of({"a.txt": b"caf\xc3\xa9\n\tx\ny \nz"})
+        tree = tree_of(self, {"a.txt": b"caf\xc3\xa9\n\tx\ny \nz"})
         self.assertEqual(
             [
                 "a.txt:1: error: use only ASCII characters",
@@ -35,11 +34,11 @@ class TextHygieneTest(unittest.TestCase):
         )
 
     def test_only_a_bat_file_keeps_crlf(self):
-        tree = tree_of({"run.bat": b"echo\r\n", "run.sh": b"echo\r\n"})
+        tree = tree_of(self, {"run.bat": b"echo\r\n", "run.sh": b"echo\r\n"})
         self.assertEqual(["run.sh:1: error: remove the spaces at the end of the line"], messages(lint.text_hygiene(tree)))
 
     def test_binary_and_empty_files_are_skipped(self):
-        self.assertEqual([], messages(lint.text_hygiene(tree_of({"a.png": b"\x89PNG\0\t \xff", "empty": b""}))))
+        self.assertEqual([], messages(lint.text_hygiene(tree_of(self, {"a.png": b"\x89PNG\0\t \xff", "empty": b""}))))
 
 
 class HandlerNameTest(unittest.TestCase):
@@ -71,18 +70,19 @@ class HandlerNameTest(unittest.TestCase):
 
     def test_only_mixin_files_are_checked(self):
         source = b'@Inject(method = "a")\nvoid a() {\n'
-        tree = tree_of({"src/AMixin.java": source, "src/Hooks.java": source})
+        tree = tree_of(self, {"src/AMixin.java": source, "src/Hooks.java": source})
         self.assertEqual(["src/AMixin.java:2: error: a handler name must start with albedo$"], messages(lint.mixin_handler_names(tree)))
 
 
 class ConditionVersionTest(unittest.TestCase):
     def test_a_version_outside_the_boundary_table_is_found_once(self):
         tree = tree_of(
+            self,
             {
                 "docs/ARCHITECTURE.md": b"| `1.21.5` | the frame graph |\n",
                 "modern/A.java": b"//? if >=1.21.5 {\n//?} elif >=1.20.2 {\n//? if <1.20.2 {\n",
                 "legacy/B.java": b"//? if >=9.9 {\n",
-            }
+            },
         )
         problems = messages(lint.condition_versions(tree))
         self.assertEqual(1, len(problems))
@@ -100,7 +100,7 @@ NODE_FILES = {
 
 class NodeFilesTest(unittest.TestCase):
     def problems(self, changes: dict[str, bytes]) -> list[str]:
-        return messages(lint.node_files(tree_of(NODE_FILES | changes)))
+        return messages(lint.node_files(tree_of(self, NODE_FILES | changes)))
 
     def test_matching_folders_pass(self):
         self.assertEqual([], self.problems({}))
@@ -120,7 +120,7 @@ class NodeFilesTest(unittest.TestCase):
 class ModrinthVersionTest(unittest.TestCase):
     def problems(self, properties: str) -> list[str]:
         file = "modern/versions/1.21.1/gradle.properties"
-        return messages(lint.modrinth_versions(tree_of({file: f"minecraft_range_fabric=>=1.21 <1.21.2\n{properties}".encode()})))
+        return messages(lint.modrinth_versions(tree_of(self, {file: f"minecraft_range_fabric=>=1.21 <1.21.2\n{properties}".encode()})))
 
     def test_versions_in_the_fabric_range_pass(self):
         self.assertEqual([], self.problems(""))
@@ -136,7 +136,7 @@ class ModrinthVersionTest(unittest.TestCase):
 class ActiveVersionTest(unittest.TestCase):
     def problems(self, active: str) -> list[str]:
         files = {"modern/settings.gradle": b"        vcsVersion = '26.3'\n", "modern/stonecutter.gradle": f"stonecutter.active '{active}'\n".encode()}
-        return messages(lint.stonecutter_active_version(tree_of(files)))
+        return messages(lint.stonecutter_active_version(tree_of(self, files)))
 
     def test_the_active_version_is_the_vcs_version(self):
         self.assertEqual([], self.problems("26.3"))
