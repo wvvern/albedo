@@ -1,11 +1,13 @@
 package dev.albedo.core.ui;
 
-import dev.albedo.core.Albedo;
+import dev.albedo.core.CoreFixture;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Drives a settings screen on a recording canvas the way a player does: each input is followed by the frame that shows it. */
 final class EditorDriver {
@@ -32,7 +34,7 @@ final class EditorDriver {
 
     /** Opens a new screen on the same canvas and draws its first frame. */
     void reopen() {
-        editor = new SettingsEditor(Albedo.get());
+        editor = new SettingsEditor(CoreFixture.albedo());
         if (tipDelay != null) editor.ui.tipDelay = tipDelay;
         render();
     }
@@ -99,6 +101,18 @@ final class EditorDriver {
     void key(UiKey key) {
         editor.keyPressed(key);
         render();
+    }
+
+    /** Fails when a text of the page right of {@code left}, which is not in the footer, goes below the top of the footer line. */
+    void assertAboveFooter(int left) {
+        int w = canvas.w, h = canvas.h;
+        int ph = Math.min(h - 2 * (h < 260 ? 4 : 10), 380), bodyBottom = (h - ph) / 2 + ph - 24;
+        for (Map.Entry<String, int[]> e : canvas.texts.entrySet()) {
+            // An empty label belongs to a button with its own drawing.
+            if (e.getKey().isEmpty() || e.getValue()[0] < left) continue;
+            int y = e.getValue()[1] - 4;
+            assertTrue(y + 9 <= bodyBottom || y >= bodyBottom + 5, "\"" + e.getKey() + "\" is on the footer line at " + w + "x" + h);
+        }
     }
 
     /** Runs one harness command: a frame records the labels, the next runs the command and the last shows the result. */
