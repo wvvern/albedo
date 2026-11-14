@@ -44,8 +44,25 @@
         <property name="ignorePattern" value="^(package|import) |https?://"/>
     </module>
 
+    <!-- Size and complexity: each max is the largest value in core, so no new monolith passes. Lower a max when its largest case shrinks. -->
+    <module name="FileLength">
+        <property name="max" value="794"/>
+    </module>
+
     <module name="TreeWalker">
         <module name="SuppressWarningsHolder"/>
+
+        <!-- Size and complexity. No MagicNumber: the pixel math and the sky twins hold many literal constants. -->
+        <module name="MethodLength">
+            <property name="max" value="105"/>
+        </module>
+        <module name="ParameterNumber">
+            <property name="max" value="11"/>
+            <property name="ignoreOverriddenMethods" value="true"/>
+        </module>
+        <module name="CyclomaticComplexity">
+            <property name="max" value="29"/>
+        </module>
 
         <!-- Files and imports -->
         <module name="OuterTypeFilename"/>

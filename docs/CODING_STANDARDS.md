@@ -20,7 +20,7 @@ Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle, 
 
 ## Style
 
-11. Checkstyle (`core/config/checkstyle/checkstyle.xml`) is the Java style for core. To silence one check for one element, use `@SuppressWarnings("checkstyle:<check>")` with a comment that says why.
+11. Checkstyle (`core/config/checkstyle/checkstyle.xml`) is the Java style for core. To silence one check for one element, use `@SuppressWarnings("checkstyle:<check>")` with a comment that says why. The size and complexity limits (file and method length, parameter count, cyclomatic complexity) are set at the largest current value. Lower a limit when its largest case shrinks.
 12. Text files are ASCII, indented with spaces, with no trailing spaces and a final newline (lint).
 13. UI text, README and changelog: short plain English for a player. Code comments and docs: normal technical English.
 14. No comment when the name says it. Otherwise say why, briefly. A real trap (driver bug, ordering constraint) can take a short paragraph at the code it protects.
