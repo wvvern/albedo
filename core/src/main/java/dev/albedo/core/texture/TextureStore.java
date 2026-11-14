@@ -37,11 +37,24 @@ public final class TextureStore {
         default boolean gpuHue() {
             return false;
         }
+
+        /** Whether only a resource reload can change the texture, which then has no {@link #upload}. */
+        default boolean reloadOnly() {
+            return false;
+        }
     }
 
-    /** The upload for a texture type from a different mod, which only a resource reload can change. */
-    public static final Upload RELOAD_ONLY = pixels -> {
-        throw new IllegalStateException("a reload-only texture has no upload");
+    /** The upload for a texture type from a different mod. */
+    public static final Upload RELOAD_ONLY = new Upload() {
+        @Override
+        public boolean upload(PixelBuffer pixels) {
+            throw new IllegalStateException("a reload-only texture has no upload");
+        }
+
+        @Override
+        public boolean reloadOnly() {
+            return true;
+        }
     };
 
     public static final class Result {
@@ -63,22 +76,56 @@ public final class TextureStore {
         final int[] averages;
         /** True for a skin, cape or elytra that the game downloads, which a resource reload cannot change. */
         final boolean downloaded;
-        /** The looks the texture has in the game, as {@link Layout#looks} gives them, or null when they are not known. */
-        volatile List<Appearance> applied;
-        /** Whether the texture in the game has its paint for a GPU pass that adds the hue of moving Chroma colors. */
-        volatile boolean gpuHue;
+        /** One reference, so that a reader sees the looks and the GPU hue of one paint. */
+        private volatile Painted painted;
 
         Entry(Layout layout, PixelBuffer.Heap original, Upload upload, List<Appearance> applied, boolean downloaded) {
             this.layout = layout;
             this.original = original;
             this.upload = upload;
             this.averages = layout.averages(original);
-            this.applied = applied;
             this.downloaded = downloaded;
-            this.gpuHue = upload.gpuHue();
+            this.painted = new Painted(applied, upload.gpuHue());
         }
 
         long bytes() { return 4L * original.width() * original.height(); }
+
+        Painted painted() { return painted; }
+
+        void painted(List<Appearance> looks, boolean gpuHue) {
+            painted = new Painted(looks, gpuHue);
+        }
+
+        /** Makes the next {@link TextureStore#repaint} paint the texture, with the GPU hue kept for the {@link TextureStore#paints} count. */
+        void markDirty() {
+            painted = new Painted(null, painted.gpuHue);
+        }
+
+        /** Whether the texture has its paint for another GPU hue than {@code gpuHueNow}. */
+        boolean stale(boolean gpuHueNow) {
+            return painted.gpuHue != gpuHueNow;
+        }
+    }
+
+    /** The paint that a texture has in the game. */
+    static final class Painted {
+        /** The looks, as {@link Layout#looks} gives them, or null when they are not known. */
+        final List<Appearance> looks;
+        /** Whether the paint is for a GPU pass that adds the hue of moving Chroma colors. */
+        final boolean gpuHue;
+
+        Painted(List<Appearance> looks, boolean gpuHue) {
+            this.looks = looks;
+            this.gpuHue = gpuHue;
+        }
+
+        /** Whether a GPU pass adds the hue to this paint, so that its Chroma texels count, where null looks are not known. */
+        boolean movesOnGpu() {
+            if (!gpuHue) return false;
+            if (looks == null) return true;
+            for (Appearance a : looks) if (a.chromaMoves()) return true;
+            return false;
+        }
     }
 
     /** Above this many bytes of original pixels (very large resource packs), changes fall back to a reload. */
@@ -147,18 +194,10 @@ public final class TextureStore {
             }
             entries.put(name, next);
             changes.incrementAndGet();
-            if (movesOnGpu(next, applied) || before != null && movesOnGpu(before, before.applied)) paints.incrementAndGet();
+            if (next.painted().movesOnGpu() || before != null && before.painted().movesOnGpu()) paints.incrementAndGet();
             catalog.replace(before, next);
         }
         return true;
-    }
-
-    /** Whether a GPU pass adds the hue to a texture with these looks, so that its Chroma texels count, where null looks are not known. */
-    private static boolean movesOnGpu(Entry e, List<Appearance> looks) {
-        if (!e.gpuHue) return false;
-        if (looks == null) return true;
-        for (Appearance a : looks) if (a.chromaMoves()) return true;
-        return false;
     }
 
     /** Bytes of the kept downloaded skins, capes and elytra. */
@@ -169,13 +208,13 @@ public final class TextureStore {
     /** Makes the next {@link #repaint} paint this texture, whose look in the game is not known. */
     public void invalidate(String name) {
         Entry e = entries.get(name);
-        if (e != null) e.applied = null;
+        if (e != null) e.markDirty();
     }
 
     /** Makes the next {@link #repaint} paint each texture whose {@link Upload#gpuHue} changed since its last paint. */
     public void invalidateGpuHue() {
         for (Entry e : entries.values()) {
-            if (e.gpuHue != e.upload.gpuHue()) e.applied = null;
+            if (e.stale(e.upload.gpuHue())) e.markDirty();
         }
     }
 
@@ -188,26 +227,26 @@ public final class TextureStore {
             for (Map.Entry<String, Entry> e : entries.entrySet()) {
                 Entry entry = e.getValue();
                 List<Appearance> want = entry.layout.looks(policy);
-                if (want.equals(entry.applied)) continue;
-                if (entry.upload == RELOAD_ONLY) {
+                Painted now = entry.painted();
+                if (want.equals(now.looks)) continue;
+                if (entry.upload.reloadOnly()) {
                     needReload++;
                     continue;
                 }
                 boolean gpuHue = entry.upload.gpuHue();
                 // With the hue from the GPU, the pixels do not depend on the Chroma speed, so only the texels change.
-                if (entry.gpuHue && gpuHue && onlySpeedChanges(entry.applied, want)) {
-                    entry.applied = want;
+                if (now.gpuHue && gpuHue && onlySpeedChanges(now.looks, want)) {
+                    entry.painted(want, true);
                     moved = true;
                     continue;
                 }
-                moved |= movesOnGpu(entry, entry.applied);
+                moved |= now.movesOnGpu();
                 try {
                     PixelBuffer.Heap pixels = entry.original.copy();
                     entry.layout.paint(want, pixels, gpuHue);
                     if (entry.upload.upload(pixels)) {
-                        entry.applied = want;
-                        entry.gpuHue = gpuHue;
-                        moved |= movesOnGpu(entry, want);
+                        entry.painted(want, gpuHue);
+                        moved |= entry.painted().movesOnGpu();
                         repainted++;
                     } else {
                         forget(e.getKey(), entry);
@@ -275,9 +314,9 @@ public final class TextureStore {
      */
     public boolean chromaTexels(String name, int w, int h, int[] out) {
         Entry entry = entries.get(name);
-        if (entry == null || !entry.gpuHue) return false;
-        List<Appearance> looks = entry.applied;
-        return looks != null && entry.layout.chromaTexels(looks, entry.original, w, h, out);
+        if (entry == null) return false;
+        Painted now = entry.painted();
+        return now.gpuHue && now.looks != null && entry.layout.chromaTexels(now.looks, entry.original, w, h, out);
     }
 
     /** Drops a texture that the game released, so that the store does not keep its pixels. */
@@ -291,7 +330,7 @@ public final class TextureStore {
     private synchronized void forget(String name, Entry entry) {
         if (entries.remove(name, entry)) {
             changes.incrementAndGet();
-            if (movesOnGpu(entry, entry.applied)) paints.incrementAndGet();
+            if (entry.painted().movesOnGpu()) paints.incrementAndGet();
             (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
             catalog.remove(entry);
         }

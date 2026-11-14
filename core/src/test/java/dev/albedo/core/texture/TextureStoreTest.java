@@ -165,6 +165,18 @@ class TextureStoreTest {
     }
 
     @Test
+    void anInvalidatedSpriteKeepsItsGpuHue() {
+        TextureStore store = new TextureStore();
+        String name = "minecraft:block/stone";
+        store.record(name, Layout.of(name), new PixelBuffer.Heap(1, 1, new int[]{WHITE}), new GpuUpload(), null);
+        store.repaint(blocks(Appearance.solid(WHITE)));
+        store.invalidate(name);
+        int paints = store.paints();
+        store.forget(name);
+        assertTrue(store.paints() != paints, "a sprite with unknown looks on the GPU pass can have moving texels");
+    }
+
+    @Test
     void texturesWithOneKeyAreAllRepainted() {
         // OptiFine connected textures of a block get the key of the block.
         TextureStore store = new TextureStore();
