@@ -15,6 +15,7 @@ import org.joml.Matrix4fc;
 //?}
 
 import java.io.File;
+import java.lang.reflect.Method;
 
 /**
  * The version-independent parts of the custom sky. {@link #frameStart} calls the family class: {@code FixedSky},
@@ -23,9 +24,6 @@ import java.io.File;
 public final class ModernSky {
     static final float RADIUS = 100f;
     private static final SkyDayTime DAY_TIME = new SkyDayTime();
-    private static java.lang.reflect.Method irisInUse;
-    private static Object iris;
-    private static boolean irisLooked;
     /** True when the last sky disc of a sky pass was the custom sky, which the later parts of the same pass read. */
     private static boolean replacedDisc;
 
@@ -101,22 +99,34 @@ public final class ModernSky {
 
     /** Iris with a shader pack draws the sky in its own way, so the sky then draws from the baked texture, or stays vanilla in the GL families. */
     static boolean shaderPackInUse() {
-        if (!irisLooked) {
-            irisLooked = true;
-            try {
-                Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
-                iris = api.getMethod("getInstance").invoke(null);
-                irisInUse = api.getMethod("isShaderPackInUse");
-            } catch (ReflectiveOperationException | LinkageError e) {
-                iris = null;
-            }
-        }
-        if (iris == null) return false;
+        if (IrisProbe.IRIS == null) return false;
         try {
-            return (Boolean) irisInUse.invoke(iris);
+            return (Boolean) IrisProbe.IN_USE.invoke(IrisProbe.IRIS);
         } catch (ReflectiveOperationException e) {
             return false;
         }
+    }
+
+    /** The Iris API, which the first call of {@link #shaderPackInUse} looks up; {@code IRIS} is null without Iris. */
+    private static final class IrisProbe {
+        static final Object IRIS;
+        static final Method IN_USE;
+
+        static {
+            Object iris = null;
+            Method inUse = null;
+            try {
+                Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+                iris = api.getMethod("getInstance").invoke(null);
+                inUse = api.getMethod("isShaderPackInUse");
+            } catch (ReflectiveOperationException | LinkageError e) {
+                iris = null;
+            }
+            IRIS = iris;
+            IN_USE = inUse;
+        }
+
+        private IrisProbe() {}
     }
 
     /** The factor of the sky and fog colors for the time of day and the weather, 1 for a sky that stays bright. */
