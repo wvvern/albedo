@@ -77,11 +77,12 @@ def run_job(target: Target, options: RunOptions, system: System) -> bool:
 def prepare(target: Target, options: RunOptions) -> bool:
     """Runs the tasks before the run task once, because the games of the suites of one node would compile its classes at the same time."""
     harness = session.HARNESS_ROOT / options.harness_name(target)
-    flags = gradle.property_flags(devrun.gradle_properties(target, harness, options))
+    # -x would also drop the dependencies of the run task, so harnessPrepare skips only the run task itself.
+    flags = gradle.property_flags({**devrun.gradle_properties(target, harness, options), "harnessPrepare": True})
     log = session.HARNESS_ROOT / f"{target.name}-prepare.log"
     try:
         # No daemon, because one daemon for each node at the same time would keep its heap long after the run.
-        gradle.run(target.build_dir, "--no-daemon", *flags, target.run_task, "-x", target.run_task, log=log)
+        gradle.run(target.build_dir, "--no-daemon", *flags, target.run_task, log=log)
     except ToolError as error:
         say(f"{target.name} prepare", f"FAIL: {error}")
         return False

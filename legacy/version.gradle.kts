@@ -135,6 +135,9 @@ tasks.register<JavaExec>("runClientDev") {
     description = "Starts the $mcVersion Forge dev client."
     // Only downloadAssets extracts the LWJGL natives of a Minecraft version that the shared Loom cache does not have.
     dependsOn("classes", "downloadAssets")
+    // -PharnessPrepare runs only the dependencies, so the parallel games of the harness do not compile at the same time.
+    val prepareOnly = project.hasProperty("harnessPrepare")
+    onlyIf { !prepareOnly }
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("net.fabricmc.devlaunchinjector.Main")
     // -PrunDir=<folder> gives the harness a game folder for each suite, so the suites of a node run at the same time.

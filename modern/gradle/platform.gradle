@@ -42,6 +42,10 @@ loom.runs {
     named('server') { displayName.set("Server:${project.loader}:${stonecutter.current.version}") }
 }
 
+// -PharnessPrepare runs only the dependencies of runClient, so the parallel games of the harness do not compile at the same time.
+def harnessPrepare = project.hasProperty('harnessPrepare')
+tasks.matching { it.name == 'runClient' }.configureEach { onlyIf { !harnessPrepare } }
+
 if (project.hasProperty('compat')) apply from: rootProject.file('gradle/compat.gradle')
 
 configurations {
