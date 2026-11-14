@@ -245,8 +245,8 @@ class SkyProgramTest {
         assertEquals(1 * 4 + 3, SkyProgram.DETAIL);
         assertEquals(5 * 4, SkyProgram.MOTION);
         String glsl = skyLayersSource();
-        assertTrue(glsl.contains("float detail = (flags & ALBEDO_FLAG_DETAIL) != 0 ? values.w : 0.0;"));
-        assertTrue(glsl.contains("float motion = (flags & ALBEDO_FLAG_MOTION) != 0 ? albedoLayer(layer, 5).x : 0.0;"));
+        assertTrue(glsl.contains("g.detail = (flags & ALBEDO_FLAG_DETAIL) != 0 ? values.w : 0.0;"));
+        assertTrue(glsl.contains("g.motion = (flags & ALBEDO_FLAG_MOTION) != 0 ? albedoLayer(layer, 5).x : 0.0;"));
         assertTrue(p.moves(), "a galaxy with motion needs the time of each frame");
         assertFalse(program(plain).moves());
         assertFalse(program(plain.withParam(SkyLayer.Param.DETAIL, 100)).moves(), "the detail alone is still");
