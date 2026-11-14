@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.4
+
+- fix: Keep Chroma working after a resource pack reload on 1.8.9 and 1.12.2
+- fix: Stop a rare crash when a custom sky falls back to its baked image
+
 ## 0.7.3
 
 - feat: Draw Outline around the shape of plants, rails, ladders and other see-through blocks, not only around the block
