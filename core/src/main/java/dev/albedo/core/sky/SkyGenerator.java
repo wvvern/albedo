@@ -26,7 +26,6 @@ public final class SkyGenerator {
         boolean run(int count, IntConsumer row);
     }
 
-    private static final float RANGE = SkyImage.TOP - SkyImage.BOTTOM;
     /** The distance in degrees below the horizon over which a sky that stops at the horizon goes into the horizon color. */
     private static final float FADE = 3f;
     /** The number of horizon sectors on each side that soften a sector, about 28 degrees. */
@@ -41,15 +40,11 @@ public final class SkyGenerator {
     private final SkyDesign design;
     private final int w, h;
     private final Rows rows;
-    private final float[] sinLon, cosLon, sinEl, cosEl, elevation;
-    /** The number of rows from the top that the layers and filters fill, where a filter reads the last of them for each row below. */
-    private final int used;
-    /** The width of one texel at the horizon, in radians. */
-    private final float texel;
+    private final SkyGrid grid;
     private final float[] img;
+    /** The result of each filter, from the first filter of the bake on. */
     private float[] tmp;
-    /** The size of each term image, half the size of the image. */
-    private final int termW, termH;
+    private SkyFilters filters;
     /** The term images as half float RGBA, see {@link SkyImage#terms}. */
     private short[] terms;
 
@@ -58,29 +53,8 @@ public final class SkyGenerator {
         this.w = w;
         this.h = h;
         this.rows = rows;
-        sinLon = new float[w];
-        cosLon = new float[w];
-        for (int x = 0; x < w; x++) {
-            double lon = (x + 0.5) / w * 2 * Math.PI;
-            sinLon[x] = (float) Math.sin(lon);
-            cosLon[x] = (float) Math.cos(lon);
-        }
-        sinEl = new float[h];
-        cosEl = new float[h];
-        elevation = new float[h];
-        for (int y = 0; y < h; y++) {
-            elevation[y] = SkyImage.TOP - (y + 0.5f) / h * RANGE;
-            double el = Math.toRadians(elevation[y]);
-            sinEl[y] = (float) Math.sin(el);
-            cosEl[y] = (float) Math.cos(el);
-        }
-        int filled = h;
-        while (filled > 1 && elevation[filled - 1] < SkyImage.layersBottom(design.drawnExtent())) filled--;
-        used = filled;
-        texel = (float) (2 * Math.PI / w);
+        grid = new SkyGrid(design, w, h);
         img = new float[w * h * 4];
-        termW = Math.max(1, w / 2);
-        termH = Math.max(1, h / 2);
     }
 
     /** Bakes on the calling thread. */
@@ -109,7 +83,7 @@ public final class SkyGenerator {
         // The layer numbers do not depend on the horizon colors, which are known only after the layers.
         SkyProgram layout = SkyProgram.of(design, new float[SkyImage.RING * 3]);
         float[] block = layout.block();
-        terms = new short[termW * termH * layout.terms() * 4];
+        terms = new short[grid.termW * grid.termH * layout.terms() * 4];
         for (int i = 0; i < layers.size(); i++) {
             SkyLayer layer = layers.get(i);
             Layer ctx = new Layer(layer, block, i);
@@ -120,11 +94,14 @@ public final class SkyGenerator {
             boolean show = layer.output() == SkyLayer.Output.SHOW;
             boolean ok;
             if (layer.kind().role() == SkyLayer.Role.GENERATOR) {
-                ok = rows.run(used, y -> generatorRow(ctx, y, show, mask, light, dark));
-                if (ok && ctx.termSlot >= 0) ok = rows.run(termH, ty -> fieldRow(ctx, ty));
+                ok = rows.run(grid.used, y -> generatorRow(ctx, y, show, mask, light, dark));
+                if (ok && ctx.termSlot >= 0) ok = rows.run(grid.termH, ty -> fieldRow(ctx, ty));
             } else {
-                if (tmp == null) tmp = new float[w * h * 4];
-                ok = filter(ctx) && rows.run(used, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
+                if (filters == null) {
+                    tmp = new float[w * h * 4];
+                    filters = new SkyFilters(grid, img, tmp, terms, rows);
+                }
+                ok = filters.run(ctx) && rows.run(grid.used, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
             }
             if (!ok) return null;
             if (light != null) planes.put(lightKey, light);
@@ -132,16 +109,17 @@ public final class SkyGenerator {
             for (Map.Entry<Integer, Integer> e : lastUse.entrySet()) if (e.getValue() == i) planes.remove(e.getKey());
         }
         tmp = null;
+        filters = null;
         float[] ring = ring();
         if (design.drawnExtent() == SkyDesign.Extent.HORIZON && !rows.run(h, y -> horizonRow(y, ring))) return null;
         int[] argb = new int[w * h];
         if (!rows.run(h, y -> encodeRow(y, argb))) return null;
-        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), termW, termH, terms);
+        return new SkyImage(argb, w, h, design, ring, SkyProgram.of(design, ring), grid.termW, grid.termH, terms);
     }
 
     /** Mixes the sky below the horizon into the horizon color (the fog color) of each direction, for a sky that stops at the horizon. */
     private void horizonRow(int y, float[] ring) {
-        float k = smooth(0, FADE, -elevation[y]);
+        float k = smooth(0, FADE, -grid.elevation[y]);
         if (k <= 0) return;
         float[] c = new float[3];
         for (int x = 0; x < w; x++) {
@@ -161,9 +139,10 @@ public final class SkyGenerator {
     }
 
     private void generatorRow(Layer l, int y, boolean show, float[] mask, float[] light, float[] dark) {
-        float[] s = new float[4], local = new float[3];
+        float[] s = new float[4], d = new float[3], local = new float[3];
         for (int x = 0; x < w; x++) {
-            l.local(cosEl[y] * sinLon[x], sinEl[y], -cosEl[y] * cosLon[x], local);
+            grid.dir(x, y, d);
+            l.local(d[0], d[1], d[2], local);
             generate(l, local, s);
             int p = y * w + x;
             planes(s, p, light, dark);
@@ -230,7 +209,7 @@ public final class SkyGenerator {
         float[] ring = new float[SkyImage.RING * 3];
         int[] count = new int[SkyImage.RING];
         for (int y = 0; y < h; y++) {
-            if (elevation[y] < 0 || elevation[y] > 6) continue;
+            if (grid.elevation[y] < 0 || grid.elevation[y] > 6) continue;
             for (int x = 0; x < w; x++) {
                 int s = x * SkyImage.RING / w, p = (y * w + x) * 4;
                 for (int c = 0; c < 3; c++) ring[s * 3 + c] += img[p + c];
@@ -337,10 +316,10 @@ public final class SkyGenerator {
             case GLOW: glow(l, p, out); break;
             case NOISE: noise(l, p, out); break;
             case FRACTAL: fractal(l, p, out); break;
-            case GALAXY: Galaxy.sample(l, p, texel, 0, out); break;
+            case GALAXY: Galaxy.sample(l, p, grid.texel, 0, out); break;
             case STARS: stars(l, p, out); break;
-            case DEEP_FIELD: DeepField.sample(l.block, l.index, p, texel, out); break;
-            case AURORA: Aurora.sample(l.block, l.index, p, texel, out); break;
+            case DEEP_FIELD: DeepField.sample(l.block, l.index, p, grid.texel, out); break;
+            case AURORA: Aurora.sample(l.block, l.index, p, grid.texel, out); break;
             default: out[3] = 0; // only the sky shader draws the meteors
         }
     }
@@ -373,7 +352,8 @@ public final class SkyGenerator {
      * {@code albedoFractalField} at the texel centers, which the sky shader reads with linear filters in place of that noise.
      */
     private void fieldRow(Layer l, int ty) {
-        double el = Math.toRadians(SkyImage.TOP - (ty + 0.5) / termH * RANGE);
+        int termW = grid.termW, termH = grid.termH;
+        double el = Math.toRadians(SkyImage.TOP - (ty + 0.5) / termH * SkyGrid.RANGE);
         float cos = (float) Math.cos(el), sin = (float) Math.sin(el);
         float[] local = new float[3], f = new float[4];
         int base = (l.termSlot * termH + ty) * termW * 4;
@@ -488,289 +468,8 @@ public final class SkyGenerator {
         out[3] *= clamp01(v * 1.6f);
         pulse(l, p, v, out);
     }
+
     private void stars(Layer l, float[] p, float[] out) {
-        l.stars.shade(p, texel, l.color1, l.alpha1, out);
-    }
-
-    /** Runs a filter, which writes its result for all of {@code img} into {@code tmp}. */
-    private boolean filter(Layer l) {
-        boolean ok;
-        switch (l.layer.kind()) {
-            case BLUR:
-                System.arraycopy(img, 0, tmp, 0, img.length);
-                ok = blur(tmp, l.amount * 10f);
-                break;
-            case BLOOM: return bloom(l);
-            case PIXELATE: ok = rows.run(used, y -> pixelateRow(l, y)); break;
-            case CRYSTALLIZE: ok = rows.run(used, y -> crystallizeRow(l, y)); break;
-            case POSTERIZE: ok = rows.run(used, y -> posterizeRow(l, y)); break;
-            case HUE_SHIFT: ok = rows.run(used, y -> hueRow(l, y)); break;
-            case SWIRL: ok = rows.run(used, y -> swirlRow(l, y)); break;
-            case VIGNETTE: ok = rows.run(used, y -> vignetteRow(l, y)); break;
-            default:
-                System.arraycopy(img, 0, tmp, 0, img.length);
-                ok = true;
-        }
-        // The term image of a filter other than a bloom is its full result.
-        return ok && (l.termSlot < 0 || rows.run(termH, ty -> termRow(l.termSlot, ty, 1f)));
-    }
-
-    /** Three box passes in each direction, which is close to a Gaussian, with the width across a row wider toward the zenith. */
-    private boolean blur(float[] buf, float degrees) {
-        if (degrees <= 0) return true;
-        return rows.run(used, y -> {
-            int radius = Math.min(w / 2 - 1, Math.round(degrees / 360f * w / Math.max(0.05f, cosEl[y])));
-            float[] line = new float[w * 4], out = new float[w * 4];
-            System.arraycopy(buf, y * w * 4, line, 0, w * 4);
-            for (int pass = 0; pass < 3; pass++) {
-                boxWrap(line, out, w, radius);
-                float[] t = line;
-                line = out;
-                out = t;
-            }
-            System.arraycopy(line, 0, buf, y * w * 4, w * 4);
-        }) && rows.run(w, x -> {
-            int radius = Math.round(degrees / RANGE * h);
-            float[] line = new float[used * 4], out = new float[used * 4];
-            for (int y = 0; y < used; y++) System.arraycopy(buf, (y * w + x) * 4, line, y * 4, 4);
-            for (int pass = 0; pass < 3; pass++) {
-                boxClamp(line, out, used, radius);
-                float[] t = line;
-                line = out;
-                out = t;
-            }
-            for (int y = 0; y < used; y++) System.arraycopy(line, y * 4, buf, (y * w + x) * 4, 4);
-        });
-    }
-
-    /** A running-sum box filter of RGBA values over a ring of {@code n}. */
-    private static void boxWrap(float[] in, float[] out, int n, int radius) {
-        if (radius <= 0) {
-            System.arraycopy(in, 0, out, 0, n * 4);
-            return;
-        }
-        float inv = 1f / (2 * radius + 1);
-        for (int c = 0; c < 4; c++) {
-            float sum = 0;
-            for (int k = -radius; k <= radius; k++) sum += in[Math.floorMod(k, n) * 4 + c];
-            for (int i = 0; i < n; i++) {
-                out[i * 4 + c] = sum * inv;
-                sum += in[Math.floorMod(i + radius + 1, n) * 4 + c] - in[Math.floorMod(i - radius, n) * 4 + c];
-            }
-        }
-    }
-
-    /** A running-sum box filter of RGBA values over a line of {@code n} whose ends repeat. */
-    private static void boxClamp(float[] in, float[] out, int n, int radius) {
-        if (radius <= 0) {
-            System.arraycopy(in, 0, out, 0, n * 4);
-            return;
-        }
-        float inv = 1f / (2 * radius + 1);
-        for (int c = 0; c < 4; c++) {
-            float sum = 0;
-            for (int k = -radius; k <= radius; k++) sum += in[clampIndex(k, n) * 4 + c];
-            for (int i = 0; i < n; i++) {
-                out[i * 4 + c] = sum * inv;
-                sum += in[clampIndex(i + radius + 1, n) * 4 + c] - in[clampIndex(i - radius, n) * 4 + c];
-            }
-        }
-    }
-
-    private static int clampIndex(int i, int n) {
-        return i < 0 ? 0 : i >= n ? n - 1 : i;
-    }
-
-    /** Adds a wide blur of the parts lighter than HEIGHT, AMOUNT strong. */
-    private boolean bloom(Layer l) {
-        float threshold = l.height;
-        boolean ok = rows.run(used, y -> {
-            for (int x = 0; x < w; x++) {
-                int i = (y * w + x) * 4;
-                float lightness = Oklab.lightness(clamp01(img[i]), clamp01(img[i + 1]), clamp01(img[i + 2]));
-                float k = clamp01((lightness - threshold) / Math.max(0.05f, 1 - threshold));
-                for (int c = 0; c < 3; c++) tmp[i + c] = img[i + c] * k;
-                tmp[i + 3] = 1;
-            }
-        });
-        if (!ok || !blur(tmp, 6f)) return false;
-        float strength = l.amount * 2.5f;
-        if (l.termSlot >= 0 && !rows.run(termH, ty -> termRow(l.termSlot, ty, strength))) return false;
-        return rows.run(used, y -> {
-            for (int x = 0; x < w; x++) {
-                int i = (y * w + x) * 4;
-                for (int c = 0; c < 3; c++) tmp[i + c] = img[i + c] + tmp[i + c] * strength;
-                tmp[i + 3] = 1;
-            }
-        });
-    }
-
-    /** Writes one row of a term image: the mean of 2 x 2 texels of {@code tmp} times {@code k}, where the unfilled rows are 0. */
-    private void termRow(int slot, int ty, float k) {
-        int base = (slot * termH + ty) * termW * 4;
-        for (int tx = 0; tx < termW; tx++) {
-            for (int c = 0; c < 3; c++) {
-                float sum = 0;
-                for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
-                    if (y >= used) continue;
-                    for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += tmp[(y * w + Math.min(w - 1, x)) * 4 + c];
-                }
-                terms[base + tx * 4 + c] = HalfFloat.encode(sum / 4 * k);
-            }
-            terms[base + tx * 4 + 3] = HalfFloat.encode(1);
-        }
-    }
-
-    /** Cells of equal size in degrees in the layer frame, in rows whose cell count follows the width of the sky at their height. */
-    private void pixelateRow(Layer l, int y) {
-        float size = (float) Math.toRadians(3f * l.scale);
-        float[] p = new float[3], d = new float[3], s = new float[4];
-        for (int x = 0; x < w; x++) {
-            dir(x, y, d);
-            l.local(d[0], d[1], d[2], p);
-            double el = Math.asin(clamp(p[1], -1, 1));
-            int band = (int) Math.floor((el + Math.PI / 2) / size);
-            double center = -Math.PI / 2 + (band + 0.5) * size;
-            int cells = Math.max(1, (int) Math.round(2 * Math.PI * Math.cos(center) / size));
-            double lon = Math.atan2(p[0], -p[2]);
-            double cellLon = (Math.floor((lon + Math.PI) / (2 * Math.PI) * cells) + 0.5) / cells * 2 * Math.PI - Math.PI;
-            float cos = (float) Math.cos(center);
-            l.world(cos * (float) Math.sin(cellLon), (float) Math.sin(center), -cos * (float) Math.cos(cellLon), d);
-            sample(img, d[0], d[1], d[2], s);
-            System.arraycopy(s, 0, tmp, (y * w + x) * 4, 4);
-        }
-    }
-
-    /** Each pixel takes the color at the nearest point of a jittered 3D grid, which makes cells like crystals. */
-    private void crystallizeRow(Layer l, int y) {
-        float n = (float) (1 / Math.toRadians(4f * l.scale));
-        float[] p = new float[3], d = new float[3], s = new float[4];
-        for (int x = 0; x < w; x++) {
-            dir(x, y, d);
-            l.local(d[0], d[1], d[2], p);
-            float px = p[0] * n, py = p[1] * n, pz = p[2] * n;
-            int cx = (int) Math.floor(px), cy = (int) Math.floor(py), cz = (int) Math.floor(pz);
-            float best = Float.MAX_VALUE, bx = px, by = py, bz = pz;
-            for (int i = -1; i <= 1; i++) {
-                for (int j = -1; j <= 1; j++) {
-                    for (int k = -1; k <= 1; k++) {
-                        int hx = cx + i, hy = cy + j, hz = cz + k;
-                        float fx = hx + Noise.unit(Noise.hash(hx, hy, hz, l.seed + 11));
-                        float fy = hy + Noise.unit(Noise.hash(hx, hy, hz, l.seed + 22));
-                        float fz = hz + Noise.unit(Noise.hash(hx, hy, hz, l.seed + 33));
-                        float dd = (px - fx) * (px - fx) + (py - fy) * (py - fy) + (pz - fz) * (pz - fz);
-                        if (dd < best) {
-                            best = dd;
-                            bx = fx;
-                            by = fy;
-                            bz = fz;
-                        }
-                    }
-                }
-            }
-            float len = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-            l.world(bx / len, by / len, bz / len, d);
-            sample(img, d[0], d[1], d[2], s);
-            System.arraycopy(s, 0, tmp, (y * w + x) * 4, 4);
-        }
-    }
-
-    /** Fewer color steps: from 2 to 16 for each channel, as AMOUNT sets. */
-    private void posterizeRow(Layer l, int y) {
-        int levels = 2 + Math.round(l.amount * 14);
-        for (int x = 0; x < w; x++) {
-            int i = (y * w + x) * 4;
-            for (int c = 0; c < 3; c++) {
-                float s = Oklab.toSrgb(img[i + c]) / 255f;
-                float q = Math.round(s * (levels - 1)) / (float) (levels - 1);
-                tmp[i + c] = Oklab.toLinear(Math.round(q * 255));
-            }
-            tmp[i + 3] = img[i + 3];
-        }
-    }
-
-    /** Turns the hue by AMOUNT of a full turn, in OKLab so that the lightness stays. */
-    private void hueRow(Layer l, int y) {
-        double angle = l.amount * 2 * Math.PI;
-        float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
-        float[] lab = new float[3], rgb = new float[3];
-        for (int x = 0; x < w; x++) {
-            int i = (y * w + x) * 4;
-            Oklab.fromLinear(Math.max(0, img[i]), Math.max(0, img[i + 1]), Math.max(0, img[i + 2]), lab);
-            Oklab.toLinear(lab[0], lab[1] * cos - lab[2] * sin, lab[1] * sin + lab[2] * cos, rgb);
-            tmp[i] = Math.max(0, rgb[0]);
-            tmp[i + 1] = Math.max(0, rgb[1]);
-            tmp[i + 2] = Math.max(0, rgb[2]);
-            tmp[i + 3] = img[i + 3];
-        }
-    }
-
-    /** Turns the sky around the layer center, most at the center and none at the edge, which is 60 degrees times the size away. */
-    private void swirlRow(Layer l, int y) {
-        float[] c = new float[3], d = new float[3], s = new float[4];
-        l.world(0, 0, -1, c);
-        double radius = Math.toRadians(60 * l.scale), twist = l.amount * 3 * Math.PI;
-        for (int x = 0; x < w; x++) {
-            dir(x, y, d);
-            double cos = clamp(c[0] * d[0] + c[1] * d[1] + c[2] * d[2], -1, 1);
-            double dist = Math.acos(cos);
-            if (dist < radius) {
-                double t = 1 - dist / radius, a = twist * t * t;
-                rotate(d, c, (float) a);
-            }
-            sample(img, d[0], d[1], d[2], s);
-            System.arraycopy(s, 0, tmp, (y * w + x) * 4, 4);
-        }
-    }
-
-    /** Mixes COLOR_1 in away from the layer center, from 30 percent of 90 degrees times the size out to all of it. */
-    private void vignetteRow(Layer l, int y) {
-        float[] c = new float[3], d = new float[3];
-        l.world(0, 0, -1, c);
-        double radius = Math.toRadians(90 * l.scale);
-        for (int x = 0; x < w; x++) {
-            dir(x, y, d);
-            double dist = Math.acos(clamp(c[0] * d[0] + c[1] * d[1] + c[2] * d[2], -1, 1));
-            float k = smooth((float) (radius * 0.3), (float) radius, (float) dist) * l.amount * l.alpha1;
-            int i = (y * w + x) * 4;
-            for (int ch = 0; ch < 3; ch++) tmp[i + ch] = img[i + ch] + (l.color1[ch] - img[i + ch]) * k;
-            tmp[i + 3] = img[i + 3];
-        }
-    }
-
-    private void dir(int x, int y, float[] out) {
-        out[0] = cosEl[y] * sinLon[x];
-        out[1] = sinEl[y];
-        out[2] = -cosEl[y] * cosLon[x];
-    }
-
-    /** Rotates {@code v} in place about the unit axis {@code k} by {@code angle} radians. */
-    private static void rotate(float[] v, float[] k, float angle) {
-        float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
-        float dot = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
-        float cx = k[1] * v[2] - k[2] * v[1], cy = k[2] * v[0] - k[0] * v[2], cz = k[0] * v[1] - k[1] * v[0];
-        float x = v[0] * cos + cx * sin + k[0] * dot * (1 - cos);
-        float y = v[1] * cos + cy * sin + k[1] * dot * (1 - cos);
-        float z = v[2] * cos + cz * sin + k[2] * dot * (1 - cos);
-        v[0] = x;
-        v[1] = y;
-        v[2] = z;
-    }
-
-    /** The bilinear RGBA of an image in a sky direction, where the columns wrap and the rows stop at the first and the last used row. */
-    private void sample(float[] src, float x, float y, float z, float[] out) {
-        double lon = Math.atan2(x, -z);
-        double el = Math.toDegrees(Math.asin(clamp(y, -1, 1)));
-        double fx = (lon / (2 * Math.PI)) * w - 0.5;
-        double fy = (SkyImage.TOP - el) / RANGE * h - 0.5;
-        fy = Math.max(0, Math.min(used - 1, fy));
-        int x0 = (int) Math.floor(fx), y0 = (int) Math.floor(fy);
-        float tx = (float) (fx - x0), ty = (float) (fy - y0);
-        int xa = Math.floorMod(x0, w), xb = Math.floorMod(x0 + 1, w), ya = y0, yb = Math.min(used - 1, y0 + 1);
-        for (int c = 0; c < 4; c++) {
-            float top = src[(ya * w + xa) * 4 + c] * (1 - tx) + src[(ya * w + xb) * 4 + c] * tx;
-            float bottom = src[(yb * w + xa) * 4 + c] * (1 - tx) + src[(yb * w + xb) * 4 + c] * tx;
-            out[c] = top * (1 - ty) + bottom * ty;
-        }
+        l.stars.shade(p, grid.texel, l.color1, l.alpha1, out);
     }
 }
