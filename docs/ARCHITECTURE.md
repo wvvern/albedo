@@ -109,7 +109,7 @@ Traps:
 
 Invariants:
 
-- The CPU bake and the shader must produce the same sky: same integer hashes and noise. The Java twins of shader code (`SkyStars`, `SkyMeteors`, `Aurora`, `DeepField`, `Galaxy`, `Noise` and `SkyMath`) change together with the GLSL. Harness `skycompare` checks it; run it after every sky change.
+- The CPU bake and the shader must produce the same sky: same integer hashes and noise. The Java twins of shader code (`SkyStars`, `SkyMeteors`, `Aurora`, `DeepField`, `Galaxy`, `Noise` and `SkyMath`) change together with the GLSL. Each of the first six has its own include (`include/sky_stars.glsl` and so on), which `sky_layers.glsl` includes. Harness `skycompare` checks it; run it after every sky change.
 - `SkyGeneratorTest.thePresetsKeepTheirPixels` pins a hash of each preset's bake. Update it in the same commit when a pixel change is intended.
 - `SkyClock.seconds()` wraps every hour to keep float precision, so every wave must repeat a whole number of times per hour. `longSeconds()` does not wrap and drives the turning. Meteor hashes use the slot modulo 3600, so meteors in flight cross the wrap. `Aurora.clock` wraps at `Aurora.PERIOD` (7200 s) instead.
 - The bake, the preview and `skycompare` draw a still sky (`SkyProgram.STILL`); meteors exist only in the shader. A moving or turning sky writes the block each frame from `SkyProgram.at`.

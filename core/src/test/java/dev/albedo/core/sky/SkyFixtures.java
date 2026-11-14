@@ -66,9 +66,9 @@ final class SkyFixtures {
         return (int) Math.round((SkyImage.TOP - elevation) / (SkyImage.TOP - SkyImage.BOTTOM) * h - 0.5);
     }
 
-    /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
+    /** The text of the sky include of the shaders with its twin includes in it, which the tests compare with the numbers of the bake. */
     static String skyLayersSource() throws IOException {
-        return SkyShaderSource.read("include/sky_layers.glsl");
+        return SkyShaderSource.inline(SkyShaderSource.readInclude(SkyShaderSource.LAYERS_INCLUDE, ""), id -> SkyShaderSource.readInclude(id, ""));
     }
 
     /** The number of the line {@code const float <name> = <number>;} of a shader text. */
