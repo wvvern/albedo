@@ -3,7 +3,6 @@ package dev.albedo.modern;
 //? if >=1.21.11 && <26.3 {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -20,7 +19,6 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.OptionalLong;
 
@@ -45,33 +43,15 @@ final class PrecompiledChromaPass implements ChromaBackend {
             .withCull(false), null)
             .build();
 
-    // The state of the compile, which the game does again after each resource reload.
-    private static ShaderState state = ShaderState.NOT_STARTED;
-
-    // The complete text of a shader of the mod, with the Chroma include in it.
-    private static String source(Identifier id, ShaderType type) {
-        try {
-            return SkyShaderSource.classic(id.getPath(), type == ShaderType.VERTEX, DeviceApi.dialect());
-        } catch (IOException e) {
-            Albedo.get().platform().warn("Cannot read the Chroma shader " + id, e);
-            return null;
-        }
-    }
+    private static final Precompiled PIPELINE_SHADER = new Precompiled(PIPELINE, SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "",
+            "Chroma shader", "Chroma is off.");
+    private static final Precompiled COPY_SHADER = new Precompiled(COPY, SkyShaderSource.CHROMA, SkyShaderSource.CHROMA_COPY, "",
+            "Chroma copy shader", "Chroma is off.");
 
     @Override
     public ShaderState compile() {
-        if (state.dead()) return state;
-        // A resource reload empties the pipeline cache, so the pipelines go to the game in each frame before the pass uses them.
-        var device = RenderSystem.getDevice();
-        if (device.precompilePipeline(PIPELINE, PrecompiledChromaPass::source).isValid()
-                && device.precompilePipeline(COPY, PrecompiledChromaPass::source).isValid()) {
-            if (state == ShaderState.NOT_STARTED) Albedo.get().platform().info("Compiled the Chroma shader " + PIPELINE.getLocation());
-            state = state.to(ShaderState.READY);
-            return state;
-        }
-        state = state.to(ShaderState.FAILED);
-        Albedo.get().platform().warn("Cannot compile the Chroma shader " + PIPELINE.getLocation() + ". Chroma is off.", null);
-        return state;
+        ShaderState chroma = PIPELINE_SHADER.compile();
+        return chroma.usable() ? COPY_SHADER.compile() : chroma;
     }
 
     @Override
