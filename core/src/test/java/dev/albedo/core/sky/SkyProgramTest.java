@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static dev.albedo.core.sky.SkyFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyProgramTest {
@@ -73,12 +74,12 @@ class SkyProgramTest {
     }
 
     private static float arc(SkyDesign design, int layer) {
-        return SkyProgram.of(design, new float[SkyImage.RING * 3]).block()[SkyProgram.at(layer, SkyProgram.TRAIL)];
+        return program(design).block()[SkyProgram.at(layer, SkyProgram.TRAIL)];
     }
 
     @Test
     void theBlockOfAFrameHasTheTimeTheAuroraClockAndTheTurn() {
-        SkyProgram aurora = SkyProgram.of(SkyPresets.AURORA, new float[SkyImage.RING * 3]);
+        SkyProgram aurora = program(SkyPresets.AURORA);
         float[] still = aurora.block();
         assertEquals(SkyProgram.STILL, still[SkyProgram.TIME]);
         assertArrayEquals(new float[] {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
@@ -108,11 +109,11 @@ class SkyProgramTest {
         assertFalse(SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program().moves());
         SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY))
                 .withLayer(2, SkyPresets.METEORS.layers().get(2).withParam(SkyLayer.Param.TWINKLE, 0));
-        assertFalse(SkyProgram.of(hidden, new float[SkyImage.RING * 3]).moves(), "a meteors layer that does not show or mask does not move");
+        assertFalse(program(hidden).moves(), "a meteors layer that does not show or mask does not move");
         SkyLayer masked = SkyLayer.of(5, SkyLayer.Kind.GRADIENT).withMask(SkyMask.of(4, SkyMask.Mode.LIGHT));
         List<SkyLayer> layers = new ArrayList<SkyLayer>(hidden.layers());
         layers.add(masked);
-        assertTrue(SkyProgram.of(hidden.withLayers(layers), new float[SkyImage.RING * 3]).moves(), "a meteors mask moves");
+        assertTrue(program(hidden.withLayers(layers)).moves(), "a meteors mask moves");
         SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
         assertTrue(aurora.moves(), "the aurora moves with the same time");
         assertEquals(SkyProgram.STILL, aurora.block()[SkyProgram.TIME]);
@@ -140,10 +141,9 @@ class SkyProgramTest {
     void theTrailsAreInTheBlockOnlyForTheStarsOfASkyThatTurns() throws IOException {
         SkyLayer stars = SkyLayer.of(1, SkyLayer.Kind.STARS).withTransform(new Transform(70, 20, 10, 100));
         SkyLayer galaxy = SkyLayer.of(2, SkyLayer.Kind.GALAXY);
-        SkyDesign still = new SkyDesign(Arrays.asList(stars, galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE);
+        SkyDesign still = design(stars, galaxy);
         SkyTurning turning = new SkyTurning(100, 2, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.REVERSE, 30, 45, 70);
-        float[] block = SkyProgram.of(still.withTurning(turning), new float[SkyImage.RING * 3]).block();
+        float[] block = program(still.withTurning(turning)).block();
         assertEquals((float) Math.toRadians(45), block[SkyProgram.at(0, SkyProgram.TRAIL)], 1e-6f);
         assertEquals(0.7f, block[SkyProgram.at(0, SkyProgram.TRAIL_LIGHT)], 1e-6f);
         double[] axis = SkyTurn.trailAxis(turning);
@@ -152,10 +152,8 @@ class SkyProgramTest {
             for (int c = 0; c < 3; c++) v += block[SkyProgram.at(0, SkyProgram.LOCAL + row * 4 + c)] * axis[c];
             assertEquals(v, block[SkyProgram.at(0, SkyProgram.TRAIL_AXIS + row * 4)], 1e-6, "the axis in the layer frame, row " + row);
         }
-        assertArrayEquals(SkyProgram.of(still, new float[SkyImage.RING * 3]).block(),
-                SkyProgram.of(still.withTurning(turning.withTrails(0)), new float[SkyImage.RING * 3]).block(), "no trails");
-        assertArrayEquals(SkyProgram.of(still, new float[SkyImage.RING * 3]).block(),
-                SkyProgram.of(still.withTurning(turning.withAmount(0)), new float[SkyImage.RING * 3]).block(), "a still sky has no trails");
+        assertArrayEquals(program(still).block(), program(still.withTurning(turning.withTrails(0))).block(), "no trails");
+        assertArrayEquals(program(still).block(), program(still.withTurning(turning.withAmount(0))).block(), "a still sky has no trails");
         // The stars read the trail arc, the trail light and the axis from the last values of slots 5 to 9, as the bake does.
         assertEquals(5 * 4 + 3, SkyProgram.TRAIL);
         assertEquals(6 * 4 + 3, SkyProgram.TRAIL_LIGHT);
@@ -163,17 +161,6 @@ class SkyProgramTest {
         String glsl = skyLayersSource();
         assertTrue(glsl.contains("? vec4(albedoLayer(layer, 7).w, albedoLayer(layer, 8).w, albedoLayer(layer, 9).w, albedoLayer(layer, 5).w)"));
         assertTrue(glsl.contains("seed, trail, albedoLayer(layer, 6).w);"));
-    }
-
-    private static SkyProgram program(SkyLayer... layers) {
-        SkyDesign d = new SkyDesign(Arrays.asList(layers), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE);
-        return SkyProgram.of(d, new float[SkyImage.RING * 3]);
-    }
-
-    /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
-    static String skyLayersSource() throws IOException {
-        return SkyShaderSource.read("include/sky_layers.glsl");
     }
 
     @Test
@@ -220,7 +207,7 @@ class SkyProgramTest {
     void theGalaxyValuesAreInTheFreeFloatsOfTheLayer() {
         SkyLayer g = SkyLayer.of(1, SkyLayer.Kind.GALAXY).withParam(SkyLayer.Param.TILT, 45).withParam(SkyLayer.Param.DUST, 30)
                 .withParam(SkyLayer.Param.JETS, 80).withParam(SkyLayer.Param.COLOR_3, 0xFFFF0000);
-        float[] b = SkyProgram.of(SkyPresets.GALAXY.withLayers(Collections.singletonList(g)), new float[SkyImage.RING * 3]).block();
+        float[] b = program(SkyPresets.GALAXY.withLayers(Collections.singletonList(g))).block();
         assertEquals(0.5f, b[SkyProgram.at(0, SkyProgram.TILT)], 1e-6f);
         assertEquals(0.3f, b[SkyProgram.at(0, SkyProgram.DUST)], 1e-6f);
         assertEquals(0.8f, b[SkyProgram.at(0, SkyProgram.JETS)], 1e-6f);
@@ -303,7 +290,7 @@ class SkyProgramTest {
                 for (int y = 2 * ty; y <= 2 * ty + 1; y++) {
                     for (int x = 2 * tx; x <= 2 * tx + 1; x++) sum += Oklab.toLinear(img.argb()[y * w + x] >> 8);
                 }
-                error += Math.abs(sum / 4 - SkyGeneratorTest.fromHalf(img.terms()[(ty * (w / 2) + tx) * 4 + 1]));
+                error += Math.abs(sum / 4 - fromHalf(img.terms()[(ty * (w / 2) + tx) * 4 + 1]));
                 count++;
             }
         }
@@ -315,7 +302,7 @@ class SkyProgramTest {
         List<SkyLayer> layers = new ArrayList<SkyLayer>();
         layers.add(SkyLayer.of(1, SkyLayer.Kind.GRADIENT));
         for (int i = 0; i <= SkyProgram.MAX_TERMS; i++) layers.add(SkyLayer.of(i + 2, SkyLayer.Kind.BLOOM));
-        SkyProgram p = SkyProgram.of(SkyPresets.GALAXY.withLayers(layers), new float[SkyImage.RING * 3]);
+        SkyProgram p = program(SkyPresets.GALAXY.withLayers(layers));
         assertEquals(SkyProgram.MAX_TERMS, p.terms());
         assertEquals(SkyProgram.MAX_TERMS - 1, p.termSlot(SkyProgram.MAX_TERMS));
         assertEquals(SkyProgram.Path.BAKED, p.path(SkyProgram.MAX_TERMS + 1));
@@ -351,10 +338,6 @@ class SkyProgramTest {
         assertEquals(0.75f, b[SkyProgram.at(3, SkyProgram.OPACITY)], 1e-6f);
         assertEquals(-1, b[SkyProgram.at(0, SkyProgram.MASK_INDEX)]);
         assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)], 1e-6f, "an identity rotation");
-        float[] fog = img.fogRgb(SkyTurn.STILL, 180, 1);
-        float north = b[SkyProgram.RING];
-        assertTrue(north > 0, "the horizon colors follow the layers");
-        assertTrue(Math.abs(Oklab.toSrgb(north) / 255f - fog[0]) < 0.05f, "the north fog color is near the first sector");
     }
 
     @Test

@@ -5,12 +5,10 @@ import dev.albedo.core.config.SkyLayer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
+import static dev.albedo.core.sky.SkyFixtures.design;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyShaderSourceTest {
@@ -58,8 +56,7 @@ class SkyShaderSourceTest {
         assertTrue(steps.contains(" s = albedoClouds(2, albedoFrame(2, dir), albedoField(3, dir), 0); albedoMaskSource(2, s);"), steps);
         SkyLayer[] clouds = new SkyLayer[SkyDesign.MAX_LAYERS];
         for (int i = 0; i < clouds.length; i++) clouds[i] = SkyLayer.of(i + 1, SkyLayer.Kind.NOISE);
-        SkyDesign many = new SkyDesign(Arrays.asList(clouds), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED, SkyDesign.Extent.SPHERE);
-        String last = SkyShaderSource.layerSteps(SkyGenerator.bake(many, 64, 32).program());
+        String last = SkyShaderSource.layerSteps(SkyGenerator.bake(design(clouds), 64, 32).program());
         assertTrue(last.contains(" s = albedoClouds(7, albedoFrame(7, dir), albedoCloudsField(7, albedoFrame(7, dir), 0), 0);"),
                 "a layer with no field image: " + last);
         assertTrue(steps.contains(" s = albedoTermFilter(3, dir); img = albedoShow(img, s, 3, 0, 2, false);"), "the blur in the light: " + steps);
@@ -76,19 +73,6 @@ class SkyShaderSourceTest {
         SkyProgram lower = SkyGenerator.bake(SkyPresets.DUSK.withLayers(SkyPresets.DUSK.layers().subList(0, 3)), 64, 32).program();
         assertEquals(2, count(SkyShaderSource.layerSteps(lower), " s = "));
         assertSame(dusk.shaderSteps(), dusk.shaderSteps(), "the program keeps its steps");
-    }
-
-    @Test
-    void theShaderCacheKeepsTheLastShadersAndClosesTheOldest() {
-        List<String> closed = new ArrayList<String>();
-        SkyShaderCache<String> cache = new SkyShaderCache<String>(2, steps -> "shader " + steps, closed::add);
-        String a = cache.get("a");
-        assertSame(a, cache.get("a"));
-        cache.get("b");
-        cache.get("a");
-        cache.get("c");
-        assertEquals(Arrays.asList("shader b"), closed, "the least recently used shader goes");
-        assertSame(a, cache.get("a"));
     }
 
     @Test

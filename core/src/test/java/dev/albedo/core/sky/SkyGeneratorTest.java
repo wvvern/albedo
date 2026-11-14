@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static dev.albedo.core.sky.SkyFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyGeneratorTest {
@@ -25,10 +26,6 @@ class SkyGeneratorTest {
         return SkyLayer.of(id, kind);
     }
 
-    private static int red(int argb) {
-        return argb >> 16 & 0xFF;
-    }
-
     @Test
     void theSameDesignGivesTheSamePixelsAndASeedChangesThem() {
         SkyDesign a = of(layer(1, SkyLayer.Kind.NOISE));
@@ -41,8 +38,7 @@ class SkyGeneratorTest {
     void theCloudsPulseSmoothlyInMostRegions() {
         int still = 0, strong = 0;
         for (int i = 0; i < 400; i++) {
-            double az = i * 0.7, el = (i % 17) * 0.09 - 0.7;
-            float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
+            float[] p = direction(i * 0.7, (i % 17) * 0.09 - 0.7);
             assertEquals(1f, SkyGenerator.pulse(0, 1, 7, p, 1, 5), "a pulse of 0 keeps the clouds still");
             float min = Float.MAX_VALUE, max = 0, step = 0, last = SkyGenerator.pulse(0.5f, 1, 7, p, 1, 0);
             for (int t = 0; t <= 60 * 30; t++) {
@@ -198,9 +194,7 @@ class SkyGeneratorTest {
     void aGalaxyWithNoDetailAndNoMotionKeepsThePixelsOfASkyFromBeforeThem() {
         SkyLayer galaxy = layer(1, SkyLayer.Kind.GALAXY).withTransform(new Transform(0, 30, 0, 200));
         assertEquals(0, galaxy.param(SkyLayer.Param.DETAIL) + galaxy.param(SkyLayer.Param.MOTION), "a new galaxy is plain and still");
-        SkyDesign d = new SkyDesign(Collections.singletonList(galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE);
-        assertEquals(-1082905965, Arrays.hashCode(SkyGenerator.bake(d, 512, 256).argb()));
+        assertEquals(-1082905965, Arrays.hashCode(SkyGenerator.bake(design(galaxy), 512, 256).argb()));
     }
 
     @Test
@@ -223,9 +217,7 @@ class SkyGeneratorTest {
 
     /** The linear light of a galaxy layer at a point of its image plane in galaxy units, at a time of the sky clock. */
     private static float[] galaxyLight(SkyLayer galaxy, float x, float y, float time, float texel) {
-        SkyDesign d = new SkyDesign(Collections.singletonList(galaxy), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE);
-        SkyGenerator.Layer l = new SkyGenerator.Layer(galaxy, SkyProgram.of(d, new float[SkyImage.RING * 3]).block(), 0);
+        SkyGenerator.Layer l = new SkyGenerator.Layer(galaxy, program(design(galaxy)).block(), 0);
         float size = 0.22f * galaxy.transform().scale() / 100f;
         float px = x * size, py = y * size, len = (float) Math.sqrt(px * px + py * py + 1);
         float[] out = new float[4];
@@ -277,7 +269,7 @@ class SkyGeneratorTest {
 
     @Test
     void theShaderHasTheSameGalaxyNumbers() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = skyLayersSource();
         String[] numbers = {
             "float ALBEDO_GALAXY_REACH = " + SkyGenerator.GALAXY_REACH,
             "float ALBEDO_GALAXY_JET_LENGTH = " + SkyGenerator.JET_LENGTH,
@@ -305,14 +297,6 @@ class SkyGeneratorTest {
             "float ALBEDO_GALAXY_STREAM_HEAD = " + SkyGenerator.STREAM_HEAD,
             "float ALBEDO_GALAXY_STREAM_LONG = " + SkyGenerator.STREAM_LONG};
         for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
-    }
-
-    static String vec3(float[] v) {
-        return "vec3(" + v[0] + ", " + v[1] + ", " + v[2] + ")";
-    }
-
-    private static int blue(int argb) {
-        return argb & 0xFF;
     }
 
     @Test
@@ -392,11 +376,6 @@ class SkyGeneratorTest {
             max = Math.max(max, red(img.argb()[y * img.width() + x]));
         }
         return max - min;
-    }
-
-    /** The row whose center is nearest to an elevation in degrees. */
-    private static int row(double elevation, int h) {
-        return (int) Math.round((SkyImage.TOP - elevation) / (SkyImage.TOP - SkyImage.BOTTOM) * h - 0.5);
     }
 
     @Test
@@ -496,12 +475,6 @@ class SkyGeneratorTest {
         assertTrue(error / count < 0.004, "the term is the added glow: " + error / count);
     }
 
-    static float fromHalf(short bits) {
-        int exp = (bits >> 10) & 0x1F, mantissa = bits & 0x3FF;
-        float v = exp == 0 ? mantissa / 16777216f : (float) ((1 + mantissa / 1024.0) * Math.pow(2, exp - 15));
-        return (bits & 0x8000) != 0 ? -v : v;
-    }
-
     @Test
     void theFieldImagesHoldTheSmoothNoiseAtTheTexelCenters() {
         int w = 64, h = 32;
@@ -516,7 +489,8 @@ class SkyGeneratorTest {
             for (int tx = 0; tx < tw; tx += 7) {
                 // The texel center in the mapping of albedoField, where the layers have no turn.
                 double el = Math.toRadians(90 - (ty + 0.5) * 180 / th), lon = (tx + 0.5) / tw * 2 * Math.PI;
-                float x = (float) (Math.cos(el) * Math.sin(lon)), y = (float) Math.sin(el), z = (float) (-Math.cos(el) * Math.cos(lon));
+                float[] dir = direction(lon, el);
+                float x = dir[0], y = dir[1], z = dir[2];
                 int noise = (ty * tw + tx) * 4, bend = ((th + ty) * tw + tx) * 4;
                 float coarse = Noise.fbmPart(x * 2.5f, y * 2.5f, z * 2.5f, 1, 0, SkyGenerator.CLOUD_FIELD_OCTAVES, SkyGenerator.CLOUD_OCTAVES);
                 assertEquals(coarse * 0.5f + 0.5f, fromHalf(img.terms()[noise]), 1e-3f, "the coarse octaves of the clouds");

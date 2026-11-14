@@ -19,9 +19,27 @@ class SkyCodecTest {
         return new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false, Collections.<Rule>emptyList(), d);
     }
 
+    /** The config file with one profile, "night", whose sky is the JSON object {@code sky}. */
+    private static String file(String sky) {
+        return "{\"profiles\": {\"night\": {\"sky\": " + sky + "}}}";
+    }
+
+    /** The sky design of the "night" profile. */
+    private static SkyDesign sky(Config c) {
+        return c.profiles().get("night").get(Category.SKY).sky();
+    }
+
+    private static SkyDesign decodeSky(String sky) {
+        return sky(ConfigCodec.decode(file(sky)));
+    }
+
+    /** The design after an encode and a decode of the config file. */
+    private static SkyDesign roundTrip(SkyDesign d) {
+        return sky(ConfigCodec.decode(ConfigCodec.encode(withSky(layers(d)))));
+    }
+
     private static String error(String sky) {
-        String json = "{\"profiles\": {\"night\": {\"sky\": " + sky + "}}}";
-        return assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(json)).getMessage();
+        return assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(file(sky))).getMessage();
     }
 
     @Test
@@ -30,16 +48,15 @@ class SkyCodecTest {
             SkyDesign d = p.design();
             Config c = withSky(layers(d));
             Config back = ConfigCodec.decode(ConfigCodec.encode(c));
-            assertEquals(d, back.profiles().get("night").get(Category.SKY).sky());
+            assertEquals(d, sky(back));
             assertEquals(ConfigCodec.encode(c), ConfigCodec.encode(back));
         }
     }
 
     @Test
     void anOldGalaxyLayerLoadsWithTheDefaultsOfTheNewValues() {
-        String json = "{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\","
-                + " \"color1\": \"#9FB4FF\", \"color2\": \"#FFE7B0\", \"amount\": 55, \"seed\": 4}]}}}}";
-        SkyLayer l = ConfigCodec.decode(json).profiles().get("night").get(Category.SKY).sky().layers().get(0);
+        SkyLayer l = decodeSky("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"galaxy\","
+                + " \"color1\": \"#9FB4FF\", \"color2\": \"#FFE7B0\", \"amount\": 55, \"seed\": 4}]}").layers().get(0);
         for (SkyLayer.Param p : new SkyLayer.Param[]{SkyLayer.Param.COLOR_3, SkyLayer.Param.TILT, SkyLayer.Param.DUST, SkyLayer.Param.JETS}) {
             assertEquals(SkyLayer.Kind.GALAXY.defaultValue(p), l.param(p), p.key);
         }
@@ -71,9 +88,8 @@ class SkyCodecTest {
         SkyDesign horizon = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         assertFalse(ConfigCodec.encode(withSky(layers(horizon))).contains("extent"));
         SkyDesign sphere = horizon.withExtent(SkyDesign.Extent.SPHERE);
-        Config c = withSky(layers(sphere));
-        assertTrue(ConfigCodec.encode(c).contains("\"extent\": \"sphere\""));
-        assertEquals(sphere, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(ConfigCodec.encode(withSky(layers(sphere))).contains("\"extent\": \"sphere\""));
+        assertEquals(sphere, roundTrip(sphere));
         assertEquals("night.sky.extent: use one of [horizon, sphere]", error("{\"mode\": \"layers\", \"extent\": \"cube\", \"layers\": []}"));
     }
 
@@ -82,9 +98,8 @@ class SkyCodecTest {
         SkyDesign sharp = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         assertFalse(ConfigCodec.encode(withSky(layers(sharp))).contains("render"));
         SkyDesign fast = sharp.withRender(SkyDesign.Render.FAST);
-        Config c = withSky(layers(fast));
-        assertTrue(ConfigCodec.encode(c).contains("\"render\": \"fast\""));
-        assertEquals(fast, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(ConfigCodec.encode(withSky(layers(fast))).contains("\"render\": \"fast\""));
+        assertEquals(fast, roundTrip(fast));
         assertEquals("night.sky.render: use one of [sharp, fast]", error("{\"mode\": \"layers\", \"render\": \"slow\", \"layers\": []}"));
     }
 
@@ -114,22 +129,19 @@ class SkyCodecTest {
         SkyDesign stars = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         assertEquals(SkyTurning.DEFAULT, stars.turning(), "a new sky turns");
         assertFalse(ConfigCodec.encode(withSky(layers(stars))).contains("turning"));
-        SkyDesign missing = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
-                + "[{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        SkyDesign missing = decodeSky("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}");
         assertEquals(SkyTurning.DEFAULT, missing.turning(), "a file with no turning loads with the default turning");
 
         SkyDesign turning = stars.withTurning(new SkyTurning(40, 3, SkyTurning.Clock.REAL, 45, SkyTurning.Direction.REVERSE, 270));
-        Config c = withSky(layers(turning));
-        String text = ConfigCodec.encode(c);
+        String text = ConfigCodec.encode(withSky(layers(turning)));
         assertTrue(text.contains("\"amount\": 40") && text.contains("\"clock\": \"real\"") && text.contains("\"pole\": 270"), text);
-        assertEquals(turning, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        assertEquals(turning, sky(ConfigCodec.decode(text)));
         String amountOnly = ConfigCodec.encode(withSky(layers(stars.withTurning(SkyTurning.STILL.withAmount(30)))));
         assertTrue(amountOnly.contains("\"turning\": {\n          \"amount\": 30\n        },"), "only the values that differ: " + amountOnly);
-        SkyDesign world = ConfigCodec.decode(amountOnly).profiles().get("night").get(Category.SKY).sky();
+        SkyDesign world = sky(ConfigCodec.decode(amountOnly));
         assertEquals(SkyTurning.Clock.WORLD, world.turning().clock(), "a turning with no clock follows the world time, as before");
         assertEquals(SkyTurning.STILL.withAmount(30), world.turning());
-        SkyDesign oldStill = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"turning\": {\"trails\": 20},"
-                + " \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        SkyDesign oldStill = decodeSky("{\"mode\": \"layers\", \"turning\": {\"trails\": 20}, \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}");
         assertEquals(SkyTurning.STILL.withTrails(20), oldStill.turning(), "a turning with no amount stays still, as before");
 
         SkyTurning[] all = {SkyTurning.DEFAULT, SkyTurning.STILL, SkyTurning.DEFAULT.withClock(SkyTurning.Clock.WORLD),
@@ -137,7 +149,7 @@ class SkyCodecTest {
         for (SkyTurning t : all) {
             Config d = withSky(layers(stars.withTurning(t)));
             Config back = ConfigCodec.decode(ConfigCodec.encode(d));
-            assertEquals(t, back.profiles().get("night").get(Category.SKY).sky().turning(), "a round trip keeps " + ConfigCodec.encode(d));
+            assertEquals(t, sky(back).turning(), "a round trip keeps " + ConfigCodec.encode(d));
             assertEquals(ConfigCodec.encode(d), ConfigCodec.encode(back));
         }
 
@@ -160,15 +172,14 @@ class SkyCodecTest {
         SkyTurning turning = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 45, SkyTurning.Direction.NORMAL, 0);
         String plain = ConfigCodec.encode(withSky(layers(stars.withTurning(turning))));
         assertFalse(plain.contains("trails") || plain.contains("trailLight"), "a turning with no trails is written as before: " + plain);
-        SkyDesign old = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"turning\": {\"amount\": 100},"
-                + " \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        SkyDesign old = decodeSky("{\"mode\": \"layers\", \"turning\": {\"amount\": 100}, \"layers\": [{\"id\": 1, \"kind\": \"stars\"}]}");
         assertEquals(0, old.turning().trails(), "a file from before trails loads with no trails");
         assertEquals(SkyTurning.TRAIL_LIGHT, old.turning().trailLight());
 
         SkyDesign trails = stars.withTurning(turning.withTrails(45).withTrailLight(70));
         String text = ConfigCodec.encode(withSky(layers(trails)));
         assertTrue(text.contains("\"trails\": 45") && text.contains("\"trailLight\": 70"), text);
-        assertEquals(trails, ConfigCodec.decode(text).profiles().get("night").get(Category.SKY).sky());
+        assertEquals(trails, sky(ConfigCodec.decode(text)));
         String lengthOnly = ConfigCodec.encode(withSky(layers(stars.withTurning(turning.withTrails(30)))));
         assertTrue(lengthOnly.contains("\"trails\": 30") && !lengthOnly.contains("trailLight"), "only the values that differ: " + lengthOnly);
 
@@ -192,13 +203,11 @@ class SkyCodecTest {
     void theSpeedIsAValueOnlyOfTheLayersThatMove() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.AURORA);
         d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.SPEED, 80));
-        Config c = withSky(layers(d));
-        assertTrue(ConfigCodec.encode(c).contains("\"speed\": 80"));
-        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        assertTrue(ConfigCodec.encode(withSky(layers(d))).contains("\"speed\": 80"));
+        assertEquals(d, roundTrip(d));
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"speed\": 3}]}")
                 .startsWith("night.sky.layers[0]: 'speed' has no meaning for stars"));
-        SkyDesign noSpeed = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": {\"mode\": \"layers\", \"layers\": "
-                + "[{\"id\": 1, \"kind\": \"aurora\"}]}}}}").profiles().get("night").get(Category.SKY).sky();
+        SkyDesign noSpeed = decodeSky("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"aurora\"}]}");
         assertEquals(50, noSpeed.layers().get(0).param(SkyLayer.Param.SPEED), "a file with no speed takes the default");
     }
 
@@ -209,9 +218,9 @@ class SkyCodecTest {
         assertFalse(plain.contains("detail") || plain.contains("motion"), plain);
         assertTrue(plain.contains("\"kind\": \"deep_field\""), plain);
         d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.DETAIL, 70).withParam(SkyLayer.Param.MOTION, 50));
-        Config c = withSky(layers(d));
-        assertTrue(ConfigCodec.encode(c).contains("\"detail\": 70") && ConfigCodec.encode(c).contains("\"motion\": 50"));
-        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        String text = ConfigCodec.encode(withSky(layers(d)));
+        assertTrue(text.contains("\"detail\": 70") && text.contains("\"motion\": 50"));
+        assertEquals(d, roundTrip(d));
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"deep_field\", \"detail\": 3}]}")
                 .startsWith("night.sky.layers[0]: 'detail' has no meaning for deep_field"));
     }
@@ -223,23 +232,21 @@ class SkyCodecTest {
         assertFalse(still.contains("twinkle") || still.contains("pulse"), still);
         d = d.withLayer(0, d.layers().get(0).withParam(SkyLayer.Param.TWINKLE, 40));
         d = d.withLayer(1, d.layers().get(1).withParam(SkyLayer.Param.PULSE, 70));
-        Config c = withSky(layers(d));
-        assertTrue(ConfigCodec.encode(c).contains("\"twinkle\": 40") && ConfigCodec.encode(c).contains("\"pulse\": 70"));
-        assertEquals(d, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("night").get(Category.SKY).sky());
+        String text = ConfigCodec.encode(withSky(layers(d)));
+        assertTrue(text.contains("\"twinkle\": 40") && text.contains("\"pulse\": 70"));
+        assertEquals(d, roundTrip(d));
         assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"gradient\", \"pulse\": 3}]}")
                 .startsWith("night.sky.layers[0]: 'pulse' has no meaning for gradient"));
     }
 
     @Test
     void theReadmeExampleLoads() {
-        String sky = "{\"mode\": \"layers\", \"celestial\": \"hide\", \"light\": \"day_night\", \"layers\": ["
+        SkyDesign d = decodeSky("{\"mode\": \"layers\", \"celestial\": \"hide\", \"light\": \"day_night\", \"layers\": ["
                 + "{\"id\": 1, \"kind\": \"gradient\", \"color1\": \"#F08A4B\", \"color2\": \"#1A1F4D\", \"height\": 22, \"amount\": 45},"
                 + "{\"id\": 2, \"kind\": \"noise\", \"output\": \"mask_only\", \"amount\": 55, \"seed\": 12},"
                 + "{\"id\": 3, \"kind\": \"stars\", \"blend\": \"add\", \"opacity\": 80, \"amount\": 60, \"seed\": 3,"
                 + " \"transform\": {\"scale\": 150}},"
-                + "{\"id\": 4, \"kind\": \"blur\", \"amount\": 25, \"mask\": {\"layer\": 2, \"mode\": \"light\"}}]}";
-        Config c = ConfigCodec.decode("{\"profiles\": {\"night\": {\"sky\": " + sky + "}}}");
-        SkyDesign d = c.profiles().get("night").get(Category.SKY).sky();
+                + "{\"id\": 4, \"kind\": \"blur\", \"amount\": 25, \"mask\": {\"layer\": 2, \"mode\": \"light\"}}]}");
         assertEquals(4, d.layers().size());
         assertEquals(SkyDesign.Light.DAY_NIGHT, d.light());
         assertEquals(150, d.layers().get(2).transform().scale());

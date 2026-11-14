@@ -8,22 +8,18 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Collections;
 
+import static dev.albedo.core.sky.SkyFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DeepFieldTest {
     private static final int W = 1024, H = 512;
 
     private static int[] bake(SkyLayer field) {
-        return SkyGenerator.bake(new SkyDesign(Collections.singletonList(field), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE), W, H).argb();
+        return SkyGenerator.bake(design(field), W, H).argb();
     }
 
     private static SkyLayer field() {
         return SkyLayer.of(1, SkyLayer.Kind.DEEP_FIELD).withTransform(Transform.IDENTITY);
-    }
-
-    private static int red(int argb) {
-        return argb >> 16 & 0xFF;
     }
 
     /** The count of pixels with light in the rows from {@code from} to {@code to}. */
@@ -51,7 +47,7 @@ class DeepFieldTest {
                 .withParam(SkyLayer.Param.COLOR_1, 0xFFFF0000).withParam(SkyLayer.Param.COLOR_2, 0xFF0000FF);
         int redder = 0, bluer = 0;
         for (int argb : bake(galaxies)) {
-            int r = red(argb), b = argb & 0xFF;
+            int r = red(argb), b = blue(argb);
             assertEquals(0, argb >> 8 & 0xFF, 1, "no green in a galaxy of red and blue");
             if (r > b + 40) redder++;
             if (b > r + 40) bluer++;
@@ -80,25 +76,24 @@ class DeepFieldTest {
 
     @Test
     void theShaderHasTheSameNumbers() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = skyLayersSource();
         String[] numbers = {
             "float ALBEDO_FIELD_CELLS = " + DeepField.CELLS,
             "float ALBEDO_FIELD_CLOUD_CELLS = " + DeepField.CLOUD_CELLS,
             "float ALBEDO_FIELD_CLOUD_WIDTH = " + DeepField.CLOUD_WIDTH,
             "float ALBEDO_FIELD_CLOUD_LENGTH = " + DeepField.CLOUD_LENGTH,
-            "vec3 ALBEDO_FIELD_CLOUD_GLOW = " + SkyGeneratorTest.vec3(DeepField.CLOUD_GLOW)};
+            "vec3 ALBEDO_FIELD_CLOUD_GLOW = " + vec3(DeepField.CLOUD_GLOW)};
         for (String n : numbers) assertTrue(glsl.contains("const " + n + ";\n"), n);
     }
 
     @Test
     void theStepOfTheShaderHasTheCloudOnlyWhenItShows() {
-        SkyDesign with = new SkyDesign(Collections.singletonList(field()), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.SPHERE);
+        SkyDesign with = design(field());
         SkyDesign without = with.withLayers(Collections.singletonList(field().withParam(SkyLayer.Param.HEIGHT, 0)));
-        String cloud = SkyShaderSource.layerSteps(SkyProgram.of(with, new float[SkyImage.RING * 3]));
+        String cloud = SkyShaderSource.layerSteps(program(with));
         assertTrue(cloud.contains(" s = albedoDeepField(0, albedoFrame(0, dir), footprint, " + SkyShaderSource.FLAG_CLOUD + ");"), cloud);
-        String plain = SkyShaderSource.layerSteps(SkyProgram.of(without, new float[SkyImage.RING * 3]));
+        String plain = SkyShaderSource.layerSteps(program(without));
         assertTrue(plain.contains(" s = albedoDeepField(0, albedoFrame(0, dir), footprint, 0);"), plain);
-        assertFalse(SkyProgram.of(with, new float[SkyImage.RING * 3]).moves(), "the deep field is still");
+        assertFalse(program(with).moves(), "the deep field is still");
     }
 }

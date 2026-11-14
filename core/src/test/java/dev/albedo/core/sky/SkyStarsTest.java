@@ -186,7 +186,7 @@ class SkyStarsTest {
 
     @Test
     void theShaderHasTheSameTiers() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = SkyFixtures.skyLayersSource();
         for (SkyStars.Tier t : SkyStars.Tier.values()) {
             String call = "albedoStarTier(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt
                     + ", " + t.detail + ",";
@@ -330,7 +330,7 @@ class SkyStarsTest {
 
     @Test
     void theShaderHasTheSameTrails() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = SkyFixtures.skyLayersSource();
         SkyStars.Tier t = SkyStars.Tier.BRIGHT;
         String call = "albedoStarTrails(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt + ",";
         assertTrue(glsl.contains(call), call);

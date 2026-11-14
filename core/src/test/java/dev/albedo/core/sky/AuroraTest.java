@@ -6,28 +6,30 @@ import dev.albedo.core.config.Transform;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.Collections;
 
+import static dev.albedo.core.sky.SkyFixtures.direction;
+import static dev.albedo.core.sky.SkyFixtures.program;
+import static dev.albedo.core.sky.SkyFixtures.single;
+import static dev.albedo.core.sky.SkyFixtures.skyLayersSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuroraTest {
+    /** Both curtains, the near one and the far one under it. */
+    private static final int BOTH = 2;
+
     private static SkyProgram block(SkyLayer layer) {
-        SkyDesign d = new SkyDesign(Collections.singletonList(layer), SkyDesign.Celestial.HIDE, SkyDesign.Light.FIXED,
-                SkyDesign.Extent.HORIZON);
-        return SkyProgram.of(d, new float[SkyImage.RING * 3]);
+        return program(single(layer, SkyDesign.Extent.HORIZON));
     }
 
     /** The light that the aurora adds at a time of the sky clock in the direction at an azimuth east of north and an elevation, in degrees. */
     private static float light(SkyProgram program, double azimuth, double elevation, float footprint, double time) {
-        return lightAt(program.at(time, SkyTurn.STILL), azimuth, elevation, footprint);
+        return lightAt(program.at(time, SkyTurn.STILL), azimuth, elevation, footprint, BOTH);
     }
 
-    /** The light that the aurora of a block adds in the direction at an azimuth east of north and an elevation, in degrees. */
-    private static float lightAt(float[] block, double azimuth, double elevation, float footprint) {
-        double az = Math.toRadians(azimuth), el = Math.toRadians(elevation);
-        float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
+    /** The light of the first {@code curtains} curtains of a block in the direction at an azimuth east of north and an elevation, in degrees. */
+    private static float lightAt(float[] block, double azimuth, double elevation, float footprint, int curtains) {
         float[] out = new float[4];
-        Aurora.sample(block, 0, p, footprint, out);
+        Aurora.sample(block, 0, direction(Math.toRadians(azimuth), Math.toRadians(elevation)), footprint, curtains, out);
         return out[1] * out[3];
     }
 
@@ -41,9 +43,9 @@ class AuroraTest {
         float worst = 0, total = 0;
         for (double el = 2; el <= 40; el += 0.5) {
             for (double az = -60; az <= 60; az += 0.25) {
-                float l = lightAt(before, az, el, 0.0015f);
+                float l = lightAt(before, az, el, 0.0015f, BOTH);
                 total += l;
-                worst = Math.max(worst, Math.abs(lightAt(after, az, el, 0.0015f) - l));
+                worst = Math.max(worst, Math.abs(lightAt(after, az, el, 0.0015f, BOTH) - l));
             }
         }
         assertTrue(total > 1 && worst < 0.02f, "the largest change across the wrap is " + worst + " of a total " + total);
@@ -90,11 +92,7 @@ class AuroraTest {
 
     /** The light of the near curtain alone, with no far curtain under it, in the direction at an azimuth and an elevation in degrees. */
     private static float nearLight(SkyProgram program, double azimuth, double elevation, float footprint, double time) {
-        double az = Math.toRadians(azimuth), el = Math.toRadians(elevation);
-        float[] p = {(float) (Math.cos(el) * Math.sin(az)), (float) Math.sin(el), (float) (-Math.cos(el) * Math.cos(az))};
-        float[] out = new float[4];
-        Aurora.sample(program.at(time, SkyTurn.STILL), 0, p, footprint, 1, out);
-        return out[1] * out[3];
+        return lightAt(program.at(time, SkyTurn.STILL), azimuth, elevation, footprint, 1);
     }
 
     @Test
@@ -181,7 +179,7 @@ class AuroraTest {
 
     @Test
     void theShaderSearchesTheSameSteps() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = skyLayersSource();
         assertTrue(glsl.contains("#define ALBEDO_AURORA_STEPS " + Aurora.STEPS + "\n"));
     }
 

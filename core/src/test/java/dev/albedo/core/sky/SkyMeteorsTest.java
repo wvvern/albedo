@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Arrays;
 
+import static dev.albedo.core.sky.SkyFixtures.direction;
+import static dev.albedo.core.sky.SkyFixtures.program;
+import static dev.albedo.core.sky.SkyFixtures.skyLayersSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SkyMeteorsTest {
     /** The program of the Meteors preset, whose fourth layer is the meteors. */
-    private static final SkyProgram PROGRAM = SkyProgram.of(SkyPresets.METEORS, new float[SkyImage.RING * 3]);
+    private static final SkyProgram PROGRAM = program(SkyPresets.METEORS);
     private static final int LAYER = 3;
 
     @Test
@@ -100,8 +103,7 @@ class SkyMeteorsTest {
     @Test
     void showerMeteorsMoveAwayFromTheRadiant() {
         // The radiant is the layer center: turn 45 and tilt 55 of the preset.
-        double yaw = Math.toRadians(45), pitch = Math.toRadians(55);
-        float[] radiant = {(float) (Math.cos(pitch) * Math.sin(yaw)), (float) Math.sin(pitch), (float) (-Math.cos(pitch) * Math.cos(yaw))};
+        float[] radiant = direction(Math.toRadians(45), Math.toRadians(55));
         int away = 0, count = 0;
         for (int slot = 0; slot < 1000; slot++) {
             for (int channel = 0; channel < SkyMeteors.CHANNELS; channel++) {
@@ -125,7 +127,7 @@ class SkyMeteorsTest {
 
     @Test
     void theShaderHasTheSameModel() throws IOException {
-        String glsl = SkyProgramTest.skyLayersSource();
+        String glsl = skyLayersSource();
         // The numbers of SkyMeteors.of, which the shader must use too.
         String[] model = {"int(albedoLayer(layer, 2).y) * 7 + 13", "(2.0 + 118.0 * amount * amount)",
             "albedoMeteorUnit(slot, channel, 2, seed) < 0.05",
