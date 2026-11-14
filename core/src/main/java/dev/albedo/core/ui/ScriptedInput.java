@@ -9,14 +9,22 @@ import java.util.Map;
  * pointer off; keys and typing go through the game's own keyboard path instead (see {@code Harness}).
  */
 final class ScriptedInput {
+    /** Where the pointer of the screen comes from: the real mouse, a scripted label, or off the screen. */
+    private enum PointerSource { REAL, LABEL, PARKED }
+
+    private static final int[] OFF_SCREEN = {-1, -1};
+
     /** The harness, or null in a game with no harness. */
     private final ScriptPort port;
-    /** The center of each label that the last frame drew, where a click command finds its label, or null before the first frame. */
+    /** Whether the last frame recorded its labels and fields, which a command needs before it runs. */
+    private boolean recorded;
+    /** The center of each label that the last recorded frame drew, where a click command finds its label. */
     private Map<String, int[]> lastTexts;
     /** The text of each text field of the last recorded frame by widget id, which an expect command compares. */
     private Map<String, String> lastFields;
-    /** The scripted pointer position, or null while the real pointer is used. */
-    private int[] pointer;
+    private PointerSource source = PointerSource.REAL;
+    /** The scripted pointer position for {@link PointerSource#LABEL} and {@link PointerSource#PARKED}. */
+    private int[] position;
     private Recorder recorder;
     private boolean release;
 
@@ -25,26 +33,33 @@ final class ScriptedInput {
     }
 
     boolean active() {
-        return port != null && port.waiting() || pointer != null;
+        return port != null && port.waiting() || source != PointerSource.REAL;
     }
 
     /** Runs the next command and returns the canvas to draw this frame on. */
     Canvas beginFrame(Canvas canvas, Ui ui) {
-        release = lastTexts != null && port != null && run(port.poll(), ui);
+        release = recorded && port != null && run(port.poll(), ui);
         recorder = new Recorder(canvas);
         return recorder;
     }
 
-    int x(int mouseX) { return pointer == null ? mouseX : pointer[0]; }
+    int x(int mouseX) { return source == PointerSource.REAL ? mouseX : position[0]; }
 
-    int y(int mouseY) { return pointer == null ? mouseY : pointer[1]; }
+    int y(int mouseY) { return source == PointerSource.REAL ? mouseY : position[1]; }
 
     /** A scripted click is one frame long: the button goes up after the frame that took it. */
     void endFrame(Ui ui) {
         if (release) ui.mouseReleased();
         // Frames that are not recorded can move the labels, so the next command waits for a recorded frame.
-        lastTexts = active() ? recorder.texts : null;
-        lastFields = active() ? ui.fieldTexts() : null;
+        recorded = active();
+        if (!recorded) return;
+        lastTexts = recorder.texts;
+        lastFields = ui.fieldTexts();
+    }
+
+    private void pointTo(PointerSource source, int[] position) {
+        this.source = source;
+        this.position = position;
     }
 
     /** Returns true when the left button must be released after this frame. */
@@ -57,7 +72,7 @@ final class ScriptedInput {
             case "click": {
                 int[] at = find(arg);
                 if (at == null) return false;
-                pointer = at;
+                pointTo(PointerSource.LABEL, at);
                 ui.mousePressed();
                 return true;
             }
@@ -65,7 +80,7 @@ final class ScriptedInput {
                 // The game moves the real pointer and sends the press, so that the adapter's input path runs too.
                 int[] at = find(arg);
                 if (at == null) return false;
-                pointer = null;
+                pointTo(PointerSource.REAL, null);
                 port.realClick(at);
                 return false;
             }
@@ -74,7 +89,7 @@ final class ScriptedInput {
                 int split = arg.indexOf(' ');
                 int[] at = split < 0 ? null : find(arg.substring(split + 1));
                 if (at == null) return false;
-                pointer = at;
+                pointTo(PointerSource.LABEL, at);
                 ui.scrolled(Integer.parseInt(arg.substring(0, split)));
                 return false;
             }
@@ -88,7 +103,7 @@ final class ScriptedInput {
                 return false;
             }
             case "pointer":
-                pointer = new int[]{-1, -1};
+                pointTo(PointerSource.PARKED, OFF_SCREEN);
                 return false;
             default:
                 return false;
