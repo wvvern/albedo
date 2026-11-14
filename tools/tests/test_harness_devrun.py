@@ -5,6 +5,7 @@ from unittest import mock
 from tools import project
 from tools.harness import devrun, rundir, verdict
 from tools.harness.devrun import RunOptions
+from tools.harness.verdict import Loader
 from tools.project import Target
 from tools.tests.fixtures import FABRIC_26_3 as FABRIC
 from tools.tests.fixtures import FORGE_1_20_1 as FORGE
@@ -39,8 +40,8 @@ class LaunchTest(unittest.TestCase):
         self.assertEqual({"harness": "harness"}, {name: value for name, value in properties.items() if value})
 
     def test_quilt_runs_the_release_jar_and_quilt_dev_the_classes(self):
-        quilt = devrun.gradle_properties(FABRIC, HARNESS, RunOptions(loader="quilt"))
-        quilt_dev = devrun.gradle_properties(FABRIC, HARNESS, RunOptions(loader="quilt-dev"))
+        quilt = devrun.gradle_properties(FABRIC, HARNESS, RunOptions(loader=Loader.QUILT))
+        quilt_dev = devrun.gradle_properties(FABRIC, HARNESS, RunOptions(loader=Loader.QUILT_DEV))
         self.assertEqual((True, True), (quilt["quilt"], quilt["quiltJar"]))
         self.assertEqual((True, False), (quilt_dev["quilt"], quilt_dev["quiltJar"]))
 
@@ -55,9 +56,9 @@ class LaunchTest(unittest.TestCase):
 class ExpectationsTest(unittest.TestCase):
     def test_a_renderer_mod_changes_the_hooks(self):
         self.assertEqual(verdict.MODERN_HOOKS, devrun.expectations(FABRIC, RunOptions()).hooks)
-        expected = devrun.expectations(FABRIC, RunOptions(compat="sodium", backend="vulkan", loader="quilt"))
+        expected = devrun.expectations(FABRIC, RunOptions(compat="sodium", backend="vulkan", loader=Loader.QUILT))
         self.assertEqual(
-            (verdict.RENDERER_MOD_HOOKS, "vulkan", "quilt", True, False),
+            (verdict.RENDERER_MOD_HOOKS, "vulkan", Loader.QUILT, True, False),
             (expected.hooks, expected.backend, expected.loader, expected.renderer_mod, expected.shader_pack),
         )
 

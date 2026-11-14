@@ -12,25 +12,51 @@ from datetime import datetime
 from pathlib import Path
 
 from tools import project
-from tools.harness import cursor, processes, protocol
+from tools.harness import cursor, protocol
+from tools.harness.cursor import Clip
 
 SHUTDOWN_SECONDS = 30
+SETTLE_SECONDS = 2
 
 
-def watch(pid: int, harness: Path, log: Path) -> None:
-    processes.wait(pid)
+class Machine:
+    """The system calls of the watch. psutil loads only at a call, so that the tests run without it."""
+
+    def wait(self, pid: int) -> None:
+        from tools.harness import processes
+
+        processes.wait(pid)
+
+    def java_command_lines(self) -> list[str]:
+        from tools.harness import processes
+
+        return processes.java_command_lines()
+
+    def read_clip(self) -> Clip | None:
+        return cursor.read()
+
+    def free_clip(self) -> None:
+        cursor.free()
+
+    def sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
+
+
+def watch(pid: int, harness: Path, log: Path, machine: Machine | None = None) -> None:
+    machine = machine or Machine()
+    machine.wait(pid)
     # The process of the run ends first, and the game can still be shutting down for a few seconds.
     for _ in range(SHUTDOWN_SECONDS):
-        if not any(protocol.harness_game(line) and protocol.names_harness(line, harness) for line in processes.java_command_lines()):
+        if not any(protocol.runs_game_of(line, harness) for line in machine.java_command_lines()):
             break
-        time.sleep(1)
-    time.sleep(2)
-    if protocol.game_runs(processes.java_command_lines()):
+        machine.sleep(1)
+    machine.sleep(SETTLE_SECONDS)
+    if protocol.game_runs(machine.java_command_lines()):
         return
-    clip = cursor.read()
+    clip = machine.read_clip()
     if clip is None or not clip.clipped:
         return
-    cursor.free()
+    machine.free_clip()
     with log.open("a", encoding="ascii") as file:
         file.write(
             f"{datetime.now():%H:%M:%S} freed the cursor clip ({clip.left},{clip.top},{clip.right},{clip.bottom}) after the process {pid} ended\n"

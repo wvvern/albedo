@@ -40,6 +40,11 @@ def harness_game(java_command_line: str) -> bool:
     return JVM_PROPERTY in java_command_line
 
 
+def runs_game_of(java_command_line: str, harness: str | Path) -> bool:
+    """Whether a Java process is the game of a harness folder, not its Gradle process."""
+    return harness_game(java_command_line) and names_harness(java_command_line, harness)
+
+
 def game_runs(java_command_lines: Iterable[str]) -> bool:
     """Whether a harness game or a game of a player runs, which can each hold the cursor on purpose."""
     return any(harness_game(line) or PLAYER_GAME.search(line) for line in java_command_lines)

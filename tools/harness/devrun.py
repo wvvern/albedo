@@ -6,7 +6,7 @@ from pathlib import Path
 from tools import gradle, project
 from tools.harness import rundir, script, verdict
 from tools.harness.session import Launch
-from tools.harness.verdict import Expectations
+from tools.harness.verdict import Expectations, Loader
 from tools.project import Target
 
 # The first version with the launch argument for the graphics backend; an older game has only OpenGL and no backend line to check.
@@ -26,7 +26,7 @@ class RunOptions:
     gui_scale: int = 0
     backend: str = ""
     vulkan_validation: bool = False
-    loader: str = "fabric"
+    loader: Loader = Loader.FABRIC
 
     def iris(self, target: Target) -> bool:
         return not target.legacy and "iris" in [mod.strip() for mod in self.compat.split(",")]
@@ -72,9 +72,9 @@ def gradle_properties(target: Target, harness: Path, options: RunOptions) -> dic
         "compat": options.compat,
         "backend": options.forced_backend(target),
         "vulkanValidation": options.vulkan_validation,
-        "quilt": options.loader != "fabric",
+        "quilt": options.loader.on_quilt,
         # The release jar of the node as a mod, not the classes of the dev run.
-        "quiltJar": options.loader == "quilt",
+        "quiltJar": options.loader.release_jar,
     }
 
 

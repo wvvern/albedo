@@ -2,7 +2,7 @@ import unittest
 from dataclasses import replace
 
 from tools.harness import protocol, verdict
-from tools.harness.verdict import Evidence, Expectations, judge
+from tools.harness.verdict import Evidence, Expectations, Loader, judge
 from tools.tests.fixtures import FABRIC_26_3, LEGACY_1_8_9
 
 SIZE = protocol.WINDOW_SIZE
@@ -118,11 +118,12 @@ class JudgeTest(unittest.TestCase):
     def test_quilt_must_show_its_version_and_the_release_jar(self):
         self.assertEqual(
             ["the game log does not have the Quilt Loader version line", "the mod table of the game log does not have the release jar of Albedo"],
-            judge(GOOD, replace(EXPECTED, loader="quilt")),
+            judge(GOOD, replace(EXPECTED, loader=Loader.QUILT)),
         )
         game = GOOD.game_log + "Loading Minecraft 26.3 with Quilt Loader 0.30.2\n| albedo | <mods>\\albedo-fabric-0.6.2+26.3.jar |\n"
-        self.assertEqual([], judge(replace(GOOD, game_log=game), replace(EXPECTED, loader="quilt")))
-        self.assertEqual([], judge(replace(GOOD, game_log=GOOD.game_log + "with Quilt Loader 0.30.2\n"), replace(EXPECTED, loader="quilt-dev")))
+        self.assertEqual([], judge(replace(GOOD, game_log=game), replace(EXPECTED, loader=Loader.QUILT)))
+        quilt_dev_game = replace(GOOD, game_log=GOOD.game_log + "with Quilt Loader 0.30.2\n")
+        self.assertEqual([], judge(quilt_dev_game, replace(EXPECTED, loader=Loader.QUILT_DEV)))
 
     def test_a_shader_pack_that_did_not_load_fails(self):
         expected = replace(EXPECTED, shader_pack=True)

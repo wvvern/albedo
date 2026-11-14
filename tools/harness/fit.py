@@ -4,11 +4,14 @@ Windows keeps a window with a frame inside the size of the screen, so on a narro
 screenshots do not have the size that a run must have. A window with no frame has no such limit. This process runs on the hidden
 desktop with the game, takes the frame off a game window that is too small and sets its size, and ends with the process of the run.
 
-The modules that need psutil or Windows load only where the watch runs, so that the tests of the sizes and the styles run anywhere.
+psutil and the user32 library load only where the watch runs, so that the tests of the sizes and the styles run anywhere.
 """
 
+import ctypes
+import functools
 import sys
 import time
+from ctypes import wintypes
 from pathlib import Path
 
 from tools import project
@@ -44,59 +47,51 @@ def without_frame(style: int) -> int:
 def game_pids(harness: Path) -> set[int]:
     from tools.harness import processes
 
-    return {pid for pid, line in processes.java_processes() if protocol.harness_game(line) and protocol.names_harness(line, harness)}
+    return {pid for pid, line in processes.java_processes() if protocol.runs_game_of(line, harness)}
+
+
+@functools.cache
+def user32() -> "ctypes.WinDLL":
+    """Loaded at the first call, because Linux has no WinDLL and the tests import this module."""
+    library = ctypes.WinDLL("user32", use_last_error=True)
+    library.GetWindowLongW.restype = ctypes.c_long
+    return library
 
 
 def windows_of(pids: set[int]) -> list[int]:
     """The visible top-level windows of some processes on the desktop of this thread."""
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
     found: list[int] = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def visit(window: int, _: int) -> bool:
         pid = wintypes.DWORD()
-        user32.GetWindowThreadProcessId(wintypes.HWND(window), ctypes.byref(pid))
-        if pid.value in pids and user32.IsWindowVisible(wintypes.HWND(window)):
+        user32().GetWindowThreadProcessId(wintypes.HWND(window), ctypes.byref(pid))
+        if pid.value in pids and user32().IsWindowVisible(wintypes.HWND(window)):
             found.append(window)
         return True
 
-    user32.EnumWindows(visit, 0)
+    user32().EnumWindows(visit, 0)
     return found
 
 
 def sizes(window: int) -> tuple[Size, Size]:
     """The size of the inside of a window and its size with its frame."""
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
     client, outer = wintypes.RECT(), wintypes.RECT()
-    user32.GetClientRect(wintypes.HWND(window), ctypes.byref(client))
-    user32.GetWindowRect(wintypes.HWND(window), ctypes.byref(outer))
+    user32().GetClientRect(wintypes.HWND(window), ctypes.byref(client))
+    user32().GetWindowRect(wintypes.HWND(window), ctypes.byref(outer))
     return (client.right - client.left, client.bottom - client.top), (outer.right - outer.left, outer.bottom - outer.top)
 
 
 def screen_size() -> Size:
     """The size of all screens together, which is the limit of a window with a frame."""
-    import ctypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    return user32.GetSystemMetrics(SM_CXVIRTUALSCREEN), user32.GetSystemMetrics(SM_CYVIRTUALSCREEN)
+    return user32().GetSystemMetrics(SM_CXVIRTUALSCREEN), user32().GetSystemMetrics(SM_CYVIRTUALSCREEN)
 
 
 def fit(window: int, wanted: Size) -> None:
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    user32.GetWindowLongW.restype = ctypes.c_long
-    style = user32.GetWindowLongW(wintypes.HWND(window), GWL_STYLE) & 0xFFFFFFFF
-    user32.SetWindowLongW(wintypes.HWND(window), GWL_STYLE, ctypes.c_long(without_frame(style) - (1 << 32)))
+    style = user32().GetWindowLongW(wintypes.HWND(window), GWL_STYLE) & 0xFFFFFFFF
+    user32().SetWindowLongW(wintypes.HWND(window), GWL_STYLE, ctypes.c_long(without_frame(style) - (1 << 32)))
     # A window with no frame is as large as its inside.
-    user32.SetWindowPos(wintypes.HWND(window), None, 0, 0, wanted[0], wanted[1], SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
+    user32().SetWindowPos(wintypes.HWND(window), None, 0, 0, wanted[0], wanted[1], SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
 
 
 def watch(pid: int, harness: Path, log: Path) -> None:

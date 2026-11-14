@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 
 from tools import project
 from tools.harness import protocol
@@ -28,12 +29,28 @@ class Evidence:
     has_config: bool
 
 
+class Loader(StrEnum):
+    """The loader of a fabric target: Fabric Loader, or Quilt Loader with the release jar or with the dev classes."""
+
+    FABRIC = "fabric"
+    QUILT = "quilt"
+    QUILT_DEV = "quilt-dev"
+
+    @property
+    def on_quilt(self) -> bool:
+        return self is not Loader.FABRIC
+
+    @property
+    def release_jar(self) -> bool:
+        return self is Loader.QUILT
+
+
 @dataclass(frozen=True)
 class Expectations:
     hooks: tuple[str, ...]
     # The graphics backend that the run forced, or "" for the default one.
     backend: str = ""
-    loader: str = "fabric"
+    loader: Loader = Loader.FABRIC
     renderer_mod: bool = False
     shader_pack: bool = False
 
@@ -51,19 +68,32 @@ def size_text(size: tuple[int, int] | None) -> str:
 
 def judge(evidence: Evidence, expected: Expectations) -> list[str]:
     """The reasons why the run is not PASS."""
-    log, game = evidence.harness_log, evidence.game_log
+    log = evidence.harness_log
+    failures = game_log_failures(evidence, expected)
+    failures += [f"harness error: {line}" for line in protocol.errors(log)]
+    failures += [f"harness compare: {line}" for line in protocol.failed_compares(log)]
+    failures += hook_failures(log, expected.hooks)
+    failures += image_failures(evidence)
+    failures += result_failures(evidence)
+    failures += shader_pack_failures(evidence.game_log, expected)
+    return failures
+
+
+def game_log_failures(evidence: Evidence, expected: Expectations) -> list[str]:
+    """The run folder has the config, and the game got to quit and logged a good start."""
+    game = evidence.game_log
     failures = []
     if not evidence.has_config:
         failures.append("the run folder does not have config/albedo/config.json")
-    if not protocol.ran_quit(log):
+    if not protocol.ran_quit(evidence.harness_log):
         failures.append("the game did not get to quit")
     # The game falls back to the other backend when the forced one does not start, which would hide the test of the wrong backend.
     if expected.backend and not re.search(rf"(?i)Using graphics backend {expected.backend}\b", game):
         failures.append(f"the game log does not have 'Using graphics backend {expected.backend}'")
-    if expected.loader != "fabric" and not re.search(r"with Quilt Loader \d", game):
+    if expected.loader.on_quilt and not re.search(r"with Quilt Loader \d", game):
         failures.append("the game log does not have the Quilt Loader version line")
     # The mod table of Quilt Loader names the file of each mod; the release jar of the node is in the mods folder of the run.
-    if expected.loader == "quilt" and not re.search(rf"<mods>\\{project.ARCHIVE}-fabric-\S+\.jar", game):
+    if expected.loader.release_jar and not re.search(rf"<mods>\\{project.ARCHIVE}-fabric-\S+\.jar", game):
         failures.append("the mod table of the game log does not have the release jar of Albedo")
     if "Albedo ready" not in game:
         failures.append("the game log does not have 'Albedo ready'")
@@ -74,15 +104,14 @@ def judge(evidence: Evidence, expected: Expectations) -> list[str]:
         failures += [f"the game log has a reload reason: {reason}" for reason in dict.fromkeys(RELOAD_REASON.findall(game))]
     # A dead player shows the death screen in each later screenshot.
     failures += [f"the player died: {message}" for message in dict.fromkeys(DEATH.findall(game))]
-    failures += [f"harness error: {line}" for line in protocol.errors(log)]
-    failures += [f"harness compare: {line}" for line in protocol.failed_compares(log)]
-    failures += hook_failures(log, expected.hooks)
-    failures += image_failures(evidence)
-    failures += result_failures(evidence)
-    # Iris turns shaders off when the pack does not load, and the run continues.
-    if expected.shader_pack and ("Using shaderpack" not in game or "disabling shaders" in game):
-        failures.append("Iris did not load the shader pack")
     return failures
+
+
+def shader_pack_failures(game: str, expected: Expectations) -> list[str]:
+    """Iris turns shaders off when the pack does not load, and the run continues."""
+    if expected.shader_pack and ("Using shaderpack" not in game or "disabling shaders" in game):
+        return ["Iris did not load the shader pack"]
+    return []
 
 
 def hook_failures(log: list[str], hooks: tuple[str, ...]) -> list[str]:

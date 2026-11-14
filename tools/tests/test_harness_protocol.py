@@ -22,3 +22,9 @@ class GameRunsTest(unittest.TestCase):
         self.assertFalse(protocol.names_harness(rf"java.exe -Dalbedo.harness={folder}1 Main", folder))
         self.assertFalse(protocol.names_harness(rf"java.exe -Dalbedo.harness={folder}0 Main", folder))
         self.assertFalse(protocol.names_harness(r"java.exe -Dalbedo.harness=C:\Temp\albedo-harness\forge-1.8.9", folder))
+
+    def test_the_game_of_a_harness_folder_is_not_its_gradle_process(self):
+        folder = r"C:\Temp\albedo-harness\fabric-1.21.1"
+        self.assertTrue(protocol.runs_game_of(rf"java.exe -Dalbedo.harness={folder} Main", folder))
+        self.assertFalse(protocol.runs_game_of(rf'java.exe GradleWrapperMain runClient "-Pharness={folder}"', folder))
+        self.assertFalse(protocol.runs_game_of(rf"java.exe -Dalbedo.harness={folder}1 Main", folder))

@@ -26,6 +26,7 @@ from tools import project
 from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
+from tools.harness.verdict import Loader
 from tools.project import Target
 from tools.report import ToolError, say
 
@@ -69,7 +70,7 @@ def run_suites(target: Target, runs: list[RunOptions], system: System) -> bool:
     return passed
 
 
-def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
+def parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m tools harness", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("targets", nargs="+", metavar="TARGET", help=f'for example fabric-26.3, or "{ALL}" for each target')
     parser.add_argument("--suite", nargs="+", default=[RunOptions.suite], help="the suites that run after the scene (default: %(default)s)")
@@ -87,12 +88,16 @@ def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
     parser.add_argument("--vulkan-validation", action="store_true", help="the Vulkan validation layers of the game")
     parser.add_argument(
         "--loader",
-        choices=("fabric", "quilt", "quilt-dev"),
-        default=RunOptions.loader,
+        choices=[loader.value for loader in Loader],
+        default=RunOptions.loader.value,
         help="for a fabric target: quilt runs the release jar of the node on Quilt Loader, quilt-dev runs the dev classes on it",
     )
-    parsed = parser.parse_args(arguments)
-    options = RunOptions(
+    return parser
+
+
+def options_of(parsed: argparse.Namespace) -> RunOptions:
+    """The options of the first suite."""
+    return RunOptions(
         suite=parsed.suite[0],
         extra=tuple(parsed.extra),
         out=parsed.out,
@@ -104,15 +109,25 @@ def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
         gui_scale=parsed.gui_scale,
         backend=parsed.backend,
         vulkan_validation=parsed.vulkan_validation,
-        loader=parsed.loader,
+        loader=Loader(parsed.loader),
     )
-    targets = list(project.targets()) if parsed.targets == [ALL] else [project.find_target(name) for name in parsed.targets]
-    for suite in (*parsed.suite, *options.extra):
+
+
+def check(targets: list[Target], options: RunOptions, suites: list[str]) -> None:
+    """Raises a ToolError for a suite with no file or for options that do not go together."""
+    for suite in (*suites, *options.extra):
         script.suite_file(suite)
     if options.shader_pack and "iris" not in options.compat:
         raise ToolError("--shader-pack needs --compat iris")
-    if options.loader != "fabric" and any(target.loader != "fabric" for target in targets):
+    if options.loader.on_quilt and any(target.loader != "fabric" for target in targets):
         raise ToolError(f"--loader {options.loader} runs only fabric targets")
+
+
+def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
+    parsed = parser().parse_args(arguments)
+    options = options_of(parsed)
+    targets = list(project.targets()) if parsed.targets == [ALL] else [project.find_target(name) for name in parsed.targets]
+    check(targets, options, parsed.suite)
     if len(parsed.suite) == 1:
         return targets, [options]
     return targets, [dataclasses.replace(options, suite=suite, out=options.out / suite) for suite in parsed.suite]
