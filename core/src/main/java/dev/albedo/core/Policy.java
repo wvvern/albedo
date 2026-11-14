@@ -153,8 +153,13 @@ public final class Policy {
         return profile == null || profile.is(Toggle.SHADOWS);
     }
 
-    /** False when the armor that players wear is hidden. */
+    /** False when the armor and elytra that players wear are hidden. */
     public boolean playerArmor() {
         return profile == null || profile.is(Toggle.ARMOR);
+    }
+
+    /** False when the capes that players wear are hidden. */
+    public boolean playerCape() {
+        return profile == null || profile.is(Toggle.CAPE);
     }
 }

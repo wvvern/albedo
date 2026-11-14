@@ -70,6 +70,18 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(["run summon minecraft:sheep 2 4 -3", "run kill @e[type=!player]"], compose(lines, LEGACY_1_12))
         self.assertEqual(lines, compose(lines, LEGACY_1_8))
 
+    def test_1_12_names_an_entity_of_two_words_with_an_underscore(self):
+        lines = ["run summon ArmorStand 2 4 -3 {Rotation:[180f,0f]}", "run replaceitem entity @e[type=ArmorStand] slot.armor.chest x"]
+        self.assertEqual(
+            ["run summon minecraft:armor_stand 2 4 -3 {Rotation:[180f,0f]}", "run replaceitem entity @e[type=armor_stand] slot.armor.chest x"],
+            compose(lines, LEGACY_1_12),
+        )
+
+    def test_1_8_has_no_elytra(self):
+        lines = ["run replaceitem entity @p slot.armor.chest minecraft:elytra", "keepframe", "framechanged elytra"]
+        self.assertEqual(["keepframe"], compose(lines, LEGACY_1_8))
+        self.assertEqual(lines, compose(lines, LEGACY_1_12))
+
 
 class SuiteFilesTest(unittest.TestCase):
     def test_each_target_has_a_scene(self):

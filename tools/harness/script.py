@@ -54,8 +54,18 @@ def entity_ids_of_1_12(line: str) -> str | None:
     """1.12.2 names an entity type by its id and has no achievement command."""
     if line.startswith("run achievement "):
         return None
-    line = re.sub(r"type=!Player\b", "type=!player", line)
-    return re.sub(r"^(run summon )([A-Z]\w*)", lambda match: f"{match.group(1)}minecraft:{match.group(2).lower()}", line)
+    line = re.sub(r"\b(type=!?)([A-Z]\w*)", lambda match: match.group(1) + entity_id(match.group(2)), line)
+    return re.sub(r"^(run summon )([A-Z]\w*)", lambda match: f"{match.group(1)}minecraft:{entity_id(match.group(2))}", line)
+
+
+def entity_id(name: str) -> str:
+    """The 1.12 id of a 1.8 entity name, for example armor_stand for ArmorStand."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def without_elytra(line: str) -> str | None:
+    """1.8 has no elytra, so a line that names it does not run."""
+    return None if "elytra" in line else line
 
 
 def old_grass_name(line: str) -> str:
@@ -90,6 +100,7 @@ def old_replaceitem(line: str) -> str:
 RULES = (
     Rule(lambda target: target.legacy, legacy_click),
     Rule(lambda target: target.legacy and target.at_least("1.12"), entity_ids_of_1_12),
+    Rule(lambda target: target.legacy and not target.at_least("1.9"), without_elytra),
     Rule(lambda target: not target.legacy and not target.at_least("1.20.3"), old_grass_name),
     Rule(lambda target: not target.legacy and not target.at_least("1.18"), move_scene_up),
     Rule(lambda target: not target.legacy and not target.at_least("1.18"), tp_from_player),

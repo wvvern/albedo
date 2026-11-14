@@ -499,7 +499,8 @@ public final class SettingsEditor {
         }
         ry += 5;
         ui.fill(x + 4, ry - 3, w - 8, 1, Ui.BORDER);
-        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage, shadows and armor", page.view == View.WORLD, true)) {
+        if (sidebarRow("world", x, ry, w, pitch - 1, "World", "Fullbright, shading, foliage, shadows, armor and capes",
+                page.view == View.WORLD, true)) {
             go(page.to(View.WORLD));
         }
         int iy = ry + (pitch - 9) / 2;

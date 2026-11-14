@@ -35,13 +35,16 @@ public final class ModernHooks {
     private static final HookCounter CLOUDS = new HookCounter("clouds");
     private static final HookCounter FULLBRIGHT = new HookCounter("fullbright");
     private static final HookCounter SHADOW = new HookCounter("shadow");
+    /** The cape and elytra layers, which run only while a player or a mob with that layer is in view. */
+    private static final HookCounter CAPE = new HookCounter("cape");
+    private static final HookCounter ELYTRA = new HookCounter("elytra");
     /** The flat sky hook, which a loader can skip when it adds an overload of the sky pass method and calls that one. */
     private static final HookCounter SKY_PASS = new HookCounter("skyPass");
     /** The skipped window calls of the mouse grab and release, which only a harness game skips. */
     private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
     static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, TINT, SODIUM_TINT, SODIUM_WATER, SODIUM_SHADE, ITEM_ICON, CLOUDS,
-            DRY_FOLIAGE, FULLBRIGHT, SHADOW, SKY_PASS, MOUSE_GRAB);
+            DRY_FOLIAGE, FULLBRIGHT, SHADOW, CAPE, ELYTRA, SKY_PASS, MOUSE_GRAB);
 
     private ModernHooks() {}
 
@@ -263,6 +266,18 @@ public final class ModernHooks {
     /** Whether the armor layer skips an entity: a player, while the profile hides player armor. */
     public static boolean hideArmor(boolean player) {
         return player && !Albedo.currentPolicy().playerArmor();
+    }
+
+    /** Whether the elytra layer skips an entity: a player, while the profile hides player armor. */
+    public static boolean hideElytra(boolean player) {
+        ELYTRA.run();
+        return hideArmor(player);
+    }
+
+    /** Whether the cape layer skips an entity: a player, while the profile hides player capes. */
+    public static boolean hideCape(boolean player) {
+        CAPE.run();
+        return player && !Albedo.currentPolicy().playerCape();
     }
 
     /** The cloud option that the renderer reads in this frame, which is off while the profile hides the clouds. */

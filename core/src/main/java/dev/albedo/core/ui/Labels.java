@@ -301,6 +301,7 @@ final class Labels {
             case SHADING: return "Shading";
             case FOLIAGE: return "Foliage";
             case ARMOR: return "Player armor";
+            case CAPE: return "Player cape";
             default: return "Entity shadows";
         }
     }
@@ -310,7 +311,8 @@ final class Labels {
             case FULLBRIGHT: return "Full light in all areas. No dark caves or night.";
             case SHADING: return "Smooth lighting and darker block sides.";
             case FOLIAGE: return "Grass, flowers, ferns and vines. Off hides them.";
-            case ARMOR: return "Armor worn by players. Off hides it.";
+            case ARMOR: return "Armor and elytra worn by players. Off hides them.";
+            case CAPE: return "Capes worn by players. Off hides them.";
             default: return "The round shadows below mobs and players.";
         }
     }

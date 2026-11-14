@@ -36,6 +36,8 @@ The adapters change data at stable points, not inside the renderers. The core wo
 | Face shade | `ClientLevel.getShade`, Forge 1.16.5 `LightUtil.diffuseLight`, 26.x `CardinalLighting.byFace` | quads into the chunk mesh (`Game.addQuad`, `LegacyHooks.vertexColor`) |
 | Entity shadows | `EntityRenderer`, before 1.21.9 `EntityRenderDispatcher` | `Render.doRenderShadowAndFire` |
 | Player armor | `HumanoidArmorLayer.submit`, before 1.21.9 `render`; the player is the entity type, the render state class before 1.21.9, the entity before 1.21.2 | `LayerArmorBase.doRenderLayer` |
+| Player elytra (Player armor) | `WingsLayer.submit`, before 1.21.9 `render`, before 1.21.2 `ElytraLayer.render`; the player as for armor (counter `elytra`) | 1.12.2 `LayerElytra.doRenderLayer`; 1.8.9 has no elytra |
+| Player cape | `CapeLayer.submit` (players and mannequins, told apart by entity type), before 1.21.9 `render` (players only) (counter `cape`) | `LayerCape.doRenderLayer` |
 | Sky and fog color | `LevelRenderer` sky pass, `FogRenderer` (1.21.2 to 1.21.5 the static `computeFogColor`, `StaticFogMixin`) | `RenderGlobal.renderSky`, `EntityRenderer.updateFogColor` |
 | Custom sky | `SkyRenderer` from 1.21.2 (`GlSkyLayersMixin` to 1.21.5, `SkyLayersMixin` from 1.21.6); 1.21.1 `LevelRenderer.renderSky`; 1.16.5 `LevelRenderer.renderSky` (`FixedSkyMixin`) | `RenderGlobal.renderSky` (`LegacySkyPatch`) |
 | Hidden clouds | `Options.getCloudsType`, 26.x `getCloudStatus` | the clouds texture |
@@ -56,7 +58,7 @@ The adapters change data at stable points, not inside the renderers. The core wo
 
 Every change (screen, key, harness, config file) goes to `Albedo.apply`, which saves the config, builds a new `Policy` and calls `Albedo.refresh`:
 
-1. Sky, fog, fullbright, shadows, player armor and clouds read the policy each frame.
+1. Sky, fog, fullbright, shadows, player armor, player capes and clouds read the policy each frame.
 2. `TextureStore.repaint` repaints each texture whose look changed from its kept original.
 3. `Platform.finishRepaint` uploads the results.
 4. If tints or shading changed, `Platform.rebuildChunks` rebuilds the chunk meshes.

@@ -10,8 +10,10 @@ public enum Toggle {
     FOLIAGE("foliage", true),
     /** The round shadows under mobs and players, which the game reads each frame. */
     SHADOWS("shadows", true),
-    /** The armor that players wear, which the game reads each frame. */
-    ARMOR("armor", true);
+    /** The armor and elytra that players wear, which the game reads each frame. */
+    ARMOR("armor", true),
+    /** The capes that players wear, which the game reads each frame. */
+    CAPE("cape", true);
 
     public final String key;
     public final boolean defaultOn;

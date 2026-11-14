@@ -1,0 +1,75 @@
+# Player armor off hides the armor and the elytra of players, Player cape off hides their capes. The armor stand (left in the
+# front view) and the zombie (right) keep theirs. Run it after the scene:
+# python -m tools harness fabric-26.3 --suite player-layers --out build/cape
+# The dev player has no cape, so the cape shots show no change; the hooks line shows that the cape layer ran (cape=N).
+# 1.8.9 has no elytra, so the lines that name it do not run there.
+wait 60
+# A zombie despawns in peaceful.
+run difficulty easy
+modern: run tp @p 0.5 -60 4.5 180 0
+legacy: run tp @p 0.5 4 4.5 180 0
+modern: run summon armor_stand 2.5 -60 4.5 {Rotation:[180f,0f]}
+modern: run summon zombie -1.5 -60 4.5 {NoAI:1b,IsBaby:0b,Rotation:[180f,0f]}
+legacy: run summon ArmorStand 2.5 4 4.5 {Rotation:[180f,0f]}
+legacy: run summon Zombie -1.5 4 4.5 {NoAI:1,IsBaby:0,Rotation:[180f,0f]}
+modern: run item replace entity @p armor.head with minecraft:diamond_helmet
+modern: run item replace entity @p armor.chest with minecraft:diamond_chestplate
+modern: run item replace entity @e[type=armor_stand] armor.chest with minecraft:diamond_chestplate
+modern: run item replace entity @e[type=zombie] armor.head with minecraft:diamond_helmet
+modern: run item replace entity @e[type=zombie] armor.chest with minecraft:diamond_chestplate
+legacy: run replaceitem entity @p slot.armor.head minecraft:diamond_helmet
+legacy: run replaceitem entity @p slot.armor.chest minecraft:diamond_chestplate
+legacy: run replaceitem entity @e[type=ArmorStand] slot.armor.chest minecraft:diamond_chestplate
+legacy: run replaceitem entity @e[type=Zombie] slot.armor.head minecraft:diamond_helmet
+legacy: run replaceitem entity @e[type=Zombie] slot.armor.chest minecraft:diamond_chestplate
+# The front view: F5 twice from first person.
+key F5
+key F5
+wait 40
+screenshot p01-front-armor
+keepframe
+armor off
+wait 10
+framechanged armor
+screenshot p02-front-armor-hidden
+armor on
+wait 10
+cape off
+wait 10
+screenshot p03-front-cape-hidden
+cape on
+# The back view: F5 twice from the front view.
+key F5
+key F5
+wait 20
+screenshot p04-back-cape
+cape off
+wait 10
+screenshot p05-back-cape-hidden
+cape on
+# No helmet, so that only the elytra can change the frame.
+run clear @p minecraft:diamond_helmet
+modern: run item replace entity @p armor.chest with minecraft:elytra
+modern: run item replace entity @e[type=armor_stand] armor.chest with minecraft:elytra
+modern: run item replace entity @e[type=zombie] armor.chest with minecraft:elytra
+legacy: run replaceitem entity @p slot.armor.chest minecraft:elytra
+legacy: run replaceitem entity @e[type=ArmorStand] slot.armor.chest minecraft:elytra
+legacy: run replaceitem entity @e[type=Zombie] slot.armor.chest minecraft:elytra
+wait 20
+screenshot p06-back-elytra
+# No framechanged here: the middle of the frame is the head of the player, and the elytra is below it. Compare p06 and p07.
+armor off
+wait 10
+screenshot p07-back-elytra-hidden
+armor on
+wait 10
+# The front view again, with the elytra: F5 once from the back view.
+key F5
+wait 20
+screenshot p08-front-elytra
+armor off
+wait 10
+screenshot p09-front-elytra-hidden
+armor on
+run difficulty peaceful
+quit

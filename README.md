@@ -30,7 +30,7 @@ Textures are changed as they load, so modded blocks and resource packs work too.
 ### Control
 
 - **Servers:** give each server its own profile, or turn the mod off there.
-- **World options:** fullbright, shading, foliage, entity shadows and player armor.
+- **World options:** fullbright, shading, foliage, entity shadows, player armor and player capes.
 - **Keys:** F9 opens the settings, F6 turns the mod on or off, F7 switches profile.
 
 ## Install

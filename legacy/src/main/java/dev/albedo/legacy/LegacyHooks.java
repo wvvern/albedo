@@ -29,8 +29,12 @@ public final class LegacyHooks {
     public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
     /** The skipped LWJGL calls of the mouse grab and release, which only a harness game skips. */
     private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
+    /** The cape and elytra layers, which run only while a player or a mob with that layer is in view; 1.8.9 has no elytra. */
+    private static final HookCounter CAPE = new HookCounter("cape");
+    private static final HookCounter ELYTRA = new HookCounter("elytra");
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
-    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD, MOUSE_GRAB);
+    static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD, MOUSE_GRAB,
+            CAPE, ELYTRA);
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 
@@ -198,6 +202,18 @@ public final class LegacyHooks {
     /** Whether the armor layer skips an entity: a player, while the profile hides player armor. */
     public static boolean hideArmor(boolean player) {
         return player && !Albedo.currentPolicy().playerArmor();
+    }
+
+    /** Whether the elytra layer of 1.12.2 skips an entity: a player, while the profile hides player armor. */
+    public static boolean hideElytra(boolean player) {
+        ELYTRA.run();
+        return hideArmor(player);
+    }
+
+    /** Whether the cape layer skips a player, while the profile hides player capes. */
+    public static boolean hideCape() {
+        CAPE.run();
+        return !Albedo.currentPolicy().playerCape();
     }
 
     public static boolean overridesSky() {

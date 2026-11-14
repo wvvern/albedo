@@ -230,6 +230,30 @@ class CoreTest {
     }
 
     @Test
+    void playerCapeToggle() {
+        // A file from before the toggle has no "cape" key, so capes stay shown, in every built-in profile too.
+        Config old = ConfigCodec.decode("{ \"activeProfile\": \"Mine\", \"profiles\": { \"Mine\": { \"armor\": false } } }");
+        assertTrue(old.activeProfile().is(Toggle.CAPE));
+        assertTrue(Policy.of(old).playerCape());
+        for (Profile p : Config.defaults().profiles().values()) assertTrue(p.is(Toggle.CAPE), p.name());
+        assertFalse(ConfigCodec.encode(old).contains("\"cape\""), "a default toggle is not written");
+
+        Config hidden = old.withProfile(old.activeProfile().with(Toggle.CAPE, false));
+        assertFalse(Policy.of(hidden).playerCape());
+        assertFalse(Policy.of(hidden).playerArmor(), "armor keeps its own value");
+        assertTrue(Policy.of(old.withProfile(old.activeProfile().with(Toggle.ARMOR, true))).playerCape(), "armor does not hide capes");
+        assertTrue(ConfigCodec.encode(hidden).contains("\"cape\": false"));
+        Config again = ConfigCodec.decode(ConfigCodec.encode(hidden));
+        assertEquals(hidden, again);
+        assertFalse(again.activeProfile().is(Toggle.CAPE));
+
+        assertTrue(Policy.of(hidden.withEnabled(false)).playerCape(), "with the mod off, capes show");
+        assertTrue(Policy.DISABLED.playerCape());
+        assertTrue(Policy.of(old).sameTextures(Policy.of(hidden)), "capes do not change textures");
+        assertSame(Toggle.CAPE, Toggle.byKey("cape"));
+    }
+
+    @Test
     void groupsWhitelistAndBlacklist() {
         Appearance white = Appearance.solid(0xFFFFFFFF);
         Rule keep = new Rule("Ores", Collections.singletonList("*_ore"), Appearance.ORIGINAL, false);

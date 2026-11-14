@@ -167,6 +167,14 @@ net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer#render
 net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer#submit
 net.minecraft.client.renderer.entity.state.PlayerRenderState
 net.minecraft.client.renderer.entity.state.EntityRenderState#entityType
+net.minecraft.client.renderer.entity.layers.ElytraLayer#render
+net.minecraft.client.renderer.entity.layers.WingsLayer#render
+net.minecraft.client.renderer.entity.layers.WingsLayer#submit
+
+# Player cape
+net.minecraft.client.renderer.entity.layers.CapeLayer#render
+net.minecraft.client.renderer.entity.layers.CapeLayer#submit
+net.minecraft.client.renderer.entity.state.AvatarRenderState
 
 # Settings screen and input
 net.minecraft.client.gui.GuiComponent
