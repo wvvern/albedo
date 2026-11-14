@@ -8,6 +8,7 @@ import re
 import subprocess
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 
 from tools import project
@@ -80,31 +81,42 @@ def text_hygiene(tree: Tree) -> Iterator[Problem]:
             yield Problem(file, "add a newline at the end of the file")
 
 
+class Scan(Enum):
+    """The state of unprefixed_handlers on a line."""
+
+    IDLE = auto()  # No injector annotation is open.
+    ANNOTATION = auto()  # In the parentheses of an annotation.
+    HEADER = auto()  # After the annotations, before the handler header.
+
+
 def unprefixed_handlers(lines: Iterable[str]) -> Iterator[int]:
     """The line numbers of the mixin handlers whose names do not start with albedo$, also in inactive Stonecutter branches.
 
     After an injector annotation, the rest of it, other annotations, blank lines and Stonecutter markers are skipped; the next line is the
     handler header. So the handler name must be on the header line, and the annotation must not share a line with the header.
     """
-    pending = False
+    state = Scan.IDLE
     depth = 0
     for number, line in enumerate(lines, 1):
         code = STRING_LITERAL.sub("", line)
         text = LINE_START.sub("", code, count=1)
-        opened = code.count("(") - code.count(")")
-        if depth > 0:
-            depth += opened
-        elif INJECTOR.match(text):
-            pending = True
-            depth = opened
-        elif not pending:
-            continue
-        elif text.startswith("@"):
-            depth = opened
-        elif text and not STONECUTTER_MARKER.match(text) and text != "*/":
-            if not HANDLER_NAME.search(code):
-                yield number
-            pending = False
+        after, depth = scan_step(state, depth, text, code)
+        if state is Scan.HEADER and after is Scan.IDLE and not HANDLER_NAME.search(code):
+            yield number
+        state = after
+
+
+def scan_step(state: Scan, depth: int, text: str, code: str) -> tuple[Scan, int]:
+    """The next state of unprefixed_handlers and the open parenthesis count of the annotation."""
+    opened = code.count("(") - code.count(")")
+    if state is Scan.ANNOTATION:
+        depth += opened
+        return (Scan.ANNOTATION if depth > 0 else Scan.HEADER), depth
+    if INJECTOR.match(text) or (state is Scan.HEADER and text.startswith("@")):
+        return (Scan.ANNOTATION if opened > 0 else Scan.HEADER), opened
+    if state is Scan.HEADER and text and not STONECUTTER_MARKER.match(text) and text != "*/":
+        return Scan.IDLE, depth
+    return state, depth
 
 
 def mixin_handler_names(tree: Tree) -> Iterator[Problem]:
