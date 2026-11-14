@@ -9,6 +9,7 @@ Before you start:
 2. Put an OptiFine 1.8.9 jar (for example HD U M6 pre2) in legacy/build/optifine/. Get it from optifine.net.
 3. Run: python -m tools build forge-1.8.9
 
+All variants run at the same time, each in its own game folder legacy/build/optifine/game-<variant>.
 Screenshots and logs go to <out>/<variant>/. The variants are OptiFine settings:
   none         no OptiFine
   default      OptiFine with its default settings
@@ -20,6 +21,7 @@ Screenshots and logs go to <out>/<variant>/. The variants are OptiFine settings:
 
 import argparse
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,9 +48,15 @@ class OptiFineOptions:
     option_lines: tuple[str, ...] = ()
 
 
-def run_variant(variant: str, target: Target, release: Path, options: OptiFineOptions, java: Path, system: System) -> None:
+def game_dir(variant: str, mods: Path | None) -> Path:
+    """The game folder of a variant, so the variants run at the same time."""
+    return WORK / f"game-mods-{variant}" if mods else WORK / f"game-{variant}"
+
+
+def run_variant(variant: str, target: Target, release: Path, options: OptiFineOptions, java: Path, system: System) -> bool:
+    """Runs one variant and tells whether its harness log has no error."""
     installation = Installation.of_this_user()
-    game = WORK / ("game-mods" if options.mods else "game")
+    game = game_dir(variant, options.mods)
 
     def launch_of(harness: Path) -> Launch:
         prepare_game_dir(game, release, variant, options.mods, options.option_lines)
@@ -65,8 +73,19 @@ def run_variant(variant: str, target: Target, release: Path, options: OptiFineOp
     for log in (finished.launch.log, harness_log):
         if log.is_file():
             shutil.copy2(log, out)
-    for error in protocol.errors(files.read_lines(harness_log)):
+    errors = protocol.errors(files.read_lines(harness_log))
+    for error in errors:
         print(f"[{variant}] {error}", flush=True)
+    return not errors
+
+
+def run_job(variant: str, target: Target, release: Path, options: OptiFineOptions, java: Path, system: System) -> bool:
+    """Runs one variant; an error fails only this variant."""
+    try:
+        return run_variant(variant, target, release, options, java, system)
+    except ToolError as error:
+        print(f"[{variant}] FAIL: {error}", flush=True)
+        return False
 
 
 def parser() -> argparse.ArgumentParser:
@@ -108,6 +127,9 @@ def main(arguments: list[str]) -> int:
     release = target.jar(project.mod_version())
     if not release.is_file():
         raise ToolError(f"no {release.name}; run: python -m tools build {target.name}")
-    for variant in parsed.variants:
-        run_variant(variant, target, release, options, java, system)
-    return 0
+    with ThreadPoolExecutor(max_workers=len(parsed.variants)) as pool:
+        passed = list(pool.map(lambda variant: run_job(variant, target, release, options, java, system), parsed.variants))
+    failed = [variant for variant, ok in zip(parsed.variants, passed, strict=True) if not ok]
+    if failed:
+        print(f"FAIL: {', '.join(failed)}")
+    return 1 if failed else 0

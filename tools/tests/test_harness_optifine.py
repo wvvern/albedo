@@ -105,3 +105,8 @@ class OptionsTest(unittest.TestCase):
         parsed = optifine.parser().parse_args(["--suite", "chroma", "--option", "useVbo:true", "--dump-classes", "--timeout", "60"])
         options = optifine.options_of(parsed)
         self.assertEqual(("chroma", ("useVbo:true",), True, 60), (options.suite, options.option_lines, options.dump_classes, options.timeout))
+
+    def test_each_variant_has_a_game_folder_of_its_own(self):
+        folders = {optifine.game_dir(variant, None) for variant in optifine.VARIANTS}
+        self.assertEqual(len(optifine.VARIANTS), len(folders))
+        self.assertEqual(prodrun.WORK / "game-mods-quake", optifine.game_dir("quake", Path("mods")))
