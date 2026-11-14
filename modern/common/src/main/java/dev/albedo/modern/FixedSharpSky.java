@@ -16,7 +16,6 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
@@ -101,44 +100,6 @@ final class FixedSharpSky {
         }
     }
 
-    // The GL state that a draw of the sky changes and the game keeps a copy of, read before the draw and put back after it.
-    private static final class Saved {
-        private final int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-        private final int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        private final int texture0;
-        private final boolean depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-        private final int depthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
-        private final boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        private final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
-        private final int sourceRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
-        private final int destRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
-        private final int sourceAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
-        private final int destAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        private final boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-
-        Saved() {
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            texture0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-            GL13.glActiveTexture(activeTexture);
-        }
-
-        void restore() {
-            GlStateManager._glUseProgram(program);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(texture0);
-            GlStateManager._activeTexture(activeTexture);
-            if (depthTest) GlStateManager._enableDepthTest();
-            else GlStateManager._disableDepthTest();
-            GlStateManager._depthFunc(depthFunc);
-            GlStateManager._depthMask(depthMask);
-            if (blend) GlStateManager._enableBlend();
-            else GlStateManager._disableBlend();
-            GlStateManager._blendFuncSeparate(sourceRgb, destRgb, sourceAlpha, destAlpha);
-            if (cull) GlStateManager._enableCull();
-            else GlStateManager._disableCull();
-        }
-    }
-
     // The programs of each sky that came recently.
     private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
             steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
@@ -177,7 +138,7 @@ final class FixedSharpSky {
     // Adds the image of the last prepare on the sphere display list to a black frame, only where the depth is still the far
     // depth of the clear, and puts back the state that it changed.
     static void draw(int sphere, float brightness) {
-        Saved saved = new Saved();
+        GlState saved = GlState.ofFixedDraw();
         ready.use(BLOCK, termTexture, brightness);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
@@ -191,9 +152,6 @@ final class FixedSharpSky {
 
     // A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms.
     private static int uploadTerms(SkyImage img) {
-        int width = img.termTextureWidth(), height = img.termTextureHeight();
-        ByteBuffer bytes = BufferUtils.createByteBuffer(width * height * 8);
-        bytes.asShortBuffer().put(img.terms());
         int texture = GlStateManager._genTexture();
         // Unit 1 holds the lightmap, so the terms go on unit 0.
         int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
@@ -204,12 +162,7 @@ final class FixedSharpSky {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
-        // GL30 has the same numbers as ARB_texture_float and ARB_half_float_pixel.
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
+        GlTerms.texImage(img);
         GlStateManager._bindTexture(previous);
         GlStateManager._activeTexture(active);
         return texture;
@@ -232,7 +185,7 @@ final class FixedSharpSky {
         if (!caps.OpenGL30) return false;
         Program equirect = EQUIRECT.get(sky.program().shaderSteps());
         if (!equirect.ready()) return false;
-        Saved saved = new Saved();
+        GlState saved = GlState.ofFixedDraw();
         int framebufferBefore = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         IntBuffer viewport = BufferUtils.createIntBuffer(16);
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);

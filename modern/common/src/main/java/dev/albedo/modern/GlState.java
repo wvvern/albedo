@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if gl_chroma {
+//? if gl_program {
 /*import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
@@ -18,8 +18,9 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 // GlStateManager where the game keeps a copy of the state.
 final class GlState {
     private final boolean targets;
+    private final boolean vertexArrays;
     private final int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-    private final int vertexArray = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+    private int vertexArray;
     private final int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
     private final int texture0;
     private final boolean depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
@@ -40,8 +41,10 @@ final class GlState {
     private int packBuffer;
     private int unpackBuffer;
 
-    private GlState(boolean targets) {
+    private GlState(boolean targets, boolean vertexArrays) {
         this.targets = targets;
+        this.vertexArrays = vertexArrays;
+        if (vertexArrays) vertexArray = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         texture0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         if (targets) {
@@ -63,12 +66,17 @@ final class GlState {
 
     // Reads the state of a draw into the frame: the program, the vertex array, the texture of unit 0, the depth state, the blend state and the cull.
     static GlState ofDraw() {
-        return new GlState(false);
+        return new GlState(false, true);
+    }
+
+    // Reads the state of a draw with no vertex array, which OpenGL 2.0 of the fixed function versions may not have.
+    static GlState ofFixedDraw() {
+        return new GlState(false, false);
     }
 
     // Reads the state of a draw and also the array buffer, the framebuffers, the viewport, the texture of unit 1, the scissor test and the pixel buffers.
     static GlState ofAll() {
-        return new GlState(true);
+        return new GlState(true, true);
     }
 
     // Puts back the state that this object read.
@@ -89,7 +97,11 @@ final class GlState {
         GlStateManager._bindTexture(texture0);
         GlStateManager._activeTexture(activeTexture);
         GlStateManager._glUseProgram(program);
-        GlStateManager._glBindVertexArray(vertexArray);
+        //? if gl_fixed {
+        /^if (vertexArrays) GL30.glBindVertexArray(vertexArray);
+        ^///?} else {
+        if (vertexArrays) GlStateManager._glBindVertexArray(vertexArray);
+        //?}
         if (depthTest) GlStateManager._enableDepthTest();
         else GlStateManager._disableDepthTest();
         GlStateManager._depthFunc(depthFunc);

@@ -157,7 +157,6 @@ final class GlSharpSky {
 
     // A new half float texture on unit 0 with the term images of a sky one under the other, or one texel of 0 when the sky has no terms.
     private static int uploadTerms(SkyImage img) {
-        int width = img.termTextureWidth(), height = img.termTextureHeight();
         int texture = GlStateManager._genTexture();
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(texture);
@@ -165,17 +164,7 @@ final class GlSharpSky {
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-        ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
-        try {
-            bytes.asShortBuffer().put(img.terms());
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
-        } finally {
-            MemoryUtil.memFree(bytes);
-        }
+        GlTerms.texImage(img);
         return texture;
     }
 

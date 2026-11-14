@@ -28,8 +28,7 @@ import org.lwjgl.system.MemoryUtil;
 //? if >=26.2 {
 import com.mojang.blaze3d.GpuFormat;
 //?} else {
-/^import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.textures.TextureFormat;
+/^import com.mojang.blaze3d.textures.TextureFormat;
 ^///?}
 
 import java.io.File;
@@ -103,17 +102,7 @@ final class PrecompiledSharpSky {
                     GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST, TextureFormat.RGBA8, width, height, 1, 1);
             // The game has no half float format, so the GL gets the level again in half floats on the texture that this write binds.
             DeviceApi.write(RenderSystem.getDevice().createCommandEncoder(), texture, ONE_TEXEL, 0, 1, 1);
-            GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
-            GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
-            GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-            GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * HALF_RGBA_BYTES);
-            try {
-                bytes.asShortBuffer().put(img.terms());
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
-            } finally {
-                MemoryUtil.memFree(bytes);
-            }
+            GlTerms.texImage(img);
             ^///?}
             return new Terms(texture, RenderSystem.getDevice().createTextureView(texture));
         }
