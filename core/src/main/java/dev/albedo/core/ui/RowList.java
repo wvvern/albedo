@@ -9,6 +9,11 @@ final class RowList {
         boolean draw(int index, int x, int y, int w, int h);
     }
 
+    /** One row of a form at y, which does not change the list. */
+    interface Line {
+        void draw(int y);
+    }
+
     /**
      * Draws the visible rows of {@code count}, each {@code rowH - 2} high, with a scrollbar when they do not all fit.
      *

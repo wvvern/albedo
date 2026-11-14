@@ -2,6 +2,7 @@ package dev.albedo.core.ui;
 
 import dev.albedo.core.Category;
 import dev.albedo.core.config.Appearance;
+import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyMask;
 import dev.albedo.core.config.SkyTurning;
@@ -276,12 +277,17 @@ final class Labels {
         return m == SkyMask.Mode.DARK ? "Show where the mask layer is dark" : "Show where the mask layer is light";
     }
 
-    static String source(SkyLayersEditor.PreviewSource s) {
-        return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "This layer" : "All layers";
+    static String source(SkyPreviewSource s) {
+        return s == SkyPreviewSource.THIS_LAYER ? "This layer" : "All layers";
     }
 
-    static String sourceTip(SkyLayersEditor.PreviewSource s) {
-        return s == SkyLayersEditor.PreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
+    static String sourceTip(SkyPreviewSource s) {
+        return s == SkyPreviewSource.THIS_LAYER ? "Only this layer, also when it is only a mask" : "The full sky";
+    }
+
+    /** The name of a sky layer: its kind and its place from the bottom. */
+    static String layer(SkyDesign design, int index) {
+        return kind(design.layers().get(index).kind()) + " " + (index + 1);
     }
 
     /** The effects that are on, such as "Edge Chroma 60%, Bevel 20%", or "Off". */
@@ -299,17 +305,25 @@ final class Labels {
         s.append(name).append(' ').append(percent).append('%');
     }
 
+    static final String TURNING = "Turning";
     static final String TURNING_TIP = "Turning: the full sky turns around the pole, as the real night sky does. "
             + "0% stops it. 100% gives the full Speed. The preview turns in real time.";
+    static final String TURNING_SPEED = "Speed";
     static final String TURNING_SPEED_TIP = "Speed: the number of turns in one Minecraft day (20 minutes) at a Turning of 100%. "
             + "1x turns at the speed of the sun and moon. With Pole height 0 and Pole 0, the sky also turns on their path.";
+    static final String TURNING_FOLLOW = "Follow time";
     static final String TURNING_FOLLOW_TIP = "On: the sky turns with the time of the world, as the sun and moon do, and stops when "
             + "the daylight cycle stops. At midnight, the sky is as you made it. Off: the sky turns at a steady speed in real time.";
+    static final String POLE_HEIGHT = "Pole height";
     static final String POLE_HEIGHT_TIP = "Pole height: the angle of the pole above the horizon. 0 is on the horizon, 90 is the top "
             + "of the sky. Set Full sphere on, so that the part below the horizon also has layers when it comes up.";
+    static final String DIRECTION = "Direction";
+    static final String POLE = "Pole";
     static final String POLE_TIP = "Pole: the compass direction of the pole. 0 is north, 90 is east.";
+    static final String TRAILS = "Trails";
     static final String TRAILS_TIP = "Trails: each bright star draws an arc behind it, as in a long photo of the night sky. "
             + "The value is the length of the arc in degrees. 0 stops the trails.";
+    static final String TRAIL_LIGHT = "Trail light";
     static final String TRAIL_LIGHT_TIP = "Trail light: how bright the star trails are.";
 
     /** The turning of a sky, such as "Turning 50%", or "Off". */

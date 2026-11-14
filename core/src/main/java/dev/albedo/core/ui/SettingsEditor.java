@@ -867,7 +867,7 @@ public final class SettingsEditor {
     private boolean groupRow(int x, int y, int w, int h, CategorySettings cs, int i) {
         List<Rule> rules = cs.rules();
         Rule r = rules.get(i);
-        int bx = x + w - 50;
+        int bx = x + w - RowButtons.W;
         ui.round(x, y, w, h, Ui.PANEL);
         if (ui.button("group." + i, x, y, bx - x - 2, h, "", Ui.Style.GHOST, true, "Edit group " + r.displayName())) {
             go(page.withGroup(i));
@@ -881,18 +881,13 @@ public final class SettingsEditor {
         ui.text(ui.ellipsize(r.displayName(), nameW), x + 16, y + 3, Ui.TEXT);
         String members = r.patterns().isEmpty() ? "no textures" : String.join(", ", r.patterns());
         ui.text(ui.ellipsize(look + ": " + members, room - nameW - 6), x + 22 + nameW, y + 3, Ui.MUTED);
-        if (ui.button("group.up." + i, bx, y + 1, 15, 12, "^", Ui.Style.GHOST, i > 0, "Move up. A higher group wins.")) {
-            setCategory(cs.withRuleMoved(i, -1));
+        switch (RowButtons.draw(ui, "group", String.valueOf(i), bx, y, i > 0, i < rules.size() - 1, "Move up. A higher group wins.",
+                "Move down", "Delete this group", "Click again to delete \"" + r.displayName() + "\"")) {
+            case UP: setCategory(cs.withRuleMoved(i, -1)); return false;
+            case DOWN: setCategory(cs.withRuleMoved(i, 1)); return false;
+            case DELETE: setCategory(cs.withoutRule(i)); return true;
+            default: return false;
         }
-        if (ui.button("group.down." + i, bx + 16, y + 1, 15, 12, "v", Ui.Style.GHOST, i < rules.size() - 1, "Move down")) {
-            setCategory(cs.withRuleMoved(i, 1));
-        }
-        if (ui.confirmButton("group.del." + i, bx + 34, y + 1, 15, 12, "x", "Delete this group",
-                "Click again to delete \"" + r.displayName() + "\"")) {
-            setCategory(cs.withoutRule(i));
-            return true;
-        }
-        return false;
     }
 
     private void groupPage(int x, int y, int w, int bottom, CategorySettings cs, int index) {
