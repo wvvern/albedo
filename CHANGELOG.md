@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.3
+
+- feat: Draw Outline around the shape of plants, rails, ladders and other see-through blocks, not only around the block
+- feat: Add Outline to items
+- feat: Add Edge to Chroma, which colors only the line around each block or item, in a ring of hues
+- feat: Add Player cape on the World page, which hides the capes that players wear
+- feat: Hide the elytra that players wear with Player armor too
+- feat: Turn Albedo on or off with a click on the On or Off text too
+- feat: Offer Chroma only where its colors can move, so mobs and players lose it, and on 1.8.9 and 1.12.2 so do particles, chests and signs
+- fix: Show the new item colors in the hotbar and inventory right after a change on 1.21.6 and later
+- fix: Keep Albedo off after you turn it off on a server whose rule you removed in the same visit
+
 ## 0.7.2
 
 - feat: Add Player armor on the World page, which hides the armor that players wear
