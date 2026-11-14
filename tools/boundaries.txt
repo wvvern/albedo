@@ -117,6 +117,8 @@ com.mojang.blaze3d.platform.Lighting#setupFor
 net.minecraft.client.renderer.GameRenderer#render
 net.minecraft.client.Minecraft#tick
 net.minecraft.client.renderer.item.ItemStackRenderState#isAnimated
+net.minecraft.client.renderer.GameRenderer#guiRenderer
+net.minecraft.client.gui.render.GuiRenderer#cachedGuiScale
 
 # Fog
 net.minecraft.client.renderer.FogRenderer|net.minecraft.client.renderer.fog.FogRenderer#setupColor

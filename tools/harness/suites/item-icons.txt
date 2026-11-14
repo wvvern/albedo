@@ -1,0 +1,22 @@
+# The item icons of the hotbar after an item look change with no resource reload: the second screenshot must show black
+# icons. Run it after the scene:
+# python -m tools harness fabric-26.3 --suite item-icons --out build/item-icons
+wait 60
+run clear @p
+run item replace entity @p hotbar.0 with minecraft:diamond_sword
+run item replace entity @p hotbar.1 with minecraft:apple
+run item replace entity @p hotbar.2 with minecraft:iron_ingot
+run item replace entity @p hotbar.3 with minecraft:bread
+run item replace entity @p hotbar.4 with minecraft:stick
+run item replace entity @p hotbar.5 with minecraft:bow
+run item replace entity @p hotbar.6 with minecraft:emerald
+run item replace entity @p hotbar.7 with minecraft:compass
+hud on
+profile quake-white
+look items solid #FFFFFF
+wait 60
+screenshot i01-white
+look items solid #000000
+wait 60
+screenshot i02-black
+quit

@@ -68,6 +68,7 @@ Traps:
 - `TextureStore` keys textures by name, because some textures share a key (OptiFine connected textures).
 - Downloaded skins do not count toward the memory budget, and their failed upload does not trigger a reload, because a reload cannot fetch them again.
 - A sky edit does not repaint textures (`Policy.sameTextures`).
+- From 1.21.6 the screens draw item icons from an item atlas that the game draws again only when the GUI scale changes. After each repaint `TextureUploads.flush` sets the cached scale to 0, so the next frame draws every icon again.
 - Never read the policy in a resource reload listener (for example `CloudRenderer.prepare`): settings changes do not reload resources, so the change would show only after the next reload.
 - On 1.8.9, `rebuildChunks` uses `markBlockRangeForRenderUpdate`, not `loadRenderers`: with Patcher, Essential or OptiFine L5, chunks can stay empty after `loadRenderers`.
 
@@ -76,7 +77,8 @@ Traps:
 Albedo does not own the block shader (vanilla, Sodium, Iris, OptiFine, the 1.8.9 fixed pipeline), but every renderer samples the atlas. So a GPU pass recolors the atlas texture itself each frame. Repainting the block atlas on the CPU takes about 20 ms, too slow per frame.
 
 - The CPU paints moving-Chroma sprites without the hue (`Effects.apply` with `gpuHue`). Only atlas sprites the store keeps get this; everything else gets still Chroma colors at time 0. The Effects section shows Speed only where the pass moves the colors (`Albedo.chromaCanMove`): never for mobs and players, whose textures are stand-alone on every version (`Category.hasMovingChroma`, and `Policy` gives them speed 0), and elsewhere only where a kind of texture is drawn from an atlas (`TextureStore.movingChroma`).
-- `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels.
+- `ChromaTexels` stores one RGBA8 texel per atlas texel: speed in alpha, hue in red and green, OKLab chroma in blue, with mip levels. A mip texel gets the mean of the hue that its four texels add, so a still texel counts as no hue.
+- With Edge, only the texels of the Outline line move, each with its own hue, and the other texels have speed 0. The line is the union of the lines of all frames (`Effects.edgeMask`), because the texels are the same for all frames.
 - The adapter pass (`ChromaAtlases` with `ChromaPass` on 26.3, `PrecompiledChromaPass` 1.21.11 to 26.2, `GlChromaPass` 1.17.1 to 1.21.10, `FixedChromaPass` 1.16.5, `LegacyChroma` 1.8.9) copies each mip level to a pristine copy at frame start and draws the hue over it (`chroma.fsh`, `include/chroma.glsl`); at frame end it copies the pristine copy back. Speed 0 texels are discarded.
 - The hue comes from `Chroma.turns` on `SkyClock.longSeconds()` in double precision. An ordered 16 x 16 dither below one 8-bit step keeps slow hues moving smoothly.
 - Memory cost is twice the atlas with mips (42.6 MiB for a 2048 x 2048 block atlas).

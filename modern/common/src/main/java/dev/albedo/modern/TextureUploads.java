@@ -86,6 +86,18 @@ final class TextureUploads {
         } finally {
             PENDING.clear();
         }
+        redrawItemIcons();
+    }
+
+    /**
+     * Makes the screens draw their item icons again. From 1.21.6 the game draws each icon once into an item atlas and
+     * draws it again only when the GUI scale changes, so a scale of 0 makes the next frame draw every icon with the new pixels.
+     */
+    private static void redrawItemIcons() {
+        //? if >=1.21.6 {
+        Object gui = ((dev.albedo.modern.mixin.GameRendererAccessor) Minecraft.getInstance().gameRenderer).albedo$guiRenderer();
+        ((dev.albedo.modern.mixin.GuiRendererAccessor) gui).albedo$setCachedGuiScale(0);
+        //?}
     }
 
     //? if >=1.21.11 {
