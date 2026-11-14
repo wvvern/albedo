@@ -3,7 +3,6 @@ package dev.albedo.core.config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * A custom sky as an immutable list of layers from the bottom up, where a mask may name only a lower layer so that one
@@ -13,32 +12,16 @@ public final class SkyDesign {
     public static final int MAX_LAYERS = 8;
 
     /** Whether the game draws the sun, moon and stars over the custom sky. */
-    public enum Celestial {
-        SHOW, HIDE;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
-    }
+    public enum Celestial implements FileKey { SHOW, HIDE }
 
     /** Whether the custom sky keeps its brightness or gets darker at night and in rain, as the vanilla sky does. */
-    public enum Light {
-        FIXED, DAY_NIGHT;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
-    }
+    public enum Light implements FileKey { FIXED, DAY_NIGHT }
 
     /** Whether the layers stop at the horizon, with the horizon color below it, or go around the full sphere. */
-    public enum Extent {
-        HORIZON, SPHERE;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
-    }
+    public enum Extent implements FileKey { HORIZON, SPHERE }
 
     /** Whether the GPU draws the sky sharp for each screen pixel when it can, or always from the baked image, which costs less. */
-    public enum Render {
-        SHARP, FAST;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
-    }
+    public enum Render implements FileKey { SHARP, FAST }
 
     public static final SkyDesign NONE = new SkyDesign(Collections.<SkyLayer>emptyList(), Celestial.SHOW, Light.FIXED, Extent.HORIZON);
 

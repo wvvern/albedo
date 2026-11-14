@@ -99,28 +99,46 @@ public final class Config {
      * @param servers server rules, where the last rule of a server wins and a rule for an unknown profile is dropped
      */
     public Config(boolean enabled, String activeProfile, KeyBinds keys, Map<String, Profile> profiles, Collection<ServerRule> servers) {
-        Map<String, Profile> all = new LinkedHashMap<String, Profile>(Presets.all());
-        for (Profile p : profiles.values()) if (!isBuiltIn(p.name())) all.put(p.name(), p);
-        // Changed built-in profiles last, so that their new names do not take a name that a user profile has.
-        String active = activeProfile;
+        Map<String, Profile> presets = Presets.all();
+        Map<String, Profile> all = new LinkedHashMap<String, Profile>(presets);
+        for (Profile p : profiles.values()) if (!presets.containsKey(p.name())) all.put(p.name(), p);
+        Map<String, String> copies = withChangedBuiltInsCopied(all, presets, profiles.values());
+        String active = copies.containsKey(activeProfile) ? copies.get(activeProfile) : activeProfile;
         Collection<ServerRule> rules = servers;
-        for (Profile p : profiles.values()) {
-            if (isBuiltIn(p.name()) && !p.equals(Presets.all().get(p.name()))) {
-                String copy = freeName(all, p.name() + "-custom");
-                all.put(copy, p.renamed(copy));
-                if (p.name().equals(active)) active = copy;
-                rules = moved(rules, p.name(), copy);
-            }
-        }
+        for (Map.Entry<String, String> c : copies.entrySet()) rules = moved(rules, c.getKey(), c.getValue());
         this.enabled = enabled;
         this.keys = keys;
         this.profiles = Collections.unmodifiableMap(all);
         this.activeProfile = all.containsKey(active) ? active : all.keySet().iterator().next();
+        this.servers = validRules(rules, all);
+    }
+
+    /**
+     * Adds each changed built-in profile to {@code all} under a free "-custom" name.
+     *
+     * @return the name of each copy by the built-in name
+     */
+    private static Map<String, String> withChangedBuiltInsCopied(Map<String, Profile> all, Map<String, Profile> presets,
+                                                                 Collection<Profile> profiles) {
+        // After the user profiles, so that a new name does not take a name that a user profile has.
+        Map<String, String> copies = new LinkedHashMap<String, String>();
+        for (Profile p : profiles) {
+            if (presets.containsKey(p.name()) && !p.equals(presets.get(p.name()))) {
+                String copy = freeName(all, p.name() + "-custom");
+                all.put(copy, p.renamed(copy));
+                copies.put(p.name(), copy);
+            }
+        }
+        return copies;
+    }
+
+    /** The rules by server, where the last rule of a server wins and a rule for an unknown profile is dropped. */
+    private static Map<String, ServerRule> validRules(Collection<ServerRule> rules, Map<String, Profile> profiles) {
         Map<String, ServerRule> byServer = new LinkedHashMap<String, ServerRule>();
         for (ServerRule r : rules) {
-            if (!r.server().isEmpty() && (r.profile() == null || all.containsKey(r.profile()))) byServer.put(r.server(), r);
+            if (!r.server().isEmpty() && (r.profile() == null || profiles.containsKey(r.profile()))) byServer.put(r.server(), r);
         }
-        this.servers = Collections.unmodifiableMap(byServer);
+        return Collections.unmodifiableMap(byServer);
     }
 
     public static Config defaults() {

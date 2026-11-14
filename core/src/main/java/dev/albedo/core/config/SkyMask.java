@@ -1,17 +1,13 @@
 package dev.albedo.core.config;
 
-import java.util.Locale;
-
 /** Where a sky layer shows: everywhere, or only where a lower layer (named by its id) is light or dark. */
 public final class SkyMask {
     /** Which part of the mask layer lets this layer through. */
-    public enum Mode {
+    public enum Mode implements FileKey {
         /** Where the mask layer is light and opaque. */
         LIGHT,
         /** Where the mask layer is dark and opaque. */
-        DARK;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
+        DARK
     }
 
     public static final SkyMask NONE = new SkyMask(0, Mode.LIGHT);

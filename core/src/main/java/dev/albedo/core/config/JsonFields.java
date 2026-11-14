@@ -29,15 +29,14 @@ final class JsonFields {
         return map;
     }
 
-    /** The keys of enum values in the file: their names in lower case. */
-    static List<String> keys(Collection<? extends Enum<?>> values) {
+    static List<String> keys(Collection<? extends FileKey> values) {
         List<String> out = new ArrayList<String>();
-        for (Enum<?> v : values) out.add(v.name().toLowerCase(Locale.ROOT));
+        for (FileKey v : values) out.add(v.key());
         return out;
     }
 
     /** The enum value that {@code key} names in lower case, or {@code def} when the key is not there. */
-    static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def, String place) {
+    static <E extends Enum<E> & FileKey> E choice(Map<String, Object> m, String key, E def, String place) {
         if (!m.containsKey(key)) return def;
         Class<E> type = def.getDeclaringClass();
         try {

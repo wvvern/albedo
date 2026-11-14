@@ -7,7 +7,7 @@ import java.util.Set;
 
 /** How a texture looks, as an immutable value. */
 public final class Appearance {
-    public enum Mode {
+    public enum Mode implements FileKey {
         ORIGINAL,
         /** Fill with {@link #color()}, keeping the texture's shape according to {@link #alpha()}. */
         SOLID,
@@ -24,23 +24,28 @@ public final class Appearance {
         public static Mode byKey(String s) {
             return valueOf(s.trim().toUpperCase(Locale.ROOT));
         }
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
-    public enum Alpha {
+    public enum Alpha implements FileKey {
         /** Keep each pixel's original alpha (glass stays see-through, leaves keep their holes). */
         KEEP,
         /** Pixels at or above half alpha become opaque, the rest fully transparent. */
         BINARY,
         /** Every pixel becomes opaque (leaves become solid cubes). */
-        OPAQUE;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
+        OPAQUE
     }
 
-    /** The fields of a look, which a group sets for itself or takes from its category. */
-    public enum Field { MODE, COLOR, ALPHA, DETAIL, KEEP_COLORS, KEEP_LIGHT, BEVEL, OUTLINE, CHROMA }
+    /** The fields of a look, which a group sets for itself or takes from its category, each with its JSON key. */
+    public enum Field {
+        MODE("mode"), COLOR("color"), ALPHA("alpha"), DETAIL("detail"), KEEP_COLORS("keepColors"), KEEP_LIGHT("keepLight"),
+        BEVEL("bevel"), OUTLINE("outline"), CHROMA("chroma");
+
+        public final String key;
+
+        Field(String key) {
+            this.key = key;
+        }
+    }
 
     public static final int DEFAULT_DETAIL = 100, DEFAULT_KEEP_COLORS = 0, DEFAULT_KEEP_LIGHT = 0;
     public static final Appearance ORIGINAL = new Appearance(Mode.ORIGINAL, 0xFFFFFFFF, Alpha.KEEP);

@@ -6,7 +6,7 @@ package dev.albedo.core.config;
  */
 public final class Transform {
     /** The parts of a transform that a kind of layer uses. */
-    public enum Axis { YAW, PITCH, ROLL, SCALE }
+    public enum Axis implements FileKey { YAW, PITCH, ROLL, SCALE }
 
     public static final int MIN_YAW = 0, MAX_YAW = 359;
     public static final int MIN_PITCH = -90, MAX_PITCH = 90, MIN_ROLL = -180, MAX_ROLL = 180, MIN_SCALE = 25, MAX_SCALE = 400;

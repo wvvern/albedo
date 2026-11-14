@@ -45,17 +45,9 @@ public final class ConfigCodec {
     private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
     /** The Chroma options, which have a meaning only when the resolved {@code chroma} is above 0. */
     private static final List<String> CHROMA_KEYS = Arrays.asList("chromaSpeed", "chromaSaturation", "chromaBrightness", "chromaEdge");
-    /** The JSON key of each look field in the order of {@link Appearance.Field}, then the Chroma options. */
-    private static final List<String> LOOK_KEYS = plus(Arrays.asList("mode", "color", "alpha", "detail", "keepColors", "keepLight",
-            "bevel", "outline", "chroma"), CHROMA_KEYS.toArray(new String[0]));
-    /** The look field that each JSON key sets. */
-    private static final Map<String, Appearance.Field> FIELD_KEYS = new LinkedHashMap<String, Appearance.Field>();
-
-    static {
-        Appearance.Field[] fields = Appearance.Field.values();
-        for (int i = 0; i < fields.length; i++) FIELD_KEYS.put(LOOK_KEYS.get(i), fields[i]);
-        for (String key : CHROMA_KEYS) FIELD_KEYS.put(key, Appearance.Field.CHROMA);
-    }
+    /** The look field that each JSON key sets: the key of each {@link Appearance.Field}, then the Chroma options. */
+    private static final Map<String, Appearance.Field> FIELD_KEYS = fieldKeys();
+    private static final List<String> LOOK_KEYS = Collections.unmodifiableList(new ArrayList<String>(FIELD_KEYS.keySet()));
     private static final List<String> ROOT_KEYS = Arrays.asList("enabled", "activeProfile", "keys", "servers", "profiles");
     private static final List<String> KEY_KEYS = Collections.unmodifiableList(
             Arrays.stream(Config.KeyBinds.Action.values()).map(a -> a.key).collect(Collectors.toList()));
@@ -68,6 +60,13 @@ public final class ConfigCodec {
     private static final List<String> PROFILE_FILE_KEYS = Arrays.asList(PROFILE_FILE, "name", "profile");
 
     private ConfigCodec() {}
+
+    private static Map<String, Appearance.Field> fieldKeys() {
+        Map<String, Appearance.Field> out = new LinkedHashMap<String, Appearance.Field>();
+        for (Appearance.Field f : Appearance.Field.values()) out.put(f.key, f);
+        for (String key : CHROMA_KEYS) out.put(key, Appearance.Field.CHROMA);
+        return Collections.unmodifiableMap(out);
+    }
 
     /**
      * One profile as a file to share, {@code {"albedoProfile": 1, "name": "my-profile", "profile": {...}}}, where the
@@ -162,28 +161,32 @@ public final class ConfigCodec {
             int k = 0;
             for (Object o : (List<?>) raw) {
                 String at = where + ".groups[" + k++ + "]";
-                Map<String, Object> rm = object(o, at, GROUP_KEYS);
-                Object match = rm.get("match");
-                List<String> patterns = new ArrayList<String>();
-                if (match instanceof String) patterns.add((String) match);
-                else if (match instanceof List) for (Object p : (List<?>) match) patterns.add(String.valueOf(p));
-                else throw new IllegalArgumentException(at + ": set \"match\" to \"pattern\" or [\"p1\", \"p2\"]");
-                for (String p : patterns) {
-                    String problem = Glob.problem(p);
-                    if (problem != null) throw new IllegalArgumentException(at + ": \"" + p + "\" is not a valid pattern: " + problem);
-                }
-                EnumSet<Appearance.Field> own = EnumSet.noneOf(Appearance.Field.class);
-                for (Map.Entry<String, Appearance.Field> f : FIELD_KEYS.entrySet()) if (rm.containsKey(f.getKey())) own.add(f.getValue());
-                Appearance look = decodeAppearance(category, at, rm, appearance);
-                // Chroma options left in a group whose Chroma is off are ignored, so they do not make Chroma its own field.
-                if (!rm.containsKey("chroma") && !look.chroma().isOn()) own.remove(Appearance.Field.CHROMA);
-                // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
-                if (own.isEmpty() && !onlyGroups) own = EnumSet.allOf(Appearance.Field.class);
-                rules.add(new Rule(str(rm, "name", ""), patterns, look, own));
+                rules.add(decodeGroup(category, at, object(o, at, GROUP_KEYS), appearance, onlyGroups));
             }
         }
         SkyDesign sky = category == Category.SKY ? SkyCodec.decode(where, map, appearance.mode() == Appearance.Mode.LAYERS) : SkyDesign.NONE;
         return new CategorySettings(appearance, bool(map, "removeTint", false), onlyGroups, rules, sky);
+    }
+
+    /** One group, whose missing look fields come from {@code categoryLook}. */
+    private static Rule decodeGroup(Category category, String at, Map<String, Object> map, Appearance categoryLook, boolean onlyGroups) {
+        Object match = map.get("match");
+        List<String> patterns = new ArrayList<String>();
+        if (match instanceof String) patterns.add((String) match);
+        else if (match instanceof List) for (Object p : (List<?>) match) patterns.add(String.valueOf(p));
+        else throw new IllegalArgumentException(at + ": set \"match\" to \"pattern\" or [\"p1\", \"p2\"]");
+        for (String p : patterns) {
+            String problem = Glob.problem(p);
+            if (problem != null) throw new IllegalArgumentException(at + ": \"" + p + "\" is not a valid pattern: " + problem);
+        }
+        EnumSet<Appearance.Field> own = EnumSet.noneOf(Appearance.Field.class);
+        for (Map.Entry<String, Appearance.Field> f : FIELD_KEYS.entrySet()) if (map.containsKey(f.getKey())) own.add(f.getValue());
+        Appearance look = decodeAppearance(category, at, map, categoryLook);
+        // Chroma options left in a group whose Chroma is off are ignored, so they do not make Chroma its own field.
+        if (!map.containsKey(Appearance.Field.CHROMA.key) && !look.chroma().isOn()) own.remove(Appearance.Field.CHROMA);
+        // No look fields means "the category's look": a live link under "only groups", a plain copy otherwise.
+        if (own.isEmpty() && !onlyGroups) own = EnumSet.allOf(Appearance.Field.class);
+        return new Rule(str(map, "name", ""), patterns, look, own);
     }
 
     /** Unspecified fields inherit from {@code parent} (the category's look for groups). */
@@ -270,25 +273,32 @@ public final class ConfigCodec {
             if (cs.onlyGroups()) m.put("onlyGroups", true);
             if (!cs.rules().isEmpty()) {
                 List<Object> rules = new ArrayList<Object>();
-                for (Rule r : cs.rules()) {
-                    Map<String, Object> rm = new LinkedHashMap<String, Object>();
-                    if (!r.name().isEmpty()) rm.put("name", r.name());
-                    List<String> pats = r.patterns();
-                    rm.put("match", pats.size() == 1 ? (Object) pats.get(0) : new ArrayList<Object>(pats));
-                    if (!r.usesGlobalLook()) {
-                        Appearance look = r.lookIn(written);
-                        // A group without effects still writes the 0 that turns off an effect of its category.
-                        encodeAppearance(rm, unused(look, written, look.mode() == Appearance.Mode.RECOLOR, effects), written);
-                        // No look field means "the category's look", so an own look equal to it is written out.
-                        if (Collections.disjoint(rm.keySet(), LOOK_KEYS)) rm.put("mode", look.mode().key());
-                    }
-                    rules.add(rm);
-                }
+                for (Rule r : cs.rules()) rules.add(encodeGroup(r, written, effects));
                 m.put("groups", rules);
             }
             out.put(e.getKey().key(), m);
         }
         return out;
+    }
+
+    /**
+     * One group, whose look fields differ from {@code written}, the category look as the file holds it.
+     *
+     * @param effects whether a look of the category uses an effect
+     */
+    private static Map<String, Object> encodeGroup(Rule r, Appearance written, boolean effects) {
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        if (!r.name().isEmpty()) m.put("name", r.name());
+        List<String> pats = r.patterns();
+        m.put("match", pats.size() == 1 ? (Object) pats.get(0) : new ArrayList<Object>(pats));
+        if (!r.usesGlobalLook()) {
+            Appearance look = r.lookIn(written);
+            // A group without effects still writes the 0 that turns off an effect of its category.
+            encodeAppearance(m, unused(look, written, look.mode() == Appearance.Mode.RECOLOR, effects), written);
+            // No look field means "the category's look", so an own look equal to it is written out.
+            if (Collections.disjoint(m.keySet(), LOOK_KEYS)) m.put(Appearance.Field.MODE.key, look.mode().key());
+        }
+        return m;
     }
 
     /** Writes every field that differs from {@code base}. */
@@ -341,7 +351,7 @@ public final class ConfigCodec {
         return m.get(key) == null;
     }
 
-    private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def) {
+    private static <E extends Enum<E> & FileKey> E choice(Map<String, Object> m, String key, E def) {
         return JsonFields.choice(m, key, def, place(key));
     }
 

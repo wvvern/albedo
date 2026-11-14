@@ -32,7 +32,7 @@ final class SkyCodec {
     /** Left out at 0, so that the file stays short. */
     private static final Set<SkyLayer.Param> OPTIONAL_PARAMS =
             EnumSet.of(SkyLayer.Param.TWINKLE, SkyLayer.Param.PULSE, SkyLayer.Param.DETAIL, SkyLayer.Param.MOTION);
-    private static final List<String> TRANSFORM_KEYS = Arrays.asList("yaw", "pitch", "roll", "scale");
+    private static final List<String> TRANSFORM_KEYS = keys(Arrays.asList(Transform.Axis.values()));
 
     private SkyCodec() {}
 
@@ -94,7 +94,7 @@ final class SkyCodec {
     /** One layer, whose mask may name only an id in {@code below}. */
     private static SkyLayer layer(String at, Map<String, Object> map, Set<Integer> below) {
         if (!map.containsKey("id")) throw new IllegalArgumentException(at + ": set \"id\" to a whole number from 1");
-        int id = number(map, "id", 1, 99999, at);
+        int id = number(map, "id", 1, SkyLayer.MAX_ID, at);
         if (below.contains(id)) throw new IllegalArgumentException(at + ".id: another layer has id " + id);
         if (!map.containsKey("kind")) {
             throw new IllegalArgumentException(at + ": set \"kind\" to one of " + keys(Arrays.asList(SkyLayer.Kind.values())));
@@ -102,7 +102,7 @@ final class SkyCodec {
         SkyLayer.Kind kind = choice(map, "kind", SkyLayer.Kind.GRADIENT, at);
         SkyLayer.Blend blend = choice(map, "blend", SkyLayer.Blend.NORMAL, at);
         SkyLayer.Output output = choice(map, "output", SkyLayer.Output.SHOW, at);
-        int opacity = number(map, "opacity", 0, 100, 100, at);
+        int opacity = number(map, "opacity", 0, 100, SkyLayer.FULL_OPACITY, at);
         Map<SkyLayer.Param, Integer> params = new EnumMap<SkyLayer.Param, Integer>(SkyLayer.Param.class);
         for (SkyLayer.Param p : SkyLayer.Param.values()) {
             if (!map.containsKey(p.key)) continue;
@@ -119,22 +119,22 @@ final class SkyCodec {
 
     private static SkyMask mask(String at, Map<String, Object> map, Set<Integer> below) {
         if (!map.containsKey("layer")) throw new IllegalArgumentException(at + ": set \"layer\" to the id of a lower layer");
-        int layer = number(map, "layer", 1, 99999, at);
+        int layer = number(map, "layer", 1, SkyLayer.MAX_ID, at);
         if (!below.contains(layer)) throw new IllegalArgumentException(at + ": no layer below this one has id " + layer);
         return SkyMask.of(layer, choice(map, "mode", SkyMask.Mode.LIGHT, at));
     }
 
-    private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def, String where) {
+    private static <E extends Enum<E> & FileKey> E choice(Map<String, Object> m, String key, E def, String where) {
         return JsonFields.choice(m, key, def, where + "." + key);
     }
 
     private static Transform transform(String at, Map<String, Object> map, SkyLayer.Kind kind) {
         Transform t = Transform.IDENTITY;
         for (Transform.Axis a : Transform.Axis.values()) {
-            String key = TRANSFORM_KEYS.get(a.ordinal());
+            String key = a.key();
             if (!map.containsKey(key)) continue;
             if (!kind.axes().contains(a)) {
-                throw new IllegalArgumentException(at + ": '" + key + "' has no meaning for " + kind.key() + ". It uses " + axisKeys(kind));
+                throw new IllegalArgumentException(at + ": '" + key + "' has no meaning for " + kind.key() + ". It uses " + keys(kind.axes()));
             }
             t = t.with(a, number(map, key, Transform.min(a), Transform.max(a), at));
         }
@@ -173,7 +173,7 @@ final class SkyCodec {
         m.put("id", l.id());
         m.put("kind", l.kind().key());
         if (l.blend() != SkyLayer.Blend.NORMAL) m.put("blend", l.blend().key());
-        if (l.opacity() != 100) m.put("opacity", l.opacity());
+        if (l.opacity() != SkyLayer.FULL_OPACITY) m.put("opacity", l.opacity());
         if (l.output() != SkyLayer.Output.SHOW) m.put("output", l.output().key());
         if (!l.mask().isNone()) {
             Map<String, Object> mask = new LinkedHashMap<String, Object>();
@@ -187,7 +187,7 @@ final class SkyCodec {
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();
         for (Transform.Axis a : l.kind().axes()) {
-            if (l.transform().get(a) != Transform.identity(a)) t.put(TRANSFORM_KEYS.get(a.ordinal()), l.transform().get(a));
+            if (l.transform().get(a) != Transform.identity(a)) t.put(a.key(), l.transform().get(a));
         }
         if (!t.isEmpty()) m.put("transform", t);
         return m;
@@ -201,12 +201,6 @@ final class SkyCodec {
         List<String> out = new ArrayList<String>();
         for (SkyLayer.Param p : kind.params()) out.add(p.key);
         if (!kind.axes().isEmpty()) out.add("transform");
-        return out;
-    }
-
-    private static List<String> axisKeys(SkyLayer.Kind kind) {
-        List<String> out = new ArrayList<String>();
-        for (Transform.Axis a : kind.axes()) out.add(TRANSFORM_KEYS.get(a.ordinal()));
         return out;
     }
 }

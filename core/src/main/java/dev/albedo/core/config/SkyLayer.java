@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,6 +13,11 @@ import java.util.Set;
  * each layer blends over the result of the lower layers with its opacity times its mask.
  */
 public final class SkyLayer {
+    /** The largest id of a layer. */
+    public static final int MAX_ID = 99999;
+    /** The opacity of a new layer, in percent. */
+    public static final int FULL_OPACITY = 100;
+
     /** What a kind of layer does with the layers below it. */
     public enum Role {
         /** Paints its own image from nothing. */
@@ -75,7 +79,7 @@ public final class SkyLayer {
     }
 
     /** The kinds of layers, each with its role, its parameters and their defaults, and the axes of its place. */
-    public enum Kind {
+    public enum Kind implements FileKey {
         GRADIENT(Role.GENERATOR, EnumSet.of(Transform.Axis.PITCH, Transform.Axis.ROLL), Transform.IDENTITY,
                 Param.COLOR_1, 0xFFF08A4B, Param.COLOR_2, 0xFF0B1026, Param.HEIGHT, 30, Param.AMOUNT, 60),
         GLOW(Role.GENERATOR, EnumSet.of(Transform.Axis.YAW, Transform.Axis.PITCH, Transform.Axis.ROLL), new Transform(270, 0, 0, 100),
@@ -145,24 +149,16 @@ public final class SkyLayer {
 
         /** The place a new layer of this kind gets. */
         public Transform defaultTransform() { return defaultTransform; }
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
     /** How a layer mixes with the layers below it, in linear light. */
-    public enum Blend {
-        NORMAL, ADD, SCREEN, MULTIPLY;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
-    }
+    public enum Blend implements FileKey { NORMAL, ADD, SCREEN, MULTIPLY }
 
     /** Whether a layer shows in the sky or only serves as a mask for higher layers. */
-    public enum Output {
+    public enum Output implements FileKey {
         SHOW,
         /** Made, but not mixed into the sky: only higher layers use it as their mask. */
-        MASK_ONLY;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
+        MASK_ONLY
     }
 
     private final int id;
@@ -196,7 +192,7 @@ public final class SkyLayer {
 
     /** A new layer of {@code kind} with its defaults. */
     public static SkyLayer of(int id, Kind kind) {
-        return new SkyLayer(id, kind, Blend.NORMAL, 100, Output.SHOW, SkyMask.NONE, Collections.<Param, Integer>emptyMap(),
+        return new SkyLayer(id, kind, Blend.NORMAL, FULL_OPACITY, Output.SHOW, SkyMask.NONE, Collections.<Param, Integer>emptyMap(),
                 kind.defaultTransform());
     }
 

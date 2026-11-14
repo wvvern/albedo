@@ -1,7 +1,5 @@
 package dev.albedo.core.config;
 
-import java.util.Locale;
-
 /** How the whole custom sky turns around a pole over time, as the real night sky does; an amount of 0 keeps it still. */
 public final class SkyTurning {
     /** The highest {@link #speed}: ten turns in one Minecraft day, which is one turn in two minutes. */
@@ -20,22 +18,18 @@ public final class SkyTurning {
     public static final int FULL_AMOUNT = 100;
 
     /** What time turns the sky. */
-    public enum Clock {
+    public enum Clock implements FileKey {
         /** The day time of the world, so the sky turns with the sun and moon and stops when the daylight cycle stops. */
         WORLD,
         /** The real time, at a steady speed. */
-        REAL;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
+        REAL
     }
 
     /** Which way the sky turns around the pole. */
-    public enum Direction {
+    public enum Direction implements FileKey {
         /** The way the sun goes: up in the east and down in the west. */
         NORMAL,
-        REVERSE;
-
-        public String key() { return name().toLowerCase(Locale.ROOT); }
+        REVERSE
     }
 
     /** A sky that does not turn, which is also the turning that the bake reads when the sky has no trails. */
