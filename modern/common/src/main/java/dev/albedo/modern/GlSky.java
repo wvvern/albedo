@@ -8,7 +8,6 @@ import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyShaderSource;
-import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -169,7 +168,7 @@ public final class GlSky {
         if (img == null || ModernSky.vanillaWithPack() || ModernFog.skySkipped(ModernSky.mainCamera())) return false;
         prepare(img);
         float k = ModernSky.brightness(img);
-        float[] modelView = turned(skyModelView, ModernSky.turn(img));
+        float[] modelView = ModernSky.turn(img).turned(skyModelView);
         if (GlSharpSky.prepare(img)) {
             GlSharpSky.drawBlack(sphere, modelView, projection);
             if (!DEFER.defer(new Waiting(modelView, projection, k))) GlSharpSky.draw(sphere, modelView, projection, k);
@@ -203,20 +202,6 @@ public final class GlSky {
         try (Bound ignored = mainTarget()) {
             GlSharpSky.draw(sphere, waiting.modelView, waiting.projection, waiting.brightness);
         }
-    }
-
-    // A model view matrix in column order times the rotation of a sky that turns.
-    private static float[] turned(float[] modelView, SkyTurn turn) {
-        if (turn.still()) return modelView;
-        float[] t = turn.matrix();
-        float[] out = new float[16];
-        for (int col = 0; col < 4; col++) {
-            for (int row = 0; row < 4; row++) {
-                out[col * 4 + row] = modelView[row] * t[col * 4] + modelView[4 + row] * t[col * 4 + 1]
-                        + modelView[8 + row] * t[col * 4 + 2] + modelView[12 + row] * t[col * 4 + 3];
-            }
-        }
-        return out;
     }
 }
 *///?}

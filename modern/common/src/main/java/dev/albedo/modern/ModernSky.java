@@ -179,6 +179,7 @@ public final class ModernSky {
     /** A copy of the model view matrix of the sky sphere, turned for a sky that turns. */
     static Matrix4f turned(Matrix4fc modelView, SkyImage img) {
         SkyTurn turn = turn(img);
+        // JOML and not SkyTurn.turned, because another order of the float operations can move pixels from 1.21.6.
         Matrix4f out = new Matrix4f(modelView);
         return turn.still() ? out : out.mul(new Matrix4f().set(turn.matrix()));
     }

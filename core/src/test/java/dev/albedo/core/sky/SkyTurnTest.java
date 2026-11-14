@@ -31,6 +31,20 @@ class SkyTurnTest {
     }
 
     @Test
+    void aStillSkyKeepsTheModelViewArray() {
+        float[] modelView = {2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 5, 6, 7, 1};
+        assertSame(modelView, SkyTurn.STILL.turned(modelView));
+    }
+
+    @Test
+    void aTurnOfTheIdentityGivesTheTurnMatrix() {
+        SkyTurning t = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 35, SkyTurning.Direction.NORMAL, 60);
+        SkyTurn turn = SkyTurn.of(t, 0.3);
+        // A delta of 0 still counts -0 and 0 as equal.
+        assertArrayEquals(turn.matrix(), turn.turned(SkyTurn.STILL.matrix()), 0f);
+    }
+
+    @Test
     void theMatrixTurnsAroundThePoleAndKeepsLengthsAndAngles() {
         SkyTurning t = new SkyTurning(100, 1, SkyTurning.Clock.WORLD, 35, SkyTurning.Direction.NORMAL, 60);
         SkyTurn turn = SkyTurn.of(t, 0.3);

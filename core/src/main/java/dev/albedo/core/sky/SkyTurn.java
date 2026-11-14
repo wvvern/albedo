@@ -60,6 +60,20 @@ public final class SkyTurn {
         return out;
     }
 
+    /** A model view matrix in column order times this rotation, or the same array for {@link #STILL}. */
+    public float[] turned(float[] columnMajorModelView) {
+        if (still()) return columnMajorModelView;
+        float[] mv = columnMajorModelView, t = matrix();
+        float[] out = new float[16];
+        for (int col = 0; col < 4; col++) {
+            for (int row = 0; row < 4; row++) {
+                out[col * 4 + row] = mv[row] * t[col * 4] + mv[4 + row] * t[col * 4 + 1]
+                        + mv[8 + row] * t[col * 4 + 2] + mv[12 + row] * t[col * 4 + 3];
+            }
+        }
+        return out;
+    }
+
     /** Writes the three rows of the rotation as vec4 values from index {@code at}, and leaves the fourth float of each row as it is. */
     void rows(float[] out, int at) {
         for (int row = 0; row < 3; row++) {
