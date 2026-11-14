@@ -242,36 +242,28 @@ final class PrecompiledSharpSky {
         Pipeline equirect = EQUIRECT.computeIfAbsent(sky.program().shaderSteps(),
                 steps -> new Pipeline(pipelines++, SkyShaderSource.EQUIRECT, SkyShaderSource.EQUIRECT, steps));
         if (!equirect.ready()) return false;
-        TextureTarget target = DeviceApi.target("Albedo sky compare", width, height);
-        GpuBuffer uniforms = upload(values, "Albedo sky compare block");
-        Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
-        GpuBuffer quad = quad(view);
-        DeviceApi.Timer timer = null;
+        CompareResources res = new CompareResources(sky, values, width, height, view);
         try {
             try {
-                timer = DeviceApi.Timer.begin();
+                res.timer = DeviceApi.Timer.begin();
             } catch (IllegalStateException e) {
                 HarnessLog.fail("the GPU timer is in use: " + e.getMessage());
             }
             for (int i = 0; i < repeat; i++) {
-                try (RenderPass pass = DeviceApi.pass("Albedo sky compare", target.getColorTextureView())) {
+                try (RenderPass pass = DeviceApi.pass("Albedo sky compare", res.target.getColorTextureView())) {
                     pass.setPipeline(equirect.pipeline);
-                    pass.setUniform("AlbedoSky", uniforms);
-                    skyTerms.bind(pass);
-                    DeviceApi.draw(pass, quad, 6);
+                    pass.setUniform("AlbedoSky", res.uniforms);
+                    res.terms.bind(pass);
+                    DeviceApi.draw(pass, res.quad, 6);
                 }
             }
-            if (timer != null) timer.end();
+            if (res.timer != null) res.timer.end();
         } catch (RuntimeException e) {
-            if (timer != null) timer.close();
-            target.destroyBuffers();
-            uniforms.close();
-            skyTerms.close();
-            quad.close();
+            res.close();
             throw e;
         }
-        DeviceApi.Timer query = timer;
-        Screenshot.takeScreenshot(target, image -> {
+        DeviceApi.Timer query = res.timer;
+        Screenshot.takeScreenshot(res.target, image -> {
             int[] argb = new int[width * height];
             NativeImagePixels pixels = new NativeImagePixels(image);
             for (int y = 0; y < height; y++) {
@@ -292,19 +284,37 @@ final class PrecompiledSharpSky {
                 t = query.value();
             }
             long nanos = t.isPresent() ? t.getAsLong() / repeat : -1;
-            if (query != null) query.close();
-            target.destroyBuffers();
-            uniforms.close();
-            skyTerms.close();
-            quad.close();
+            res.close();
             done.accept(argb, nanos);
         });
         return true;
     }
 
-    // The SkyImage.quad of a view, or of the whole image for null.
-    private static GpuBuffer quad(float[] view) {
-        return DeviceApi.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+    // The GPU objects of one drawEquirect, which the error path or the screenshot callback frees.
+    private static final class CompareResources implements AutoCloseable {
+        final TextureTarget target;
+        final GpuBuffer uniforms;
+        final Terms terms;
+        final GpuBuffer quad;
+        // Null when the GPU timer is in use.
+        DeviceApi.Timer timer;
+
+        // The quad covers the view, or the whole equirectangular image when view is null.
+        CompareResources(SkyImage sky, float[] values, int width, int height, float[] view) {
+            target = DeviceApi.target("Albedo sky compare", width, height);
+            uniforms = upload(values, "Albedo sky compare block");
+            terms = Terms.upload(sky, "Albedo sky compare terms");
+            quad = DeviceApi.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+        }
+
+        @Override
+        public void close() {
+            if (timer != null) timer.close();
+            target.destroyBuffers();
+            uniforms.close();
+            terms.close();
+            quad.close();
+        }
     }
 }
 *///?}

@@ -227,33 +227,25 @@ final class SharpSky {
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         CompiledRenderPipeline pipeline = EQUIRECT.get(sky.program().shaderSteps()).get();
         if (pipeline == null) return false;
-        TextureTarget target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
-        GpuBuffer uniforms = upload(values, "Albedo sky compare block");
-        Terms skyTerms = Terms.upload(sky, "Albedo sky compare terms");
-        GpuBuffer quad = PearlPipeline.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+        CompareResources res = new CompareResources(sky, values, width, height, view);
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-        GpuQueryPool timer = RenderSystem.getDevice().createTimestampQueryPool(2);
         try {
-            encoder.writeTimestamp(timer, 0);
+            encoder.writeTimestamp(res.timer, 0);
             for (int i = 0; i < repeat; i++) {
-                try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", target.getColorTextureView(), Optional.empty())) {
+                try (RenderPass pass = encoder.createRenderPass(() -> "Albedo sky compare", res.target.getColorTextureView(), Optional.empty())) {
                     pass.setPipeline(pipeline);
-                    pass.setUniform("AlbedoSky", uniforms);
-                    skyTerms.bind(pass);
-                    pass.setVertexBuffer(0, quad.slice());
+                    pass.setUniform("AlbedoSky", res.uniforms);
+                    res.terms.bind(pass);
+                    pass.setVertexBuffer(0, res.quad.slice());
                     pass.draw(6, 1, 0, 0);
                 }
             }
-            encoder.writeTimestamp(timer, 1);
+            encoder.writeTimestamp(res.timer, 1);
         } catch (RuntimeException e) {
-            timer.close();
-            target.destroyBuffers();
-            uniforms.close();
-            skyTerms.close();
-            quad.close();
+            res.close();
             throw e;
         }
-        Screenshot.takeScreenshot(target, image -> {
+        Screenshot.takeScreenshot(res.target, image -> {
             int[] argb = new int[width * height];
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) argb[y * width + x] = image.getPixel(x, y);
@@ -266,17 +258,40 @@ final class SharpSky {
                 }
             }
             image.close();
-            OptionalLong[] t = timer.getValues(0, 2);
+            OptionalLong[] t = res.timer.getValues(0, 2);
             long nanos = t[0].isPresent() && t[1].isPresent()
                     ? (long) ((t[1].getAsLong() - t[0].getAsLong()) * RenderSystem.getDevice().getDeviceInfo().timestampPeriod() / repeat) : -1;
-            timer.close();
-            target.destroyBuffers();
-            uniforms.close();
-            skyTerms.close();
-            quad.close();
+            res.close();
             done.accept(argb, nanos);
         });
         return true;
+    }
+
+    /** The GPU objects of one {@link #drawEquirect}, which the error path or the screenshot callback frees. */
+    private static final class CompareResources implements AutoCloseable {
+        final TextureTarget target;
+        final GpuBuffer uniforms;
+        final Terms terms;
+        final GpuBuffer quad;
+        final GpuQueryPool timer;
+
+        /** @param view the sky directions of the corners of a camera view, or null for the equirectangular image */
+        CompareResources(SkyImage sky, float[] values, int width, int height, float[] view) {
+            target = new TextureTarget("Albedo sky compare", width, height, GpuFormat.RGBA8_UNORM, null);
+            uniforms = upload(values, "Albedo sky compare block");
+            terms = Terms.upload(sky, "Albedo sky compare terms");
+            quad = PearlPipeline.vertexBuffer("Albedo sky compare quad", SkyImage.quad(view));
+            timer = RenderSystem.getDevice().createTimestampQueryPool(2);
+        }
+
+        @Override
+        public void close() {
+            timer.close();
+            target.destroyBuffers();
+            uniforms.close();
+            terms.close();
+            quad.close();
+        }
     }
 }
 //?}
