@@ -88,7 +88,7 @@ final class PrecompiledSharpSky {
             //? if >=26.2 {
             GpuTexture texture = RenderSystem.getDevice().createTexture(() -> label,
                     GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST, GpuFormat.RGBA16_FLOAT, width, height, 1, 1);
-            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
+            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * HALF_RGBA_BYTES);
             try {
                 bytes.asShortBuffer().put(img.terms());
                 RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture, bytes, 0, 0, 0, 0, width, height);
@@ -106,7 +106,7 @@ final class PrecompiledSharpSky {
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
             GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * 8);
+            ByteBuffer bytes = MemoryUtil.memCalloc(width * height * HALF_RGBA_BYTES);
             try {
                 bytes.asShortBuffer().put(img.terms());
                 GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL30.GL_HALF_FLOAT, bytes);
@@ -140,6 +140,20 @@ final class PrecompiledSharpSky {
     // Black on the sphere with no blend where the depth is still the far depth of the clear, which resets only the sky of this level view.
     private static final Pipeline BLACK = new Pipeline(pipelines++, SkyShaderSource.SHARP, SkyShaderSource.BLACK, "");
 
+    // The bytes of the block of a frame for writeFrame, which the write copies at once, so one buffer serves all frames.
+    private static final ByteBuffer FRAME_BYTES = MemoryUtil.memAlloc(SkyProgram.FLOATS * 4);
+    // One texel of 0 for the write that binds a new term texture.
+    private static final ByteBuffer ONE_TEXEL = MemoryUtil.memCalloc(4);
+    // The bytes of one RGBA texel of half floats.
+    private static final int HALF_RGBA_BYTES = 8;
+    private static GpuBuffer block;
+    private static Terms terms;
+    private static long blockSerial = -1;
+    // The pipeline of the image of the last prepare, or null when the baked texture must draw it.
+    private static Pipeline ready;
+
+    private PrecompiledSharpSky() {}
+
     // The pipeline number n of a sky shader file and its fragment shader file, with the transform blocks for the sky sphere, and the
     // term sampler when the shader reads it.
     private static RenderPipeline.Builder builder(int n, String name, String fragment, boolean terms) {
@@ -156,18 +170,6 @@ final class PrecompiledSharpSky {
                 .withFragmentShader(DeviceApi.id(fragment + "/" + n))
                 .withCull(false), DefaultVertexFormat.POSITION_TEX);
     }
-
-    // The bytes of the block of a frame for writeFrame, which the write copies at once, so one buffer serves all frames.
-    private static final ByteBuffer FRAME_BYTES = MemoryUtil.memAlloc(SkyProgram.FLOATS * 4);
-    // One texel of 0 for the write that binds a new term texture.
-    private static final ByteBuffer ONE_TEXEL = MemoryUtil.memCalloc(4);
-    private static GpuBuffer block;
-    private static Terms terms;
-    private static long blockSerial = -1;
-    // The pipeline of the image of the last prepare, or null when the baked texture must draw it.
-    private static Pipeline ready;
-
-    private PrecompiledSharpSky() {}
 
     // The complete text of a shader file of the mod, with the sky include and its layer steps in it.
     private static String source(String name, ShaderType type, String steps) {

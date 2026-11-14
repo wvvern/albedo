@@ -19,6 +19,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /** The {@link Platform} of all modern versions and loaders. */
 final class ModernPlatform implements Platform {
@@ -77,7 +78,7 @@ final class ModernPlatform implements Platform {
     public void reloadResources() {
         long start = System.nanoTime();
         Minecraft.getInstance().reloadResourcePacks()
-                .thenRun(() -> info("Reloaded all resources in " + (System.nanoTime() - start) / 1000000 + " ms"));
+                .thenRun(() -> info("Reloaded all resources in " + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) + " ms"));
     }
 
     @Override

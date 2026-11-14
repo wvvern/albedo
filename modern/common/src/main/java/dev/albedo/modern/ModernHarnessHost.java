@@ -2,10 +2,14 @@ package dev.albedo.modern;
 
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HookCounter;
+import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 
 import java.io.File;
+import java.lang.reflect.Field;
+import java.util.List;
 
 /**
  * Development-only: what the test harness needs from the game (see {@link Harness}), where the {@code Harness*} classes
@@ -71,7 +75,7 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public java.util.List<dev.albedo.core.dev.HookCounter> hookCounters() {
+    public List<HookCounter> hookCounters() {
         return ModernHooks.COUNTERS;
     }
 
@@ -135,7 +139,7 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
+    public boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
         //? if gl_fixed {
         /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
@@ -168,7 +172,7 @@ final class ModernHarnessHost implements Harness.Host {
 
     /** Whether the cloud renderer holds the cells of clouds.png, which it draws nothing without; the dev run has Mojang names. */
     private static boolean hasCloudCells(Object renderer) {
-        for (java.lang.reflect.Field f : renderer.getClass().getDeclaredFields()) {
+        for (Field f : renderer.getClass().getDeclaredFields()) {
             if (!f.getType().getSimpleName().equals("TextureData")) continue;
             try {
                 f.setAccessible(true);

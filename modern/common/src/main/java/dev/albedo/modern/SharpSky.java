@@ -4,7 +4,9 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.renderpearl.api.GpuFormat;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
@@ -47,6 +49,7 @@ import java.nio.ByteBuffer;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -368,7 +371,7 @@ final class SharpSky {
                 }
             }
             image.close();
-            java.util.OptionalLong[] t = timer.getValues(0, 2);
+            OptionalLong[] t = timer.getValues(0, 2);
             long nanos = t[0].isPresent() && t[1].isPresent()
                     ? (long) ((t[1].getAsLong() - t[0].getAsLong()) * RenderSystem.getDevice().getDeviceInfo().timestampPeriod() / repeat) : -1;
             timer.close();
@@ -384,11 +387,10 @@ final class SharpSky {
     /** The {@link SkyImage#quad} of a view, or of the whole image for null. */
     private static GpuBuffer quad(float[] view) {
         float[] v = SkyImage.quad(view);
-        try (com.mojang.blaze3d.vertex.ByteBufferBuilder bytes = com.mojang.blaze3d.vertex.ByteBufferBuilder.exactlySized(
-                v.length / 5 * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
+        try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(v.length / 5 * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
             BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
             for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
-            try (com.mojang.blaze3d.vertex.MeshData mesh = b.buildOrThrow()) {
+            try (MeshData mesh = b.buildOrThrow()) {
                 return RenderSystem.getDevice().createBuffer(() -> "Albedo sky compare quad", GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
             }
         }

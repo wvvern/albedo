@@ -25,8 +25,8 @@ final class ReloadableTextureUpload {
                 com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().writeToTexture(gpu, image);
                 //?} else {
                 /^// Loads again with the blur and clamp of the metadata file, as TextureContents.load reads them.
-                boolean[] filters = filters(location);
-                ((TextureUploadInvoker) registered).albedo$doLoad(image, filters[0], filters[1]);
+                TextureFilters filters = filters(location);
+                ((TextureUploadInvoker) registered).albedo$doLoad(image, filters.blur, filters.clamp);
                 ^///?}
             }
             return true;
@@ -35,7 +35,17 @@ final class ReloadableTextureUpload {
 
     //? if <1.21.5 {
     /^// The blur and the clamp flag of the metadata file of a texture.
-    private static boolean[] filters(Object location) {
+    private static final class TextureFilters {
+        final boolean blur;
+        final boolean clamp;
+
+        TextureFilters(boolean blur, boolean clamp) {
+            this.blur = blur;
+            this.clamp = clamp;
+        }
+    }
+
+    private static TextureFilters filters(Object location) {
         boolean blur = false;
         boolean clamp = false;
         java.util.Optional<net.minecraft.server.packs.resources.Resource> resource =
@@ -51,7 +61,7 @@ final class ReloadableTextureUpload {
         } catch (java.io.IOException e) {
             dev.albedo.core.Albedo.get().platform().warn("Cannot read the metadata of " + location, e);
         }
-        return new boolean[]{blur, clamp};
+        return new TextureFilters(blur, clamp);
     }
     ^///?}
 }

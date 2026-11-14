@@ -15,11 +15,14 @@ import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryUtil;
 //? if >=1.21.5 {
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.textures.GpuTexture;
 //?} else {
 /^import com.mojang.blaze3d.platform.GlStateManager;
 ^///?}
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 // The Chroma pass through the raw GL: its own GL program draws into each mip level of an atlas through a framebuffer, and
 // puts back each GL state that it changes; the GPU device before 1.21.11 has no render pass into a mip level above 0.
@@ -82,7 +85,7 @@ final class GlChromaPass implements ChromaBackend {
     // The GL name of the texture of an atlas, or 0 while a reload has not made its GPU texture.
     private static int glId(TextureAtlas atlas) {
         //? if >=1.21.5 {
-        com.mojang.blaze3d.textures.GpuTexture texture;
+        GpuTexture texture;
         try {
             texture = atlas.getTexture();
         } catch (IllegalStateException e) {
@@ -90,14 +93,14 @@ final class GlChromaPass implements ChromaBackend {
         }
         if (texture.isClosed()) return 0;
         // The validation layer of NeoForge gives a wrapper of the GL texture.
-        while (!(texture instanceof com.mojang.blaze3d.opengl.GlTexture)) {
+        while (!(texture instanceof GlTexture)) {
             try {
-                texture = (com.mojang.blaze3d.textures.GpuTexture) texture.getClass().getMethod("getRealTexture").invoke(texture);
+                texture = (GpuTexture) texture.getClass().getMethod("getRealTexture").invoke(texture);
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException("the atlas texture is not a GL texture: " + texture.getClass().getName(), e);
             }
         }
-        return ((com.mojang.blaze3d.opengl.GlTexture) texture).glId();
+        return ((GlTexture) texture).glId();
         //?} else {
         /^return atlas.getId();
         ^///?}
@@ -156,7 +159,7 @@ final class GlChromaPass implements ChromaBackend {
         @Override
         public boolean sameTexture(TextureAtlas atlas) {
             // A reload or a change of the mip levels gives the atlas new storage under the same GL name.
-            return glId(atlas) == live && java.util.Arrays.equals(size, sizeOf(atlas));
+            return glId(atlas) == live && Arrays.equals(size, sizeOf(atlas));
         }
 
         @Override

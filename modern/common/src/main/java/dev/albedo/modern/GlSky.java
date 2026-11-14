@@ -1,12 +1,14 @@
 package dev.albedo.modern;
 
 //? if gl_sky {
-/*import dev.albedo.core.Albedo;
+/*import com.mojang.blaze3d.systems.RenderSystem;
+import dev.albedo.core.Albedo;
 import dev.albedo.core.Colors;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -14,11 +16,15 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.system.MemoryUtil;
 //? if >=1.21.5 {
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.systems.RenderPass;
 //?} else {
 /^import com.mojang.blaze3d.platform.GlStateManager;
 ^///?}
 
 import java.nio.ByteBuffer;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 // The custom sky of the versions that draw through the raw GL: the sky shader of GlSharpSky when it can draw, else the
 // baked image on the sphere, with a vertex array, a texture and a GL program that the mod owns.
@@ -105,8 +111,7 @@ public final class GlSky {
     // Draws the sky in place of the sky disc of SkyRenderer with the matrices of RenderSystem, and returns false when the game must draw its disc.
     public static boolean drawDisc() {
         try (Bound ignored = mainTarget()) {
-            return draw(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix().get(new float[16]),
-                    com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().get(new float[16]));
+            return draw(RenderSystem.getModelViewMatrix().get(new float[16]), RenderSystem.getProjectionMatrix().get(new float[16]));
         }
     }
     //?}
@@ -121,9 +126,9 @@ public final class GlSky {
     // render pass of the device binds it, and before 1.21.5 the target of the sky stays bound.
     private static Bound mainTarget() {
         //? if >=1.21.5 {
-        com.mojang.blaze3d.pipeline.RenderTarget target = net.minecraft.client.Minecraft.getInstance().getMainRenderTarget();
-        com.mojang.blaze3d.systems.RenderPass pass = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().createRenderPass(
-                target.getColorTexture(), java.util.OptionalInt.empty(), target.getDepthTexture(), java.util.OptionalDouble.empty());
+        RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+        RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+                target.getColorTexture(), OptionalInt.empty(), target.getDepthTexture(), OptionalDouble.empty());
         return pass::close;
         //?} else {
         /^return () -> { };
@@ -143,7 +148,7 @@ public final class GlSky {
     // Draws the sky sphere, but not with a shader pack, whose framebuffer needs the programs of the pack, and not where the game draws no sky (blindness on 1.17).
     private static boolean drawSphere(float[] skyModelView, float[] projection) {
         SkyImage img = Albedo.skyImage();
-        if (img == null || ModernSky.vanillaWithPack() || ModernHooks.skySkipped(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera())) return false;
+        if (img == null || ModernSky.vanillaWithPack() || ModernHooks.skySkipped(Minecraft.getInstance().gameRenderer.getMainCamera())) return false;
         prepare(img);
         float k = ModernSky.brightness(img);
         float[] modelView = turned(skyModelView, ModernSky.turn(img));

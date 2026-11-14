@@ -1,6 +1,7 @@
 package dev.albedo.modern;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import dev.albedo.core.Colors;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.texture.TextureStore;
 import dev.albedo.modern.mixin.TextureManagerAccessor;
@@ -90,7 +91,7 @@ final class TextureUploads {
     }
 
     /**
-     * Makes the screens draw their item icons again. From 1.21.6 the game draws each icon once into an item atlas and
+     * Makes the screens draw their item icons again: from 1.21.6 the game draws each icon once into an item atlas and
      * draws it again only when the GUI scale changes, so a scale of 0 makes the next frame draw every icon with the new pixels.
      */
     private static void redrawItemIcons() {
@@ -170,10 +171,7 @@ final class TextureUploads {
             // One native copy, after a swap to ABGR, which is how the image keeps each pixel.
             int[] argb = heap.argb();
             int[] abgr = new int[argb.length];
-            for (int i = 0; i < argb.length; i++) {
-                int c = argb[i];
-                abgr[i] = (c & 0xFF00FF00) | ((c & 0xFF) << 16) | ((c >> 16) & 0xFF);
-            }
+            for (int i = 0; i < argb.length; i++) abgr[i] = Colors.swapRedBlue(argb[i]);
             MemoryUtil.memIntBuffer(image.getPointer(), abgr.length).put(abgr);
             return;
         }

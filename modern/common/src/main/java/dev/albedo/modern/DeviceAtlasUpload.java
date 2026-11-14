@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 //? if >=1.21.11 {
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.albedo.modern.mixin.SpriteContentsAccessor;
 import dev.albedo.modern.mixin.TextureAtlasAccessor;
 import net.minecraft.client.renderer.texture.SpriteContents;
@@ -31,7 +32,7 @@ final class DeviceAtlasUpload {
                 p.repaint();
                 if (!p.sprite.contents().isAnimated()) padded[i] = padded(p.sprite.contents(), padding(p.atlas, p.sprite));
             });
-            var encoder = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder();
+            var encoder = RenderSystem.getDevice().createCommandEncoder();
             Map<TextureAtlas, List<TextureAtlasSprite>> animated = new LinkedHashMap<>();
             for (int i = 0; i < pending.size(); i++) {
                 TextureUploads.Pending p = pending.get(i);
