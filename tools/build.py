@@ -38,7 +38,7 @@ def wait_for_harness() -> None:
 def build_node(node: Node, wanted: list[Target], mod_version: str | None, gradle_arguments: list[str], log: Path | None) -> str | None:
     """Runs the Gradle build of one node, and gives the reason when it fails."""
     say(node.name, ", ".join(target.loader for target in wanted))
-    version = [f"-P{wanted[0].mod_version_property}={mod_version}"] if mod_version else []
+    version = [f"-Pmod_version={mod_version}"] if mod_version else []
     try:
         gradle.run(node.build_dir, *version, *gradle_arguments, *(target.release_task for target in wanted), log=log)
     except ToolError as error:

@@ -1,9 +1,9 @@
 {
   "required": true,
   "minVersion": "0.7",
-  "package": "${basePackage}.legacy.mixin",
+  "package": "${baseGroup}.legacy.mixin",
   "refmap": "mixins.${modid}.refmap.json",
-  "plugin": "${basePackage}.legacy.MixinPlugin",
+  "plugin": "${baseGroup}.legacy.MixinPlugin",
   "compatibilityLevel": "JAVA_8",
   "client": [
     ${mixins}

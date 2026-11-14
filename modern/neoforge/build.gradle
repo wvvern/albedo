@@ -17,18 +17,13 @@ dependencies {
 // NeoForge 1.20.4 reads META-INF/mods.toml and pack.mcmeta, and later versions read only META-INF/neoforge.mods.toml.
 def newToml = stonecutter.eval(stonecutter.current.version, '>=1.20.5')
 
+project.expandMetadata([
+        minecraft_range: project.minecraft_range_neoforge,
+        neoforge_range : project.neoforge_range,
+        pack_format    : project.findProperty('pack_format') ?: '',
+], ['META-INF/*.toml', 'pack.mcmeta'])
 processResources {
-    def props = [
-            mod_id         : rootProject.mod_id,
-            mod_name       : rootProject.mod_name,
-            version        : project.version,
-            minecraft_range: project.minecraft_range_neoforge,
-            neoforge_range : project.neoforge_range,
-            pack_format    : project.findProperty('pack_format') ?: '',
-    ]
-    inputs.properties props
     if (newToml) exclude 'pack.mcmeta' else rename 'neoforge.mods.toml', 'mods.toml'
-    filesMatching(['META-INF/*.toml', 'pack.mcmeta']) { expand props }
     // Only NeoForge 1.20.4 reads displayTest, which keeps a server without the mod compatible in the server list.
     if (!newToml) filesMatching('META-INF/*.toml') { filter { String line -> line.startsWith('displayName') ? line + '\ndisplayTest = "IGNORE_ALL_VERSION"' : line } }
 }

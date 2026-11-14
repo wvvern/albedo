@@ -22,15 +22,8 @@ dependencies {
 
 if (quilt) apply from: rootProject.file('fabric/quilt.gradle')
 
-processResources {
-    def props = [
-            mod_id           : rootProject.mod_id,
-            mod_name         : rootProject.mod_name,
-            version          : project.version,
-            minecraft_range  : project.minecraft_range_fabric,
-            java_version     : project.java_version,
-            fabric_loader_min: rootProject.fabric_loader_min,
-    ]
-    inputs.properties props
-    filesMatching('fabric.mod.json') { expand props }
-}
+project.expandMetadata([
+        minecraft_range  : project.minecraft_range_fabric,
+        java_version     : project.java_version,
+        fabric_loader_min: rootProject.fabric_loader_min,
+], 'fabric.mod.json')

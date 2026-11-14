@@ -94,11 +94,6 @@ class Target:
     def run_task(self) -> str:
         return f":{self.node}:runClientDev" if self.legacy else f":{self.loader}:{self.node}:runClient"
 
-    @property
-    def mod_version_property(self) -> str:
-        """The Gradle property that gives the build a mod version other than the one of modern/gradle.properties."""
-        return "modVersion" if self.legacy else "mod_version"
-
     def jar_name(self, mod_version: str) -> str:
         return f"{ARCHIVE}-{self.loader}-{mod_version}+{self.minecraft}.jar"
 

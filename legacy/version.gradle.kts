@@ -13,9 +13,9 @@ val mcVersion: String by project
 val mappingsVersion: String by project
 val forgeVersion: String by project
 val modid: String by project
-// The version of the mod is -PmodVersion when CI gives it, and mod_version of the modern build if not.
-val modVersion = providers.gradleProperty("modVersion").orNull
-    ?: Properties().apply { rootProject.file("../modern/gradle.properties").inputStream().use { load(it) } }.getProperty("mod_version")
+// The mod version and the description come from the modern build; -Pmod_version sets a different version, as in the modern build.
+val modernProperties = Properties().apply { rootProject.file("../modern/gradle.properties").inputStream().use { load(it) } }
+val modVersion = providers.gradleProperty("mod_version").orNull ?: modernProperties.getProperty("mod_version")
 
 version = "$modVersion+$mcVersion"
 
@@ -82,7 +82,7 @@ tasks.withType(JavaCompile::class) {
 }
 
 tasks.withType(org.gradle.jvm.tasks.Jar::class) {
-    archiveBaseName.set("albedo-forge")
+    archiveBaseName.set("$modid-forge")
     manifest.attributes.run {
         this["FMLCorePluginContainsFMLMod"] = "true"
         this["ForceLoadAsMod"] = "true"
@@ -103,7 +103,8 @@ tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("mcversion", mcVersion)
     inputs.property("modid", modid)
-    inputs.property("basePackage", baseGroup)
+    inputs.property("baseGroup", baseGroup)
+    inputs.property("mod_description", modernProperties.getProperty("mod_description"))
     filesMatching(listOf("mcmod.info", "mixins.$modid.json")) {
         expand(inputs.properties)
     }

@@ -33,17 +33,12 @@ dependencies {
     forge "net.minecraftforge:forge:$project.minecraft_version-$project.forge_version"
 }
 
+project.expandMetadata([
+        minecraft_range    : project.minecraft_range_forge,
+        forge_range        : project.forge_range,
+        pack_format        : project.pack_format,
+        compatibility_level: project.mixinCompatibilityLevel,
+], ['META-INF/mods.toml', 'pack.mcmeta', 'albedo.forge.mixins.json'])
 processResources {
-    def props = [
-            mod_id             : rootProject.mod_id,
-            mod_name           : rootProject.mod_name,
-            version            : project.version,
-            minecraft_range    : project.minecraft_range_forge,
-            forge_range        : project.forge_range,
-            pack_format        : project.pack_format,
-            compatibility_level: project.mixinCompatibilityLevel,
-    ]
-    inputs.properties props
     if (!lightPipeline) exclude 'albedo.forge.mixins.json'
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'albedo.forge.mixins.json']) { expand props }
 }

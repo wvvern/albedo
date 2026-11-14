@@ -4,6 +4,21 @@ apply plugin: 'com.gradleup.shadow'
 ext.platformName = [fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge'][project.loader]
 ext.modCompileOnly = project.unobfuscated ? 'compileOnly' : 'modCompileOnly'
 
+// The keys of the metadata files of each loader; expandMetadata adds the keys of one loader.
+ext.metadataProperties = [
+        mod_id         : rootProject.mod_id,
+        mod_name       : rootProject.mod_name,
+        version        : project.version,
+        mod_description: rootProject.mod_description,
+]
+ext.expandMetadata = { Map extra, files ->
+    def props = project.metadataProperties + extra
+    tasks.named('processResources') {
+        inputs.properties props
+        filesMatching(files) { expand props }
+    }
+}
+
 loom.runs {
     configureEach {
         generateRunConfig.set(true)

@@ -21,7 +21,7 @@ CI jobs and releases: [RELEASING.md](RELEASING.md).
   - Repair: stop all Gradle daemons, delete `~/.gradle/caches/fabric-loom/<mc>/loom.mappings.*forge-<mc>-<forge>*`, `~/.gradle/caches/fabric-loom/<mc>/forge/<mc>-<forge>` and `~/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/forge-<mc>-<forge>-minecraft-merged*`, then build that node alone.
 - `modern/common` compiles against the Mixin 0.8.5 annotations: 0.8.7 writes a redirect's `at` as an array, which MixinExtras before 0.5 (NeoForge 1.20.6, Fabric Loader 0.15, Forge packs) cannot read.
 - `-Pmc_override=<version>` builds a node against another Minecraft version of its range. Only the dependency changes; the conditions keep the node's version.
-- The mod version is `mod_version` in `modern/gradle.properties`; the legacy build reads it too (or `-PmodVersion`).
+- The mod version is `mod_version` in `modern/gradle.properties`; the legacy build reads it too. `-Pmod_version=<version>` sets a different version in both builds.
 
 ## Dev clients
 
