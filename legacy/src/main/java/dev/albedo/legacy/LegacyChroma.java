@@ -22,7 +22,6 @@ import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GLContext;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
@@ -37,10 +36,9 @@ import java.util.Locale;
  * frame the atlas gets back the colors that Albedo painted, so that the game and Albedo always write into those colors.
  */
 public final class LegacyChroma {
-    private enum Compile { NOT_STARTED, READY, FAILED }
+    private static final double BYTES_PER_MIB = 1048576.0;
 
-    private static Compile state = Compile.NOT_STARTED;
-    private static int program;
+    private static Program program;
     private static int turnsUniform;
     private static int sizeUniform;
     private static int framebuffer;
@@ -137,11 +135,8 @@ public final class LegacyChroma {
         if (!recolored) return;
         recolored = false;
         try {
-            withState(new Runnable() {
-                @Override
-                public void run() {
-                    for (int level = 0; level < size[2]; level++) copy(pristine, live, level);
-                }
+            withState(() -> {
+                for (int level = 0; level < size[2]; level++) copy(pristine, live, level);
             });
         } catch (RuntimeException e) {
             stop(e);
@@ -167,61 +162,55 @@ public final class LegacyChroma {
             pristine = texture();
             texels = texture();
             Albedo.get().platform().info(String.format(Locale.ROOT, "Moves the Chroma colors of the block atlas on the GPU: %dx%d with %d mip levels,"
-                    + " %.1f MiB", size[0], size[1], size[2], bytes() / 1048576.0));
+                    + " %.1f MiB", size[0], size[1], size[2], bytes() / BYTES_PER_MIB));
         }
-        final int[][] levels = built.levels(size[2]);
-        withState(new Runnable() {
-            @Override
-            public void run() {
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, texels);
-                GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
-                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
-                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
-                for (int level = 0; level < size[2]; level++) {
-                    ByteBuffer bytes = BufferUtils.createByteBuffer(levels[level].length * 4);
-                    ChromaTexels.rgba(levels[level], bytes);
-                    GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, 0, 0, width(level), height(level), GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
-                }
+        int[][] levels = built.levels(size[2]);
+        withState(() -> {
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texels);
+            GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+            for (int level = 0; level < size[2]; level++) {
+                ByteBuffer bytes = BufferUtils.createByteBuffer(levels[level].length * 4);
+                ChromaTexels.rgba(levels[level], bytes);
+                GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, 0, 0, width(level), height(level), GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
             }
         });
     }
 
     /** Copies each mip level of the atlas into the pristine copy, then draws the colors of this frame into the atlas. */
     private static void recolor() {
-        withState(new Runnable() {
-            @Override
-            public void run() {
-                for (int level = 0; level < size[2]; level++) copy(live, pristine, level);
-                GL11.glDisable(GL11.GL_BLEND);
-                GL11.glDisable(GL11.GL_DEPTH_TEST);
-                GL11.glDisable(GL11.GL_ALPHA_TEST);
-                GL11.glDisable(GL11.GL_CULL_FACE);
-                GL11.glDisable(GL11.GL_SCISSOR_TEST);
-                GL11.glDisable(GL11.GL_STENCIL_TEST);
-                GL11.glColorMask(true, true, true, true);
-                GL20.glUseProgram(program);
-                TURNS.clear();
-                TURNS.put(TURN_VALUES).flip();
-                GL20.glUniform4(turnsUniform, TURNS);
-                OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
-                for (int level = 0; level < size[2]; level++) {
-                    OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
-                    GL11.glViewport(0, 0, width(level), height(level));
-                    GL20.glUniform2f(sizeUniform, width(level), height(level));
-                    baseLevel(GL13.GL_TEXTURE1, texels, level);
-                    baseLevel(GL13.GL_TEXTURE0, pristine, level);
-                    GL11.glBegin(GL11.GL_TRIANGLES);
-                    GL11.glVertex2f(-1, -1);
-                    GL11.glVertex2f(3, -1);
-                    GL11.glVertex2f(-1, 3);
-                    GL11.glEnd();
-                }
-                OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
-                // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
-                baseLevel(GL13.GL_TEXTURE1, texels, 0);
-                baseLevel(GL13.GL_TEXTURE0, pristine, 0);
+        withState(() -> {
+            for (int level = 0; level < size[2]; level++) copy(live, pristine, level);
+            GL11.glDisable(GL11.GL_BLEND);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GL11.glDisable(GL11.GL_ALPHA_TEST);
+            GL11.glDisable(GL11.GL_CULL_FACE);
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glColorMask(true, true, true, true);
+            GL20.glUseProgram(program.id());
+            TURNS.clear();
+            TURNS.put(TURN_VALUES).flip();
+            GL20.glUniform4(turnsUniform, TURNS);
+            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
+            for (int level = 0; level < size[2]; level++) {
+                OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
+                GL11.glViewport(0, 0, width(level), height(level));
+                GL20.glUniform2f(sizeUniform, width(level), height(level));
+                baseLevel(GL13.GL_TEXTURE1, texels, level);
+                baseLevel(GL13.GL_TEXTURE0, pristine, level);
+                GL11.glBegin(GL11.GL_TRIANGLES);
+                GL11.glVertex2f(-1, -1);
+                GL11.glVertex2f(3, -1);
+                GL11.glVertex2f(-1, 3);
+                GL11.glEnd();
             }
+            OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+            // A framebuffer cannot read a level below the base level, so the copies at the end of the frame need base level 0.
+            baseLevel(GL13.GL_TEXTURE1, texels, 0);
+            baseLevel(GL13.GL_TEXTURE0, pristine, 0);
         });
     }
 
@@ -277,19 +266,16 @@ public final class LegacyChroma {
 
     /** A texture with the size and the mip levels of the atlas and no filter, whose base level each draw sets to the level it reads. */
     private static int texture() {
-        final int[] out = new int[1];
-        withState(new Runnable() {
-            @Override
-            public void run() {
-                out[0] = GL11.glGenTextures();
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, out[0]);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, size[2] - 1);
-                for (int level = 0; level < size[2]; level++) {
-                    GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA8, width(level), height(level), 0, GL11.GL_RGBA,
-                            GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
-                }
+        int[] out = new int[1];
+        withState(() -> {
+            out[0] = GL11.glGenTextures();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, out[0]);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, size[2] - 1);
+            for (int level = 0; level < size[2]; level++) {
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA8, width(level), height(level), 0, GL11.GL_RGBA,
+                        GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
             }
         });
         return out[0];
@@ -310,79 +296,55 @@ public final class LegacyChroma {
     }
 
     /** The width, height and number of mip levels of the GL texture of the atlas. */
-    private static int[] sizeOf(final int texture) {
-        final int[] out = new int[3];
-        withState(new Runnable() {
-            @Override
-            public void run() {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0);
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
-                out[0] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
-                out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
-                out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
-            }
+    private static int[] sizeOf(int texture) {
+        int[] out = new int[3];
+        withState(() -> {
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            out[0] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+            out[1] = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+            out[2] = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL) + 1;
         });
         // A texture with no mip levels can keep the default largest level of 1000.
         out[2] = Math.max(1, Math.min(out[2], 32 - Integer.numberOfLeadingZeros(Math.max(1, Math.max(out[0], out[1])))));
         return out;
     }
 
-    /** Compiles the program on its first use: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20, and returns true when it compiled. */
-    private static boolean compile() {
-        if (state != Compile.NOT_STARTED) return state == Compile.READY;
-        ContextCapabilities caps = GLContext.getCapabilities();
-        state = Compile.FAILED;
-        if (!caps.OpenGL20 || !OpenGlHelper.framebufferSupported) {
-            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
-            return false;
+    /** The Chroma program, which compiles on its first use and then takes its uniforms and makes the framebuffer. */
+    private static final class Program extends LegacyGlProgram {
+        Program() {
+            super(SkyShaderSource.CHROMA, "", dialect(), "Chroma shader", "Chroma is off.");
         }
-        SkyShaderSource.Dialect dialect = caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
-        int p = GL20.glCreateProgram();
-        int vertex = 0;
-        int fragment = 0;
-        try {
-            vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, true, dialect));
-            fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, false, dialect));
-            GL20.glAttachShader(p, vertex);
-            GL20.glAttachShader(p, fragment);
-            GL20.glLinkProgram(p);
-            if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p, 32768));
-        } catch (IOException | IllegalStateException e) {
-            GL20.glDeleteProgram(p);
-            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". Chroma is off.", e);
-            return false;
-        } finally {
-            if (vertex != 0) GL20.glDeleteShader(vertex);
-            if (fragment != 0) GL20.glDeleteShader(fragment);
-        }
-        program = p;
-        turnsUniform = GL20.glGetUniformLocation(p, "ChromaTurns");
-        sizeUniform = GL20.glGetUniformLocation(p, "ChromaSize");
-        final int pristineUniform = GL20.glGetUniformLocation(p, "AlbedoPristine"), texelsUniform = GL20.glGetUniformLocation(p, "AlbedoTexels");
-        withState(new Runnable() {
-            @Override
-            public void run() {
-                GL20.glUseProgram(program);
+
+        @Override
+        void linked() {
+            turnsUniform = uniform("ChromaTurns");
+            sizeUniform = uniform("ChromaSize");
+            int pristineUniform = uniform("AlbedoPristine");
+            int texelsUniform = uniform("AlbedoTexels");
+            withState(() -> {
+                GL20.glUseProgram(id());
                 GL20.glUniform1i(pristineUniform, 0);
                 GL20.glUniform1i(texelsUniform, 1);
+            });
+            framebuffer = OpenGlHelper.glGenFramebuffers();
+        }
+
+        /** GLSL 1.30 with OpenGL 3.0, else GLSL 1.20, or null with a log line without OpenGL 2.0 or framebuffers. */
+        private static SkyShaderSource.Dialect dialect() {
+            ContextCapabilities caps = GLContext.getCapabilities();
+            if (!caps.OpenGL20 || !OpenGlHelper.framebufferSupported) {
+                Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
+                return null;
             }
-        });
-        framebuffer = OpenGlHelper.glGenFramebuffers();
-        state = Compile.READY;
-        Albedo.get().platform().info("Compiled the Chroma shader " + SkyShaderSource.CHROMA + " as " + dialect);
-        return true;
+            return caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
+        }
     }
 
-    private static int shader(int type, String source) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, source);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            String log = GL20.glGetShaderInfoLog(shader, 32768);
-            GL20.glDeleteShader(shader);
-            throw new IllegalStateException(log);
-        }
-        return shader;
+    /** Compiles the program on its first use, and returns true when it compiled. */
+    private static boolean compile() {
+        if (program == null) program = new Program();
+        return program.ready();
     }
 
     /** Stops the pass for this game after an error, and lets the core paint the sprites again without Chroma. */
@@ -441,7 +403,8 @@ public final class LegacyChroma {
         int done = TIMES.size() - PENDING.size();
         for (Iterator<int[]> it = PENDING.iterator(); it.hasNext(); done++) {
             int[] q = it.next();
-            long start = 0, end = 0;
+            long start = 0;
+            long end = 0;
             if (timed()) {
                 if (GL15.glGetQueryObjecti(q[1], GL15.GL_QUERY_RESULT_AVAILABLE) == GL11.GL_FALSE) return;
                 start = GL33.glGetQueryObjecti64(q[0], GL15.GL_QUERY_RESULT);

@@ -36,8 +36,6 @@ import javax.imageio.ImageIO;
  * baked texture draws the sky.
  */
 final class LegacySharpSky {
-    private enum Compile { NOT_STARTED, READY, FAILED }
-
     /** The block of a sky program as the four uniform arrays of the shader, which {@link #set} fills again for each draw. */
     private static final class Block {
         final FloatBuffer header = BufferUtils.createFloatBuffer(4);
@@ -60,11 +58,7 @@ final class LegacySharpSky {
     }
 
     /** A GL program from the classic sky shaders, and the places of its uniforms. */
-    private static final class Program {
-        final String name;
-        final String steps;
-        Compile state = Compile.NOT_STARTED;
-        int id;
+    private static final class Program extends LegacyGlProgram {
         int header;
         int world;
         int layers;
@@ -73,63 +67,22 @@ final class LegacySharpSky {
         int color;
 
         Program(String name, String steps) {
-            this.name = name;
-            this.steps = steps;
+            super(name, steps, dialect(), "sharp sky shader", "The sky draws from the baked image.");
         }
 
-        /** Compiles the program on its first use, and returns true when it compiled. */
-        boolean ready() {
-            if (state == Compile.NOT_STARTED) compile();
-            return state == Compile.READY;
-        }
-
-        void close() {
-            if (state == Compile.READY) GL20.glDeleteProgram(id);
-            state = Compile.FAILED;
-        }
-
-        private void compile() {
-            SkyShaderSource.Dialect dialect = dialect();
-            if (dialect == null) {
-                state = Compile.FAILED;
-                Albedo.get().platform().info("The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image");
-                return;
-            }
-            int program = GL20.glCreateProgram();
-            int vertex = 0;
-            int fragment = 0;
-            try {
-                vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, dialect, steps));
-                fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, dialect, steps));
-                GL20.glAttachShader(program, vertex);
-                GL20.glAttachShader(program, fragment);
-                GL20.glLinkProgram(program);
-                if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
-                    throw new IllegalStateException(GL20.glGetProgramInfoLog(program, 32768));
-                }
-            } catch (IOException | IllegalStateException e) {
-                GL20.glDeleteProgram(program);
-                state = Compile.FAILED;
-                Albedo.get().platform().warn("Cannot compile the sharp sky shader " + name + ". The sky draws from the baked image.", e);
-                return;
-            } finally {
-                if (vertex != 0) GL20.glDeleteShader(vertex);
-                if (fragment != 0) GL20.glDeleteShader(fragment);
-            }
-            id = program;
-            header = GL20.glGetUniformLocation(program, "SkyHeader");
-            world = GL20.glGetUniformLocation(program, "SkyWorld");
-            layers = GL20.glGetUniformLocation(program, "SkyLayers");
-            ring = GL20.glGetUniformLocation(program, "SkyRing");
-            terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
-            color = GL20.glGetUniformLocation(program, "ColorModulator");
-            state = Compile.READY;
-            Albedo.get().platform().info("Compiled the sharp sky shader " + name + " as " + dialect);
+        @Override
+        void linked() {
+            header = uniform("SkyHeader");
+            world = uniform("SkyWorld");
+            layers = uniform("SkyLayers");
+            ring = uniform("SkyRing");
+            terms = uniform("AlbedoTerms");
+            color = uniform("ColorModulator");
         }
 
         /** Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness. */
         void use(Block block, int termTexture, float brightness) {
-            GL20.glUseProgram(id);
+            GL20.glUseProgram(id());
             GL20.glUniform4(header, block.header);
             GL20.glUniform4(world, block.world);
             GL20.glUniform4(layers, block.layers);
@@ -159,11 +112,15 @@ final class LegacySharpSky {
 
     private LegacySharpSky() {}
 
-    /** The GLSL dialect that the GPU can compile, or null when it has none with unsigned integers and half float textures. */
+    /**
+     * The GLSL dialect that the GPU can compile, or null with a log line when it has none with unsigned integers and half
+     * float textures.
+     */
     private static SkyShaderSource.Dialect dialect() {
         ContextCapabilities caps = GLContext.getCapabilities();
         if (caps.OpenGL30) return SkyShaderSource.Dialect.FIXED_130;
         if (caps.GL_EXT_gpu_shader4 && caps.GL_ARB_texture_float && caps.GL_ARB_half_float_pixel) return SkyShaderSource.Dialect.FIXED_120_EXT;
+        Albedo.get().platform().info("The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image");
         return null;
     }
 
@@ -203,18 +160,6 @@ final class LegacySharpSky {
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         GlStateManager.disableBlend();
         GL20.glUseProgram(0);
-    }
-
-    private static int shader(int type, String source) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, source);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            String log = GL20.glGetShaderInfoLog(shader, 32768);
-            GL20.glDeleteShader(shader);
-            throw new IllegalStateException(log);
-        }
-        return shader;
     }
 
     /** A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms. */
