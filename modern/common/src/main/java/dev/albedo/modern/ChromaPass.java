@@ -25,7 +25,7 @@ final class ChromaPass implements ChromaBackend, DeviceChromaTarget.Pipelines {
             .build();
 
     // One triangle over the whole mip level with no blend and no depth, which compiles on the render thread, because a
-    // compile on a worker thread can stop the JVM on Windows (see SkyShaderSource.inline).
+    // compile on a worker thread can stop the JVM on Windows (see ShaderSource.inline).
     private static final PearlPipeline PIPELINE = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(LAYOUT)
             .withLocation(ModIds.id("pipeline/chroma"))

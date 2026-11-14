@@ -14,9 +14,9 @@ import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLayerSteps;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
-import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Screenshot;
 import org.lwjgl.opengl.GL11;
@@ -94,7 +94,7 @@ final class PrecompiledSharpSky {
     private static final Map<String, Precompiled> EQUIRECT = new HashMap<String, Precompiled>();
 
     // Black on the sphere with no blend where the depth is still the far depth of the clear, which resets only the sky of this level view.
-    private static final Precompiled BLACK = pipeline(pipelines++, SkyShaderSource.SHARP, SkyShaderSource.BLACK, "");
+    private static final Precompiled BLACK = pipeline(pipelines++, SkyLayerSteps.SHARP, SkyLayerSteps.BLACK, "");
 
     // The bytes of the block of a frame for writeFrame, which the write copies at once, so one buffer serves all frames.
     private static final ByteBuffer FRAME_BYTES = MemoryUtil.memAlloc(SkyProgram.FLOATS * 4);
@@ -113,8 +113,8 @@ final class PrecompiledSharpSky {
     // The pipeline number n of a sky shader file and its fragment shader file, with the transform blocks for the sky sphere, and the
     // term sampler when the shader reads it.
     private static RenderPipeline.Builder builder(int n, String name, String fragment, boolean terms) {
-        boolean sharp = name.equals(SkyShaderSource.SHARP);
-        boolean black = fragment.equals(SkyShaderSource.BLACK);
+        boolean sharp = name.equals(SkyLayerSteps.SHARP);
+        boolean black = fragment.equals(SkyLayerSteps.BLACK);
         // The sky sphere adds its color to a black frame only where the depth is still the far depth of the clear; the image of skycompare has no depth.
         RenderPipeline.Builder b = sharp ? DeviceApi.state(RenderPipeline.builder(), !black, true) : DeviceApi.colorOnly(RenderPipeline.builder());
         if (sharp) b = DeviceApi.transformBlocks(b);
@@ -129,14 +129,14 @@ final class PrecompiledSharpSky {
 
     // The game keeps a compiled shader by its id, so the fragment shader of each sky gets its own id: the name of its file and n.
     private static Precompiled pipeline(int n, String name, String fragment, String steps) {
-        return new Precompiled(builder(n, name, fragment, SkyShaderSource.readsTerms(steps)).build(), name, fragment, steps,
+        return new Precompiled(builder(n, name, fragment, SkyLayerSteps.readsTerms(steps)).build(), name, fragment, steps,
                 "sharp sky shader", "The sky draws from the baked image.");
     }
 
     // Compiles the pipeline and sends the numbers and the term images of a new image to the GPU, before the sky pass opens, and returns true when the sky shader draws this image.
     static boolean prepare(SkyImage img) {
         Precompiled sharp = ModernSky.wantsSharp(img) ? SHARP.computeIfAbsent(img.program().shaderSteps(),
-                steps -> pipeline(pipelines++, SkyShaderSource.SHARP, SkyShaderSource.SHARP, steps)) : null;
+                steps -> pipeline(pipelines++, SkyLayerSteps.SHARP, SkyLayerSteps.SHARP, steps)) : null;
         ready = sharp != null && sharp.ready() && BLACK.ready() ? sharp : null;
         if (ready == null) return false;
         if (blockSerial != img.serial()) {
@@ -191,7 +191,7 @@ final class PrecompiledSharpSky {
     // for the draw and png may be null.
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
         Precompiled equirect = EQUIRECT.computeIfAbsent(sky.program().shaderSteps(),
-                steps -> pipeline(pipelines++, SkyShaderSource.EQUIRECT, SkyShaderSource.EQUIRECT, steps));
+                steps -> pipeline(pipelines++, SkyLayerSteps.EQUIRECT, SkyLayerSteps.EQUIRECT, steps));
         if (!equirect.ready()) return false;
         CompareResources res = new CompareResources(sky, values, width, height, view);
         try {

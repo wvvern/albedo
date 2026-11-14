@@ -2,8 +2,9 @@ package dev.albedo.modern;
 
 //? if gl_program {
 /*import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.sky.SkyLayerSteps;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
@@ -15,14 +16,14 @@ class GlProgram {
     private final String vertex;
     private final String fragment;
     private final String steps;
-    private final SkyShaderSource.Dialect dialect;
+    private final ShaderSource.Dialect dialect;
     private final String what;
     private final String fallback;
     private ShaderState state = ShaderState.NOT_STARTED;
     private int id;
 
     // A program from the vertex shader of one file and the fragment shader of an other, where what and fallback are the words of the log lines.
-    GlProgram(String vertex, String fragment, String steps, SkyShaderSource.Dialect dialect, String what, String fallback) {
+    GlProgram(String vertex, String fragment, String steps, ShaderSource.Dialect dialect, String what, String fallback) {
         this.vertex = vertex;
         this.fragment = fragment;
         this.steps = steps;
@@ -41,7 +42,7 @@ class GlProgram {
         return id;
     }
 
-    final SkyShaderSource.Dialect dialect() {
+    final ShaderSource.Dialect dialect() {
         return dialect;
     }
 
@@ -73,8 +74,9 @@ class GlProgram {
         int vertexShader = 0;
         int fragmentShader = 0;
         try {
-            vertexShader = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(vertex, true, dialect, steps));
-            fragmentShader = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(fragment, false, dialect, steps));
+            ShaderSource.Includes includes = SkyLayerSteps.includes(steps);
+            vertexShader = shader(GL20.GL_VERTEX_SHADER, ShaderSource.classic(vertex, true, dialect, includes));
+            fragmentShader = shader(GL20.GL_FRAGMENT_SHADER, ShaderSource.classic(fragment, false, dialect, includes));
             GL20.glAttachShader(program, vertexShader);
             GL20.glAttachShader(program, fragmentShader);
             // A GlMesh puts the position in attribute 0 and the texture coordinates in attribute 1.

@@ -1,7 +1,7 @@
 package dev.albedo.core.texture;
 
 import dev.albedo.core.config.Chroma;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.shader.ShaderSource;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -51,7 +51,7 @@ class ChromaTexelsTest {
 
     @Test
     void theShaderUsesTheSameMaximumAmount() throws Exception {
-        String include = SkyShaderSource.read("include/chroma.glsl");
+        String include = ShaderSource.read("include/chroma.glsl");
         assertTrue(include.contains("#define ALBEDO_CHROMA_MAX_AMOUNT " + ChromaTexels.MAX_AMOUNT), include);
         assertTrue(include.contains("#define ALBEDO_CHROMA_VEC4S " + Chroma.TURN_FLOATS / 4 + "\n"), include);
     }

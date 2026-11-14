@@ -1,8 +1,9 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.sky.SkyLayerSteps;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
@@ -15,14 +16,14 @@ class LegacyGlProgram {
 
     private final String name;
     private final String steps;
-    private final SkyShaderSource.Dialect dialect;
+    private final ShaderSource.Dialect dialect;
     private final String what;
     private final String fallback;
     private ShaderState state = ShaderState.NOT_STARTED;
     private int id;
 
     /** A program of a shader file with the words of the log lines, which never compiles with a null dialect. */
-    LegacyGlProgram(String name, String steps, SkyShaderSource.Dialect dialect, String what, String fallback) {
+    LegacyGlProgram(String name, String steps, ShaderSource.Dialect dialect, String what, String fallback) {
         this.name = name;
         this.steps = steps;
         this.dialect = dialect;
@@ -63,8 +64,9 @@ class LegacyGlProgram {
         int vertex = 0;
         int fragment = 0;
         try {
-            vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, dialect, steps));
-            fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, dialect, steps));
+            ShaderSource.Includes includes = SkyLayerSteps.includes(steps);
+            vertex = shader(GL20.GL_VERTEX_SHADER, ShaderSource.classic(name, true, dialect, includes));
+            fragment = shader(GL20.GL_FRAGMENT_SHADER, ShaderSource.classic(name, false, dialect, includes));
             GL20.glAttachShader(program, vertex);
             GL20.glAttachShader(program, fragment);
             GL20.glLinkProgram(program);

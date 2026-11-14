@@ -4,8 +4,8 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderPass;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaFrames;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
@@ -17,22 +17,22 @@ final class PrecompiledChromaPass implements ChromaBackend, DeviceChromaTarget.P
     private static final RenderPipeline PIPELINE = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.sampler(
             DeviceApi.uniformBlock(DeviceApi.colorOnly(RenderPipeline.builder()), "AlbedoChroma"), "AlbedoPristine"), "AlbedoTexels")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, ShaderSource.CHROMA))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, ShaderSource.CHROMA))
             .withCull(false), null)
             .build();
 
     // Copies mip levels above 0; see DeviceChromaTarget.copy().
     private static final RenderPipeline COPY = DeviceApi.triangles(DeviceApi.sampler(DeviceApi.colorOnly(RenderPipeline.builder()), "AlbedoSource")
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, SkyShaderSource.CHROMA_COPY))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, ShaderSource.CHROMA))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, ShaderSource.CHROMA_COPY))
             .withCull(false), null)
             .build();
 
-    private static final Precompiled PIPELINE_SHADER = new Precompiled(PIPELINE, SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "",
+    private static final Precompiled PIPELINE_SHADER = new Precompiled(PIPELINE, ShaderSource.CHROMA, ShaderSource.CHROMA, "",
             "Chroma shader", "Chroma is off.");
-    private static final Precompiled COPY_SHADER = new Precompiled(COPY, SkyShaderSource.CHROMA, SkyShaderSource.CHROMA_COPY, "",
+    private static final Precompiled COPY_SHADER = new Precompiled(COPY, ShaderSource.CHROMA, ShaderSource.CHROMA_COPY, "",
             "Chroma copy shader", "Chroma is off.");
 
     @Override

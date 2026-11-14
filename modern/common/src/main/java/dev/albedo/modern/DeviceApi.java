@@ -21,7 +21,7 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.shader.ShaderSource;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
@@ -177,12 +177,12 @@ final class DeviceApi {
     }
 
     // The dialect of the shader text of the mod: the depth buffer is reversed from 26.2, and the clip volume can start at 0.
-    static SkyShaderSource.Dialect dialect() {
+    static ShaderSource.Dialect dialect() {
         //? if >=26.2 {
         return RenderSystem.getDevice().getDeviceInfo().isZZeroToOne()
-                ? SkyShaderSource.Dialect.BLOCKS_330_REVERSED_ZERO_TO_ONE : SkyShaderSource.Dialect.BLOCKS_330_REVERSED;
+                ? ShaderSource.Dialect.BLOCKS_330_REVERSED_ZERO_TO_ONE : ShaderSource.Dialect.BLOCKS_330_REVERSED;
         //?} else {
-        /^return SkyShaderSource.Dialect.BLOCKS_330;
+        /^return ShaderSource.Dialect.BLOCKS_330;
         ^///?}
     }
 

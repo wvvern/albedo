@@ -5,8 +5,9 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.albedo.core.Albedo;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.sky.SkyLayerSteps;
 
 import java.io.IOException;
 
@@ -55,7 +56,7 @@ final class Precompiled {
         boolean isVertex = type == ShaderType.VERTEX;
         String file = isVertex ? vertex : fragment;
         try {
-            return SkyShaderSource.classic(file, isVertex, DeviceApi.dialect(), steps);
+            return ShaderSource.classic(file, isVertex, DeviceApi.dialect(), SkyLayerSteps.includes(steps));
         } catch (IOException e) {
             Albedo.get().platform().warn("Cannot read the " + what + " " + file, e);
             return null;

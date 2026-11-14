@@ -4,12 +4,13 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLayerSteps;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
-import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -88,9 +89,9 @@ final class LegacySharpSky {
 
     /** The programs of each sky that came recently. */
     private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.SHARP, steps), Program::close);
     private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.EQUIRECT, steps), Program::close);
 
     /** The bytes of one RGBA texel of half floats. */
     private static final int HALF_RGBA_BYTES = 8;
@@ -138,11 +139,11 @@ final class LegacySharpSky {
      * The GLSL dialect that the GPU can compile, or null with a log line when it has none with unsigned integers and half
      * float textures.
      */
-    private static SkyShaderSource.Dialect dialect() {
+    private static ShaderSource.Dialect dialect() {
         ContextCapabilities caps = GLContext.getCapabilities();
-        SkyShaderSource.Dialect dialect = SkyShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float,
+        ShaderSource.Dialect dialect = ShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float,
                 caps.GL_ARB_half_float_pixel);
-        if (dialect == null) Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
+        if (dialect == null) Albedo.get().platform().info(ShaderSource.Dialect.NO_SHARP_DIALECT);
         return dialect;
     }
 

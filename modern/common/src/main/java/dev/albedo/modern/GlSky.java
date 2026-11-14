@@ -4,10 +4,11 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.systems.RenderSystem;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.Colors;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLayerSteps;
 import dev.albedo.core.sky.SkyMesh;
-import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -37,7 +38,7 @@ public final class GlSky {
         int sampler;
 
         Baked() {
-            super(SkyShaderSource.BAKED, SkyShaderSource.BAKED, "", SkyShaderSource.Dialect.UNIFORMS_150, "sky texture shader",
+            super(SkyLayerSteps.BAKED, SkyLayerSteps.BAKED, "", ShaderSource.Dialect.UNIFORMS_150, "sky texture shader",
                     "The game draws its own sky.");
         }
 

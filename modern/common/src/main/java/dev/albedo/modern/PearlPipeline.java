@@ -14,7 +14,7 @@ import com.mojang.renderpearl.api.pipeline.ShaderSource;
 import com.mojang.renderpearl.api.pipeline.ShaderType;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.sky.SkyLayerSteps;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
@@ -148,16 +148,16 @@ final class PearlPipeline {
                 Identifier id = e.getValue();
                 // Fabric without Fabric API loads no mod assets, so the shaders of the mod come from its jar.
                 String text = id.getNamespace().equals(Albedo.MOD_ID)
-                        ? SkyShaderSource.read(id.getPath() + (e.getKey() == ShaderType.VERTEX ? ".vsh" : ".fsh"))
+                        ? dev.albedo.core.shader.ShaderSource.read(id.getPath() + (e.getKey() == ShaderType.VERTEX ? ".vsh" : ".fsh"))
                         : resource(e.getKey().idConverter().idToFile(id));
-                shaders.put(e.getKey(), SkyShaderSource.inline(text, include -> include(include, steps)));
+                dev.albedo.core.shader.ShaderSource.Includes mod = SkyLayerSteps.includes(steps);
+                shaders.put(e.getKey(), dev.albedo.core.shader.ShaderSource.inline(text, include -> include(include, mod)));
             }
         }
 
-        private static String include(String id, String steps) throws IOException {
+        private static String include(String id, dev.albedo.core.shader.ShaderSource.Includes mod) throws IOException {
             Identifier parsed = Identifier.parse(id);
-            return parsed.getNamespace().equals(Albedo.MOD_ID) ? SkyShaderSource.readInclude(parsed.toString(), steps)
-                    : resource(parsed.withPrefix("shaders/include/"));
+            return parsed.getNamespace().equals(Albedo.MOD_ID) ? mod.read(parsed.toString()) : resource(parsed.withPrefix("shaders/include/"));
         }
 
         private static String resource(Identifier file) throws IOException {

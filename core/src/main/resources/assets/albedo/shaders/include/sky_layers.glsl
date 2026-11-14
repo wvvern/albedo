@@ -13,7 +13,7 @@
 #define ALBEDO_BLEND_SCREEN 2
 #define ALBEDO_BLEND_MULTIPLY 3
 
-// The parts of a layer that its values turn on, which SkyShaderSource puts in each layer step, so that the compiler leaves out the parts that are off.
+// The parts of a layer that its values turn on, which SkyLayerSteps puts in each layer step, so that the compiler leaves out the parts that are off.
 #define ALBEDO_FLAG_TWINKLE 1
 #define ALBEDO_FLAG_TRAILS 2
 #define ALBEDO_FLAG_SPIKES 4
@@ -309,7 +309,7 @@ vec3 albedoShow(vec3 img, vec4 s, int layer, int blend, int maskIndex, bool mask
 }
 
 // The linear color of the sky in a unit direction, where the footprint is the width of the pixel in radians, and
-// ALBEDO_LAYER_STEPS from SkyShaderSource.layerSteps calls the function of the kind of each layer that shows or masks,
+// ALBEDO_LAYER_STEPS from SkyLayerSteps.layerSteps calls the function of the kind of each layer that shows or masks,
 // with the structure of the layer as constants, so that the shader has only the code that the sky uses.
 vec3 albedoSky(vec3 dir, float footprint) {
     float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));

@@ -90,9 +90,9 @@ class DeepFieldTest {
     void theStepOfTheShaderHasTheCloudOnlyWhenItShows() {
         SkyDesign with = design(field());
         SkyDesign without = with.withLayers(Collections.singletonList(field().withParam(SkyLayer.Param.HEIGHT, 0)));
-        String cloud = SkyShaderSource.layerSteps(program(with));
-        assertTrue(cloud.contains(" s = albedoDeepField(0, albedoFrame(0, dir), footprint, " + SkyShaderSource.FLAG_CLOUD + ");"), cloud);
-        String plain = SkyShaderSource.layerSteps(program(without));
+        String cloud = SkyLayerSteps.layerSteps(program(with));
+        assertTrue(cloud.contains(" s = albedoDeepField(0, albedoFrame(0, dir), footprint, " + SkyLayerSteps.FLAG_CLOUD + ");"), cloud);
+        String plain = SkyLayerSteps.layerSteps(program(without));
         assertTrue(plain.contains(" s = albedoDeepField(0, albedoFrame(0, dir), footprint, 0);"), plain);
         assertFalse(program(with).moves(), "the deep field is still");
     }

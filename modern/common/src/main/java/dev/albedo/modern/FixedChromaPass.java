@@ -4,8 +4,8 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.platform.GlStateManager;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -31,7 +31,7 @@ final class FixedChromaPass implements ChromaBackend {
         int size;
 
         Program() {
-            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", SkyShaderSource.Dialect.chroma(GL.getCapabilities().OpenGL30),
+            super(ShaderSource.CHROMA, ShaderSource.CHROMA, "", ShaderSource.Dialect.chroma(GL.getCapabilities().OpenGL30),
                     "Chroma shader", "Chroma is off.");
         }
 

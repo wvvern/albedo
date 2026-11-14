@@ -296,9 +296,9 @@ public final class SkyProgram {
     /** True when a layer that shows or masks moves with the time, so that the adapter must write the time into the header for each frame. */
     public boolean moves() { return moves; }
 
-    /** The {@link SkyShaderSource#layerSteps} of this program, which the render thread reads in each frame to find its shader. */
+    /** The {@link SkyLayerSteps#layerSteps} of this program, which the render thread reads in each frame to find its shader. */
     public String shaderSteps() {
-        if (steps == null) steps = SkyShaderSource.layerSteps(this);
+        if (steps == null) steps = SkyLayerSteps.layerSteps(this);
         return steps;
     }
 

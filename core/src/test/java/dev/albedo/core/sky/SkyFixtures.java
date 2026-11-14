@@ -3,6 +3,7 @@ package dev.albedo.core.sky;
 import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyLayer;
 import dev.albedo.core.config.SkyTurning;
+import dev.albedo.core.shader.ShaderSource;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -68,7 +69,7 @@ final class SkyFixtures {
 
     /** The text of the sky include of the shaders with its twin includes in it, which the tests compare with the numbers of the bake. */
     static String skyLayersSource() throws IOException {
-        return SkyShaderSource.inline(SkyShaderSource.readInclude(SkyShaderSource.LAYERS_INCLUDE, ""), id -> SkyShaderSource.readInclude(id, ""));
+        return ShaderSource.inline(ShaderSource.readInclude(SkyLayerSteps.LAYERS_INCLUDE), ShaderSource::readInclude);
     }
 
     /** The number of the line {@code const float <name> = <number>;} of a shader text. */

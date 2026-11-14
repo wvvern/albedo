@@ -5,12 +5,13 @@ package dev.albedo.modern;
 import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLayerSteps;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
-import dev.albedo.core.sky.SkyShaderSource;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -54,7 +55,7 @@ final class GlSharpSky {
         int color;
 
         Program(String vertex, String fragment, String steps) {
-            super(vertex, fragment, steps, SkyShaderSource.Dialect.UNIFORMS_150, "sharp sky shader", "The sky draws from the baked image.");
+            super(vertex, fragment, steps, ShaderSource.Dialect.UNIFORMS_150, "sharp sky shader", "The sky draws from the baked image.");
         }
 
         @Override
@@ -86,11 +87,11 @@ final class GlSharpSky {
 
     // The programs of each sky that came recently.
     private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.SHARP, SkyShaderSource.SHARP, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.SHARP, SkyLayerSteps.SHARP, steps), Program::close);
     private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.EQUIRECT, SkyShaderSource.EQUIRECT, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.EQUIRECT, SkyLayerSteps.EQUIRECT, steps), Program::close);
     // Black on the sky sphere at the far depth.
-    private static final Program BLACK = new Program(SkyShaderSource.SHARP, SkyShaderSource.BLACK, "");
+    private static final Program BLACK = new Program(SkyLayerSteps.SHARP, SkyLayerSteps.BLACK, "");
 
     private static final Block BLOCK = new Block();
     private static int termTexture;

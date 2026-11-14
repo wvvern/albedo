@@ -263,9 +263,9 @@ class SkyProgramTest {
         assertTrue(p.moves(), "a galaxy with motion needs the time of each frame");
         assertFalse(program(plain).moves());
         assertFalse(program(plain.withParam(SkyLayer.Param.DETAIL, 100)).moves(), "the detail alone is still");
-        int both = SkyShaderSource.FLAG_DUST | SkyShaderSource.FLAG_JETS | SkyShaderSource.FLAG_DETAIL | SkyShaderSource.FLAG_MOTION;
+        int both = SkyLayerSteps.FLAG_DUST | SkyLayerSteps.FLAG_JETS | SkyLayerSteps.FLAG_DETAIL | SkyLayerSteps.FLAG_MOTION;
         assertTrue(p.shaderSteps().contains(" s = albedoGalaxy(0, albedoFrame(0, dir), footprint, " + both + ");"), p.shaderSteps());
-        int old = SkyShaderSource.FLAG_DUST | SkyShaderSource.FLAG_JETS;
+        int old = SkyLayerSteps.FLAG_DUST | SkyLayerSteps.FLAG_JETS;
         assertTrue(program(plain).shaderSteps().contains("footprint, " + old + ");"), "a plain galaxy compiles none of the new parts");
     }
 

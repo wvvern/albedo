@@ -6,12 +6,13 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
+import dev.albedo.core.sky.SkyLayerSteps;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
-import dev.albedo.core.sky.SkyShaderSource;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
@@ -65,7 +66,7 @@ final class FixedSharpSky {
         @Override
         boolean supported() {
             if (dialect() != null) return true;
-            Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
+            Albedo.get().platform().info(ShaderSource.Dialect.NO_SHARP_DIALECT);
             return false;
         }
 
@@ -91,9 +92,9 @@ final class FixedSharpSky {
 
     // The programs of each sky that came recently.
     private static final SkyShaderCache<Program> SHARP = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.SHARP, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.SHARP, steps), Program::close);
     private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
-            steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
+            steps -> new Program(SkyLayerSteps.EQUIRECT, steps), Program::close);
 
     // The term images of the last image on the GPU.
     private static final class TermTexture {
@@ -136,9 +137,9 @@ final class FixedSharpSky {
     private FixedSharpSky() {}
 
     // The GLSL dialect that the GPU can compile, or null when it has none with unsigned integers and half float textures.
-    private static SkyShaderSource.Dialect sharpDialect() {
+    private static ShaderSource.Dialect sharpDialect() {
         GLCapabilities caps = GL.getCapabilities();
-        return SkyShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float, caps.GL_ARB_half_float_pixel);
+        return ShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float, caps.GL_ARB_half_float_pixel);
     }
 
     // Compiles the program, sends the term images of a new image to the GPU and takes the block of this frame, in a sky with

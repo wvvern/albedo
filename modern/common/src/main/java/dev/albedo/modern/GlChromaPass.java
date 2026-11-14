@@ -2,8 +2,8 @@ package dev.albedo.modern;
 
 //? if gl_chroma {
 /*import dev.albedo.core.config.Chroma;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.shader.ShaderState;
-import dev.albedo.core.sky.SkyShaderSource;
 import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -35,7 +35,7 @@ final class GlChromaPass implements ChromaBackend {
         int vertexArray;
 
         Program() {
-            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", SkyShaderSource.Dialect.UNIFORMS_150, "Chroma shader", "Chroma is off.");
+            super(ShaderSource.CHROMA, ShaderSource.CHROMA, "", ShaderSource.Dialect.UNIFORMS_150, "Chroma shader", "Chroma is off.");
         }
 
         @Override

@@ -1,4 +1,4 @@
-// The sky sphere for the classic GL programs, where SkyShaderSource puts the version line and the defines on top.
+// The sky sphere for the classic GL programs, where ShaderSource puts the version line and the defines on top.
 
 #include <albedo:classic_vertex.glsl>
 #include <albedo:classic_transforms.glsl>

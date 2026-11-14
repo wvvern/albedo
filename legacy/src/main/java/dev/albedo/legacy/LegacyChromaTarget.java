@@ -2,7 +2,7 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
-import dev.albedo.core.sky.SkyShaderSource;
+import dev.albedo.core.shader.ShaderSource;
 import dev.albedo.core.texture.ChromaFrames;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -31,7 +31,7 @@ final class LegacyChromaTarget implements ChromaFrames.Target<TextureMap> {
         private int framebuffer;
 
         Program() {
-            super(SkyShaderSource.CHROMA, "", dialect(), "Chroma shader", "Chroma is off.");
+            super(ShaderSource.CHROMA, "", dialect(), "Chroma shader", "Chroma is off.");
         }
 
         /** The framebuffer of the pass, or 0 before the program compiled. */
@@ -54,13 +54,13 @@ final class LegacyChromaTarget implements ChromaFrames.Target<TextureMap> {
         }
 
         /** GLSL 1.30 with OpenGL 3.0, else GLSL 1.20, or null with a log line without OpenGL 2.0 or framebuffers. */
-        private static SkyShaderSource.Dialect dialect() {
+        private static ShaderSource.Dialect dialect() {
             ContextCapabilities caps = GLContext.getCapabilities();
             if (!caps.OpenGL20 || !OpenGlHelper.framebufferSupported) {
                 Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
                 return null;
             }
-            return SkyShaderSource.Dialect.chroma(caps.OpenGL30);
+            return ShaderSource.Dialect.chroma(caps.OpenGL30);
         }
     }
 
