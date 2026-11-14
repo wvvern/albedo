@@ -5,7 +5,6 @@ package dev.albedo.modern;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
-import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
@@ -57,11 +56,7 @@ final class FixedSharpSky {
     }
 
     // A GL program from the classic sky shaders, and the places of its uniforms.
-    private static final class Program {
-        final String name;
-        final String steps;
-        ShaderState state = ShaderState.NOT_STARTED;
-        int id;
+    private static final class Program extends GlProgram {
         int header;
         int world;
         int layers;
@@ -70,62 +65,29 @@ final class FixedSharpSky {
         int color;
 
         Program(String name, String steps) {
-            this.name = name;
-            this.steps = steps;
+            super(name, name, steps, sharpDialect(), "sharp sky shader", "The sky draws from the baked image.");
         }
 
-        boolean ready() {
-            if (state == ShaderState.NOT_STARTED) compile();
-            return state.usable();
+        @Override
+        boolean supported() {
+            if (dialect() != null) return true;
+            Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
+            return false;
         }
 
-        void close() {
-            if (state.usable()) GL20.glDeleteProgram(id);
-            state = state.to(ShaderState.CLOSED);
-        }
-
-        private void compile() {
-            SkyShaderSource.Dialect dialect = dialect();
-            if (dialect == null) {
-                state = state.to(ShaderState.FAILED);
-                Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
-                return;
-            }
-            int program = GL20.glCreateProgram();
-            int vertex = 0;
-            int fragment = 0;
-            try {
-                vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(name, true, dialect, steps));
-                fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(name, false, dialect, steps));
-                GL20.glAttachShader(program, vertex);
-                GL20.glAttachShader(program, fragment);
-                GL20.glLinkProgram(program);
-                if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
-                    throw new IllegalStateException(GL20.glGetProgramInfoLog(program, 32768));
-                }
-            } catch (IOException | IllegalStateException e) {
-                GL20.glDeleteProgram(program);
-                state = state.to(ShaderState.FAILED);
-                Albedo.get().platform().warn("Cannot compile the sharp sky shader " + name + ". The sky draws from the baked image.", e);
-                return;
-            } finally {
-                if (vertex != 0) GL20.glDeleteShader(vertex);
-                if (fragment != 0) GL20.glDeleteShader(fragment);
-            }
-            id = program;
-            header = GL20.glGetUniformLocation(program, "SkyHeader");
-            world = GL20.glGetUniformLocation(program, "SkyWorld");
-            layers = GL20.glGetUniformLocation(program, "SkyLayers");
-            ring = GL20.glGetUniformLocation(program, "SkyRing");
-            terms = GL20.glGetUniformLocation(program, "AlbedoTerms");
-            color = GL20.glGetUniformLocation(program, "ColorModulator");
-            state = state.to(ShaderState.READY);
-            Albedo.get().platform().info("Compiled the sharp sky shader " + name + " as " + dialect);
+        @Override
+        void linked() {
+            header = uniform("SkyHeader");
+            world = uniform("SkyWorld");
+            layers = uniform("SkyLayers");
+            ring = uniform("SkyRing");
+            terms = uniform("AlbedoTerms");
+            color = uniform("ColorModulator");
         }
 
         // Puts the program in use with the numbers of a sky, its term texture on unit 0 and a brightness.
         void use(Block block, int termTexture, float brightness) {
-            GlStateManager._glUseProgram(id);
+            GlStateManager._glUseProgram(id());
             GL20.glUniform4fv(header, block.header);
             GL20.glUniform4fv(world, block.world);
             GL20.glUniform4fv(layers, block.layers);
@@ -192,7 +154,7 @@ final class FixedSharpSky {
     private FixedSharpSky() {}
 
     // The GLSL dialect that the GPU can compile, or null when it has none with unsigned integers and half float textures.
-    private static SkyShaderSource.Dialect dialect() {
+    private static SkyShaderSource.Dialect sharpDialect() {
         GLCapabilities caps = GL.getCapabilities();
         return SkyShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float, caps.GL_ARB_half_float_pixel);
     }
@@ -225,18 +187,6 @@ final class FixedSharpSky {
         GlStateManager._disableCull();
         GL11.glCallList(sphere);
         saved.restore();
-    }
-
-    private static int shader(int type, String source) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, source);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            String log = GL20.glGetShaderInfoLog(shader, 32768);
-            GL20.glDeleteShader(shader);
-            throw new IllegalStateException(log);
-        }
-        return shader;
     }
 
     // A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms.

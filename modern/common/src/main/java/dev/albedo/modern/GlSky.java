@@ -38,7 +38,8 @@ public final class GlSky {
         int sampler;
 
         Baked() {
-            super(SkyShaderSource.BAKED, SkyShaderSource.BAKED, "", "sky texture shader", "The game draws its own sky.");
+            super(SkyShaderSource.BAKED, SkyShaderSource.BAKED, "", SkyShaderSource.Dialect.UNIFORMS_150, "sky texture shader",
+                    "The game draws its own sky.");
         }
 
         @Override

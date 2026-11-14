@@ -13,7 +13,7 @@ Before you push, run `./gradlew :core:check` in `modern/` (compile, Checkstyle, 
 
 ## Version conditions (modern)
 
-7. Code that only one rendering family can compile goes in a class with a condition around the whole file. Name the family with a constant from `modern/stonecutter.gradle` (`gl_fixed`, `gl_core`, `frame_graph`, `gpu_device`, `renderpearl`, and `gl_sky`/`gl_chroma` for the raw GL classes). Use a version predicate only for a single API change.
+7. Code that only one rendering family can compile goes in a class with a condition around the whole file. Name the family with a constant from `modern/stonecutter.gradle` (`gl_fixed`, `gl_core`, `frame_graph`, `gpu_device`, `renderpearl`, and `gl_sky`/`gl_chroma`/`gl_program` for the raw GL classes). Use a version predicate only for a single API change.
 8. Many conditions in one shared method are a sign: move the varying call into a version shim, or the code into a family file.
 9. Every version in a condition is a row of the boundary table in [ARCHITECTURE.md](ARCHITECTURE.md) (lint).
 10. Shared modern files must compile with Java 8, because the 1.16.5 node builds with it.

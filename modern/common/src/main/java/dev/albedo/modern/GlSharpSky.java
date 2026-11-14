@@ -59,7 +59,7 @@ final class GlSharpSky {
         int color;
 
         Program(String vertex, String fragment, String steps) {
-            super(vertex, fragment, steps, "sharp sky shader", "The sky draws from the baked image.");
+            super(vertex, fragment, steps, SkyShaderSource.Dialect.UNIFORMS_150, "sharp sky shader", "The sky draws from the baked image.");
         }
 
         @Override

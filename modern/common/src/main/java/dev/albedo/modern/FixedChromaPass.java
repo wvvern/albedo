@@ -19,7 +19,6 @@ import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GLCapabilities;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
@@ -27,74 +26,48 @@ import java.util.Arrays;
 // The Chroma pass of the fixed function versions with an OpenGL 2.0 program and a framebuffer: it draws the hue of each moving
 // texel into each mip level of an atlas, and it puts back all GL state that it can change, with the attribute stack.
 final class FixedChromaPass implements ChromaBackend {
-    private static ShaderState state = ShaderState.NOT_STARTED;
-    private static int program;
-    private static int turnsUniform;
-    private static int sizeUniform;
+    // The Chroma program: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20.
+    private static final class Program extends GlProgram {
+        int turns;
+        int size;
+
+        Program() {
+            super(SkyShaderSource.CHROMA, SkyShaderSource.CHROMA, "", SkyShaderSource.Dialect.chroma(GL.getCapabilities().OpenGL30),
+                    "Chroma shader", "Chroma is off.");
+        }
+
+        @Override
+        boolean supported() {
+            GLCapabilities caps = GL.getCapabilities();
+            if (caps.OpenGL20 && (caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_object)) return true;
+            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
+            return false;
+        }
+
+        @Override
+        void linked() {
+            turns = uniform("ChromaTurns");
+            size = uniform("ChromaSize");
+            int pristineUniform = uniform("AlbedoPristine");
+            int texelsUniform = uniform("AlbedoTexels");
+            withState(() -> {
+                GL20.glUseProgram(id());
+                GL20.glUniform1i(pristineUniform, 0);
+                GL20.glUniform1i(texelsUniform, 1);
+            });
+            framebuffer = GlStateManager.glGenFramebuffers();
+        }
+    }
+
+    // Null before the first compile, which needs the GL context.
+    private static Program program;
     private static int framebuffer;
     private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(Chroma.TURN_FLOATS);
 
-    // Compiles the program on its first use: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20.
     @Override
     public ShaderState compile() {
-        if (state == ShaderState.NOT_STARTED) build();
-        return state.usable() ? ShaderState.READY : ShaderState.FAILED;
-    }
-
-    private static void build() {
-        GLCapabilities caps = GL.getCapabilities();
-        // A throw that no catch takes leaves RUNNING, so the program never compiles again.
-        state = state.to(ShaderState.RUNNING);
-        if (!caps.OpenGL20 || !(caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_object)) {
-            state = state.to(ShaderState.FAILED);
-            Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
-            return;
-        }
-        SkyShaderSource.Dialect dialect = SkyShaderSource.Dialect.chroma(caps.OpenGL30);
-        int p = GL20.glCreateProgram();
-        int vertex = 0;
-        int fragment = 0;
-        try {
-            vertex = shader(GL20.GL_VERTEX_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, true, dialect));
-            fragment = shader(GL20.GL_FRAGMENT_SHADER, SkyShaderSource.classic(SkyShaderSource.CHROMA, false, dialect));
-            GL20.glAttachShader(p, vertex);
-            GL20.glAttachShader(p, fragment);
-            GL20.glLinkProgram(p);
-            if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) throw new IllegalStateException(GL20.glGetProgramInfoLog(p, 32768));
-        } catch (IOException | IllegalStateException e) {
-            GL20.glDeleteProgram(p);
-            state = state.to(ShaderState.FAILED);
-            Albedo.get().platform().warn("Cannot compile the Chroma shader " + SkyShaderSource.CHROMA + ". Chroma is off.", e);
-            return;
-        } finally {
-            if (vertex != 0) GL20.glDeleteShader(vertex);
-            if (fragment != 0) GL20.glDeleteShader(fragment);
-        }
-        program = p;
-        turnsUniform = GL20.glGetUniformLocation(p, "ChromaTurns");
-        sizeUniform = GL20.glGetUniformLocation(p, "ChromaSize");
-        int pristineUniform = GL20.glGetUniformLocation(p, "AlbedoPristine");
-        int texelsUniform = GL20.glGetUniformLocation(p, "AlbedoTexels");
-        withState(() -> {
-            GL20.glUseProgram(program);
-            GL20.glUniform1i(pristineUniform, 0);
-            GL20.glUniform1i(texelsUniform, 1);
-        });
-        framebuffer = GlStateManager.glGenFramebuffers();
-        state = state.to(ShaderState.READY);
-        Albedo.get().platform().info("Compiled the Chroma shader " + SkyShaderSource.CHROMA + " as " + dialect);
-    }
-
-    private static int shader(int type, String source) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, source);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            String log = GL20.glGetShaderInfoLog(shader, 32768);
-            GL20.glDeleteShader(shader);
-            throw new IllegalStateException(log);
-        }
-        return shader;
+        if (program == null) program = new Program();
+        return program.ready() ? ShaderState.READY : ShaderState.FAILED;
     }
 
     // Runs GL work and then puts back all GL state that it can change: the attribute stack holds the enables, the viewport and
@@ -231,15 +204,15 @@ final class FixedChromaPass implements ChromaBackend {
                 GL11.glDisable(GL11.GL_SCISSOR_TEST);
                 GL11.glDisable(GL11.GL_STENCIL_TEST);
                 GL11.glColorMask(true, true, true, true);
-                GL20.glUseProgram(program);
+                GL20.glUseProgram(program.id());
                 TURNS.clear();
                 TURNS.put(turns).flip();
-                GL20.glUniform4fv(turnsUniform, TURNS);
+                GL20.glUniform4fv(program.turns, TURNS);
                 GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer);
                 for (int level = 0; level < widths.length; level++) {
                     GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, live, level);
                     GL11.glViewport(0, 0, widths[level], heights[level]);
-                    GL20.glUniform2f(sizeUniform, widths[level], heights[level]);
+                    GL20.glUniform2f(program.size, widths[level], heights[level]);
                     baseLevel(GL13.GL_TEXTURE1, texels, level);
                     baseLevel(GL13.GL_TEXTURE0, pristine, level);
                     GL11.glBegin(GL11.GL_TRIANGLES);
