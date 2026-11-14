@@ -2,10 +2,7 @@ package dev.albedo.modern;
 
 //? if renderpearl {
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.commands.RenderPass;
@@ -36,7 +33,7 @@ public final class PearlSky {
     private static final SkyDefer<GpuBufferSlice> DEFER = new SkyDefer<>();
     // The texture with no blend, no depth test or write and no cull (the sky is the first thing in the frame), compiled on
     // the render thread at its first use, as a pipeline of the game is.
-    private static final SharpSky.Pipeline PIPELINE = new SharpSky.Pipeline(RenderPipeline.builder()
+    private static final PearlPipeline PIPELINE = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(BindGroupLayouts.GLOBALS)
             .withBindGroupLayout(BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
@@ -60,13 +57,7 @@ public final class PearlSky {
     private static GpuBuffer buildSphere() {
         float[] v = SkyImage.sphere(ModernSky.RADIUS);
         vertexCount = v.length / 5;
-        try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(vertexCount * DefaultVertexFormat.POSITION_TEX.getVertexSize())) {
-            BufferBuilder b = new BufferBuilder(bytes, PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-            for (int i = 0; i < v.length; i += 5) b.addVertex(v[i], v[i + 1], v[i + 2]).setUv(v[i + 3], v[i + 4]);
-            try (MeshData mesh = b.buildOrThrow()) {
-                return RenderSystem.getDevice().createBuffer(() -> "Albedo sky sphere", 32, mesh.vertexBuffer());
-            }
-        }
+        return PearlPipeline.vertexBuffer("Albedo sky sphere", v);
     }
 
     /**

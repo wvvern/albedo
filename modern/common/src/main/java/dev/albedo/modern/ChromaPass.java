@@ -42,7 +42,7 @@ final class ChromaPass implements ChromaBackend {
 
     // One triangle over the whole mip level with no blend and no depth, which compiles on the render thread, because a
     // compile on a worker thread can stop the JVM on Windows (see SkyShaderSource.inline).
-    private static final SharpSky.Pipeline PIPELINE = new SharpSky.Pipeline(RenderPipeline.builder()
+    private static final PearlPipeline PIPELINE = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(LAYOUT)
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))
@@ -58,7 +58,7 @@ final class ChromaPass implements ChromaBackend {
             .build();
 
     // Copies mip levels above 0; see copy().
-    private static final SharpSky.Pipeline COPY = new SharpSky.Pipeline(RenderPipeline.builder()
+    private static final PearlPipeline COPY = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(COPY_LAYOUT)
             .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
             .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))

@@ -121,7 +121,7 @@ Invariants:
 Traps by version:
 
 - 26.x: no texture writes inside a render pass, so uploads happen before the sky pass. The sky pass prepares only the overworld skybox.
-- 26.x: shader includes are inlined on the render thread (`SkyShaderSource.inline`) before compiling on a worker. If shaderc resolves an include itself it calls back into Java, which on Windows with Java 25 can overrun the worker's stack guard and kill the JVM without an `hs_err` file. `SharpSky` carries its own shader source because Fabric without Fabric API does not load mod assets.
+- 26.x: shader includes are inlined on the render thread (`SkyShaderSource.inline`) before compiling on a worker. If shaderc resolves an include itself it calls back into Java, which on Windows with Java 25 can overrun the worker's stack guard and kill the JVM without an `hs_err` file. `PearlPipeline` carries its own shader source because Fabric without Fabric API does not load mod assets.
 - 1.21.8 to 26.2: `PrecompiledSharpSky` precompiles before each sky pass, because a resource reload empties the pipeline cache. Never cast a `GpuTexture` to the GL class: the NeoForge validation layer hands out a wrapper. `DeviceApi` absorbs the device API changes of 1.21.10, 1.21.11, 26.1 and 26.2.
 - The device API has no half-float format before 26.2, so on the device path the term texture is rewritten through GL after a one-texel `writeToTexture` that binds it. On 26.2 with OpenGL the device still sends half-float writes as bytes, so the same GL rewrite applies; on Vulkan the bytes copy correctly and `DeviceApi.isGl()` keeps raw GL away.
 - 26.2 reverses the depth buffer: pipelines test `GREATER_THAN_OR_EQUAL` against far depth 0, and `DeviceApi.dialect()` sets `ALBEDO_REVERSED_DEPTH`.
