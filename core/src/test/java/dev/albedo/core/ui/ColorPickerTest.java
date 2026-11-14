@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ColorPickerTest {
     /** The picker's top-left corner, with room around it for the knob of the square. */
     private static final int X = 10, Y = 10;
-    private final SettingsEditorTest.RecordingCanvas canvas = new SettingsEditorTest.RecordingCanvas(220, 70);
+    private final RecordingCanvas canvas = new RecordingCanvas(220, 70);
     private final Ui ui = new Ui(() -> "");
     private final ColorPicker picker = new ColorPicker(ui);
 

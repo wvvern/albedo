@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TextFieldTest {
-    private final SettingsEditorTest.RecordingCanvas canvas = new SettingsEditorTest.RecordingCanvas(200, 40);
+    private final RecordingCanvas canvas = new RecordingCanvas(200, 40);
     private String clipboard = "";
     private final Ui ui = new Ui(() -> clipboard);
     private final TextField field = new TextField(8, TextField.ANY);
