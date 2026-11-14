@@ -6,15 +6,12 @@ import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
 import dev.albedo.core.config.Chroma;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,7 +55,7 @@ public final class TextureStore {
         }
     }
 
-    private static final class Entry {
+    static final class Entry {
         final Layout layout;
         final PixelBuffer.Heap original;
         final Upload upload;
@@ -93,22 +90,17 @@ public final class TextureStore {
     private final AtomicLong bytes = new AtomicLong();
     /** Bytes of the downloaded textures, which are not in the budget because only a repaint can change them. */
     private final AtomicLong downloadedBytes = new AtomicLong();
-    /** The number of kept textures with each catalog key, so that a downloaded texture changes the catalog only when its key comes or goes. */
-    private final Map<TextureKey, Integer> keyCounts = new HashMap<TextureKey, Integer>();
+    private final TextureCatalog catalog = new TextureCatalog();
     /** Names of textures that did not fit in the budget until a smaller record of the same name. */
     private final Set<String> overBudget = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     /** Set on the thread that repaints, so that a load hook that the upload runs does not record the texture again. */
     private final ThreadLocal<Boolean> repainting = new ThreadLocal<Boolean>();
 
-    private final AtomicInteger version = new AtomicInteger();
-    private final Map<Category, Map<String, Integer>> views = new EnumMap<Category, Map<String, Integer>>(Category.class);
-    private int viewsVersion = -1;
     private final AtomicInteger paints = new AtomicInteger();
     /** Counts each record and drop of any texture, for the cache of {@link #movingChroma}. */
     private final AtomicInteger changes = new AtomicInteger();
-    /** The categories with a key whose kept textures all have GPU hue, at the {@link #changes} in {@link #movingChromaAt}. */
-    private volatile Set<Category> movingChroma = Collections.emptySet();
-    private volatile int movingChromaAt = -1;
+    /** The categories with a key whose kept textures all have GPU hue, stamped with {@link #changes}. */
+    private final Stamped<Set<Category>> movingChroma = new Stamped<Set<Category>>();
 
     public TextureStore() {
         this(DEFAULT_BUDGET);
@@ -156,11 +148,7 @@ public final class TextureStore {
             entries.put(name, next);
             changes.incrementAndGet();
             if (movesOnGpu(next, applied) || before != null && movesOnGpu(before, before.applied)) paints.incrementAndGet();
-            boolean keysChanged = count(next, 1);
-            if (before != null) keysChanged |= count(before, -1);
-            // Many downloaded skins share one key, so a new skin changes the catalog only when it adds the key.
-            boolean newColors = !downloaded && (before == null || !Arrays.equals(before.averages, next.averages));
-            if (keysChanged || newColors) version.incrementAndGet();
+            catalog.replace(before, next);
         }
         return true;
     }
@@ -171,23 +159,6 @@ public final class TextureStore {
         if (looks == null) return true;
         for (Appearance a : looks) if (a.chromaMoves()) return true;
         return false;
-    }
-
-    /**
-     * Adds {@code delta} to the count of each catalog key of an entry, under the lock.
-     *
-     * @return true when a key comes into the catalog or leaves it
-     */
-    private boolean count(Entry e, int delta) {
-        boolean changed = false;
-        for (TextureKey k : e.layout.catalogKeys()) {
-            Integer before = keyCounts.get(k);
-            int now = (before == null ? 0 : before) + delta;
-            if (now <= 0) keyCounts.remove(k);
-            else keyCounts.put(k, now);
-            changed |= before == null || now <= 0;
-        }
-        return changed;
     }
 
     /** Bytes of the kept downloaded skins, capes and elytra. */
@@ -280,19 +251,18 @@ public final class TextureStore {
      * breaking stages since 1.15 are also unused sprites of the block atlas).
      */
     public boolean movingChroma(Category category) {
-        int now = changes.get();
-        if (movingChromaAt != now) {
-            Map<TextureKey, Boolean> keys = new HashMap<TextureKey, Boolean>();
-            for (Entry e : entries.values()) {
-                Boolean before = keys.get(e.layout.key());
-                keys.put(e.layout.key(), (before == null || before) && e.upload.gpuHue());
-            }
-            Set<Category> moving = EnumSet.noneOf(Category.class);
-            for (Map.Entry<TextureKey, Boolean> k : keys.entrySet()) if (k.getValue()) moving.add(k.getKey().category());
-            movingChroma = moving;
-            movingChromaAt = now;
+        return movingChroma.get(changes.get(), this::movingChromaCategories).contains(category);
+    }
+
+    private Set<Category> movingChromaCategories() {
+        Map<TextureKey, Boolean> keys = new HashMap<TextureKey, Boolean>();
+        for (Entry e : entries.values()) {
+            Boolean before = keys.get(e.layout.key());
+            keys.put(e.layout.key(), (before == null || before) && e.upload.gpuHue());
         }
-        return movingChroma.contains(category);
+        Set<Category> moving = EnumSet.noneOf(Category.class);
+        for (Map.Entry<TextureKey, Boolean> k : keys.entrySet()) if (k.getValue()) moving.add(k.getKey().category());
+        return moving;
     }
 
     /**
@@ -323,32 +293,13 @@ public final class TextureStore {
             changes.incrementAndGet();
             if (movesOnGpu(entry, entry.applied)) paints.incrementAndGet();
             (entry.downloaded ? downloadedBytes : bytes).addAndGet(-entry.bytes());
-            if (count(entry, -1) || !entry.downloaded) version.incrementAndGet();
+            catalog.remove(entry);
         }
     }
 
     /** Ids kept for a category in name order, each with its original average color, for the client thread. */
     public Map<String, Integer> catalog(Category category) {
-        int v = version.get();
-        if (v != viewsVersion) {
-            views.clear();
-            viewsVersion = v;
-        }
-        Map<String, Integer> view = views.get(category);
-        if (view == null) {
-            Map<String, Integer> out = new TreeMap<String, Integer>();
-            // In name order, so that of the textures with one id the first name (the vanilla one) gives the color.
-            for (Entry e : new TreeMap<String, Entry>(entries).values()) {
-                List<TextureKey> keys = e.layout.catalogKeys();
-                for (int i = 0; i < keys.size(); i++) {
-                    TextureKey k = keys.get(i);
-                    if (k.category() == category && !out.containsKey(k.id())) out.put(k.id(), e.averages[i]);
-                }
-            }
-            view = Collections.unmodifiableMap(out);
-            views.put(category, view);
-        }
-        return view;
+        return catalog.view(category, entries);
     }
 
     /** An upload into a pixel array that the game keeps by reference, such as a biome colormap. */
