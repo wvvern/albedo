@@ -1,18 +1,42 @@
-apply from: rootProject.file('gradle/shared.gradle')
+apply from: rootProject.file('gradle/node.gradle')
 
 architectury {
     // The loaders that have a jar for this Minecraft version.
     common(['fabric', 'forge', 'neoforge'].findAll { rootProject.findProject(":${it}:${stonecutter.current.project}") != null })
 }
 
+sourceSets.main.java.srcDir rootProject.file('../core/src/main/java')
+// The core resources (the sky shaders) go into the jar next to the core classes.
+sourceSets.main.resources.srcDir rootProject.file('../core/src/main/resources')
+
+// A mixin file with a whole-file version condition gives no class on some nodes, so the list of the node comes from its compiled classes.
+// Only these three name endings are mixins, because the game stops at start for a different class in the list.
+def mixinClasses = fileTree(tasks.named('compileJava').flatMap { it.destinationDirectory.dir('dev/albedo/modern/mixin') }) {
+    include '*Mixin.class', '*Accessor.class', '*Invoker.class'
+    exclude '*$*'
+}
+def compatibilityLevel = project.mixinCompatibilityLevel
+processResources {
+    dependsOn 'compileJava'
+    inputs.files(mixinClasses).withPropertyName('mixinClasses').withPathSensitivity(PathSensitivity.NAME_ONLY)
+    inputs.property 'compatibilityLevel', compatibilityLevel
+    filesMatching('albedo.mixins.json') {
+        filter { String line ->
+            def names = mixinClasses.files.collect { "\"${it.name - '.class'}\"" }.sort()
+            line.replace('@compatibility_level@', compatibilityLevel).replace('"@mixins@"', names.join(',\n    '))
+        }
+    }
+}
+
 // Mixin 0.8.7 writes the "at" of @Redirect and @ModifyArg as an array, which MixinExtras before 0.5 cannot read (NeoForge 1.20.6,
 // Fabric Loader 0.15, mod packs on Forge), so the code compiles against the annotations of Mixin 0.8.5, which all versions read.
 configurations.named('compileClasspath') { resolutionStrategy.force 'net.fabricmc:sponge-mixin:0.13.4+mixin.0.8.5' }
 
+def mixinExtras = 'io.github.llamalad7:mixinextras-common:0.4.1'
 dependencies {
     // Gives the common code the Mixin classes; it uses no Fabric Loader classes.
     add(project.modImplementation, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version")
     // MixinExtras ships inside both Fabric Loader and NeoForge; compile against it only.
-    compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'
-    annotationProcessor 'io.github.llamalad7:mixinextras-common:0.4.1'
+    compileOnly mixinExtras
+    annotationProcessor mixinExtras
 }

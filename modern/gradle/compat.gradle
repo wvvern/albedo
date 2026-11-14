@@ -1,0 +1,48 @@
+// -Pcompat=sodium (or embeddium, iris, or a comma list) adds that mod to the dev run only, from versions/<v>/gradle.properties.
+// platform.gradle applies this script only with -Pcompat.
+def loader = project.loader
+def mods = (project.property('compat') as String).toLowerCase().split(',')*.trim().findAll { it }
+if ('iris' in mods) {
+    // Iris needs Sodium, which cannot run with Embeddium.
+    if ('embeddium' in mods) logger.warn('-Pcompat: Iris needs Sodium, so Embeddium is not added')
+    mods = ['sodium'] + (mods - ['sodium', 'embeddium'])
+}
+// NeoForge runs with Mojang names from 1.20.5, and a remap would drop the jar-in-jar list from which Sodium loads its mod.
+def mojangRuntime = project.unobfuscated || (loader == 'neoforge' && stonecutter.eval(stonecutter.current.version, '>=1.20.5'))
+def runtime = mojangRuntime ? 'runtimeOnly' : 'modLocalRuntime'
+// Sodium 0.5 starts only with the LWJGL version of the game, and the dev run can pick a newer one.
+if (project.hasProperty('lwjgl_version')) {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency { if (it.requested.group == 'org.lwjgl') it.useVersion(project.lwjgl_version) }
+    }
+}
+repositories {
+    exclusiveContent {
+        forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
+        filter { includeGroup 'maven.modrinth' }
+    }
+}
+dependencies {
+    mods.each { mod ->
+        def modVersion = project.findProperty("${mod}_${loader}")
+        // A node with no build of this mod for its loader only logs it.
+        if (modVersion == null) logger.info("No ${mod} build for ${loader} ${project.minecraft_version}")
+        else add(runtime, "maven.modrinth:${mod}:${modVersion}")
+    }
+    // Most players use Sodium with Fabric API, so the test does too (Sodium 0.2 on 1.16.5 needs none). Albedo itself does not need it.
+    if (loader == 'fabric' && 'sodium' in mods && project.hasProperty('fabric_api_version')) {
+        add(runtime, "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}") {
+            // The Fabric API of 1.17 asks for an older Fabric Loader, which the dev run then has twice.
+            exclude group: 'net.fabricmc', module: 'fabric-loader'
+        }
+    }
+    // Sodium 0.3 and 0.4 nest JOML, which the game does not have before 1.19.3, and Loom's remap drops the nested jars.
+    if (project.hasProperty('joml_version')) add('runtimeOnly', "org.joml:joml:${project.joml_version}")
+    // Loom's remap of a mod dependency drops its nested jars, so the remapped versions add the Iris libraries here.
+    def irisLibs = 'iris' in mods ? project.findProperty("iris_libs_${loader}") : null
+    if (irisLibs) {
+        for (library in (irisLibs as String).split(',')*.trim()) {
+            add('runtimeOnly', library) { transitive = false }
+        }
+    }
+}

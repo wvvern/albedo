@@ -66,7 +66,7 @@ def prepare_run_dir(target: Target, options: RunOptions) -> None:
 
 
 def gradle_properties(target: Target, harness: Path, options: RunOptions) -> dict[str, str | bool]:
-    """The properties of the run task, which modern/gradle/shared.gradle, modern/fabric/build.gradle and legacy/version.gradle.kts read."""
+    """The properties of the run task, which the Gradle scripts of modern/gradle, modern/fabric and legacy/version.gradle.kts read."""
     return {
         "harness": str(harness),
         "compat": options.compat,

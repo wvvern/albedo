@@ -14,7 +14,7 @@ TAKEN = "commands.taken"
 LOG = "log.txt"
 CLIP_PROBE = "clip-probe.txt"
 JVM_PROPERTY = "-Dalbedo.harness="
-# Same as --width and --height of the run task in modern/gradle/shared.gradle and legacy/version.gradle.kts.
+# Same as --width and --height of the run task in modern/gradle/platform.gradle and legacy/version.gradle.kts.
 WINDOW_SIZE = (1600, 900)
 
 HOOKS = "hooks"

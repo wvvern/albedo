@@ -1,0 +1,64 @@
+// The setup of each loader node of fabric, forge and neoforge, after node.gradle: the dev runs, the common bundle and the release jar.
+apply plugin: 'com.gradleup.shadow'
+
+ext.platformName = [fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge'][project.loader]
+ext.modCompileOnly = project.unobfuscated ? 'compileOnly' : 'modCompileOnly'
+
+loom.runs {
+    configureEach {
+        generateRunConfig.set(true)
+        appendProjectPathToDisplayName.set(false)
+        ideConfigFolder.set(project.platformName)
+    }
+    getByName('client') {
+        displayName.set("Client:${project.loader}:${stonecutter.current.version}")
+        // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
+        if (project.hasProperty('harness')) {
+            property('albedo.harness', new File(project.property('harness') as String).absolutePath)
+            programArgs('--width', '1600', '--height', '900')
+        }
+        // -Pbackend=vulkan|opengl forces the graphics backend of 26.2 and later; -PvulkanValidation turns on the Vulkan validation layers.
+        if (project.hasProperty('backend')) programArgs('--graphicsBackend', project.property('backend') as String)
+        if (project.hasProperty('vulkanValidation')) programArgs('--vulkanValidation')
+    }
+    named('server') { displayName.set("Server:${project.loader}:${stonecutter.current.version}") }
+}
+
+if (project.hasProperty('compat')) apply from: rootProject.file('gradle/compat.gradle')
+
+configurations {
+    common { canBeResolved = true; canBeConsumed = false }
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    shadowBundle { canBeResolved = true; canBeConsumed = false }
+}
+// The Architectury plugin makes this configuration later, when the loader script selects the platform.
+configurations.matching { it.name == "development${project.platformName}" }.configureEach { extendsFrom configurations.common }
+
+def commonNode = ":common:${project.node}"
+dependencies {
+    common(project.unobfuscated ? project(commonNode) : project(path: commonNode, configuration: 'namedElements')) { transitive false }
+    shadowBundle project(path: commonNode, configuration: "transformProduction${project.platformName}")
+}
+
+jar { archiveClassifier = 'raw' }
+
+tasks.named('shadowJar') {
+    configurations = [project.configurations.shadowBundle]
+    mergeServiceFiles()
+    archiveClassifier = project.unobfuscated ? '' : 'dev-shadow'
+}
+if (!project.unobfuscated) {
+    tasks.named('remapJar') {
+        inputFile.set(tasks.named('shadowJar').flatMap { it.archiveFile })
+        dependsOn 'shadowJar'
+        archiveClassifier = ''
+    }
+}
+ext.releaseJarTask = tasks.named(project.unobfuscated ? 'shadowJar' : 'remapJar')
+tasks.register('releaseJar') {
+    group = 'build'
+    description = 'Builds the jar to install for this loader and Minecraft version.'
+    dependsOn project.releaseJarTask
+}
+tasks.named('assemble') { dependsOn 'releaseJar' }

@@ -1,0 +1,51 @@
+// The setup of each Minecraft version node of common, fabric, forge and neoforge.
+// Applied scripts do not see the defs of this script, so the values that they read are ext properties.
+def loader = project.parent.name
+def node = stonecutter.current.project
+
+def versionProperties = new Properties()
+rootProject.file("versions/${node}/gradle.properties").withInputStream { versionProperties.load(it) }
+versionProperties.each { key, value -> project.ext.set(key, value) }
+// -Pmc_override=<version> builds the node against a different Minecraft version, to examine a minor version of its range.
+if (project.hasProperty('mc_override')) project.ext.set('minecraft_version', project.property('mc_override'))
+
+// Minecraft is obfuscated up to 1.21.11 and unobfuscated from 26.1 on.
+def unobfuscated = stonecutter.eval(stonecutter.current.version, '>=26.1')
+def javaVersion = (project.java_version as String).toInteger()
+ext.loader = loader
+ext.node = node
+ext.unobfuscated = unobfuscated
+ext.javaVersion = javaVersion
+ext.modImplementation = unobfuscated ? 'implementation' : 'modImplementation'
+// Mixin 0.8 knows no compatibility level above JAVA_21. A config can be at a lower level than its classes.
+ext.mixinCompatibilityLevel = "JAVA_${Math.min(javaVersion, 21)}".toString()
+
+group = "${rootProject.maven_group}.${loader}"
+version = "${rootProject.mod_version}+${project.minecraft_version}"
+
+apply plugin: unobfuscated ? 'dev.architectury.loom-no-remap' : 'dev.architectury.loom'
+apply plugin: 'architectury-plugin'
+
+architectury {
+    minecraft = project.minecraft_version
+}
+
+base {
+    archivesName = "$rootProject.archives_name-$loader"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:$project.minecraft_version"
+    if (!unobfuscated) {
+        mappings loom.officialMojangMappings()
+    }
+}
+
+// The tool chain alone sets the Java level, because javac 8 has no --release option.
+java { toolchain { languageVersion = JavaLanguageVersion.of(javaVersion) } }
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    zip64 = true
+}

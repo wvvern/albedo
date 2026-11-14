@@ -1,4 +1,5 @@
-apply from: rootProject.file('gradle/shared.gradle')
+apply from: rootProject.file('gradle/node.gradle')
+apply from: rootProject.file('gradle/platform.gradle')
 
 architectury {
     platformSetupLoomIde()
@@ -40,7 +41,7 @@ processResources {
             minecraft_range    : project.minecraft_range_forge,
             forge_range        : project.forge_range,
             pack_format        : project.pack_format,
-            compatibility_level: "JAVA_${Math.min((project.java_version as String).toInteger(), 21)}".toString(),
+            compatibility_level: project.mixinCompatibilityLevel,
     ]
     inputs.properties props
     if (!lightPipeline) exclude 'albedo.forge.mixins.json'
