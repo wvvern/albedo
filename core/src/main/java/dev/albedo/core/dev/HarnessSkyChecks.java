@@ -2,6 +2,7 @@ package dev.albedo.core.dev;
 
 import dev.albedo.core.Albedo;
 import dev.albedo.core.HarnessHost;
+import dev.albedo.core.Policy;
 import dev.albedo.core.dev.HarnessQueue.Command;
 import dev.albedo.core.dev.HarnessQueue.Outcome;
 import dev.albedo.core.sky.SkyClock;
@@ -22,6 +23,8 @@ final class HarnessSkyChecks {
     private static final float TIME_YAW = 180, TIME_PITCH = -20, TIME_FOV = 70;
     /** The ticks that a sky command waits for the shader to compile. */
     private static final int SKY_TRIES = 200;
+    /** The ticks that {@code waitsky} waits for the CPU bake. */
+    private static final int BAKE_TRIES = 1200;
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
 
@@ -73,6 +76,21 @@ final class HarnessSkyChecks {
             if (nanos < 0) HarnessLog.fail("skytime: the GPU gave no time");
             else HarnessLog.log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", width, height, nanos / 1e6));
         }));
+    }
+
+    /**
+     * Waits until the CPU bake of the sky of the profile is done, from {@code waitsky [tries]}, because a fixed wait is too
+     * short when many games run at the same time.
+     */
+    Outcome waitBaked(Command command) {
+        command.tries(command.arg.isEmpty() ? BAKE_TRIES : Integer.parseInt(command.arg));
+        Policy policy = Albedo.currentPolicy();
+        if (policy.skyStyle() != Policy.SkyStyle.LAYERS) return Outcome.DONE;
+        SkyImage world = Albedo.skyImage();
+        if (world != null && world.design().equals(policy.skyDesign())) return Outcome.DONE;
+        if (command.tries(0) > 0) return Outcome.RETRY;
+        HarnessLog.fail(command.verb + ": the sky of the profile did not bake");
+        return Outcome.DONE;
     }
 
     private static boolean drawsSharp(SkyImage world) {

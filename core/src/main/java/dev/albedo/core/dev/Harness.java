@@ -207,6 +207,7 @@ public final class Harness {
         put(v, "skyturn", profileVerb((profile, arg) -> HarnessConfigCommands.withSkyTurning(profile, arg.split("\\s+"))));
         v.put("skycompare", (h, command) -> h.sky.compare(command));
         v.put("skytime", (h, command) -> h.sky.time(command));
+        v.put("waitsky", (h, command) -> h.sky.waitBaked(command));
         put(v, "skyclock", (h, arg) -> skyClock(arg));
         put(v, "frames", (h, arg) -> h.frames(arg.split("\\s+")));
         put(v, "chromagpu", (h, arg) -> h.albedo.chromaGpu(arg.equals("on")));

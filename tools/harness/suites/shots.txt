@@ -19,6 +19,7 @@ shading on
 shadows on
 profile minimal
 sky nebula
+waitsky
 wait 200
 screenshot 04-minimal-nebula-sky
 run time set 18000
