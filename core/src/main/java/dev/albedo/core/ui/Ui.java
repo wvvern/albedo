@@ -78,20 +78,49 @@ final class Ui {
         }
     }
 
+    /** The id of the text field that takes typing, which {@link #end} drops when no text field drew it in the frame. */
+    private static final class Focus {
+        String id;
+        private String atBegin;
+        private boolean wasDrawn;
+
+        boolean is(String field) { return field.equals(id); }
+
+        void begin() {
+            atBegin = id;
+            wasDrawn = false;
+        }
+
+        /** Records that the text field {@code field} drew in this frame. */
+        void drawn(String field) {
+            if (is(field)) wasDrawn = true;
+        }
+
+        void end() {
+            if (id != null && id.equals(atBegin) && !wasDrawn) id = null;
+        }
+    }
+
+    /** The phase of the overlay of a frame: a list drawn over other widgets (a dropdown). */
+    private enum OverlayPhase {
+        NONE,
+        /** Widgets drawn before the overlay ignore the pointer inside its area. */
+        RESERVED,
+        /** The widgets drawn now are the overlay itself. */
+        DRAWING,
+        /** The overlay ended, and its area stays known, so that later drawing can stay off it. */
+        ENDED
+    }
+
     private Canvas c;
     private final Pointer pointer = new Pointer();
     private final Tooltip tooltip = new Tooltip();
     private Armed armed;
-    private String focus;
-    /** The focus at the start of the frame, which {@link #end} drops when no text field drew it. */
-    private String focusAtBegin;
-    private boolean focusDrawn;
+    private final Focus focus = new Focus();
     private int wheel;
-    /** A list drawn over other widgets (a dropdown); widgets drawn before it ignore the pointer inside it. */
-    private Rect overlay;
-    private boolean drawingOverlay;
-    /** The last overlay area of this frame, kept after the overlay ends, so that later drawing can stay off it. */
-    private Rect overlayDrawn;
+    private OverlayPhase overlayPhase = OverlayPhase.NONE;
+    /** The overlay area of this frame, or null in the phase NONE. */
+    private Rect overlayArea;
     private final List<Input> inputs = new ArrayList<Input>();
     /** The cursor of the focused text field of this frame, or null when no field takes typing. */
     private Rect cursor;
@@ -134,10 +163,10 @@ final class Ui {
         tooltip.begin(mouseX != pointer.x || mouseY != pointer.y, new Rect(0, 0, canvas.width(), canvas.height()));
         pointer.x = mouseX;
         pointer.y = mouseY;
-        overlayDrawn = null;
+        overlayPhase = OverlayPhase.NONE;
+        overlayArea = null;
         if (armed != null && now() - armed.at > CONFIRM_MS) armed = null;
-        focusAtBegin = focus;
-        focusDrawn = false;
+        focus.begin();
         dragAreas.clear();
         fieldTexts.clear();
         cursor = null;
@@ -157,12 +186,12 @@ final class Ui {
     void end() {
         endOverlay();
         if (pointer.click) {
-            focus = null;
+            focus.id = null;
             armed = null;
             pointer.click = false;
         }
-        if (focus != null && focus.equals(focusAtBegin) && !focusDrawn) focus = null;
-        if (focus == null) cursor = null;
+        focus.end();
+        if (focus.id == null) cursor = null;
         wheel = 0;
         inputs.clear();
         tooltip.draw(this, pointer.x, pointer.y);
@@ -184,15 +213,15 @@ final class Ui {
     /** True when the left button went down since the last frame (before any widget takes the press). */
     boolean clicked() { return pointer.clickedThisFrame; }
 
-    boolean isFocused(String id) { return id.equals(focus); }
+    boolean isFocused(String id) { return focus.is(id); }
 
-    void focus(String id) { focus = id; }
+    void focus(String id) { focus.id = id; }
 
-    void clearFocus() { focus = null; }
+    void clearFocus() { focus.id = null; }
 
     /** Clears the focus only when {@code id} has it, so that a field another widget just focused keeps it. */
     void releaseFocus(String id) {
-        if (id.equals(focus)) focus = null;
+        if (focus.is(id)) focus.id = null;
     }
 
     /** Takes an unclaimed key press (e.g. Escape for the screen itself). */
@@ -214,7 +243,7 @@ final class Ui {
     }
 
     boolean hover(int x, int y, int w, int h) {
-        if (overlay != null && !drawingOverlay && overlay.contains(pointer.x, pointer.y)) return false;
+        if (overlayPhase == OverlayPhase.RESERVED && overlayArea.contains(pointer.x, pointer.y)) return false;
         return pointerIn(x, y, w, h);
     }
 
@@ -225,24 +254,24 @@ final class Ui {
 
     /** Widgets drawn from now until {@link #beginOverlay()} ignore the pointer inside {@code area}. */
     void reserveOverlay(Rect area) {
-        overlay = area;
-        overlayDrawn = area;
+        overlayArea = area;
+        overlayPhase = OverlayPhase.RESERVED;
     }
 
-    /** The overlay area that this frame reserved, or null. */
-    Rect overlayDrawn() { return overlayDrawn; }
+    /** The last overlay area that this frame reserved, also after the overlay ended, or null. */
+    Rect overlayDrawn() { return overlayPhase == OverlayPhase.NONE ? null : overlayArea; }
 
     /** Keeps the tooltips of this frame inside {@code area}, which must be inside the screen. */
     void tipBounds(Rect area) { tooltip.bounds(area); }
 
     /** Widgets drawn from now on are the overlay itself. */
     void beginOverlay() {
-        drawingOverlay = true;
+        if (overlayPhase == OverlayPhase.RESERVED) overlayPhase = OverlayPhase.DRAWING;
     }
 
+    /** Ends the overlay; with no overlay in this frame it does nothing, because {@link #end} calls it each frame. */
     void endOverlay() {
-        overlay = null;
-        drawingOverlay = false;
+        if (overlayPhase != OverlayPhase.NONE) overlayPhase = OverlayPhase.ENDED;
     }
 
     /** Gives the press of this frame to the widget {@code id} when the pointer is on the rectangle, and returns true then. */
@@ -251,7 +280,7 @@ final class Ui {
         pointer.click = false;
         pointer.owner = id;
         tooltip.hideUntilMove();
-        if (!id.equals(focus)) focus = null;
+        if (!focus.is(id)) focus.id = null;
         if (armed != null && !id.equals(armed.id)) armed = null;
         return true;
     }
@@ -646,14 +675,14 @@ final class Ui {
 
     /** A single-line text input that returns true when the text changed this frame. */
     boolean textField(String id, TextField field, int x, int y, int w, int h, String placeholder, String tipText) {
-        boolean focused = id.equals(focus);
-        if (focused) focusDrawn = true;
+        focus.drawn(id);
+        boolean focused = focus.is(id);
         boolean hovered = hover(x, y, w, h);
         round(x, y, w, h, focused ? ACCENT : hovered ? FAINT : BORDER);
         round(x + 1, y + 1, w - 2, h - 2, focused ? PANEL : CARD);
         tip(x, y, w, h, tipText);
         if (press(id, x, y, w, h)) {
-            focus = id;
+            focus.id = id;
             focused = true;
             field.focusAtEnd();
         }
@@ -673,7 +702,7 @@ final class Ui {
         text(visible, tx, ty, TEXT);
         if (focused) {
             int cx = tx + width(shown.substring(start, Math.max(start, field.cursor())));
-            if (id.equals(focus)) cursor = new Rect(cx, ty - 1, 1, LINE + 1);
+            if (focus.is(id)) cursor = new Rect(cx, ty - 1, 1, LINE + 1);
             if ((now() / 500) % 2 == 0) fill(cx, ty - 1, 1, LINE + 1, TEXT);
         }
         return changed;
@@ -686,7 +715,7 @@ final class Ui {
             Input in = it.next();
             it.remove();
             if (in.key == UiKey.ESCAPE || in.key == UiKey.ENTER || in.key == UiKey.TAB) {
-                focus = null;
+                focus.id = null;
                 break;
             }
             if (in.key == null) changed |= field.insert(String.valueOf(in.ch));
