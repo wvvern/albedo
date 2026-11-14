@@ -1,5 +1,6 @@
 package dev.albedo.legacy;
 
+import dev.albedo.core.ui.ReloadProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
@@ -14,16 +15,11 @@ import org.lwjgl.opengl.GL11;
  */
 final class ReloadScreen {
     private static final long FRAME_MS = 100;
-    private static final String TITLE = "Albedo: reloading resources";
-    /** The texture loads at which the bar is half way through the part of a listener. */
-    private static final float LOADS_HALF_STEP = 200f;
     private static final int BAR_WIDTH = 100, BAR_HEIGHT = 2;
     private static final int TITLE_COLOR = 0xFFFFFF, DETAIL_COLOR = 0xA0A0A0, BAR_BACK = 0xFF808080, BAR_DONE = 0xFF80FF80;
 
     private static boolean active;
-    private static int step;
-    private static int steps;
-    private static int loads;
+    private static ReloadProgress progress = new ReloadProgress();
     private static long lastFrame;
 
     private ReloadScreen() {}
@@ -31,9 +27,7 @@ final class ReloadScreen {
     /** Runs {@code reload} on the client thread and shows the screen until it ends. */
     static void run(Runnable reload) {
         active = true;
-        step = 0;
-        steps = 0;
-        loads = 0;
+        progress = new ReloadProgress();
         draw(true);
         try {
             reload.run();
@@ -43,18 +37,16 @@ final class ReloadScreen {
     }
 
     static void begin(int listeners) {
-        steps = listeners;
-        step = 0;
+        progress.begin(listeners);
     }
 
     static void step() {
-        step++;
-        loads = 0;
+        progress.step();
         draw(true);
     }
 
     static void load() {
-        loads++;
+        progress.load();
         draw(false);
     }
 
@@ -64,9 +56,6 @@ final class ReloadScreen {
         long now = Minecraft.getSystemTime();
         if (!force && now - lastFrame < FRAME_MS) return;
         lastFrame = now;
-        // Each listener has an equal part, in which the bar moves toward its end as the textures load.
-        float part = steps <= 0 ? 0f : 1f / steps;
-        float progress = steps <= 0 ? 0f : Math.max(0, step - 1) * part + part * loads / (loads + LOADS_HALF_STEP);
 
         Framebuffer fb = mc.getFramebuffer();
         fb.bindFramebuffer(true);
@@ -90,12 +79,13 @@ final class ReloadScreen {
         Game.drawBackground(w, h);
 
         FontRenderer font = Game.font();
-        font.drawStringWithShadow(TITLE, (w - font.getStringWidth(TITLE)) / 2f, h / 2f - 20, TITLE_COLOR);
-        String detail = steps > 0 ? "Step " + Math.max(1, step) + " of " + steps : "Starting";
+        String title = progress.title();
+        font.drawStringWithShadow(title, (w - font.getStringWidth(title)) / 2f, h / 2f - 20, TITLE_COLOR);
+        String detail = progress.detail();
         font.drawStringWithShadow(detail, (w - font.getStringWidth(detail)) / 2f, h / 2f - 6, DETAIL_COLOR);
         int barX = w / 2 - BAR_WIDTH / 2, barY = h / 2 + 10;
         Gui.drawRect(barX, barY, barX + BAR_WIDTH, barY + BAR_HEIGHT, BAR_BACK);
-        Gui.drawRect(barX, barY, barX + Math.round(BAR_WIDTH * Math.min(1f, progress)), barY + BAR_HEIGHT, BAR_DONE);
+        Gui.drawRect(barX, barY, barX + Math.round(BAR_WIDTH * progress.progress()), barY + BAR_HEIGHT, BAR_DONE);
         GlStateManager.enableDepth();
 
         fb.unbindFramebuffer();
