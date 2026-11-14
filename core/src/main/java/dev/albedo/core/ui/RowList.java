@@ -2,6 +2,9 @@ package dev.albedo.core.ui;
 
 /** A scrolling list of rows of one height, which stops drawing after a row that changed the list. */
 final class RowList {
+    /** The distance between the panel rows of the group and server lists. */
+    static final int PANEL_ROW = 16;
+
     private RowList() {}
 
     /** Draws one row and returns true when a click changed the list. */
