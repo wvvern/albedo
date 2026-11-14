@@ -1,0 +1,6 @@
+# The style of the Python tools (docs/CODING_STANDARDS.md).
+line-length = 150
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PTH", "RET", "RUF"]

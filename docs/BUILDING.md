@@ -64,7 +64,7 @@ Rules for the code in `tools/`:
 - Only `harness/desktop.py` and `harness/cursor.py` call Windows, only `harness/processes.py` uses psutil, and only `images.py` uses Pillow.
 - A command module parses its arguments and prints; what it decides is in functions that take data and return data, with a test in `tools/tests/`. `lint` and `check-jar` are lists of such check functions.
 - What CI runs (`lint`, `build`, `check-jar`, `release-notes`, `ci-matrix` and the tests) uses only the standard library.
-- Check the tools with `python -m unittest discover -s tools/tests -t .` and `ruff check tools` / `ruff format tools` (settings in `pyproject.toml`).
+- Check the tools with `python -m unittest discover -s tools/tests -t .` and `ruff check tools` / `ruff format tools` (settings in `tools/ruff.toml`).
 
 ## Game tests (harness)
 
