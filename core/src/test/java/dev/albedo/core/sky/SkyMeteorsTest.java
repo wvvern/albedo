@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static dev.albedo.core.sky.SkyFixtures.direction;
+import static dev.albedo.core.sky.SkyFixtures.glslFloat;
 import static dev.albedo.core.sky.SkyFixtures.program;
 import static dev.albedo.core.sky.SkyFixtures.skyLayersSource;
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,9 +130,13 @@ class SkyMeteorsTest {
     void theShaderHasTheSameModel() throws IOException {
         String glsl = skyLayersSource();
         // The numbers of SkyMeteors.of, which the shader must use too.
+        assertEquals(SkyMeteors.FIREBALLS, glslFloat(glsl, "ALBEDO_METEOR_FIREBALLS"));
+        assertEquals(SkyMeteors.FIREBALL_LIFE, glslFloat(glsl, "ALBEDO_METEOR_FIREBALL_LIFE"));
+        assertEquals(SkyMeteors.FIREBALL_TRAIL, glslFloat(glsl, "ALBEDO_METEOR_FIREBALL_TRAIL"));
+        assertEquals(2f + 118f * 0.25f, SkyMeteors.perMinute(0.5f));
         String[] model = {"int(albedoLayer(layer, 2).y) * 7 + 13", "(2.0 + 118.0 * amount * amount)",
-            "albedoMeteorUnit(slot, channel, 2, seed) < 0.05",
-            "(0.3 + 0.7 * albedoMeteorUnit(slot, channel, 3, seed)) * (fireball ? 1.4 : 1.0)",
+            "albedoMeteorUnit(slot, channel, 2, seed) < ALBEDO_METEOR_FIREBALLS",
+            "(0.3 + 0.7 * albedoMeteorUnit(slot, channel, 3, seed)) * (m.fireball ? ALBEDO_METEOR_FIREBALL_LIFE : 1.0)",
             "radians(8.0 + 32.0 * albedoLayer(layer, 4).w) * (0.7 + 0.6 * albedoMeteorUnit(slot, channel, 4, seed))",
             "sin(radians(20.0)), high = sin(radians(75.0))", "start * dot(start, radiant) - radiant",
             "albedoMeteorUnit(slot, channel, 9, seed) < albedoLayer(layer, 6).w", "albedoMeteorUnit(slot, channel, 10, seed)"};

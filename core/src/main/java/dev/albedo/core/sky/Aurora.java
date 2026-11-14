@@ -8,71 +8,73 @@ import static dev.albedo.core.sky.SkyMath.smooth;
  */
 final class Aurora {
     /** The radius of the earth in km, which makes a far ribbon sink to the horizon. */
-    private static final float EARTH = 6371f;
+    static final float EARTH = 6371f;
     /** The altitude in km of the lower edge of the ribbons. */
-    private static final float BASE = 100f;
+    static final float BASE = 100f;
     /** The distance in km of the nearest place of the near and of the far ribbon. */
-    private static final float[] DISTANCE = {160f, 430f};
+    static final float[] DISTANCE = {160f, 430f};
     /** The azimuth in radians of the nearest place of the near and of the far ribbon, so that each ribbon slants across the sky. */
-    private static final float[] SKEW = {0.45f, -0.35f};
+    static final float[] SKEW = {0.45f, -0.35f};
     /** The elevation in radians above which the far ribbon has no light. */
-    private static final float FAR_TOP = 0.72f;
+    static final float FAR_TOP = 0.72f;
     /** The light of the near and of the far ribbon. */
-    private static final float[] GAIN = {1f, 0.2f};
+    static final float[] GAIN = {1f, 0.2f};
     /** The km to each side of a sheet that its light reaches, which makes a sheet seen edge-on brighter but not without end. */
-    private static final float THICK = 9f;
+    static final float THICK = 9f;
     /**
      * The seconds of the aurora clock after which it goes back to 0, in which each wave turns and each ray and noise row
      * moves on a whole number of times, so that the wrap has no jump.
      */
     static final float PERIOD = 7200f;
     /** The angle in radians for each second of a wave that turns once in a {@link #PERIOD}. */
-    private static final float TURN = (float) (2 * Math.PI / PERIOD);
+    static final float TURN = (float) (2 * Math.PI / PERIOD);
     /** The frequency for each radian of azimuth, the size in radians and the speed in radians for each second of the folds. */
-    private static final float[] FOLD_K = {8f, 21f, 43f}, FOLD_AMP = {0.08f, 0.04f, 0.019f}, FOLD_RATE = {23 * TURN, -57 * TURN, 126 * TURN};
+    static final float[] FOLD_K = {8f, 21f, 43f}, FOLD_AMP = {0.08f, 0.04f, 0.019f}, FOLD_RATE = {23 * TURN, -57 * TURN, 126 * TURN};
+    /** The azimuth in radians that the folds together can reach, the sum of their sizes. */
+    static final float FOLD_REACH = FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2];
     /** The frequency for each radian, the size in km and the speed of the waves that move the ribbon toward the viewer. */
-    private static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {22f, 5f}, NEAR_RATE = {-17 * TURN, 46 * TURN};
+    static final float[] NEAR_K = {5f, 17f}, NEAR_AMP = {22f, 5f}, NEAR_RATE = {-17 * TURN, 46 * TURN};
     /** How far toward the viewer a fold moves the lower edge, for each km that it moves the ribbon along its line. */
-    private static final float LOOP = 0.3f;
+    static final float LOOP = 0.3f;
     /** The steps of the search for the parts of a ribbon near the view, over the azimuths that the folds can reach. */
     static final int STEPS = 10;
     /** The largest azimuth in radians from the layer center with aurora light, where the ribbons are low and faint. */
-    private static final float MAX_AZIMUTH = 1.35f;
+    static final float MAX_AZIMUTH = 1.35f;
     /** How many km each second the rays move along the ribbon, which is 4320 km in a {@link #PERIOD}. */
-    private static final float DRIFT = 0.6f;
+    static final float DRIFT = 0.6f;
     /** The waves of the lower edge of about 23 and 9 km in radians for each km, which the drift of a period turns a whole number of times. */
-    private static final float EDGE_K1 = 30 * TURN / DRIFT, EDGE_K2 = 76 * TURN / DRIFT;
+    static final float EDGE_K1 = 30 * TURN / DRIFT, EDGE_K2 = 76 * TURN / DRIFT;
     /**
      * The width in km of the cells of each octave of rays, so that the drift of a period is a whole number of cells of each:
      * the bundles, three octaves of thin rays, and the wide octave of the height of the rays.
      */
-    private static final float[] RAY_CELL = {40f, 3f, 1.08f, 0.5f, 24f};
+    static final float[] RAY_CELL = {40f, 3f, 1.08f, 0.5f, 24f};
     /**
      * The cells of each octave of rays in the drift of a period, and the noise rows that each octave moves through in a period,
      * few enough that a ray lives for some seconds and is seen to move along its curtain.
      */
-    private static final int[] RAY_CELLS = {108, 1440, 4000, 8640, 180}, RAY_ROWS = {216, 480, 900, 1800, 144};
+    static final int[] RAY_CELLS = {108, 1440, 4000, 8640, 180}, RAY_ROWS = {216, 480, 900, 1800, 144};
     /** The noise rows in a period of the bright and faint parts of a ribbon and of their brightness. */
-    private static final int PART_ROWS = 29, LIGHT_ROWS = 72;
+    static final int PART_ROWS = 29, LIGHT_ROWS = 72;
     /** One {@link Ribbon} for each thread, so that a pixel of the bake makes no new arrays. */
     private static final ThreadLocal<Ribbon> VIEW = ThreadLocal.withInitial(Ribbon::new);
     /** The part of its full height that a curtain keeps where it ends. */
-    private static final float SHORT = 0.15f;
+    static final float SHORT = 0.15f;
     /**
      * The km over which the light of the near curtain comes in at its lower edge, so that the curtain grows out of the sky
      * instead of standing on a hard line.
      */
-    private static final float SOFT = 9f;
+    static final float SOFT = 9f;
     /** The km to each side of the lower edge over which the faint glow of a curtain fades out. */
-    private static final float SKIRT = 8f;
+    static final float SKIRT = 8f;
     /** How many times the height of the tallest rays above the lower edge the light of a curtain ends. */
-    private static final float TOP = 3.4f;
+    static final float TOP = 3.4f;
     /** The km over which the bright band at the lower edge fades up into the rays. */
-    private static final float BAND = 8f;
+    static final float BAND = 8f;
     /** The azimuth in radians of one cell of the noise of the gaps, so that a curtain ends over many degrees of the sky. */
-    private static final float GAP = 0.6f;
+    static final float GAP = 0.6f;
     /** The most light of a piece of a sheet for the light of a sheet across the view, which a fold seen edge-on comes near. */
-    private static final float EDGE_ON = 2.5f;
+    static final float EDGE_ON = 2.5f;
 
     private Aurora() {}
 
@@ -214,7 +216,7 @@ final class Aurora {
             crown = 0;
             float w = Math.max(3 * wide, THICK / DISTANCE[c]);
             // The search reaches past the light of each sheet, so that a fold comes into the search with no light to change.
-            float reach = (FOLD_AMP[0] + FOLD_AMP[1] + FOLD_AMP[2]) * scale / far(c) * 1.02f + w;
+            float reach = FOLD_REACH * scale / far(c) * 1.02f + w;
             float step = 2 * reach / STEPS;
             float ta = a - reach, ga = offset(c, ta), da = d[0], sa = speed(c, ta);
             for (int i = 1; i <= STEPS; i++) {

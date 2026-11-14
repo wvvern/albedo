@@ -22,9 +22,9 @@ public final class SkyMeteors {
     static final float TRAIL_END = 1.15f;
     /** The part of the meteors that are fireballs: brighter, longer and slower to go out. */
     static final float FIREBALLS = 0.05f;
-    private static final float FIREBALL_LIFE = 1.4f, FIREBALL_TRAIL = 1.5f;
+    static final float FIREBALL_LIFE = 1.4f, FIREBALL_TRAIL = 1.5f;
     /** The sine of the lowest and the highest elevation at which a meteor starts. */
-    private static final float LOW = (float) Math.sin(Math.toRadians(20)), HIGH = (float) Math.sin(Math.toRadians(75));
+    static final float LOW = (float) Math.sin(Math.toRadians(20)), HIGH = (float) Math.sin(Math.toRadians(75));
 
     /** One meteor in world directions, which are the sky directions of a sky that does not turn. */
     static final class Meteor {

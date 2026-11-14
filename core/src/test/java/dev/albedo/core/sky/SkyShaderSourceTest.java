@@ -91,6 +91,19 @@ class SkyShaderSourceTest {
     }
 
     @Test
+    void theShaderHasTheSameFlags() throws IOException {
+        String glsl = SkyFixtures.skyLayersSource();
+        String[] names = {"TWINKLE", "TRAILS", "SPIKES", "PULSE", "DUST", "JETS", "DETAIL", "MOTION", "CLOUD"};
+        int[] bits = {SkyShaderSource.FLAG_TWINKLE, SkyShaderSource.FLAG_TRAILS, SkyShaderSource.FLAG_SPIKES, SkyShaderSource.FLAG_PULSE,
+            SkyShaderSource.FLAG_DUST, SkyShaderSource.FLAG_JETS, SkyShaderSource.FLAG_DETAIL, SkyShaderSource.FLAG_MOTION,
+            SkyShaderSource.FLAG_CLOUD};
+        for (int i = 0; i < names.length; i++) {
+            assertEquals(1 << i, bits[i], names[i] + " has its own bit");
+            assertTrue(glsl.contains("#define ALBEDO_FLAG_" + names[i] + " " + bits[i] + "\n"), names[i]);
+        }
+    }
+
+    @Test
     void theDialectsSelectTheirUniformsAndMatrices() {
         assertTrue(SkyShaderSource.Dialect.BLOCKS_330.header().contains("ALBEDO_TRANSFORM_BLOCKS"));
         assertFalse(SkyShaderSource.Dialect.BLOCKS_330.header().contains("ALBEDO_PLAIN_UNIFORMS"));

@@ -7,6 +7,8 @@ import dev.albedo.core.config.SkyTurning;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Designs, programs, pixel channels and shader text for the tests of the sky package. */
 final class SkyFixtures {
@@ -67,6 +69,22 @@ final class SkyFixtures {
     /** The text of the sky include of the shaders, which the tests compare with the numbers of the bake. */
     static String skyLayersSource() throws IOException {
         return SkyShaderSource.read("include/sky_layers.glsl");
+    }
+
+    /** The number of the line {@code const float <name> = <number>;} of a shader text. */
+    static float glslFloat(String glsl, String name) {
+        return Float.parseFloat(glslConst(glsl, "float", name));
+    }
+
+    /** The number of the line {@code const int <name> = <number>;} of a shader text. */
+    static int glslInt(String glsl, String name) {
+        return Integer.parseInt(glslConst(glsl, "int", name));
+    }
+
+    private static String glslConst(String glsl, String type, String name) {
+        Matcher m = Pattern.compile("\nconst " + type + " " + name + " = (-?[0-9.]+);\n").matcher(glsl);
+        if (!m.find()) throw new AssertionError("no " + type + " " + name);
+        return m.group(1);
     }
 
     /** A float array as a GLSL vec3 constant. */

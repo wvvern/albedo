@@ -2,6 +2,13 @@ package dev.albedo.core.sky;
 
 /** Seeded 3D gradient noise and integer hashes, with no random number generator so that each bake gives the same pixels. */
 final class Noise {
+    /** The frequency step and the seed step of the octaves of fbm, and the gain of fbm, so that it goes from about -1 to 1. */
+    static final float LACUNARITY = 2.03f, FBM_GAIN = 1.6f;
+    static final int OCTAVE_SEED = 1013;
+    /** The frequency step and the seed step of the octaves of ridged noise. */
+    static final float RIDGED_LACUNARITY = 2.1f;
+    static final int RIDGED_SEED = 7919;
+
     private Noise() {}
 
     /** A well mixed 32-bit hash of three integers and a seed. */
@@ -111,19 +118,19 @@ final class Noise {
      */
     static float fbmSoft(float x, float y, float z, int seed, int octaves, float footprint) {
         // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
-        float sum = 0, amp = 1, norm = 2 - 2 * (float) Math.pow(0.5, octaves), f = footprint;
+        float sum = 0, amp = 1, norm = norm(octaves), f = footprint;
         for (int o = 0; o < octaves; o++) {
             float t = Math.max(0f, Math.min(1f, (f - 0.25f) / 0.25f));
             // Each finer octave has a larger footprint, so all octaves from here are gone.
             if (t >= 1) break;
-            sum += noise(x, y, z, seed + o * 1013) * amp * (1 - t * t * (3 - 2 * t));
+            sum += noise(x, y, z, seed + o * OCTAVE_SEED) * amp * (1 - t * t * (3 - 2 * t));
             amp *= 0.5f;
-            x *= 2.03f;
-            y *= 2.03f;
-            z *= 2.03f;
-            f *= 2.03f;
+            x *= LACUNARITY;
+            y *= LACUNARITY;
+            z *= LACUNARITY;
+            f *= LACUNARITY;
         }
-        return sum / norm * 1.6f;
+        return sum / norm * FBM_GAIN;
     }
 
     /**
@@ -131,30 +138,35 @@ final class Noise {
      * the fine octaves can come from different places and add up to the fbm.
      */
     static float fbmPart(float x, float y, float z, int seed, int first, int last, int octaves) {
-        float sum = 0, amp = 1, norm = 2 - 2 * (float) Math.pow(0.5, octaves);
+        float sum = 0, amp = 1;
         for (int o = 0; o < last; o++) {
-            if (o >= first) sum += noise(x, y, z, seed + o * 1013) * amp;
+            if (o >= first) sum += noise(x, y, z, seed + o * OCTAVE_SEED) * amp;
             amp *= 0.5f;
-            x *= 2.03f;
-            y *= 2.03f;
-            z *= 2.03f;
+            x *= LACUNARITY;
+            y *= LACUNARITY;
+            z *= LACUNARITY;
         }
-        return sum / norm * 1.6f;
+        return sum / norm(octaves) * FBM_GAIN;
+    }
+
+    /** The sum of the weights of {@code octaves} octaves of fbm. */
+    private static float norm(int octaves) {
+        return 2 - 2 * (float) Math.pow(0.5, octaves);
     }
 
     /** Ridged fractal noise: sharp bright lines where the noise crosses zero, from 0 to 1. */
     static float ridged(float x, float y, float z, int seed, int octaves) {
         float sum = 0, amp = 0.5f, norm = 0, prev = 1;
         for (int o = 0; o < octaves; o++) {
-            float n = 1 - Math.abs(noise(x, y, z, seed + o * 7919));
+            float n = 1 - Math.abs(noise(x, y, z, seed + o * RIDGED_SEED));
             n *= n;
             sum += n * amp * prev;
             norm += amp;
             prev = n;
             amp *= 0.5f;
-            x *= 2.1f;
-            y *= 2.1f;
-            z *= 2.1f;
+            x *= RIDGED_LACUNARITY;
+            y *= RIDGED_LACUNARITY;
+            z *= RIDGED_LACUNARITY;
         }
         return Math.min(1f, sum / norm);
     }

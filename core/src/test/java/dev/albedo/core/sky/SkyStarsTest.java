@@ -203,10 +203,32 @@ class SkyStarsTest {
     void theShaderHasTheSameTiers() throws IOException {
         String glsl = SkyFixtures.skyLayersSource();
         for (SkyStars.Tier t : SkyStars.Tier.values()) {
-            String call = "albedoStarTier(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt
-                    + ", " + t.detail + ",";
-            assertTrue(glsl.contains(call), call);
+            String tier = "const AlbedoTier ALBEDO_TIER_" + t.name() + " = AlbedoTier(" + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", "
+                    + t.slope + ", " + t.salt + ", " + t.detail + ");\n";
+            assertTrue(glsl.contains(tier), tier);
+            assertTrue(glsl.contains("albedoStarTier(p, footprint, ALBEDO_TIER_" + t.name() + ", "), t.name());
         }
+    }
+
+    @Test
+    void theShaderHasTheSameNumbers() throws IOException {
+        String glsl = SkyFixtures.skyLayersSource();
+        String[] names = {"PIXEL", "HALO_LIGHT", "RIM_LIGHT", "SPIKE_FLUX", "SPIKE_LIGHT", "TINT", "TWINKLE_ZENITH", "TWINKLE_HORIZON",
+            "TWINKLE_COLOR"};
+        float[] values = {SkyStars.PIXEL, SkyStars.HALO_LIGHT, SkyStars.RIM_LIGHT, SkyStars.SPIKE_FLUX, SkyStars.SPIKE_LIGHT, SkyStars.TINT,
+            SkyStars.TWINKLE_ZENITH, SkyStars.TWINKLE_HORIZON, SkyStars.TWINKLE_COLOR};
+        for (int i = 0; i < names.length; i++) assertEquals(values[i], SkyFixtures.glslFloat(glsl, "ALBEDO_STAR_" + names[i]), names[i]);
+        // The angles are degrees times the radians of one degree in both.
+        String[] angles = {"CORE", "HALO", "RIM", "RIM_WIDTH", "SPIKE_LENGTH", "SPIKE_WIDTH"};
+        float[] radians = {SkyStars.CORE, SkyStars.HALO, SkyStars.RIM, SkyStars.RIM_WIDTH, SkyStars.SPIKE_LENGTH, SkyStars.SPIKE_WIDTH};
+        float[] degrees = {0.009f, 0.03f, 0.016f, 0.006f, 1.4f, 0.004f};
+        for (int i = 0; i < angles.length; i++) {
+            assertEquals(degrees[i] * SkyStars.RADIAN, radians[i], angles[i]);
+            String line = "const float ALBEDO_STAR_" + angles[i] + " = " + degrees[i] + " * ALBEDO_PI / 180.0;\n";
+            assertTrue(glsl.contains(line), line);
+        }
+        assertTrue(glsl.contains("const vec3 ALBEDO_STAR_RIM_WAVE = " + SkyFixtures.vec3(SkyStars.RIM_WAVE) + ";\n"));
+        assertTrue(glsl.contains("const vec3 ALBEDO_STAR_SPIKE_WAVE = " + SkyFixtures.vec3(SkyStars.SPIKE_WAVE) + ";\n"));
     }
 
     /** A unit trail axis that is not on a grid axis, so that the arcs cross the cells at all angles. */
@@ -347,8 +369,7 @@ class SkyStarsTest {
     void theShaderHasTheSameTrails() throws IOException {
         String glsl = SkyFixtures.skyLayersSource();
         SkyStars.Tier t = SkyStars.Tier.BRIGHT;
-        String call = "albedoStarTrails(p, footprint, " + t.cells + ", " + t.minFlux + ", " + t.maxFlux + ", " + t.slope + ", " + t.salt + ",";
-        assertTrue(glsl.contains(call), call);
+        assertTrue(glsl.contains("albedoStarTrails(p, footprint, ALBEDO_TIER_" + t.name() + ", "));
         assertTrue(glsl.contains("ALBEDO_STAR_TRAIL_PIXEL = " + SkyStars.TRAIL_PIXEL + ";"));
         assertTrue(glsl.contains("ALBEDO_STAR_TRAIL_REACH = " + SkyStars.TRAIL_REACH + ";"));
         assertTrue(glsl.contains("ALBEDO_STAR_TRAIL_GAIN = " + SkyStars.TRAIL_GAIN + ";"));

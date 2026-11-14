@@ -41,46 +41,46 @@ final class SkyStars {
     /** The floats of the room that {@link #add} uses: the light of the rim and the spikes, and the color, for each channel. */
     static final int WORK_FLOATS = 6;
 
-    private static final float RADIAN = (float) (Math.PI / 180);
+    static final float RADIAN = (float) (Math.PI / 180);
     /** The standard deviation of the core of each star. */
     static final float CORE = 0.009f * RADIAN;
     /** The part of a pixel that the footprint adds to the width of a thin part, as a standard deviation. */
     static final float PIXEL = 0.42f;
     /** The radius of the halo of a star of light 1, which grows with the square root of the light. */
-    private static final float HALO = 0.03f * RADIAN;
+    static final float HALO = 0.03f * RADIAN;
     /** The part of the light of a star in its halo. */
-    private static final float HALO_LIGHT = 0.025f;
+    static final float HALO_LIGHT = 0.025f;
     /** The radius of the rim of a star of light 1, which grows as the halo, and the standard deviation of its width. */
-    private static final float RIM = 0.016f * RADIAN, RIM_WIDTH = 0.006f * RADIAN;
+    static final float RIM = 0.016f * RADIAN, RIM_WIDTH = 0.006f * RADIAN;
     /** The part of the light of a star in its rim. */
-    private static final float RIM_LIGHT = 0.03f;
+    static final float RIM_LIGHT = 0.03f;
     /** The light from which a star has spikes. */
-    private static final float SPIKE_FLUX = 2f;
+    static final float SPIKE_FLUX = 2f;
     /** The length of the spikes of the brightest star, which is less than the room that its large cell gives. */
-    private static final float SPIKE_LENGTH = 1.4f * RADIAN;
+    static final float SPIKE_LENGTH = 1.4f * RADIAN;
     /** The standard deviation of the width of a spike. */
-    private static final float SPIKE_WIDTH = 0.004f * RADIAN;
+    static final float SPIKE_WIDTH = 0.004f * RADIAN;
     /** The light of a spike at the center of the star, for a spikes value of 1 and a star of light 1. */
-    private static final float SPIKE_LIGHT = 0.45f;
+    static final float SPIKE_LIGHT = 0.45f;
     /** The size of the red, green and blue parts of the rim and the spikes, because diffraction spreads long waves more. */
-    private static final float[] RIM_WAVE = {1.08f, 1f, 0.9f}, SPIKE_WAVE = {1.04f, 1f, 0.95f};
+    static final float[] RIM_WAVE = {1.08f, 1f, 0.9f}, SPIKE_WAVE = {1.04f, 1f, 0.95f};
     /** The directions of the spike lines in the tangent plane: three at 60 degrees with one vertical, and one horizontal. */
-    private static final float[] SPIKE_X = {0f, 0.8660254f, -0.8660254f, 1f}, SPIKE_Y = {1f, 0.5f, 0.5f, 0f};
+    static final float[] SPIKE_X = {0f, 0.8660254f, -0.8660254f, 1f}, SPIKE_Y = {1f, 0.5f, 0.5f, 0f};
     /** The light and the length of each spike line, where the horizontal line is fainter and shorter. */
-    private static final float[] SPIKE_GAIN = {1f, 1f, 1f, 0.5f}, SPIKE_REACH = {1f, 1f, 1f, 0.7f};
+    static final float[] SPIKE_GAIN = {1f, 1f, 1f, 0.5f}, SPIKE_REACH = {1f, 1f, 1f, 0.7f};
     /** The part of the stars of each class (O, B, A, F, G, K, M) among the stars that the eye sees. */
-    private static final float[] CLASS_SHARE = {0.02f, 0.12f, 0.2f, 0.17f, 0.16f, 0.25f, 0.08f};
+    static final float[] CLASS_SHARE = {0.02f, 0.12f, 0.2f, 0.17f, 0.16f, 0.25f, 0.08f};
     /** The linear colors of black bodies at the class boundaries, from 40000 K (sRGB 9BB0FF) to 2600 K (sRGB FFA050). */
-    private static final float[] CLASS_RGB = {
+    static final float[] CLASS_RGB = {
         0.3278f, 0.4342f, 1f, 0.4020f, 0.5210f, 1f, 0.5906f, 0.6795f, 1f, 0.9387f, 0.9301f, 1f,
         1f, 0.9047f, 0.8228f, 1f, 0.6445f, 0.3564f, 1f, 0.4969f, 0.1981f, 1f, 0.3515f, 0.0802f};
     /** How much of the black body color a star keeps, with the rest white, so that the tints are slight. */
-    private static final float TINT = 0.7f;
+    static final float TINT = 0.7f;
 
     /** The change of the light of a star at the zenith and the more change near the horizon, at a twinkle of 1. */
-    private static final float TWINKLE_ZENITH = 0.1f, TWINKLE_HORIZON = 0.3f;
+    static final float TWINKLE_ZENITH = 0.1f, TWINKLE_HORIZON = 0.3f;
     /** The change of red against blue for each part of twinkle near the horizon, where the air spreads the colors. */
-    private static final float TWINKLE_COLOR = 0.5f;
+    static final float TWINKLE_COLOR = 0.5f;
 
     /** The standard deviation of the width of a trail for each pixel of footprint, more than the core so that a thin arc is not dotted. */
     static final float TRAIL_PIXEL = 0.6f;

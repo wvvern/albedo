@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static dev.albedo.core.sky.SkyFixtures.direction;
+import static dev.albedo.core.sky.SkyFixtures.glslFloat;
+import static dev.albedo.core.sky.SkyFixtures.glslInt;
 import static dev.albedo.core.sky.SkyFixtures.program;
 import static dev.albedo.core.sky.SkyFixtures.single;
 import static dev.albedo.core.sky.SkyFixtures.skyLayersSource;
@@ -181,6 +183,48 @@ class AuroraTest {
     void theShaderSearchesTheSameSteps() throws IOException {
         String glsl = skyLayersSource();
         assertTrue(glsl.contains("#define ALBEDO_AURORA_STEPS " + Aurora.STEPS + "\n"));
+    }
+
+    @Test
+    void theShaderHasTheSameNumbers() throws IOException {
+        String glsl = skyLayersSource();
+        String[] names = {"EARTH", "BASE", "FAR_TOP", "THICK", "PERIOD", "LOOP", "MAX_AZIMUTH", "DRIFT", "SHORT", "SOFT", "SKIRT", "TOP", "BAND",
+            "GAP", "EDGE_ON"};
+        float[] values = {Aurora.EARTH, Aurora.BASE, Aurora.FAR_TOP, Aurora.THICK, Aurora.PERIOD, Aurora.LOOP, Aurora.MAX_AZIMUTH, Aurora.DRIFT,
+            Aurora.SHORT, Aurora.SOFT, Aurora.SKIRT, Aurora.TOP, Aurora.BAND, Aurora.GAP, Aurora.EDGE_ON};
+        for (int i = 0; i < names.length; i++) assertEquals(values[i], glslFloat(glsl, "ALBEDO_AURORA_" + names[i]), names[i]);
+        // The fold sum is a literal in the shader, so it differs from the float sum in its last bits.
+        assertEquals(Aurora.FOLD_REACH, glslFloat(glsl, "ALBEDO_AURORA_FOLD_REACH"), 1e-6f);
+        assertEquals(Aurora.MAX_AZIMUTH - 0.2f, glslFloat(glsl, "ALBEDO_AURORA_FADE_AZIMUTH"), 1e-6f);
+        for (int c = 0; c < 2; c++) {
+            assertEquals(Aurora.DISTANCE[c], glslFloat(glsl, "ALBEDO_AURORA_DISTANCE" + (c + 1)));
+            assertEquals(Aurora.SKEW[c], glslFloat(glsl, "ALBEDO_AURORA_SKEW" + (c + 1)));
+            assertEquals(Aurora.GAIN[c], glslFloat(glsl, "ALBEDO_AURORA_GAIN" + (c + 1)));
+            assertEquals(Aurora.NEAR_K[c], glslFloat(glsl, "ALBEDO_AURORA_NEAR_K" + (c + 1)));
+            assertEquals(Aurora.NEAR_AMP[c], glslFloat(glsl, "ALBEDO_AURORA_NEAR_AMP" + (c + 1)));
+            assertTrue(glsl.contains(turns("NEAR_RATE" + (c + 1), Aurora.NEAR_RATE[c])), "NEAR_RATE" + (c + 1));
+        }
+        for (int i = 0; i < 3; i++) {
+            assertEquals(Aurora.FOLD_K[i], glslFloat(glsl, "ALBEDO_AURORA_FOLD_K" + (i + 1)));
+            assertEquals(Aurora.FOLD_AMP[i], glslFloat(glsl, "ALBEDO_AURORA_FOLD_AMP" + (i + 1)));
+            assertTrue(glsl.contains(turns("FOLD_RATE" + (i + 1), Aurora.FOLD_RATE[i])), "FOLD_RATE" + (i + 1));
+        }
+        for (int i = 0; i < Aurora.RAY_CELL.length; i++) {
+            assertEquals(Aurora.RAY_CELL[i], glslFloat(glsl, "ALBEDO_AURORA_RAY_CELL" + (i + 1)));
+            assertEquals(Aurora.RAY_CELLS[i], glslInt(glsl, "ALBEDO_AURORA_RAY_CELLS" + (i + 1)));
+            assertEquals(Aurora.RAY_ROWS[i], glslInt(glsl, "ALBEDO_AURORA_RAY_ROWS" + (i + 1)));
+        }
+        assertEquals(Aurora.PART_ROWS, glslInt(glsl, "ALBEDO_AURORA_PART_ROWS"));
+        assertEquals(Aurora.LIGHT_ROWS, glslInt(glsl, "ALBEDO_AURORA_LIGHT_ROWS"));
+        assertEquals(30 * Aurora.TURN / Aurora.DRIFT, Aurora.EDGE_K1);
+        assertEquals(76 * Aurora.TURN / Aurora.DRIFT, Aurora.EDGE_K2);
+        assertTrue(glsl.contains("ALBEDO_AURORA_EDGE_K1 = 30.0 * ALBEDO_AURORA_TURN / ALBEDO_AURORA_DRIFT;"));
+        assertTrue(glsl.contains("ALBEDO_AURORA_EDGE_K2 = 76.0 * ALBEDO_AURORA_TURN / ALBEDO_AURORA_DRIFT;"));
+    }
+
+    /** The shader line of a speed that is a whole number of turns of a wave in an aurora period. */
+    private static String turns(String name, float rate) {
+        return "const float ALBEDO_AURORA_" + name + " = " + (float) Math.round(rate / Aurora.TURN) + " * ALBEDO_AURORA_TURN;\n";
     }
 
     @Test

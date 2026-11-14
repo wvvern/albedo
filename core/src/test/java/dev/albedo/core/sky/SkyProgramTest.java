@@ -254,10 +254,6 @@ class SkyProgramTest {
         assertTrue(p.shaderSteps().contains(" s = albedoGalaxy(0, albedoFrame(0, dir), footprint, " + both + ");"), p.shaderSteps());
         int old = SkyShaderSource.FLAG_DUST | SkyShaderSource.FLAG_JETS;
         assertTrue(program(plain).shaderSteps().contains("footprint, " + old + ");"), "a plain galaxy compiles none of the new parts");
-        for (String flag : new String[] {"DETAIL " + SkyShaderSource.FLAG_DETAIL, "MOTION " + SkyShaderSource.FLAG_MOTION,
-            "CLOUD " + SkyShaderSource.FLAG_CLOUD}) {
-            assertTrue(glsl.contains("#define ALBEDO_FLAG_" + flag + "\n"), flag);
-        }
     }
 
     @Test
