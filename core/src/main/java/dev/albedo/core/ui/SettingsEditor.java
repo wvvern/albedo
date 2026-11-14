@@ -63,7 +63,6 @@ public final class SettingsEditor {
         "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
     /** The height of the three Recolor sliders on their own rows, with the gap under them. */
     private static final int RECOLOR_H = Form.slidersHeight(RECOLOR_LABELS.length, false);
-    /** The height of the Remove biome tint switch. */
     private static final int TINT_ROW_H = 12;
     private static final String BUILT_IN = "built-in";
     /** The choice in the profile list of a server that turns Albedo off there, which no profile name can be (it has a space). */

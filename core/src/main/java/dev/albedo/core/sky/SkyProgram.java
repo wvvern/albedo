@@ -229,7 +229,6 @@ public final class SkyProgram {
         return frame;
     }
 
-    /** The path of each layer from the bottom up. */
     Path path(int layer) { return paths[layer]; }
 
     /** True when the shader draws all layers, some from their term images, so the sky can draw sharp with no baked image. */

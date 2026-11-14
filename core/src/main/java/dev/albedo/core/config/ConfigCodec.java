@@ -212,7 +212,7 @@ public final class ConfigCodec {
             if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + CHROMA_KEYS + " have no meaning here");
             }
-            // Files from 0.7.2 and before can have Chroma on mobs and players, which cannot move there, so it goes.
+            // Mobs and players cannot have Chroma; older files can, so drop it.
             Chroma chroma = category.hasChroma() ? decodeChroma(map, parent.chroma()) : Chroma.OFF;
             return new Appearance(mode, color, alpha,
                     percent(map, "detail", parent.detail()), percent(map, "keepColors", parent.keepColors()),
@@ -248,7 +248,6 @@ public final class ConfigCodec {
             root.put("servers", servers);
         }
         Map<String, Object> profiles = new LinkedHashMap<String, Object>();
-        // Built-in profiles come from the code, so the file holds only the user's own.
         for (Profile p : config.userProfiles().values()) profiles.put(p.name(), encodeProfile(p));
         root.put("profiles", profiles);
         return Json.write(root);

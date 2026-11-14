@@ -12,7 +12,7 @@ public final class SkyClock {
 
     private SkyClock() {}
 
-    /** The time in seconds, from 0 to {@link #PERIOD_MS} in seconds. */
+    /** The time in seconds, wrapped every {@link #PERIOD_MS}. */
     public static float seconds() {
         float h = held;
         return Float.isNaN(h) ? Math.floorMod(nanos() / 1_000_000L, PERIOD_MS) / 1000f : h;

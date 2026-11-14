@@ -82,7 +82,6 @@ public final class Harness {
          */
         boolean character(char c, boolean afterKey);
 
-        /** Whether the settings screen of Albedo is open. */
         boolean settingsOpen();
 
         void quit();
@@ -220,7 +219,7 @@ public final class Harness {
             waitTicks--;
             return;
         }
-        if (burstLeft > 0) return; // the next commands wait for the screenshots of a frames command
+        if (burstLeft > 0) return;
         while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0) {
             String line = queue.poll().trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
@@ -250,7 +249,7 @@ public final class Harness {
         }
     }
 
-    /** Runs one command line, where a {@code ui} command needs a short {@code wait} after it before a screenshot. */
+    /** Runs one command line. */
     private void execute(String line) {
         int space = line.indexOf(' ');
         String verb = space < 0 ? line : line.substring(0, space);
@@ -557,7 +556,6 @@ public final class Harness {
         return out;
     }
 
-    /** Asks the adapter to measure the GPU pass of Chroma in the next frames, and logs when this version cannot. */
     private void chromaTime(int frames) {
         if (!host.timeChroma(frames)) log("! chromatime: this version has no GPU pass of Chroma, or the pass does not run");
     }
