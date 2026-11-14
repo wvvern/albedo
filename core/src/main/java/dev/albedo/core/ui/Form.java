@@ -4,7 +4,6 @@ package dev.albedo.core.ui;
 final class Form {
     /** How much further right the labels of {@link #indented()} rows start, under the title of a section heading drawn at x - 4. */
     static final int INDENT = 8;
-    private static final int GAP = 6;
 
     private final Ui ui;
     private final int x, w, labelW;
@@ -63,7 +62,7 @@ final class Form {
 
     /** The height of {@link #sliders} for {@code n} sliders, the gap below them included. */
     static int slidersHeight(int n, boolean oneRow) {
-        return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + GAP;
+        return (oneRow ? Ui.SLIDER_H : rowsHeight(n) - 3) + Ui.GAP;
     }
 
     /** The height of {@code n} sliders on their own rows, with the small gap after each but not the gap below a group. */
@@ -83,10 +82,10 @@ final class Form {
             for (int i = 0; i < n; i++) values[i] = slider(id + "." + i, y + rowsHeight(i), labels[i], tips[i], values[i]);
             return y + slidersHeight(n, false);
         }
-        int partW = (cw() - (n - 1) * GAP) / n;
+        int partW = (cw() - (n - 1) * Ui.GAP) / n;
         ui.text(title, x, y + 2, Ui.MUTED);
         for (int i = 0; i < n; i++) {
-            int sx = lx() + i * (partW + GAP), sw = partW;
+            int sx = lx() + i * (partW + Ui.GAP), sw = partW;
             // Each part names its slider, in full when the track keeps room and by its initial when not.
             String name = sw - ui.width(labels[i]) - 4 >= ui.width("100%") + 36 ? labels[i] : labels[i].substring(0, 1);
             int nameW = ui.width(name) + 4;

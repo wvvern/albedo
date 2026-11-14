@@ -10,7 +10,6 @@ final class ColorPicker {
     };
     /** The smallest square of the full picker. */
     static final int MIN_SQUARE = 24;
-    private static final int GAP = 6;
     /** The widest saturation and brightness square. */
     private static final int SQUARE_MAX_W = 84;
     /** The width of the large preview beside the hex input. */
@@ -43,10 +42,10 @@ final class ColorPicker {
     }
 
     /** The height of the full picker with a square of {@code sqH}, gap included. */
-    static int height(int sqH) { return sqH + GAP; }
+    static int height(int sqH) { return sqH + Ui.GAP; }
 
     /** The height of the compact picker, gap included. */
-    static int compactHeight() { return Ui.H + GAP; }
+    static int compactHeight() { return Ui.H + Ui.GAP; }
 
     /** One row with a swatch and the hex input, for a window too short for the full picker, which returns the color. */
     int compact(String id, int x, int y, int w, int argb) {

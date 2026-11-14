@@ -28,6 +28,8 @@ final class Ui {
     /** Height of buttons, fields and segmented controls. */
     static final int H = 14;
     static final int SLIDER_H = 12;
+    /** Space between rows and between controls side by side. */
+    static final int GAP = 6;
     /** Space between rows of a wrapped segmented control. */
     private static final int ROW_GAP = 2;
     /** Least space around a label inside a segment. */
@@ -382,6 +384,13 @@ final class Ui {
     }
 
     int width(String s) { return c.textWidth(s); }
+
+    /** The width of the widest label, or 0 for none. */
+    int widest(Iterable<String> labels) {
+        int w = 0;
+        for (String l : labels) w = Math.max(w, width(l));
+        return w;
+    }
 
     int buttonWidth(String label) { return width(label) + 12; }
 

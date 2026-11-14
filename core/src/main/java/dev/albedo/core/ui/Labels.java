@@ -305,6 +305,28 @@ final class Labels {
         s.append(name).append(' ').append(percent).append('%');
     }
 
+    /** The first effect under the Effects heading, which shows only where the GPU pass moves the colors. */
+    static final String CHROMA_LABEL = "Chroma";
+    static final String CHROMA_TIP = "Chroma: each kind of texture gets its own rainbow color, and the colors go around at the Speed below.";
+    /** The Chroma options, which show under Chroma only while it is on, with short labels that fit the second indent. */
+    static final String[] CHROMA_LABELS = {"Speed", "Vivid", "Bright"};
+    static final String[] CHROMA_TIPS = {
+        "Speed: how fast the colors go around. 0 stops them.",
+        "Vivid (saturation): how strong the colors are.",
+        "Bright (brightness): how light the colors are."};
+    static final String EDGE_LABEL = "Edge";
+    static final String EDGE_TIP = "Edge: Chroma colors only the line around each block or item, in a ring of hues.";
+    /** The effects after Chroma in the order they apply: blocks and fluids have both, items only Outline. */
+    static final String[] EFFECT_LABELS = {"Bevel", "Outline"};
+    static final String[] EFFECT_TIPS = {
+        "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
+        "Outline: a line around the shape of each block or item."};
+    static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
+    static final String[] RECOLOR_TIPS = {
+        "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
+        "Colors: how much of the original color differences stays. Strong specks, such as ores, always keep their color.",
+        "Light: 0% gives the lightness of the color. 100% keeps the lightness of each texture, so dark blocks stay dark."};
+
     static final String TURNING = "Turning";
     static final String TURNING_TIP = "Turning: the full sky turns around the pole, as the real night sky does. "
             + "0% stops it. 100% gives the full Speed. The preview turns in real time.";
