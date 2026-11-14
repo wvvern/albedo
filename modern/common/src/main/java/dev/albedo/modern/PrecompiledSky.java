@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.21.6 && <26.3 {
+//? if device_sky {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderPipeline;

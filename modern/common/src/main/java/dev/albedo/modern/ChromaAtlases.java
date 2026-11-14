@@ -33,9 +33,9 @@ final class ChromaAtlases {
         //? if gl_fixed {
         /*return new FixedChromaPass();
         *///?}
-        //? if >=26.3 {
+        //? if renderpearl {
         return new ChromaPass();
-        //?} elif >=1.21.11 {
+        //?} elif device_chroma {
         /*return new PrecompiledChromaPass();
         *///?} elif gl_chroma {
         /*return new GlChromaPass();

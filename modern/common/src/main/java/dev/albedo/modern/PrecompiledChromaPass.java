@@ -1,6 +1,6 @@
 package dev.albedo.modern;
 
-//? if >=1.21.11 && <26.3 {
+//? if device_chroma && !renderpearl {
 /*import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.CommandEncoder;

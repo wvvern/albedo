@@ -33,9 +33,9 @@ public final class ModernSky {
         //? if gl_fixed {
         /*FixedSky.frameStart();
         *///?}
-        //? if >=26.3 {
+        //? if renderpearl {
         PearlSky.frameStart();
-        //?} elif >=1.21.6 {
+        //?} elif device_sky {
         /*PrecompiledSky.frameStart();
         *///?} elif gl_sky {
         /*GlSky.frameStart();
