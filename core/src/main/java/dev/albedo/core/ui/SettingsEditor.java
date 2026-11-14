@@ -56,7 +56,7 @@ public final class SettingsEditor {
 
     private final Albedo albedo;
     final Ui ui;
-    private final ScriptedInput script = new ScriptedInput();
+    private final ScriptedInput script;
     private final Frame frame = new Frame();
     /** Set when this frame changed the draft, the page or the mode. */
     private boolean changed;
@@ -70,8 +70,14 @@ public final class SettingsEditor {
     private final TexturesPage textures;
     private final ServersPage servers;
 
-    public SettingsEditor(final Albedo albedo) {
+    public SettingsEditor(Albedo albedo) {
+        this(albedo, albedo.scriptPort());
+    }
+
+    /** @param port the source of the {@code ui} commands of the harness, or null in a game with no harness */
+    SettingsEditor(final Albedo albedo, ScriptPort port) {
         this.albedo = albedo;
+        this.script = new ScriptedInput(port);
         this.ui = new Ui(() -> albedo.platform().clipboard());
         this.skyLayers = new SkyLayersEditor(ui, this::relayout, e -> albedo.platform().warn("Cannot make the sky preview", e));
         this.session = new DraftSession(albedo, ui, () -> page.category, this::relayout, this::profileSwitched);
@@ -104,19 +110,6 @@ public final class SettingsEditor {
     public int[] textCursor() {
         Rect r = ui.textCursor();
         return r == null ? null : new int[]{r.x, r.y, r.x + r.w, r.bottom()};
-    }
-
-    /** Queues an input for the open screen, from the dev harness (see {@link ScriptedInput}). */
-    public static void script(String command) {
-        ScriptedInput.add(command);
-    }
-
-    /**
-     * Takes the GUI position {x, y} where a {@code realclick} command found its label, for the harness to click through the
-     * game's own mouse handler, or null when no such click waits.
-     */
-    public static int[] takeRealClick() {
-        return ScriptedInput.takeRealClick();
     }
 
     public void render(Canvas canvas, int mouseX, int mouseY) {

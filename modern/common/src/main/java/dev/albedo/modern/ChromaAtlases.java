@@ -178,7 +178,7 @@ final class ChromaAtlases {
             return;
         }
         int width = size[0], height = size[1];
-        ChromaTexels.Atlas texels = new ChromaTexels.Atlas(width, height);
+        ChromaTexels.Atlas texels = new ChromaTexels.Atlas(width, height, Albedo::chromaTexels);
         String atlasName = String.valueOf(id);
         for (TextureAtlasSprite sprite : sprites.values()) {
             //? if >=1.21.11 {

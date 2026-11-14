@@ -1,7 +1,5 @@
 package dev.albedo.core.texture;
 
-import dev.albedo.core.Albedo;
-
 import java.nio.ByteBuffer;
 
 /**
@@ -25,17 +23,30 @@ public final class ChromaTexels {
         out.flip();
     }
 
+    /** Gives the texels of one frame of a sprite; the adapters pass {@code Albedo::chromaTexels}. */
+    public interface Source {
+        /**
+         * Puts the texels of one frame of a sprite into {@code out}.
+         *
+         * @param location the sprite name with its folder, as the adapter gave it to {@code Albedo.processTexture}
+         * @return false when the colors of the sprite do not move on the GPU, which leaves {@code out} as it is
+         */
+        boolean texels(String location, int w, int h, int[] out);
+    }
+
     /** Puts the texels of the sprites of one atlas into one image of the size of the atlas, for the GPU pass. */
     public static final class Atlas {
         private final int width, height;
+        private final Source source;
         /** The texels of the base level, which the first moving sprite makes, so that an atlas with no moving sprite needs no memory. */
         private int[] level;
         /** The texels of one frame of the last sprite, which the next sprite uses again when it is large enough. */
         private int[] frame = new int[0];
 
-        public Atlas(int width, int height) {
+        public Atlas(int width, int height, Source source) {
             this.width = width;
             this.height = height;
+            this.source = source;
         }
 
         /**
@@ -51,7 +62,7 @@ public final class ChromaTexels {
         public void sprite(String location, int x, int y, int w, int h, int border) {
             if (w <= 0 || h <= 0) return;
             if (frame.length < w * h) frame = new int[w * h];
-            if (!Albedo.chromaTexels(location, w, h, frame)) return;
+            if (!source.texels(location, w, h, frame)) return;
             if (level == null) level = new int[width * height];
             for (int dy = 0; dy < h + 2 * border && y + dy < height; dy++) {
                 int row = Math.max(0, Math.min(h - 1, dy - border)) * w, at = (y + dy) * width + x;

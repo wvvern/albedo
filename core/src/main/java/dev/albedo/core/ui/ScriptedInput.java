@@ -1,12 +1,7 @@
 package dev.albedo.core.ui;
 
-import dev.albedo.core.dev.HarnessLog;
-
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Dev harness input for the settings screen, one command per frame: click a label, click it through the game's mouse
@@ -14,10 +9,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * pointer off; keys and typing go through the game's own keyboard path instead (see {@code Harness}).
  */
 final class ScriptedInput {
-    private static final Queue<String> QUEUE = new ConcurrentLinkedQueue<String>();
-    /** The label position of the last {@code realclick}, which the harness takes and clicks through the game's mouse handler. */
-    private static final AtomicReference<int[]> REAL_CLICK = new AtomicReference<int[]>();
-
+    /** The harness, or null in a game with no harness. */
+    private final ScriptPort port;
     /** The center of each label that the last frame drew, where a click command finds its label, or null before the first frame. */
     private Map<String, int[]> lastTexts;
     /** The text of each text field of the last recorded frame by widget id, which an expect command compares. */
@@ -27,21 +20,17 @@ final class ScriptedInput {
     private Recorder recorder;
     private boolean release;
 
-    static void add(String command) {
-        QUEUE.add(command);
-    }
-
-    static int[] takeRealClick() {
-        return REAL_CLICK.getAndSet(null);
+    ScriptedInput(ScriptPort port) {
+        this.port = port;
     }
 
     boolean active() {
-        return !QUEUE.isEmpty() || pointer != null;
+        return port != null && port.waiting() || pointer != null;
     }
 
     /** Runs the next command and returns the canvas to draw this frame on. */
     Canvas beginFrame(Canvas canvas, Ui ui) {
-        release = lastTexts != null && run(QUEUE.poll(), ui);
+        release = lastTexts != null && port != null && run(port.poll(), ui);
         recorder = new Recorder(canvas);
         return recorder;
     }
@@ -77,7 +66,7 @@ final class ScriptedInput {
                 int[] at = find(arg);
                 if (at == null) return false;
                 pointer = null;
-                REAL_CLICK.set(at);
+                port.realClick(at);
                 return false;
             }
             case "scroll": {
@@ -94,8 +83,8 @@ final class ScriptedInput {
                 int split = arg.indexOf(' ');
                 String id = split < 0 ? arg : arg.substring(0, split), want = split < 0 ? "" : arg.substring(split + 1);
                 String got = lastFields.get(id);
-                if (want.equals(got)) HarnessLog.log("PASS " + id + " = \"" + got + "\"");
-                else HarnessLog.fail(id + " = " + (got == null ? "not drawn" : "\"" + got + "\"") + ", expected \"" + want + "\"");
+                if (want.equals(got)) port.log("PASS " + id + " = \"" + got + "\"");
+                else port.fail(id + " = " + (got == null ? "not drawn" : "\"" + got + "\"") + ", expected \"" + want + "\"");
                 return false;
             }
             case "pointer":
@@ -106,19 +95,17 @@ final class ScriptedInput {
         }
     }
 
-    /** The center of the label drawn as {@code text}, or else of a label that contains it, or null after a failed harness line. */
+    /**
+     * The center of the label drawn as {@code text}, or else of a label that contains it, or null after a failed harness
+     * line, which fails a script that names an old label.
+     */
     private int[] find(String text) {
         int[] at = lastTexts.get(text);
         if (at == null) {
             for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(text)) at = e.getValue();
         }
-        if (at == null) HarnessLog.log(noSuchControl(text));
+        if (at == null) port.fail("no such control: " + text);
         return at;
-    }
-
-    /** The harness line for a command whose control the last frame did not draw, which fails a script that names an old label. */
-    static String noSuchControl(String name) {
-        return HarnessLog.FAIL_PREFIX + "no such control: " + name;
     }
 
     /** Passes drawing through and keeps where each text was drawn. */

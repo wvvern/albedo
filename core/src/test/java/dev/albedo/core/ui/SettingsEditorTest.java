@@ -12,18 +12,14 @@ import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Rule;
 import dev.albedo.core.config.ServerRule;
 import dev.albedo.core.config.Toggle;
-import dev.albedo.core.dev.Harness;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -615,34 +611,25 @@ class SettingsEditorTest {
     }
 
     @Test
-    void aScriptedClickOnALabelThatIsNotDrawnFailsTheRun() throws Exception {
-        File harness = new File(CoreFixture.dir(), "harness");
-        System.setProperty("albedo.harness", harness.getPath());
-        try {
-            Harness.fromSystemProperty(albedo.platform());
-        } finally {
-            System.clearProperty("albedo.harness");
-        }
+    void aScriptedClickOnALabelThatIsNotDrawnFailsTheRun() {
         EditorDriver d = open();
         d.script("click No such label");
         d.script("realclick No such label");
         d.script("click Average");
-        List<String> log = Files.readAllLines(new File(harness, "log.txt").toPath(), StandardCharsets.UTF_8);
-        assertEquals(Arrays.asList("! no such control: No such label", "! no such control: No such label"), log,
+        assertEquals(Arrays.asList("! no such control: No such label", "! no such control: No such label"), d.port.lines,
                 "a drawn label logs nothing");
-        assertNull(SettingsEditor.takeRealClick());
+        assertNull(d.port.takeRealClick());
     }
 
     @Test
     void aRealClickGivesTheLabelPositionAndLeavesThePressToTheGame() {
         EditorDriver d = open();
         int[] average = d.find("Average");
-        SettingsEditor.script("realclick Average");
+        d.port.commands.add("realclick Average");
         d.render(); // records the labels
         d.render(); // runs the command
-        int[] at = SettingsEditor.takeRealClick();
+        int[] at = d.port.takeRealClick();
         assertArrayEquals(average, at);
-        assertNull(SettingsEditor.takeRealClick(), "the harness takes a real click once");
 
         // The game sends the press with its own pointer position, which the editor uses from now on.
         d.pressAt(at[0], at[1]);

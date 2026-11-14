@@ -68,8 +68,38 @@ class ChromaTexelsTest {
 
     @Test
     void anAtlasWithNoMovingSpriteKeepsNoLevel() {
-        ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(4096, 4096);
+        ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(4096, 4096, (location, w, h, out) -> false);
         atlas.sprite("minecraft:block/not_kept", 0, 0, 16, 16, 0);
         assertFalse(atlas.moving());
+    }
+
+    /** A source whose one sprite has these texels in one frame. */
+    private static ChromaTexels.Source frame(int... texels) {
+        return (location, w, h, out) -> {
+            System.arraycopy(texels, 0, out, 0, texels.length);
+            return true;
+        };
+    }
+
+    @Test
+    void theBorderOfASpriteRepeatsItsEdgeTexels() {
+        int a = ChromaTexels.pack(10, 0.1, 0.1), b = ChromaTexels.pack(20, 0.6, 0.2);
+        ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(4, 3, frame(a, b));
+        atlas.sprite("minecraft:block/moving", 0, 0, 2, 1, 1);
+        assertTrue(atlas.moving());
+        int[][] levels = atlas.levels(2);
+        assertArrayEquals(new int[]{a, a, b, b,
+                                    a, a, b, b,
+                                    a, a, b, b}, levels[0]);
+        assertArrayEquals(ChromaTexels.halve(levels[0], 4, 3), levels[1], "each level halves the level before it");
+    }
+
+    @Test
+    void aSpriteAtTheEdgeOfTheAtlasIsClipped() {
+        int a = ChromaTexels.pack(10, 0.1, 0.1), b = ChromaTexels.pack(20, 0.6, 0.2);
+        ChromaTexels.Atlas atlas = new ChromaTexels.Atlas(3, 2, frame(a, b, b, b));
+        atlas.sprite("minecraft:block/moving", 2, 1, 2, 2, 0);
+        assertArrayEquals(new int[]{0, 0, 0,
+                                    0, 0, a}, atlas.levels(1)[0]);
     }
 }

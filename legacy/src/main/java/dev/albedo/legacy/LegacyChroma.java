@@ -123,7 +123,7 @@ public final class LegacyChroma {
     /** Makes the texels of the atlas from its sprites, and keeps the GPU textures only while some texels move. */
     private static void build(TextureMap atlas) {
         int[] now = sizeOf(atlas);
-        ChromaTexels.Atlas built = new ChromaTexels.Atlas(now[0], now[1]);
+        ChromaTexels.Atlas built = new ChromaTexels.Atlas(now[0], now[1], Albedo::chromaTexels);
         for (TextureAtlasSprite sprite : ((TextureMapAccessor) atlas).albedo$sprites().values()) {
             built.sprite(sprite.getIconName(), sprite.getOriginX(), sprite.getOriginY(), sprite.getIconWidth(), sprite.getIconHeight(), 0);
         }

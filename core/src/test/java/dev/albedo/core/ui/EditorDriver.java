@@ -14,6 +14,8 @@ final class EditorDriver {
     final RecordingCanvas canvas;
     /** The tooltip delay of each new screen, or null for the default. */
     private final Integer tipDelay;
+    /** The harness of each screen that this driver opens. */
+    final FakeScriptPort port = new FakeScriptPort();
     SettingsEditor editor;
 
     private EditorDriver(int w, int h, Integer tipDelay) {
@@ -34,7 +36,7 @@ final class EditorDriver {
 
     /** Opens a new screen on the same canvas and draws its first frame. */
     void reopen() {
-        editor = new SettingsEditor(CoreFixture.albedo());
+        editor = new SettingsEditor(CoreFixture.albedo(), port);
         if (tipDelay != null) editor.ui.tipDelay(tipDelay);
         render();
     }
@@ -117,7 +119,7 @@ final class EditorDriver {
 
     /** Runs one harness command: a frame records the labels, the next runs the command and the last shows the result. */
     void script(String command) {
-        SettingsEditor.script(command);
+        port.commands.add(command);
         for (int i = 0; i < 3; i++) render();
     }
 

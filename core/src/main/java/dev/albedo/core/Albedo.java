@@ -10,6 +10,7 @@ import dev.albedo.core.sky.SkyBaker;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.Layout;
 import dev.albedo.core.texture.TextureStore;
+import dev.albedo.core.ui.ScriptPort;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,7 +60,7 @@ public final class Albedo {
     private Albedo(Platform platform) {
         this.platform = platform;
         this.file = new ConfigFile(platform);
-        this.harness = Harness.fromSystemProperty(platform);
+        this.harness = Harness.fromSystemProperty(this);
         this.skyBaker = new SkyBaker(SKY_WIDTH, SKY_HEIGHT, e -> platform.warn("Cannot make the custom sky", e));
     }
 
@@ -118,6 +119,11 @@ public final class Albedo {
     }
 
     public Platform platform() { return platform; }
+
+    /** The source of the scripted input of the settings screen, or null in a game with no harness. */
+    public ScriptPort scriptPort() {
+        return harness == null ? null : harness.scriptPort();
+    }
 
     /**
      * Keeps the original of a freshly loaded texture and changes the image in place.

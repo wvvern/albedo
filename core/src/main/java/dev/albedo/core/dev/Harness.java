@@ -11,7 +11,7 @@ import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyTurn;
-import dev.albedo.core.ui.SettingsEditor;
+import dev.albedo.core.ui.ScriptPort;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +25,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 /**
@@ -155,9 +158,11 @@ public final class Harness {
     private static final Map<String, Verb> VERBS = verbs();
 
     private final File dir;
+    private final Albedo albedo;
     private final Platform platform;
     private final Host host;
     private final Deque<String> queue = new ArrayDeque<String>();
+    private final UiScript ui = new UiScript();
     private int waitTicks;
     private boolean waitingForWorld;
     private String lastStatus = "";
@@ -174,10 +179,32 @@ public final class Harness {
     /** The middle of the frame of the last {@code keepframe}, which another thread gives. */
     private volatile int[] keptFrame;
 
-    private Harness(File dir, Platform platform) {
+    private Harness(File dir, Albedo albedo) {
         this.dir = dir;
-        this.platform = platform;
+        this.albedo = albedo;
+        this.platform = albedo.platform();
         this.host = platform.harnessHost();
+    }
+
+    /** The {@code ui} commands for the settings screen, and the label position of the last {@code realclick}. */
+    private static final class UiScript implements ScriptPort {
+        final Queue<String> commands = new ConcurrentLinkedQueue<String>();
+        final AtomicReference<int[]> realClick = new AtomicReference<int[]>();
+
+        @Override public boolean waiting() { return !commands.isEmpty(); }
+
+        @Override public String poll() { return commands.poll(); }
+
+        @Override public void log(String line) { HarnessLog.log(line); }
+
+        @Override public void fail(String reason) { HarnessLog.fail(reason); }
+
+        @Override public void realClick(int[] at) { realClick.set(at); }
+    }
+
+    /** The port through which the settings screen takes the {@code ui} commands. */
+    public ScriptPort scriptPort() {
+        return ui;
     }
 
     /** Whether the game runs with the harness, where it must never grab the mouse, because a grab clips the cursor of the whole desktop. */
@@ -193,14 +220,14 @@ public final class Harness {
     }
 
     /** @return the harness, or null when the system property is not set */
-    public static Harness fromSystemProperty(Platform platform) {
+    public static Harness fromSystemProperty(Albedo albedo) {
         String path = System.getProperty("albedo.harness");
         if (path == null || path.trim().isEmpty()) return null;
         File dir = new File(path).getAbsoluteFile();
         dir.mkdirs();
         HarnessLog.open(dir);
-        platform.info("Test harness enabled in " + dir);
-        return new Harness(dir, platform);
+        albedo.platform().info("Test harness enabled in " + dir);
+        return new Harness(dir, albedo);
     }
 
     public void tick() {
@@ -237,7 +264,7 @@ public final class Harness {
             pressedAt = null;
             return;
         }
-        int[] at = SettingsEditor.takeRealClick();
+        int[] at = ui.realClick.getAndSet(null);
         if (at == null) return;
         if (host.mouseButton(at[0], at[1], true)) {
             pressedAt = at;
@@ -282,7 +309,7 @@ public final class Harness {
         v.put("skytime", (h, arg) -> h.skyTime(arg.isEmpty() ? new String[0] : arg.split("\\s+")));
         v.put("skyclock", (h, arg) -> skyClock(arg));
         v.put("frames", (h, arg) -> h.frames(arg.split("\\s+")));
-        v.put("chromagpu", (h, arg) -> Albedo.get().chromaGpu(arg.equals("on")));
+        v.put("chromagpu", (h, arg) -> h.albedo.chromaGpu(arg.equals("on")));
         v.put("chromatime", (h, arg) -> h.chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg)));
         v.put("hooks", (h, arg) -> HarnessLog.log(hooksLine(h.host.hookCounters())));
         v.put("cursorfree", (h, arg) -> HarnessLog.log(CursorClip.check(h.dir)));
@@ -291,7 +318,7 @@ public final class Harness {
         v.put("keepframe", (h, arg) -> h.keepFrame());
         v.put("framechanged", Harness::frameChanged);
         v.put("settings", Harness::settings);
-        v.put("ui", (h, arg) -> SettingsEditor.script(arg));
+        v.put("ui", (h, arg) -> h.ui.commands.add(arg));
         v.put("type", Harness::type);
         v.put("key", (h, arg) -> {
             h.key(arg, true);
@@ -309,10 +336,7 @@ public final class Harness {
 
     /** A command that applies a change of the stored config. */
     private static Verb configVerb(BiFunction<Config, String, Config> change) {
-        return (h, arg) -> {
-            Albedo albedo = Albedo.get();
-            albedo.apply(change.apply(albedo.storedConfig(), arg));
-        };
+        return (h, arg) -> h.albedo.apply(change.apply(h.albedo.storedConfig(), arg));
     }
 
     /** A command that applies a change of the active profile. */
