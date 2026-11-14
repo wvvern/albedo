@@ -17,7 +17,20 @@ from tools.project import Target
 LIBS = Path("build/libs")
 
 
+def wait_for_harness() -> None:
+    """Waits until no harness of this checkout runs, because the Gradle run of each of its games writes the build output of its node.
+
+    Without psutil (CI) no harness runs here.
+    """
+    try:
+        from tools.harness import processes
+    except ImportError:
+        return
+    processes.wait_for_tool(project.ROOT, "harness")
+
+
 def build(targets: set[Target], mod_version: str | None, out: Path, gradle_arguments: list[str]) -> None:
+    wait_for_harness()
     jar_version = mod_version or project.mod_version()
     out.mkdir(parents=True, exist_ok=True)
     for node in project.nodes():
