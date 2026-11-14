@@ -1,6 +1,5 @@
 package dev.albedo.legacy;
 
-import org.apache.logging.log4j.LogManager;
 import org.spongepowered.asm.lib.Opcodes;
 import org.spongepowered.asm.lib.tree.AbstractInsnNode;
 import org.spongepowered.asm.lib.tree.ClassNode;
@@ -32,7 +31,7 @@ final class OptiFineRenderPatch {
                 if (!(insn instanceof MethodInsnNode)) continue;
                 MethodInsnNode call = (MethodInsnNode) insn;
                 if (!fluid && isAddVertexData(call)) {
-                    method.instructions.set(call, new MethodInsnNode(Opcodes.INVOKESTATIC, GAME, "addQuad", "(L" + WORLD_RENDERER + ";[I)V", false));
+                    method.instructions.set(call, AsmCalls.invokeStatic(GAME, "addQuad", "(L" + WORLD_RENDERER + ";[I)V"));
                     count++;
                 } else if (fluid && isFaceBrightness(call)) {
                     method.instructions.insert(call, hook("faceBrightness", "(F)F"));
@@ -46,22 +45,21 @@ final class OptiFineRenderPatch {
             }
         }
         String message = "OptiFine: " + count + " Albedo hooks in " + target.name;
-        if (count == 0) LogManager.getLogger("albedo").warn(message);
-        else LogManager.getLogger("albedo").info(message);
+        if (count == 0) AsmCalls.LOG.warn(message);
+        else AsmCalls.LOG.info(message);
     }
 
     private static MethodInsnNode hook(String name, String desc) {
-        return new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, name, desc, false);
+        return AsmCalls.invokeStatic(HOOKS, name, desc);
     }
 
     private static boolean isAddVertexData(MethodInsnNode call) {
-        return call.getOpcode() == Opcodes.INVOKEVIRTUAL && call.owner.equals(WORLD_RENDERER) && call.desc.equals("([I)V")
-                && (call.name.equals("func_178981_a") || call.name.equals("addVertexData"));
+        return AsmCalls.is(call, Opcodes.INVOKEVIRTUAL, WORLD_RENDERER, "([I)V", "addVertexData", "func_178981_a");
     }
 
     private static boolean isFaceBrightness(MethodInsnNode call) {
-        return call.getOpcode() == Opcodes.INVOKESTATIC && call.owner.endsWith("/FaceBakery") && call.desc.equals(FACE_BRIGHTNESS_DESC)
-                && (call.name.equals("func_178412_b") || call.name.equals("getFaceBrightness"));
+        return call.owner.endsWith("/FaceBakery")
+                && AsmCalls.is(call, Opcodes.INVOKESTATIC, call.owner, FACE_BRIGHTNESS_DESC, "getFaceBrightness", "func_178412_b");
     }
 
     /** @return the LegacyHooks method for the int result of this call, or null */

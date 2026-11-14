@@ -1,6 +1,5 @@
 package dev.albedo.legacy;
 
-import org.apache.logging.log4j.LogManager;
 import org.spongepowered.asm.lib.Opcodes;
 import org.spongepowered.asm.lib.tree.AbstractInsnNode;
 import org.spongepowered.asm.lib.tree.ClassNode;
@@ -48,6 +47,7 @@ final class LegacySkyPatch {
     private static final String RENDER_GLOBAL = "net/minecraft/client/renderer/RenderGlobal";
     private static final String VERTEX_BUFFER = "net/minecraft/client/renderer/vertex/VertexBuffer";
     private static final String TESSELLATOR = "net/minecraft/client/renderer/Tessellator";
+    private static final String GL_STATE_MANAGER = "net/minecraft/client/renderer/GlStateManager";
     private static final String WORLD = "net/minecraft/world/World";
     private static final String TEXTURE_MANAGER = "net/minecraft/client/renderer/texture/TextureManager";
     private static final String CUSTOM_SKY_DESC = "(L" + WORLD + ";L" + TEXTURE_MANAGER + ";F)V";
@@ -84,7 +84,7 @@ final class LegacySkyPatch {
                     found.add(part);
                 } else if (isCustomSky(call, "renderSky", CUSTOM_SKY_DESC)) {
                     customSky = call.owner;
-                    method.instructions.set(call, new MethodInsnNode(Opcodes.INVOKESTATIC, target.name, CUSTOM_SKY_BRIDGE, CUSTOM_SKY_DESC, false));
+                    method.instructions.set(call, AsmCalls.invokeStatic(target.name, CUSTOM_SKY_BRIDGE, CUSTOM_SKY_DESC));
                 } else if (isCustomSky(call, "hasSkyLayers", "(L" + WORLD + ";)Z")) {
                     method.instructions.insert(call, hook("customSkyLayers", "(Z)Z"));
                 }
@@ -98,8 +98,8 @@ final class LegacySkyPatch {
         if (customSky != null) target.methods.add(customSkyBridge(customSky));
         hooked = found.size() == Part.values().length && meshes.size() == MESHES;
         String message = "Sky hooks in " + target.name + ": " + found + ", " + meshes.size() + " meshes, OptiFine custom sky " + (customSky != null);
-        if (hooked) LogManager.getLogger("albedo").info(message);
-        else LogManager.getLogger("albedo").warn(message + "; the custom sky is off, because renderSky is not as expected");
+        if (hooked) AsmCalls.LOG.info(message);
+        else AsmCalls.LOG.warn(message + "; the custom sky is off, because renderSky is not as expected");
     }
 
     /** A static method that calls OptiFine's CustomSky.renderSky only when the custom sky does not replace it. */
@@ -113,7 +113,7 @@ final class LegacySkyPatch {
         code.add(new VarInsnNode(Opcodes.ALOAD, 0));
         code.add(new VarInsnNode(Opcodes.ALOAD, 1));
         code.add(new VarInsnNode(Opcodes.FLOAD, 2));
-        code.add(new MethodInsnNode(Opcodes.INVOKESTATIC, owner, "renderSky", CUSTOM_SKY_DESC, false));
+        code.add(AsmCalls.invokeStatic(owner, "renderSky", CUSTOM_SKY_DESC));
         code.add(end);
         code.add(new FrameNode(Opcodes.F_NEW, 3, new Object[]{WORLD, TEXTURE_MANAGER, Opcodes.FLOAT}, 0, new Object[0]));
         code.add(new InsnNode(Opcodes.RETURN));
@@ -123,7 +123,7 @@ final class LegacySkyPatch {
     }
 
     private static MethodInsnNode hook(String name, String desc) {
-        return new MethodInsnNode(Opcodes.INVOKESTATIC, SKY, name, desc, false);
+        return AsmCalls.invokeStatic(SKY, name, desc);
     }
 
     /** @return the name of the RenderGlobal field that the call reads in the two instructions before it, or null */
@@ -138,18 +138,15 @@ final class LegacySkyPatch {
     }
 
     private static boolean isDrawArrays(MethodInsnNode call) {
-        return call.getOpcode() == Opcodes.INVOKEVIRTUAL && call.owner.equals(VERTEX_BUFFER) && call.desc.equals("(I)V")
-                && (call.name.equals("drawArrays") || call.name.equals("func_177358_a"));
+        return AsmCalls.is(call, Opcodes.INVOKEVIRTUAL, VERTEX_BUFFER, "(I)V", "drawArrays", "func_177358_a");
     }
 
     private static boolean isCallList(MethodInsnNode call) {
-        return call.getOpcode() == Opcodes.INVOKESTATIC && call.owner.equals("net/minecraft/client/renderer/GlStateManager")
-                && call.desc.equals("(I)V") && (call.name.equals("callList") || call.name.equals("func_179148_o"));
+        return AsmCalls.is(call, Opcodes.INVOKESTATIC, GL_STATE_MANAGER, "(I)V", "callList", "func_179148_o");
     }
 
     private static boolean isTessellatorDraw(MethodInsnNode call) {
-        return call.getOpcode() == Opcodes.INVOKEVIRTUAL && call.owner.equals(TESSELLATOR) && call.desc.equals("()V")
-                && (call.name.equals("draw") || call.name.equals("func_78381_a"));
+        return AsmCalls.is(call, Opcodes.INVOKEVIRTUAL, TESSELLATOR, "()V", "draw", "func_78381_a");
     }
 
     /** OptiFine's CustomSky, in the default package or in net/optifine, which draws the sky of a resource pack. */

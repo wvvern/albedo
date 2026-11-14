@@ -2,12 +2,8 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.texture.TextureStore;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.client.resources.data.AnimationMetadataSection;
 
 import java.awt.image.BufferedImage;
@@ -19,13 +15,6 @@ import java.util.List;
  * same generateMipmaps call as the atlas load makes the mip levels.
  */
 public final class SpriteUpload implements TextureStore.Upload {
-    /** The animation state of a sprite, which TextureAtlasSpriteMixin implements. */
-    public interface Animation {
-        int albedo$frameCounter();
-
-        AnimationMetadataSection albedo$animation();
-    }
-
     private final TextureAtlasSprite sprite;
 
     private SpriteUpload(TextureAtlasSprite sprite) {
@@ -44,19 +33,13 @@ public final class SpriteUpload implements TextureStore.Upload {
 
     @Override
     public boolean upload(PixelBuffer pixels) {
-        // The new sprite goes into the colors that Albedo painted, which the Chroma pass copies at the start of the next frame.
-        LegacyChroma.restore();
-        TextureMap atlas = Minecraft.getMinecraft().getTextureMapBlocks();
-        if (atlas == null || atlas.getAtlasSprite(sprite.getIconName()) != sprite) return false; // a reload replaced it
-        int mipLevels = mipLevels(sprite);
+        TextureMap atlas = SpriteFrames.atlas(sprite);
+        if (atlas == null) return false; // a reload replaced it
+        int mipLevels = SpriteFrames.mipLevels(sprite);
         int[] strip = PixelBuffer.Heap.copyOf(pixels).argb();
-        sprite.setFramesTextureData(frames(strip, sprite.getIconWidth() * sprite.getIconHeight(), mipLevels, ((Animation) sprite).albedo$animation()));
+        sprite.setFramesTextureData(frames(strip, sprite.getIconWidth() * sprite.getIconHeight(), mipLevels, ((SpriteAnimation) sprite).albedo$animation()));
         sprite.generateMipmaps(mipLevels);
-
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        GlStateManager.bindTexture(atlas.getGlTextureId());
-        TextureUtil.uploadTextureMipmap(currentFrame(sprite), sprite.getIconWidth(), sprite.getIconHeight(),
-                sprite.getOriginX(), sprite.getOriginY(), false, false);
+        SpriteFrames.uploadCurrentFrame(atlas, sprite);
         return true;
     }
 
@@ -83,23 +66,5 @@ public final class SpriteUpload implements TextureStore.Upload {
         int[][] levels = new int[mipLevels + 1][];
         levels[0] = pixels;
         return levels;
-    }
-
-    /** The mip levels of the atlas when the sprite was made: the atlas can use fewer than the video setting. */
-    private static int mipLevels(TextureAtlasSprite sprite) {
-        for (int i = 0; i < sprite.getFrameCount(); i++) {
-            int[][] frame = sprite.getFrameTextureData(i);
-            if (frame != null) return frame.length - 1;
-        }
-        throw new IllegalStateException("sprite " + sprite.getIconName() + " has no frames");
-    }
-
-    /** The frame that the atlas shows now, where the clock and the compass keep the frame index in the frame counter. */
-    private static int[][] currentFrame(TextureAtlasSprite sprite) {
-        Animation a = (Animation) sprite;
-        AnimationMetadataSection animation = a.albedo$animation();
-        int index = animation != null ? animation.getFrameIndex(a.albedo$frameCounter()) : a.albedo$frameCounter();
-        if (index < 0 || index >= sprite.getFrameCount()) index = 0;
-        return sprite.getFrameTextureData(index);
     }
 }

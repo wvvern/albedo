@@ -1,5 +1,6 @@
 package dev.albedo.legacy.mixin;
 
+import dev.albedo.legacy.SpriteAnimation;
 import dev.albedo.legacy.SpriteUpload;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureUtil;
@@ -18,7 +19,7 @@ import java.io.InputStream;
  * into frames, with the animation state kept so that a repaint (see SpriteUpload) shows the current frame.
  */
 @Mixin(TextureAtlasSprite.class)
-public abstract class TextureAtlasSpriteMixin implements SpriteUpload.Animation {
+public abstract class TextureAtlasSpriteMixin implements SpriteAnimation {
     @Shadow
     protected int frameCounter;
     @Shadow
