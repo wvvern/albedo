@@ -9,7 +9,7 @@ mcmod.info The mod version in the file is the version of the new release.
 fabric.mod.json The Fabric jar asks for Fabric Loader 0.15.0, the first version with MixinExtras, not for the version of the build.
 dev/albedo/fabric/AlbedoFabric.class The entrypoint gives the config folder of Fabric Loader to the mod.
 dev/albedo/neoforge/AlbedoNeoForge.class The entrypoint gives the config folder of NeoForge to the mod.
-dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, skySkipped() tells the 1.17 sky pass where the game draws no sky, the optional hooks, the cloud option and the flat sky hook count their runs, processSprite takes a SpriteAccess, and the fog keeps its vanilla color when the sky stays vanilla with a shader pack, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
+dev/albedo/modern/ModernHooks.class bootstrap(File) takes the config folder of the loader, the optional hooks, the cloud option and the flat sky hook count their runs, processSprite takes a SpriteAccess, the fog hooks moved to ModernFog, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
 dev/albedo/modern/ModernPlatform.class configDir() gives the config folder of the loader, and the folder of the game only when the loader gave none, and the screen shims moved to ModernScreens.
 dev/albedo/modern/ModernScreens.class A new class holds the version shims for the screens and their text.
 assets/albedo/shaders/core/sky_baked_classic.* The GL family draws the baked sky with a program of the mod.
@@ -21,7 +21,7 @@ dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is op
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows, and has no methods for skins, textures, the camera, the frame rate or the window size.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput*.class A ui command whose label the screen does not show logs "! no such control", and the ui command slide is gone.
-dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, and skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness.
+dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness, and fogRgb(float) holds the fog color choice of EntityRendererMixin.
 dev/albedo/legacy/LegacyHarnessHost*.class The host gives the hook counters and reads the world, the player, the sound and the world creation through Game.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs, and a quad goes through Game.addQuad.
 dev/albedo/legacy/Game.class A new class has the game members whose names are different on 1.8.9 and 1.12.2.
@@ -33,7 +33,7 @@ dev/albedo/legacy/ReloadScreen.class The font and the background draw come from 
 dev/albedo/legacy/OptiFineRenderPatch.class The OptiFine quad hook calls Game.addQuad.
 dev/albedo/legacy/SpriteUpload.class SpriteUpload.process is the sprite hook of 1.8.9.
 dev/albedo/legacy/mixin/TextureAtlasSpriteMixin.class The handler calls SpriteUpload.process.
-dev/albedo/legacy/mixin/EntityRendererMixin.class The fog of the camera comes from Game.specialFog.
+dev/albedo/legacy/mixin/EntityRendererMixin.class The fog handler takes its color from LegacyHooks.fogRgb.
 mixins.albedo.json The legacy build writes the client list from the mixin classes of the version, in ASCII sequence.
 dev/albedo/legacy/mixin/ForgeBlockInfoMixin.class The handler counts its runs.
 dev/albedo/legacy/mixin/ForgeVertexLighterMixin.class The handler counts its runs.
@@ -43,7 +43,7 @@ dev/albedo/legacy/mixin/SimpleTextureMixin.class The handler counts its runs.
 dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL draw reads and puts back, with the pixel buffers unbound for the work of ofAll, because 1.21.5 leaves a pack buffer bound.
 dev/albedo/modern/GlProgram*.class A new class compiles and links the GL programs of the mod.
 dev/albedo/modern/GlMesh.class A new class holds a vertex array and a buffer of the mod.
-dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack), and where the game draws no sky (ModernHooks.skySkipped) the sky stays vanilla, which 1.21.1 never reaches; it also has the SkyRenderer entry and the main target binding of 1.21.5, which 1.21.1 does not call.
+dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack), and where the game draws no sky (ModernFog.skySkipped) the sky stays vanilla, which 1.21.1 never reaches; it also has the SkyRenderer entry and the main target binding of 1.21.5, which 1.21.1 does not call.
 dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does; skycompare reads its pixels through the GL with no row length or skips.
 dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram and GlState.
 dev/albedo/modern/PearlSky.class A new class has the 26.3 part of ModernSky.
@@ -78,7 +78,12 @@ dev/albedo/modern/mixin/SodiumTintMixin.class The file has a condition around it
 dev/albedo/modern/DeviceApi*.class A new class has the calls of the GPU device that changed from 1.21.6 to 26.2, so that 1.21.8 to 26.2 share the sky and Chroma of 1.21.11.
 dev/albedo/modern/PrecompiledSharpSky*.class The device calls that changed from 1.21.10 to 26.2 go through DeviceApi.
 dev/albedo/modern/PrecompiledChromaPass*.class The pipelines, passes, textures and the timer go through DeviceApi.
-dev/albedo/modern/mixin/FogMixin.class From 1.21.6 to 1.21.10 the handler takes no parameters of computeFogColor, which has one more on 1.21.8 and 1.21.10, and gets the camera of the frame; on 1.21.1 and 1.21.11 only the line numbers change.
+dev/albedo/modern/mixin/FogMixin.class The handler calls ModernFog; before 1.21.2 SetupColorFogMixin takes its place.
+dev/albedo/modern/mixin/SetupColorFogMixin.class A new mixin sets the fog color of setupColor before 1.21.2 through ModernFog.setupColor, in place of FogMixin and MojangMathFogMixin.
+dev/albedo/modern/mixin/MojangMathFogMixin.class SetupColorFogMixin takes its place.
+dev/albedo/modern/mixin/StaticFogMixin.class The handler calls ModernFog.overrideFog, which reads the camera of the frame.
+dev/albedo/modern/mixin/FogCameraMixin.class The handler calls ModernFog.overrideFog, which reads the camera of the frame.
+dev/albedo/modern/ModernFog.class A new class has the fog color and the camera states that hide the sky, which were in ModernHooks.
 dev/albedo/modern/mixin/SkinTextureMixin.class Only the line numbers change, because 1.21.4 to 1.21.10 have a branch of their own with ResourceLocation.
 dev/albedo/modern/mixin/DryFoliageColorMixin.class The handler counts its runs.
 dev/albedo/modern/mixin/SodiumAmbientOcclusionMixin.class The handler counts its runs.

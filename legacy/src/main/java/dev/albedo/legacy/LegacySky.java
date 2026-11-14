@@ -84,7 +84,7 @@ public final class LegacySky {
     }
 
     /** The fog color {r, g, b} near the horizon where the camera looks, or null without a custom sky. */
-    public static float[] fogRgb() {
+    static float[] fogRgb() {
         SkyImage img = image();
         Entity view = Minecraft.getMinecraft().getRenderViewEntity();
         World world = Game.world();

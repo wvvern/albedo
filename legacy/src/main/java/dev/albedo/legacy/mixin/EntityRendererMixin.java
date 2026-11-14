@@ -1,6 +1,5 @@
 package dev.albedo.legacy.mixin;
 
-import dev.albedo.legacy.Game;
 import dev.albedo.legacy.LegacyChroma;
 import dev.albedo.legacy.LegacyHooks;
 import dev.albedo.legacy.LegacySky;
@@ -35,9 +34,7 @@ public abstract class EntityRendererMixin {
 
     @Inject(method = "updateFogColor", at = @At("TAIL"))
     private void albedo$flatFog(float partialTicks, CallbackInfo ci) {
-        if (Game.specialFog(partialTicks)) return;
-        float[] rgb = LegacySky.fogRgb();
-        if (rgb == null) rgb = LegacyHooks.skyRgb();
+        float[] rgb = LegacyHooks.fogRgb(partialTicks);
         if (rgb == null) return;
         fogColorRed = rgb[0];
         fogColorGreen = rgb[1];

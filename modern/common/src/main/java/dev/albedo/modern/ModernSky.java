@@ -159,12 +159,19 @@ public final class ModernSky {
 
     /** The camera yaw in degrees, where 0 looks south. */
     static float cameraYaw() {
+        //? if >=1.21.11 {
+        return mainCamera().yRot();
+        //?} else {
+        /*return mainCamera().getYRot();
+        *///?}
+    }
+
+    /** The camera of the frame. */
+    static net.minecraft.client.Camera mainCamera() {
         //? if >=26.2 {
-        return Minecraft.getInstance().gameRenderer.mainCamera().yRot();
-        //?} elif >=1.21.11 {
-        /*return Minecraft.getInstance().gameRenderer.getMainCamera().yRot();
-        *///?} else {
-        /*return Minecraft.getInstance().gameRenderer.getMainCamera().getYRot();
+        return Minecraft.getInstance().gameRenderer.mainCamera();
+        //?} else {
+        /*return Minecraft.getInstance().gameRenderer.getMainCamera();
         *///?}
     }
 

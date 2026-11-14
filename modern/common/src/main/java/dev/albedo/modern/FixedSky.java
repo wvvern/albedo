@@ -9,7 +9,6 @@ import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyTurn;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -60,7 +59,7 @@ public final class FixedSky {
     // Draws the sky sphere, but not in the fog of a fluid or of blindness, which the fogged vanilla sky shows.
     private static boolean drawSphere(Matrix4f camera) {
         SkyImage img = Albedo.skyImage();
-        if (img == null || ModernHooks.fogHidesSky(Minecraft.getInstance().gameRenderer.getMainCamera())) return false;
+        if (img == null || ModernFog.fogHidesSky(ModernSky.mainCamera())) return false;
         prepare(img);
         float k = ModernSky.brightness(img);
         SkyTurn turn = ModernSky.turn(img);

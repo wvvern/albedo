@@ -1,16 +1,16 @@
 package dev.albedo.modern.mixin;
 
-//? if <1.19.3 {
-/*import dev.albedo.modern.ModernHooks;
+//? if <1.21.2 {
+/*import dev.albedo.modern.ModernFog;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Sets the flat fog color on the versions whose vectors are com.mojang.math types, as FogMixin does.
+// Sets the flat fog color on the versions before 1.21.2, where setupColor keeps the fog color in three static fields.
 @Mixin(net.minecraft.client.renderer.FogRenderer.class)
-public abstract class MojangMathFogMixin {
+public abstract class SetupColorFogMixin {
     @Shadow private static float fogRed;
     @Shadow private static float fogGreen;
     @Shadow private static float fogBlue;
@@ -19,12 +19,10 @@ public abstract class MojangMathFogMixin {
     private static void albedo$flatFog(net.minecraft.client.Camera camera, float partialTick,
                                        net.minecraft.client.multiplayer.ClientLevel level, int renderDistance, float bossColorModifier,
                                        CallbackInfo ci) {
-        com.mojang.math.Vector4f c = new com.mojang.math.Vector4f(fogRed, fogGreen, fogBlue, 0f);
-        ModernHooks.overrideFog(camera, c);
-        fogRed = c.x();
-        fogGreen = c.y();
-        fogBlue = c.z();
-        com.mojang.blaze3d.systems.RenderSystem.clearColor(fogRed, fogGreen, fogBlue, 0.0F);
+        float[] rgb = ModernFog.setupColor(camera, fogRed, fogGreen, fogBlue);
+        fogRed = rgb[0];
+        fogGreen = rgb[1];
+        fogBlue = rgb[2];
     }
 }
 *///?}

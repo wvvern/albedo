@@ -5,16 +5,10 @@ import dev.albedo.core.Albedo;
 import dev.albedo.core.Category;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HookCounter;
-import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.texture.AtlasPaths;
 import dev.albedo.core.texture.TextureClassifier;
 import dev.albedo.core.texture.TextureStore;
 import net.minecraft.client.Minecraft;
-//? if >=1.19.3 {
-import org.joml.Vector4f;
-//?} else {
-/*import com.mojang.math.Vector4f;
-*///?}
 
 import java.io.File;
 import java.util.Arrays;
@@ -182,55 +176,6 @@ public final class ModernHooks {
     public static boolean overridesSky() {
         SKY_PASS.run();
         return Albedo.currentPolicy().overridesSky();
-    }
-
-    /** The flat sky color, or the custom sky near the horizon where the camera looks, so that the fog meets the sky. */
-    public static void overrideFog(net.minecraft.client.Camera camera, Vector4f color) {
-        if (fogHidesSky(camera)) return;
-        SkyImage img = Albedo.skyImage();
-        if (img != null && ModernSky.vanillaWithPack()) return;
-        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
-        if (level == null || level.dimension() != net.minecraft.world.level.Level.OVERWORLD) img = null;
-        float[] rgb = img != null ? img.fogRgb(ModernSky.turn(img), ModernSky.cameraYaw(), ModernSky.brightness(img)) : Albedo.currentPolicy().skyRgb();
-        if (rgb == null || color == null) return;
-        //? if >=1.19.3 {
-        color.set(rgb[0], rgb[1], rgb[2], color.w);
-        //?} else {
-        /*color.set(rgb[0], rgb[1], rgb[2], color.w());
-        *///?}
-    }
-
-    /** True when the fog code of the game gives the camera the fog of a fluid, blindness or darkness, which hides the sky. */
-    static boolean fogHidesSky(net.minecraft.client.Camera camera) {
-        //? if >=1.17 {
-        if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER) return true;
-        //?} else {
-        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.WATER)) return true;
-        *///?}
-        return skySkipped(camera);
-    }
-
-    /** True when the sky pass of the game draws no sky in lava, in powder snow, with blindness and with darkness; 1.17 still draws it. */
-    static boolean skySkipped(net.minecraft.client.Camera camera) {
-        //? if >=1.17 {
-        net.minecraft.world.level.material.FogType fluid = camera.getFluidInCamera();
-        if (fluid == net.minecraft.world.level.material.FogType.LAVA || fluid == net.minecraft.world.level.material.FogType.POWDER_SNOW) return true;
-        //?} else {
-        /*if (camera.getFluidInCamera().is(net.minecraft.tags.FluidTags.LAVA)) return true;
-        *///?}
-        //? if >=1.21.11 {
-        net.minecraft.world.entity.Entity entity = camera.entity();
-        //?} else {
-        /*net.minecraft.world.entity.Entity entity = camera.getEntity();
-        *///?}
-        if (!(entity instanceof net.minecraft.world.entity.LivingEntity)) return false;
-        net.minecraft.world.entity.LivingEntity living = (net.minecraft.world.entity.LivingEntity) entity;
-        //? if >=1.19 {
-        return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
-                || living.hasEffect(net.minecraft.world.effect.MobEffects.DARKNESS);
-        //?} else {
-        /*return living.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
-        *///?}
     }
 
     //? if >=1.19 {

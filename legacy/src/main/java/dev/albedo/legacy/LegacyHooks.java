@@ -217,8 +217,14 @@ public final class LegacyHooks {
         return Albedo.currentPolicy().overridesSky();
     }
 
-    /** @return {r, g, b} in 0..1 or null when the sky is not overridden */
-    public static float[] skyRgb() {
-        return Albedo.currentPolicy().skyRgb();
+    /**
+     * The fog color, twin of modern {@code ModernFog}: the custom sky near the horizon where the camera looks, else the flat sky color.
+     *
+     * @return {r, g, b} in 0..1, or null when the fog keeps its vanilla color (water, lava, blindness or no sky override)
+     */
+    public static float[] fogRgb(float partialTicks) {
+        if (Game.specialFog(partialTicks)) return null;
+        float[] rgb = LegacySky.fogRgb();
+        return rgb != null ? rgb : Albedo.currentPolicy().skyRgb();
     }
 }

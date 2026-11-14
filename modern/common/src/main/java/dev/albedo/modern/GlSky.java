@@ -149,7 +149,7 @@ public final class GlSky {
     // Draws the sky sphere, but not with a shader pack, whose framebuffer needs the programs of the pack, and not where the game draws no sky (blindness on 1.17).
     private static boolean drawSphere(float[] skyModelView, float[] projection) {
         SkyImage img = Albedo.skyImage();
-        if (img == null || ModernSky.vanillaWithPack() || ModernHooks.skySkipped(Minecraft.getInstance().gameRenderer.getMainCamera())) return false;
+        if (img == null || ModernSky.vanillaWithPack() || ModernFog.skySkipped(ModernSky.mainCamera())) return false;
         prepare(img);
         float k = ModernSky.brightness(img);
         float[] modelView = turned(skyModelView, ModernSky.turn(img));
