@@ -27,11 +27,22 @@ final class SkyPreview {
     private final Ui ui;
     private final SkyBaker baker;
     private CanvasImage shown;
-    /** The serial of the image that {@link #shown} comes from, whether it is turned, and the clock time when it was made. */
-    private long shownFrom = -1;
-    private boolean shownTurned;
-    private double shownAt;
+    /** What {@link #shown} was made from, or null before the first image. */
+    private Shown key;
     private long shownSerial;
+
+    /** The serial of the image that {@link #shown} comes from, whether it is turned, and the clock time when it was made. */
+    private static final class Shown {
+        final long from;
+        final boolean turned;
+        final double at;
+
+        Shown(long from, boolean turned, double at) {
+            this.from = from;
+            this.turned = turned;
+            this.at = at;
+        }
+    }
 
     /** @param errors receives a failure of a preview bake */
     SkyPreview(Ui ui, Consumer<Throwable> errors) {
@@ -109,7 +120,7 @@ final class SkyPreview {
     /** Makes {@link #shown} from a new image, and again a short time later while the sky turns, so that the preview turns too. */
     private void showImage(SkyImage img, SkyDesign drawn, boolean turned) {
         double now = SkyClock.longSeconds();
-        if (shownFrom == img.serial() && shownTurned == turned && (!turned || Math.abs(now - shownAt) < TURN_STEP_S)) return;
+        if (!stale(img, turned, now)) return;
         int rows = SkyPreviewGeometry.rows(drawn, img.height());
         if (turned) {
             int h = Math.max(1, rows * TURNED_W / img.width());
@@ -117,8 +128,11 @@ final class SkyPreview {
         } else {
             shown = new CanvasImage(Arrays.copyOf(img.argb(), rows * img.width()), img.width(), rows, ++shownSerial);
         }
-        shownFrom = img.serial();
-        shownTurned = turned;
-        shownAt = now;
+        key = new Shown(img.serial(), turned, now);
+    }
+
+    /** True when {@link #shown} is not the image of {@code img}, or is a turned image older than {@link #TURN_STEP_S}. */
+    private boolean stale(SkyImage img, boolean turned, double now) {
+        return key == null || key.from != img.serial() || key.turned != turned || (turned && Math.abs(now - key.at) >= TURN_STEP_S);
     }
 }
