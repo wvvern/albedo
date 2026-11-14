@@ -373,7 +373,6 @@ public final class LegacyChroma {
         return true;
     }
 
-    /** A compiled shader of a type, or an exception with the log of the GL. */
     private static int shader(int type, String source) {
         int shader = GL20.glCreateShader(type);
         GL20.glShaderSource(shader, source);

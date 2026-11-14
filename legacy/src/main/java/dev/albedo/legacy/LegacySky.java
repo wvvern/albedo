@@ -34,7 +34,7 @@ public final class LegacySky {
     private static int sphere = -1;
     /** The matrix of a turning sky for the GL, which each frame fills again. */
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
-    /** The rotation of the sharp sky of the sky pass, which waits for the clouds or the solid world with its brightness. */
+    /** The sharp sky of the sky pass that waits for the clouds or the solid world. */
     private static final SkyDefer<SkyTurn> DEFER = new SkyDefer<SkyTurn>();
     private static float waitingBrightness;
     /** True in a frame where the fog of water, lava or blindness hides the sky, so that the fogged vanilla sky draws. */
