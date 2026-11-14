@@ -1,8 +1,6 @@
 package dev.albedo.legacy.mixin;
 
-import dev.albedo.legacy.LegacyChroma;
 import dev.albedo.legacy.LegacyHooks;
-import dev.albedo.legacy.LegacySky;
 import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,13 +21,12 @@ public abstract class EntityRendererMixin {
 
     @Inject(method = "updateCameraAndRender", at = @At("HEAD"))
     private void albedo$frameStart(float partialTicks, long nanoTime, CallbackInfo ci) {
-        LegacyChroma.frameStart();
-        LegacySky.frameStart(partialTicks);
+        LegacyHooks.frameStart(partialTicks);
     }
 
     @Inject(method = "updateCameraAndRender", at = @At("RETURN"))
     private void albedo$frameEnd(float partialTicks, long nanoTime, CallbackInfo ci) {
-        LegacyChroma.frameEnd();
+        LegacyHooks.frameEnd();
     }
 
     @Inject(method = "updateFogColor", at = @At("TAIL"))

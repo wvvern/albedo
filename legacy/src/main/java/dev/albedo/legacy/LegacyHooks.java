@@ -65,6 +65,16 @@ public final class LegacyHooks {
         if (albedo != null) albedo.clientTick(Minecraft.getMinecraft().currentScreen != null);
     }
 
+    /** Twin of modern {@code ModernHooks.frameStart}. */
+    public static void frameStart(float partialTicks) {
+        LegacyChroma.frameStart();
+        LegacySky.frameStart(partialTicks);
+    }
+
+    public static void frameEnd() {
+        LegacyChroma.frameEnd();
+    }
+
     /**
      * Changes the animation strip of a block atlas sprite before the game makes frames and mip levels from it.
      *

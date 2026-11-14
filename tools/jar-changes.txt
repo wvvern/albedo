@@ -21,7 +21,7 @@ dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is op
 dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows, and has no methods for skins, textures, the camera, the frame rate or the window size.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput*.class A ui command whose label the screen does not show logs "! no such control", and the ui command slide is gone.
-dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness, and fogRgb(float) holds the fog color choice of EntityRendererMixin.
+dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness, fogRgb(float) holds the fog color choice of EntityRendererMixin, and frameStart and frameEnd hold the frame order of Chroma and the sky.
 dev/albedo/legacy/LegacyHarnessHost*.class The host gives the hook counters and reads the world, the player, the sound and the world creation through Game.
 dev/albedo/legacy/mixin/BlockModelRendererVanillaMixin.class The handlers count their runs, and a quad goes through Game.addQuad.
 dev/albedo/legacy/Game.class A new class has the game members whose names are different on 1.8.9 and 1.12.2.
@@ -33,7 +33,7 @@ dev/albedo/legacy/ReloadScreen.class The font and the background draw come from 
 dev/albedo/legacy/OptiFineRenderPatch.class The OptiFine quad hook calls Game.addQuad.
 dev/albedo/legacy/SpriteUpload.class SpriteUpload.process is the sprite hook of 1.8.9.
 dev/albedo/legacy/mixin/TextureAtlasSpriteMixin.class The handler calls SpriteUpload.process.
-dev/albedo/legacy/mixin/EntityRendererMixin.class The fog handler takes its color from LegacyHooks.fogRgb.
+dev/albedo/legacy/mixin/EntityRendererMixin.class The fog handler takes its color from LegacyHooks.fogRgb, and the frame handlers call LegacyHooks.frameStart and frameEnd.
 mixins.albedo.json The legacy build writes the client list from the mixin classes of the version, in ASCII sequence.
 dev/albedo/legacy/mixin/ForgeBlockInfoMixin.class The handler counts its runs.
 dev/albedo/legacy/mixin/ForgeVertexLighterMixin.class The handler counts its runs.
