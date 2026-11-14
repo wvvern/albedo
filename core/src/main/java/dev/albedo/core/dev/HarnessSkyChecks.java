@@ -40,8 +40,8 @@ final class HarnessSkyChecks {
      */
     Outcome compare(Command command) {
         command.tries(command.arg.isEmpty() ? SKY_TRIES : Integer.parseInt(command.arg));
-        SkyImage world = sharpWorldSky(command);
-        if (world == null) return Outcome.DONE;
+        SkyImage world = Albedo.skyImage();
+        if (!drawsSharp(world)) return waitForSky(command);
         if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
         SkyImage cpu = compareCpu;
         Harness.SkyDraw draw = new Harness.SkyDraw(cpu, cpu.program().block(), COMPARE_W, COMPARE_H, 1, null, new File(dir, "sky-gpu.png"));
@@ -57,14 +57,14 @@ final class HarnessSkyChecks {
      * {@code skytime [width height [yaw pitch fov]] [tries]}.
      */
     Outcome time(Command command) {
-        SkyImage world = sharpWorldSky(command);
-        if (world == null) return Outcome.DONE;
         String[] args = command.arg.isEmpty() ? new String[0] : command.arg.split("\\s+");
         int given = args.length >= 5 ? 5 : args.length >= 2 ? 2 : 0;
+        command.tries(args.length > given ? Integer.parseInt(args[given]) : SKY_TRIES);
+        SkyImage world = Albedo.skyImage();
+        if (!drawsSharp(world)) return waitForSky(command);
         int width = given > 0 ? Integer.parseInt(args[0]) : TIME_W, height = given > 0 ? Integer.parseInt(args[1]) : TIME_H;
         float yaw = given == 5 ? Float.parseFloat(args[2]) : TIME_YAW, pitch = given == 5 ? Float.parseFloat(args[3]) : TIME_PITCH;
         float fov = given == 5 ? Float.parseFloat(args[4]) : TIME_FOV;
-        command.tries(args.length > given ? Integer.parseInt(args[given]) : SKY_TRIES);
         float[] view = HarnessImages.viewCorners(yaw, pitch, fov, (float) width / height);
         float[] block = world.program().at(SkyClock.longSeconds(), SkyTurn.STILL);
         Harness.SkyDraw draw = new Harness.SkyDraw(world, block, width, height, TIME_REPEAT, view, null);
@@ -74,12 +74,15 @@ final class HarnessSkyChecks {
         }));
     }
 
-    /** @return the world sky, or null after a failure line when the shader cannot draw it */
-    private static SkyImage sharpWorldSky(Command command) {
-        SkyImage world = Albedo.skyImage();
-        if (world != null && world.program().drawsSharp()) return world;
+    private static boolean drawsSharp(SkyImage world) {
+        return world != null && world.program().drawsSharp();
+    }
+
+    /** The CPU bake of a new sky can still run on a slow machine, so the command waits for it while it has tries left. */
+    private static Outcome waitForSky(Command command) {
+        if (command.tries(0) > 0) return Outcome.RETRY;
         HarnessLog.fail(command.verb + ": the sky is not a custom sky that the shader can draw");
-        return null;
+        return Outcome.DONE;
     }
 
     /** While the shader compiles, the command runs again on the next tick. */
