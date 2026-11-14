@@ -1,5 +1,6 @@
 package dev.albedo.legacy;
 
+import dev.albedo.core.HarnessHost;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
@@ -27,7 +28,7 @@ import javax.imageio.ImageIO;
 import java.util.List;
 
 /** Development-only: what the test harness needs from the game (see {@link Harness}). */
-final class LegacyHarnessHost implements Harness.Host {
+final class LegacyHarnessHost implements HarnessHost {
     /** The Windows virtual key of a typed character that has no key of its own. */
     private static final int VK_PACKET = 0xE7;
     /** Parts of the lParam of a Windows key message: repeat count 1, the extended key, the bits of a key that goes up, the scancode. */

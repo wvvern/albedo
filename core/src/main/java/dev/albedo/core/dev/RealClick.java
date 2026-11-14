@@ -1,5 +1,7 @@
 package dev.albedo.core.dev;
 
+import dev.albedo.core.HarnessHost;
+
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Presses the button for a waiting {@code ui realclick} and releases it on the next tick, as a real click lasts some frames. */
@@ -14,7 +16,7 @@ final class RealClick {
         waiting.set(at);
     }
 
-    void tick(Harness.Host host) {
+    void tick(HarnessHost host) {
         if (pressedAt != null) {
             host.mouseButton(pressedAt[0], pressedAt[1], false);
             pressedAt = null;

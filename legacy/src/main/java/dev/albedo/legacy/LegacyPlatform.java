@@ -1,8 +1,8 @@
 package dev.albedo.legacy;
 
+import dev.albedo.core.HarnessHost;
 import dev.albedo.core.Keys;
 import dev.albedo.core.Platform;
-import dev.albedo.core.dev.Harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.Entity;
@@ -90,7 +90,7 @@ final class LegacyPlatform implements Platform {
     }
 
     @Override
-    public Harness.Host harnessHost() {
+    public HarnessHost harnessHost() {
         return new LegacyHarnessHost();
     }
 }

@@ -1,6 +1,7 @@
 package dev.albedo.core.dev;
 
 import dev.albedo.core.Albedo;
+import dev.albedo.core.HarnessHost;
 import dev.albedo.core.dev.HarnessQueue.Command;
 import dev.albedo.core.dev.HarnessQueue.Outcome;
 import dev.albedo.core.sky.SkyClock;
@@ -24,12 +25,12 @@ final class HarnessSkyChecks {
     /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
     static final double COMPARE_LIMIT = 0.02;
 
-    private final Harness.Host host;
+    private final HarnessHost host;
     private final File dir;
     /** The CPU bake of the last {@code skycompare}, which its tries share. */
     private SkyImage compareCpu;
 
-    HarnessSkyChecks(Harness.Host host, File dir) {
+    HarnessSkyChecks(HarnessHost host, File dir) {
         this.host = host;
         this.dir = dir;
     }

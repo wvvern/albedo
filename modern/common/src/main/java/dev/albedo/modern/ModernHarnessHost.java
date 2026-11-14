@@ -1,5 +1,6 @@
 package dev.albedo.modern;
 
+import dev.albedo.core.HarnessHost;
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
@@ -16,7 +17,7 @@ import java.util.List;
  * Development-only: what the test harness needs from the game (see {@link Harness}), where the {@code Harness*} classes
  * hold the parts that change the most between versions.
  */
-final class ModernHarnessHost implements Harness.Host {
+final class ModernHarnessHost implements HarnessHost {
     @Override
     public boolean inWorld() {
         Minecraft mc = Minecraft.getInstance();

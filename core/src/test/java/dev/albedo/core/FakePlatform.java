@@ -1,7 +1,5 @@
 package dev.albedo.core;
 
-import dev.albedo.core.dev.Harness;
-
 import java.io.File;
 
 /** A platform with no game: it counts reloads, rebuilds and uploads, and keeps the server and the clipboard in fields. */
@@ -42,5 +40,5 @@ public final class FakePlatform implements Platform {
     @Override public void openSettings() {}
     @Override public String clipboard() { return clipboard; }
     @Override public void setClipboard(String text) { clipboard = text; }
-    @Override public Harness.Host harnessHost() { return null; }
+    @Override public HarnessHost harnessHost() { return null; }
 }

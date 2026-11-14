@@ -1,7 +1,5 @@
 package dev.albedo.core;
 
-import dev.albedo.core.dev.Harness;
-
 import java.io.File;
 
 /** The port each loader and version adapter implements, which is the only way the core reaches the game. */
@@ -47,5 +45,5 @@ public interface Platform {
     void setClipboard(String text);
 
     /** The development test harness host; only used when {@code -Dalbedo.harness=<dir>} is set. */
-    Harness.Host harnessHost();
+    HarnessHost harnessHost();
 }

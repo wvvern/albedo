@@ -20,7 +20,9 @@ assets/albedo/shaders/core/sky_sharp_classic.vsh The far depth of a reversed dep
 dev/albedo/core/dev/HookCounter.class A new class counts the runs of one optional hook.
 dev/albedo/core/dev/Harness.class The harness has the commands hooks, keepframe and framechanged, and runs no command while the loading screen shows; the commands group, skin, release, overlay, skyparam, skyextent, skypartial, meteor, fps and window are gone.
 dev/albedo/modern/mixin/BiomeColorsMixin.class The water tint with no tint is opaque white on 26.x, because 26.x uses its alpha; 1.21.x reads only its red, green and blue and keeps the old value.
-dev/albedo/core/dev/Harness$Host.class The host gives the hook counters and tells whether the loading screen shows, and has no methods for skins, textures, the camera, the frame rate or the window size.
+dev/albedo/core/dev/Harness$Host.class The interface moved to the root package as HarnessHost.
+dev/albedo/core/HarnessHost.class The host of Harness moved here; it gives the hook counters and tells whether the loading screen shows, and has no methods for skins, textures, the camera, the frame rate or the window size.
+dev/albedo/core/Platform.class harnessHost() returns the root HarnessHost.
 dev/albedo/modern/mixin/SkyMixin.class The flat sky hook goes into each addSkyPass overload, because NeoForge 1.21.11 calls one that vanilla does not have.
 dev/albedo/core/ui/ScriptedInput*.class A ui command whose label the screen does not show logs "! no such control", and the ui command slide is gone.
 dev/albedo/legacy/LegacyHooks.class The optional hooks of 1.8.9 count their runs, and the sprite, quad and fog parts with names of one version moved to SpriteUpload and Game, skipMouseGrab() tells MouseGrabMixin to skip the grab with the harness, fogRgb(float) holds the fog color choice of EntityRendererMixin, and frameStart and frameEnd hold the frame order of Chroma and the sky.

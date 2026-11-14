@@ -14,6 +14,7 @@ No single toolchain builds both 1.8.9 Forge and 26.x, so there are two Gradle bu
 
 - The core makes every decision: config, groups, matching, colors, pixel math, presets, keys, config reload. `Policy` holds all render decisions for one config snapshot.
 - `Platform` is the port to the game (config folder, log, resource reload, chunk rebuild, repaint upload, messages, keys, clipboard, settings screen, harness host).
+- `HarnessHost` is the port from `dev/Harness` to the game (worlds, input, screenshots, sky draws, hook counters). It is in the root package, so `Platform` imports nothing from `dev`. `root -> dev` stays: `Albedo` makes the `Harness`, and `HarnessHost` names the harness value types (`Harness.SkyDraw`, `HookCounter`). The cycle goes only when the adapter bootstrap makes the `Harness`.
 - `ui/Canvas` is the port for drawing (`fill`, `text`, `image`, sizes). The settings screen is an immediate-mode UI in core; each version's screen class only forwards draws and input.
 - `ui/ScriptPort` is the port from the settings screen to the harness (`ui` commands, their log lines, `realclick`). `dev/Harness` gives it through `Albedo.scriptPort`; it is null with no harness. So `ui` imports nothing from `dev`. `Albedo` is the composition root: it makes the `Harness`, so `root -> dev` stays.
 - `texture/ChromaTexels.Source` gives the Chroma texels of a sprite to `ChromaTexels.Atlas`. The adapters pass `Albedo::chromaTexels`, so `texture` does not import `Albedo`.
