@@ -16,10 +16,8 @@ import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GLContext;
 
 import java.awt.image.BufferedImage;
@@ -217,17 +215,12 @@ final class LegacySharpSky {
         GlStateManager.disableCull();
         GlStateManager.disableAlpha();
         equirect.use(new Block().set(values), texture, 1f);
-        ContextCapabilities caps = GLContext.getCapabilities();
-        boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
-        int query = timed ? GL15.glGenQueries() : 0;
-        if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
+        LegacyGpuTimer timer = new LegacyGpuTimer();
+        timer.begin();
         for (int i = 0; i < repeat; i++) Game.drawTriangles(SkyImage.quad(view));
-        long nanos = -1;
-        if (timed) {
-            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
-            nanos = GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT) / repeat;
-            GL15.glDeleteQueries(query);
-        }
+        timer.end();
+        long nanos = LegacyGpuTimer.supported() ? timer.nanos() / repeat : -1;
+        timer.close();
         GL20.glUseProgram(0);
         IntBuffer pixels = BufferUtils.createIntBuffer(width * height);
         GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
