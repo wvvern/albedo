@@ -65,10 +65,13 @@ dependencies {
     mappings(mappingsVersion)
     forge(forgeVersion)
 
-    shadowImpl("org.spongepowered:mixin:0.7.11-SNAPSHOT") {
+    // The 0.7.11 processor fails on the Fabric obfuscation service of Loom (AbstractMethodError in ObfuscationServices.initProviders).
+    val mixinRuntime = "org.spongepowered:mixin:0.7.11-SNAPSHOT"
+    val mixinProcessor = "org.spongepowered:mixin:0.8.5-SNAPSHOT"
+    shadowImpl(mixinRuntime) {
         isTransitive = false
     }
-    annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT")
+    annotationProcessor(mixinProcessor)
 }
 
 tasks.withType(JavaCompile::class) {
