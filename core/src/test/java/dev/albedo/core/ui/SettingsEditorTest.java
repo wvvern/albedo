@@ -98,6 +98,23 @@ class SettingsEditorTest {
     }
 
     @Test
+    void aClickOnTheOnTextTurnsAlbedoOff() throws Exception {
+        sc.apply(Config.defaults());
+        try {
+            SettingsEditor editor = new SettingsEditor(sc);
+            RecordingCanvas canvas = new RecordingCanvas(533, 300);
+            editor.render(canvas, 0, 0);
+            click(editor, canvas, "On");
+            assertNotNull(canvas.find("Off"), "the switch shows Off: " + canvas.texts.keySet());
+            click(editor, canvas, "Done");
+            assertFalse(sc.config().enabled());
+            assertFalse(saved().enabled());
+        } finally {
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
     void theProfileListFiltersAsYouType() {
         sc.apply(Config.defaults());
         SettingsEditor editor = new SettingsEditor(sc);
@@ -275,6 +292,22 @@ class SettingsEditorTest {
             assertTrue(sc.config().enabled());
             playOn("mc.hypixel.net");
             assertEquals("quake-black", sc.config().activeProfileName(), "the rule applies again on the next visit");
+        } finally {
+            playOn(null);
+            sc.apply(Config.defaults());
+        }
+    }
+
+    @Test
+    void offStaysOffAfterTheRuleOfTheServerIsRemoved() throws Exception {
+        sc.apply(withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black")));
+        try {
+            playOn("mc.hypixel.net");
+            sc.apply(sc.storedConfig(), new Config.State(true, "minimal"));
+            sc.apply(sc.storedConfig().withoutServer("hypixel.net"));
+            sc.apply(sc.storedConfig(), new Config.State(false, "test")); // the On switch and Apply do this
+            assertFalse(sc.config().enabled(), "off in the world");
+            assertFalse(saved().enabled(), "off in the file");
         } finally {
             playOn(null);
             sc.apply(Config.defaults());

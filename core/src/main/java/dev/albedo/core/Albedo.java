@@ -102,6 +102,8 @@ public final class Albedo {
     private void update() {
         Config c = config;
         ServerRule rule = server == null ? null : c.serverRule(server);
+        // The visit state belongs to the rule, so a removed rule takes it away too.
+        if (rule == null) visitState = null;
         if (visitState != null && c.profiles().containsKey(visitState.profile)) c = c.withState(visitState);
         else if (rule != null && rule.profile() == null) c = c.withEnabled(false);
         else if (rule != null) c = c.withState(new Config.State(true, rule.profile()));

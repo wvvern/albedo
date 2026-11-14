@@ -1,0 +1,21 @@
+# The On switch of the settings screen turns Albedo off, through the game's own mouse, and Apply and Done keep it off.
+wait 60
+profile quake-white
+wait 60
+settings open
+wait 20
+ui realclick On
+wait 10
+screenshot s1-switched-off
+ui realclick Apply
+wait 20
+screenshot s2-after-apply
+ui realclick Done
+wait 40
+screenshot s3-after-done
+settings open
+wait 20
+screenshot s4-reopened
+settings close
+hooks
+quit
