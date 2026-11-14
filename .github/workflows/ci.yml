@@ -42,7 +42,10 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: 21
+          # The tool chain of core/build.gradle, then MODERN_GRADLE_JAVA of tools/project.py; tools/tests/test_ci_matrix.py checks both.
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@v5
       - run: python3 -m tools lint
       - name: Check the tools
@@ -50,7 +53,7 @@ jobs:
           python3 -m unittest discover -s tools/tests -t .
           pipx run ruff==0.17.5 check tools
           pipx run ruff==0.17.5 format --check tools
-      - run: ./gradlew --configure-on-demand :core:check
+      - run: ./gradlew --configure-on-demand :core:check -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64
         working-directory: modern
       - name: Release notes
         # A tag without its CHANGELOG.md section fails here, so no release is made.

@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from tools import ci_matrix, project
@@ -49,6 +50,14 @@ class RepositoryTest(unittest.TestCase):
         built = [name for row in self.outputs["nodes"] for name in row["targets"].split()]
         self.assertEqual([target.name for target in project.targets()], built)
         self.assertEqual(self.outputs["jars"], len(built))
+
+    def test_the_check_job_has_the_core_tool_chain_and_the_gradle_java(self):
+        workflow = (project.ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        check_job = re.search(r"\n  check:\n(.*?)\n  \w+:\n", workflow, re.DOTALL).group(1)
+        core = re.search(r"JavaLanguageVersion\.of\((\d+)\)", (project.ROOT / "core" / "build.gradle").read_text(encoding="utf-8")).group(1)
+        java = re.search(r"java-version: \|\n\s+(\d+)\n\s+(\d+)\n", check_job).groups()
+        self.assertEqual((core, str(project.MODERN_GRADLE_JAVA)), java)
+        self.assertIn(f"JAVA_HOME_{core}_X64", check_job)
 
     def test_each_row_uploads_its_own_minecraft_version(self):
         for row in self.outputs["nodes"]:

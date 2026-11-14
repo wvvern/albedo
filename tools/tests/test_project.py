@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from tools import project
@@ -70,3 +71,7 @@ class RepositoryTest(unittest.TestCase):
     def test_an_unknown_target_is_an_error(self):
         with self.assertRaises(ToolError):
             project.find_target("fabric-0.0.1")
+
+    def test_the_legacy_java_is_the_one_of_the_legacy_build(self):
+        script = (project.LEGACY / "version.gradle.kts").read_text(encoding="utf-8")
+        self.assertEqual({str(project.LEGACY_JAVA)}, set(re.findall(r"JavaLanguageVersion\.of\((\d+)\)", script)))

@@ -17,15 +17,17 @@ SETTINGS = "modern/settings.gradle"
 LEGACY_SETTINGS = "legacy/settings.gradle.kts"
 BUILD_PROPERTIES = "modern/gradle.properties"
 STONECUTTER = "modern/stonecutter.gradle"
+LEGACY_DAEMON_JVM = "legacy/gradle/gradle-daemon-jvm.properties"
 
 # The list in modern/settings.gradle of each loader, in the sequence of the loaders in a jar listing.
 NODE_LISTS = {"fabric": "nodes", "forge": "forgeNodes", "neoforge": "neoforgeNodes"}
 ARCHIVE = "albedo"
 JAR_GLOB = f"{ARCHIVE}-*.jar"
 JAR_NAME = re.compile(rf"{ARCHIVE}-(?P<loader>[a-z]+)-(?P<version>.+)\+(?P<minecraft>[^+]+)\.jar")
-# The Java that runs Gradle in each build, which is not the Java of a node.
+# The Java that runs the modern Gradle build, which is not the Java of a node. The legacy one is in LEGACY_DAEMON_JVM.
 MODERN_GRADLE_JAVA = 25
-LEGACY_GRADLE_JAVA = 21
+# The tool chain of each legacy node, JavaLanguageVersion.of(8) in legacy/version.gradle.kts.
+LEGACY_JAVA = 8
 
 
 def node_properties_file(node: str) -> str:
@@ -47,6 +49,11 @@ def parse_properties(text: str) -> dict[str, str]:
 
 def read_properties(file: str) -> dict[str, str]:
     return parse_properties((ROOT / file).read_text(encoding="utf-8"))
+
+
+@cache
+def legacy_gradle_java() -> int:
+    return int(read_properties(LEGACY_DAEMON_JVM)["toolchainVersion"])
 
 
 def version_key(version: str) -> tuple[int, ...]:
@@ -124,7 +131,7 @@ class Node:
 
     @property
     def gradle_java(self) -> int:
-        return LEGACY_GRADLE_JAVA if self.legacy else MODERN_GRADLE_JAVA
+        return legacy_gradle_java() if self.legacy else MODERN_GRADLE_JAVA
 
     @property
     def build_dir(self) -> Path:
@@ -172,7 +179,7 @@ def nodes() -> tuple[Node, ...]:
         loaders = [loader for loader in NODE_LISTS if name in lists[loader]]
         found.append(Node(name, False, tuple(Target(loader, name, minecraft, java, legacy=False) for loader in loaders)))
     for version in legacy_versions((ROOT / LEGACY_SETTINGS).read_text(encoding="utf-8")):
-        found.append(Node(version, True, (Target("forge", version, version, 8, legacy=True),)))
+        found.append(Node(version, True, (Target("forge", version, version, LEGACY_JAVA, legacy=True),)))
     return tuple(found)
 
 

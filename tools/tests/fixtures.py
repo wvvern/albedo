@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.project import Target
+from tools.project import LEGACY_JAVA, Target
 
 
 def modern(loader: str, minecraft: str, java: int, node: str | None = None) -> Target:
@@ -13,7 +13,7 @@ def modern(loader: str, minecraft: str, java: int, node: str | None = None) -> T
 
 
 def legacy(minecraft: str) -> Target:
-    return Target("forge", minecraft, minecraft, 8, legacy=True)
+    return Target("forge", minecraft, minecraft, LEGACY_JAVA, legacy=True)
 
 
 def temp_dir(test: unittest.TestCase) -> Path:
