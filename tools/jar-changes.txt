@@ -44,8 +44,8 @@ dev/albedo/modern/GlState.class A new class holds the GL state that a raw GL dra
 dev/albedo/modern/GlProgram*.class A new class compiles and links the GL programs of the mod.
 dev/albedo/modern/GlMesh.class A new class holds a vertex array and a buffer of the mod.
 dev/albedo/modern/GlSky*.class A new class has the 1.21.1 part of ModernSky and draws the baked sky with a program of the mod; with an Iris shader pack the sky of 1.21.1 stays vanilla (ModernSky.vanillaWithPack), and where the game draws no sky (ModernFog.skySkipped) the sky stays vanilla, which 1.21.1 never reaches; it also has the SkyRenderer entry and the main target binding of 1.21.5, which 1.21.1 does not call.
-dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does; skycompare reads its pixels through the GL with no row length or skips.
-dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram and GlState.
+dev/albedo/modern/GlSharpSky*.class The sharp sky of 1.21.1 uses no vertex or shader class of the game, and its black sphere writes the alpha 0, as 1.21.11 does; skycompare reads its pixels through the GL with no row length or skips, and times its draws with GlTimeQuery.
+dev/albedo/modern/GlChromaPass*.class The Chroma pass of 1.21.1 uses GlProgram, GlState and GlTimeQuery.
 dev/albedo/modern/PearlSky.class A new class has the 26.3 part of ModernSky.
 dev/albedo/modern/PrecompiledSky.class A new class has the 1.21.11 part of ModernSky.
 dev/albedo/modern/ModernSky.class The class keeps only the parts that all versions share, vanillaWithPack is the shader pack rule of the sky and the fog, and drawDisc sends the sky disc of 1.21.2 and later to the sky class of the family.
@@ -102,6 +102,8 @@ dev/albedo/legacy/LegacyOffscreen.class A new class holds the framebuffer of the
 dev/albedo/core/dev/GlReadback.class A new class turns the GL pixel reads of the harness into opaque ARGB rows from the top.
 dev/albedo/core/dev/HarnessConfigCommands.class A new class has the parsers of the harness commands that change the config.
 dev/albedo/core/dev/Harness$Verb.class A new interface is one entry of the verb table of the harness.
-dev/albedo/modern/FixedSharpSky.class The class logs through HarnessLog.
+dev/albedo/modern/FixedSharpSky*.class The class logs through HarnessLog, and skycompare times its draws with GlTimeQuery.
+dev/albedo/modern/FixedChromaPass*.class The Chroma timer is GlTimeQuery.
+dev/albedo/modern/GlTimeQuery.class A new class holds one GL time query for the Chroma timer and skycompare before 1.21.11.
 dev/albedo/modern/SharpSky.class The class logs through HarnessLog.
 dev/albedo/modern/KeyCodes.class A new class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.

@@ -11,14 +11,11 @@ import dev.albedo.core.sky.SkyMesh;
 import dev.albedo.core.sky.SkyProgram;
 import dev.albedo.core.sky.SkyShaderCache;
 import dev.albedo.core.sky.SkyShaderSource;
-import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryUtil;
 //? if >=1.21.5 {
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -179,16 +176,7 @@ final class GlSharpSky {
         GlStateManager._disableDepthTest();
         GlStateManager._disableCull();
         equirect.use(new Block().set(values), texture, 1f);
-        boolean timed = GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_timer_query;
-        int query = timed ? GL15.glGenQueries() : 0;
-        if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        for (int i = 0; i < repeat; i++) quad.draw();
-        long nanos = -1;
-        if (timed) {
-            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
-            nanos = GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT) / repeat;
-            GL15.glDeleteQueries(query);
-        }
+        long nanos = GlTimeQuery.timeEach(repeat, quad::draw);
         int[] argb = readPixels(width, height);
         saved.restore();
         GlStateManager._glDeleteFramebuffers(framebuffer);

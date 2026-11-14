@@ -14,10 +14,8 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GLCapabilities;
 
 import java.nio.ByteBuffer;
@@ -128,7 +126,7 @@ final class FixedChromaPass implements ChromaBackend {
 
     @Override
     public ChromaBackend.Timer timer() {
-        return new Timer();
+        return new GlTimeQuery();
     }
 
     private static final class Target implements ChromaBackend.Target {
@@ -262,31 +260,6 @@ final class FixedChromaPass implements ChromaBackend {
         public void close() {
             GL11.glDeleteTextures(pristine);
             GL11.glDeleteTextures(texels);
-        }
-    }
-
-    private static final class Timer implements ChromaBackend.Timer {
-        private final int query = GL15.glGenQueries();
-
-        @Override
-        public void begin() {
-            GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        }
-
-        @Override
-        public void end() {
-            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
-        }
-
-        @Override
-        public long nanos() {
-            if (GL15.glGetQueryObjecti(query, GL15.GL_QUERY_RESULT_AVAILABLE) == GL11.GL_FALSE) return -1;
-            return GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT);
-        }
-
-        @Override
-        public void close() {
-            GL15.glDeleteQueries(query);
         }
     }
 }

@@ -17,10 +17,8 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GLCapabilities;
 
 import java.awt.image.BufferedImage;
@@ -198,8 +196,7 @@ final class FixedSharpSky {
     // Draws the program and the term images of a sky repeat times into an image of this size, then gives the pixels and the
     // GPU time of one draw, and returns false when the shader cannot compile.
     static boolean drawEquirect(SkyImage sky, float[] values, int width, int height, int repeat, float[] view, File png, Harness.SkyDone done) {
-        GLCapabilities caps = GL.getCapabilities();
-        if (!caps.OpenGL30) return false;
+        if (!GL.getCapabilities().OpenGL30) return false;
         Program equirect = EQUIRECT.get(sky.program().shaderSteps());
         if (!equirect.ready()) return false;
         GlState saved = GlState.ofFixedDraw();
@@ -207,58 +204,70 @@ final class FixedSharpSky {
         IntBuffer viewport = BufferUtils.createIntBuffer(16);
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
         boolean alpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
-        // A framebuffer of its own, so that the render target of the game stays as it is.
-        int color = GlStateManager._genTexture();
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(color);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
-        int target = GlStateManager.glGenFramebuffers();
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, target);
-        GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, color, 0);
-        GL11.glViewport(0, 0, width, height);
+        Offscreen target = new Offscreen(width, height);
         int texture = uploadTerms(sky);
         GlStateManager._disableBlend();
         GlStateManager._disableDepthTest();
         GlStateManager._disableCull();
         GlStateManager._disableAlphaTest();
         equirect.use(new Block().set(values), texture, 1f);
-        boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
-        int query = timed ? GL15.glGenQueries() : 0;
-        if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        for (int i = 0; i < repeat; i++) drawTriangles(SkyMesh.quad(view));
-        long nanos = -1;
-        if (timed) {
-            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
-            nanos = GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT) / repeat;
-            GL15.glDeleteQueries(query);
+        long nanos = GlTimeQuery.timeEach(repeat, () -> drawTriangles(SkyMesh.quad(view)));
+        int[] argb = readArgb(width, height);
+        if (alpha) GlStateManager._enableAlphaTest();
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebufferBefore);
+        GL11.glViewport(viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
+        target.close();
+        GlStateManager._deleteTexture(texture);
+        saved.restore();
+        if (png != null) save(argb, width, height, png);
+        done.accept(argb, nanos);
+        return true;
+    }
+
+    // A framebuffer of its own with a color texture of this size, bound with its viewport, so that the render target of the game
+    // stays as it is.
+    private static final class Offscreen {
+        private final int color = GlStateManager._genTexture();
+        private final int framebuffer;
+
+        Offscreen(int width, int height) {
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(color);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            framebuffer = GlStateManager.glGenFramebuffers();
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer);
+            GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, color, 0);
+            GL11.glViewport(0, 0, width, height);
         }
+
+        void close() {
+            GlStateManager._glDeleteFramebuffers(framebuffer);
+            GlStateManager._deleteTexture(color);
+        }
+    }
+
+    // The opaque pixels of the bound framebuffer from the top row down, as ARGB.
+    private static int[] readArgb(int width, int height) {
         IntBuffer pixels = BufferUtils.createIntBuffer(width * height);
         GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
         GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, 0);
         GL11.glPixelStorei(GL11.GL_PACK_SKIP_ROWS, 0);
         GL11.glPixelStorei(GL11.GL_PACK_SKIP_PIXELS, 0);
         GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
-        if (alpha) GlStateManager._enableAlphaTest();
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebufferBefore);
-        GL11.glViewport(viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
-        GlStateManager._glDeleteFramebuffers(target);
-        GlStateManager._deleteTexture(color);
-        GlStateManager._deleteTexture(texture);
-        saved.restore();
-        int[] argb = GlReadback.argbTopDown(pixels, width, height);
-        if (png != null) {
-            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-            image.setRGB(0, 0, width, height, argb, 0, width);
-            try {
-                ImageIO.write(image, "png", png);
-            } catch (IOException e) {
-                HarnessLog.fail("cannot save " + png + ": " + e);
-            }
+        return GlReadback.argbTopDown(pixels, width, height);
+    }
+
+    // Writes pixels from the top row down into a PNG file.
+    private static void save(int[] argb, int width, int height, File png) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(0, 0, width, height, argb, 0, width);
+        try {
+            ImageIO.write(image, "png", png);
+        } catch (IOException e) {
+            HarnessLog.fail("cannot save " + png + ": " + e);
         }
-        done.accept(argb, nanos);
-        return true;
     }
 }
 *///?}

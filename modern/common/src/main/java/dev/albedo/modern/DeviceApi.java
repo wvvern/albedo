@@ -46,11 +46,6 @@ import com.mojang.blaze3d.platform.CompareOp;
 //?} else {
 /^import com.mojang.blaze3d.platform.DepthTestFunction;
 ^///?}
-//? if <1.21.11 {
-/^import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL33;
-^///?}
 //? if >=1.21.11 {
 import com.mojang.blaze3d.textures.GpuSampler;
 //?}
@@ -340,23 +335,22 @@ final class DeviceApi {
             query.close();
         }
         *///?} else {
-        /*private final int query = GL15.glGenQueries();
+        /*private final GlTimeQuery query = new GlTimeQuery();
 
         private Timer() {
-            GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
+            query.begin();
         }
 
         void end() {
-            GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
+            query.end();
         }
 
         OptionalLong value() {
-            if (GL15.glGetQueryObjecti(query, GL15.GL_QUERY_RESULT_AVAILABLE) == GL11.GL_FALSE) return OptionalLong.empty();
-            return OptionalLong.of(GL33.glGetQueryObjecti64(query, GL15.GL_QUERY_RESULT));
+            return query.value();
         }
 
         void close() {
-            GL15.glDeleteQueries(query);
+            query.close();
         }
         *///?}
 
