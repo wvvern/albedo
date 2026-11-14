@@ -49,9 +49,7 @@ class Finished:
 class System(Protocol):
     """What a run needs from the operating system."""
 
-    def uses(self, harness: Path) -> bool:
-        """Whether a game runs with this harness folder."""
-        ...
+    def uses(self, harness: Path) -> bool: ...
 
     def start(self, launch: Launch, harness: Path) -> int: ...
 
