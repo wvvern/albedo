@@ -8,7 +8,7 @@ Pushing a tag such as `v1.2.0` makes CI build the jar of each target (39 now), c
 2. Pick the version: features bump the minor, fixes only bump the patch, breaking config changes bump the major (the minor before 1.0.0).
 3. Set `mod_version` in `modern/gradle.properties`.
 4. Write the `CHANGELOG.md` section at the top (rules below) and check it with `python -m tools release-notes X.Y.Z`.
-5. Run the harness suites on every target, update `docs/TESTED.md`, and start the release jars in a normal game.
+5. Run the harness suites on every target and start the release jars in a normal game.
 6. Commit `chore: Release X.Y.Z`, push, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
 7. Watch the CI run and check the release has 39 jars and the notes.
 

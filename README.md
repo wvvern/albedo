@@ -86,7 +86,7 @@ All settings are in `config/albedo/config.json`, including the keys. Albedo load
 
 ## Compatibility
 
-- **Sodium, Embeddium and Rubidium:** everything works. [docs/TESTED.md](docs/TESTED.md) lists each run.
+- **Sodium, Embeddium and Rubidium:** everything works.
 - **Vulkan on 26.2 and later:** everything works with both the OpenGL and the Vulkan backend.
 - **OptiFine on 1.8.9:** everything works. The custom sky needs the OptiFine Sky setting on. With an OptiFine shader pack, the sky stays vanilla.
 - **OptiFine on other versions:** not supported.
