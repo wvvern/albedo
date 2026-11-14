@@ -65,7 +65,10 @@ dependencies {
     mappings(mappingsVersion)
     forge(forgeVersion)
 
-    // The 0.7.11 processor fails on the Fabric obfuscation service of Loom (AbstractMethodError in ObfuscationServices.initProviders).
+    // The runtime and the processor cannot be one version.
+    // The runtime is 0.7.11 because it has its own ASM (org.spongepowered.asm.lib, which LegacySkyPatch, MixinPlugin and
+    // OptiFineRenderPatch use): 0.8 needs ASM 5.2 (ClassRemapper), and Forge 1.8.9 has ASM 5.0.3.
+    // The processor is 0.8.5 because the 0.7.11 processor fails on the obfuscation service that Loom adds (AbstractMethodError).
     val mixinRuntime = "org.spongepowered:mixin:0.7.11-SNAPSHOT"
     val mixinProcessor = "org.spongepowered:mixin:0.8.5-SNAPSHOT"
     shadowImpl(mixinRuntime) {
