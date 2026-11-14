@@ -21,12 +21,7 @@ public abstract class ElytraMixin {
             at = @At("HEAD"), cancellable = true)
     private void albedo$elytra(PoseStack pose, net.minecraft.client.renderer.SubmitNodeCollector nodes, int light,
             net.minecraft.client.renderer.entity.state.HumanoidRenderState state, float yRot, float xRot, CallbackInfo ci) {
-        //? if >=26.2 {
-        net.minecraft.world.entity.EntityType<?> player = net.minecraft.world.entity.EntityTypes.PLAYER;
-        //?} else {
-        /*net.minecraft.world.entity.EntityType<?> player = net.minecraft.world.entity.EntityType.PLAYER;
-        *///?}
-        if (ModernHooks.hideElytra(state.entityType == player)) ci.cancel();
+        if (ModernHooks.hideElytra(state.entityType)) ci.cancel();
     }
     //?} elif >=1.21.2 {
     /*@Inject(method = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/renderer/entity/state/HumanoidRenderState;FF)V",

@@ -275,6 +275,26 @@ public final class ModernHooks {
         return player && !Albedo.currentPolicy().playerCape();
     }
 
+    public static boolean hideArmor(net.minecraft.world.entity.EntityType<?> type) {
+        return hideArmor(isPlayer(type));
+    }
+
+    public static boolean hideElytra(net.minecraft.world.entity.EntityType<?> type) {
+        return hideElytra(isPlayer(type));
+    }
+
+    public static boolean hideCape(net.minecraft.world.entity.EntityType<?> type) {
+        return hideCape(isPlayer(type));
+    }
+
+    private static boolean isPlayer(net.minecraft.world.entity.EntityType<?> type) {
+        //? if >=26.2 {
+        return type == net.minecraft.world.entity.EntityTypes.PLAYER;
+        //?} else {
+        /*return type == net.minecraft.world.entity.EntityType.PLAYER;
+        *///?}
+    }
+
     /** The cloud option that the renderer reads in this frame, which is off while the profile hides the clouds. */
     public static net.minecraft.client.CloudStatus cloudStatus(net.minecraft.client.CloudStatus option) {
         CLOUDS.run();
