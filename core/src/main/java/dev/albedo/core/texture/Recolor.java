@@ -3,6 +3,7 @@ package dev.albedo.core.texture;
 import dev.albedo.core.Colors;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.config.Appearance;
+import dev.albedo.core.sky.Oklab;
 
 import java.util.Arrays;
 
@@ -113,64 +114,11 @@ final class Recolor {
         }
     }
 
-    /**
-     * Colors seen in this image and their results, because textures have few distinct colors, with room for twice the
-     * colors it keeps so that a lookup always reaches an empty slot soon.
-     */
-    static final class ColorCache {
-        private static final int MAX_SIZE = 1 << 13;
-        private final int[] keys, values;
-        private final boolean[] used;
-        private final int mask;
-        private int count;
-        /** The result of the last color that did not fit, because the cache keeps at most half its size. */
-        private int spare;
-
-        ColorCache(int pixels) {
-            int size = Integer.highestOneBit(Math.max(4, Math.min(MAX_SIZE, pixels * 2) - 1)) << 1;
-            keys = new int[size];
-            values = new int[size];
-            used = new boolean[size];
-            mask = size - 1;
-        }
-
-        /** The slot of the color, or the empty slot where it belongs. */
-        int slot(int argb) {
-            int i = (argb * 0x9E3779B9 >>> 16) & mask;
-            while (used[i] && keys[i] != argb) i = (i + 1) & mask;
-            return i;
-        }
-
-        boolean has(int slot) {
-            return used[slot];
-        }
-
-        void store(int slot, int argb, int result) {
-            if (count * 2 >= keys.length) {
-                spare = result;
-                return;
-            }
-            used[slot] = true;
-            keys[slot] = argb;
-            values[slot] = result;
-            count++;
-        }
-
-        int value(int slot, int argb) {
-            return used[slot] && keys[slot] == argb ? values[slot] : spare;
-        }
-    }
-
     /** OKLab {L, a, b} of an sRGB color. */
     static double[] lab(int argb) {
-        double r = LINEAR[Colors.red(argb)], g = LINEAR[Colors.green(argb)], b = LINEAR[Colors.blue(argb)];
-        double l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-        double m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-        double s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-        return new double[]{
-            0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s};
+        double[] lab = new double[3];
+        Oklab.lab(LINEAR[Colors.red(argb)], LINEAR[Colors.green(argb)], LINEAR[Colors.blue(argb)], lab);
+        return lab;
     }
 
     /** The opaque sRGB color of an OKLab color, with less chroma at the same lightness and hue when it is out of gamut. */
@@ -189,16 +137,9 @@ final class Recolor {
     }
 
     private static double[] linear(double lightness, double a, double b) {
-        double l = lightness + 0.3963377774 * a + 0.2158037573 * b;
-        double m = lightness - 0.1055613458 * a - 0.0638541728 * b;
-        double s = lightness - 0.0894841775 * a - 1.2914855480 * b;
-        l = l * l * l;
-        m = m * m * m;
-        s = s * s * s;
-        return new double[]{
-            4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s};
+        double[] rgb = new double[3];
+        Oklab.linear(lightness, a, b, rgb);
+        return rgb;
     }
 
     private static boolean inGamut(double[] rgb) {

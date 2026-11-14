@@ -134,7 +134,7 @@ class RecolorTest {
     @Test
     void aFullColorCacheGivesTheSpareResult() {
         // Two pixels give 8 slots, of which the cache keeps at most 4.
-        Recolor.ColorCache cache = new Recolor.ColorCache(2);
+        ColorCache cache = new ColorCache(2);
         for (int color = 1; color <= 4; color++) cache.store(cache.slot(color), color, color * 10);
         int slot = cache.slot(5);
         assertFalse(cache.has(slot));

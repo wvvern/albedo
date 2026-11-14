@@ -1,7 +1,7 @@
 #ifndef ALBEDO_OKLAB_GLSL
 #define ALBEDO_OKLAB_GLSL
 
-// The sRGB and OKLab color math of sky.Oklab and texture.Recolor in the core, which the sky and the Chroma pass share.
+// The sRGB and OKLab color math of sky.Oklab in the core, which the sky and the Chroma pass share.
 
 float albedoCbrt(float x) {
     return sign(x) * pow(abs(x), 1.0 / 3.0);

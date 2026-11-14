@@ -196,7 +196,7 @@ final class Effects {
     private static void chroma(PixelBuffer img, int y0, int frameH, double turns, double offset, boolean[] edge, ChromaTarget target) {
         double hue = hueAt(turns) + offset;
         // Pixel art repeats few colors, so each color is converted once per frame where the hue is the same for all pixels.
-        Recolor.ColorCache cache = new Recolor.ColorCache(img.width() * frameH);
+        ColorCache cache = new ColorCache(img.width() * frameH);
         int w = img.width();
         for (int y = y0; y < y0 + frameH; y++) {
             for (int x = 0; x < w; x++) {
