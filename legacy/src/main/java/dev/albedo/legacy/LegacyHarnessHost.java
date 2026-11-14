@@ -1,6 +1,7 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Keys;
+import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
@@ -71,10 +72,7 @@ final class LegacyHarnessHost implements Harness.Host {
             @Override
             public void run() {
                 BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-                // The GL rows go from the bottom up.
-                for (int y = 0; y < h; y++) {
-                    for (int x = 0; x < w; x++) image.setRGB(x, y, pixels.get((h - 1 - y) * w + x));
-                }
+                image.setRGB(0, 0, w, h, GlReadback.argbTopDown(pixels, w, h), 0, w);
                 try {
                     ImageIO.write(image, "png", png);
                     HarnessLog.log("saved " + png.getName());
@@ -89,13 +87,7 @@ final class LegacyHarnessHost implements Harness.Host {
     public void framePixels(Harness.FramePixels done) {
         Minecraft mc = Minecraft.getMinecraft();
         int w = mc.displayWidth, h = mc.displayHeight;
-        IntBuffer pixels = readFrame(w, h);
-        int[] argb = new int[w * h];
-        // The GL rows go from the bottom up.
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) argb[y * w + x] = pixels.get((h - 1 - y) * w + x) | 0xFF000000;
-        }
-        done.accept(w, h, argb);
+        done.accept(w, h, GlReadback.argbTopDown(readFrame(w, h), w, h));
     }
 
     /** The BGRA pixels of the frame of the game, from the bottom row up. */

@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 //? if gl_sky {
 /*import com.mojang.blaze3d.platform.NativeImage;
+import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
@@ -220,7 +221,6 @@ final class GlSharpSky {
 
     // The opaque pixels of the bound framebuffer from the top row down, as ARGB.
     private static int[] readPixels(int width, int height) {
-        int[] argb = new int[width * height];
         ByteBuffer bytes = MemoryUtil.memAlloc(width * height * 4);
         try {
             // The game can leave a row length and skips for its own reads.
@@ -229,18 +229,10 @@ final class GlSharpSky {
             GlStateManager._pixelStore(GL11.GL_PACK_SKIP_PIXELS, 0);
             GlStateManager._pixelStore(GL11.GL_PACK_ALIGNMENT, 4);
             GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes);
-            for (int y = 0; y < height; y++) {
-                // The GL gives the bottom row first.
-                int row = (height - 1 - y) * width * 4;
-                for (int x = 0; x < width; x++) {
-                    int at = row + x * 4;
-                    argb[y * width + x] = 0xFF000000 | (bytes.get(at) & 0xFF) << 16 | (bytes.get(at + 1) & 0xFF) << 8 | (bytes.get(at + 2) & 0xFF);
-                }
-            }
+            return GlReadback.argbTopDown(bytes, width, height);
         } finally {
             MemoryUtil.memFree(bytes);
         }
-        return argb;
     }
 
     // Writes pixels from the top row down into a PNG file.

@@ -1,6 +1,7 @@
 package dev.albedo.legacy;
 
 import dev.albedo.core.Albedo;
+import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
@@ -234,11 +235,7 @@ final class LegacySharpSky {
         OpenGlHelper.glDeleteFramebuffers(target);
         GlStateManager.deleteTexture(color);
         GlStateManager.deleteTexture(texture);
-        // The GL rows go from the bottom up.
-        int[] argb = new int[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) argb[y * width + x] = pixels.get((height - 1 - y) * width + x) | 0xFF000000;
-        }
+        int[] argb = GlReadback.argbTopDown(pixels, width, height);
         if (png != null) {
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             image.setRGB(0, 0, width, height, argb, 0, width);
