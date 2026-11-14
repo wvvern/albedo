@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from tools import project
+from tools import project, report
 from tools.harness import files, protocol, rundir
 from tools.harness.verdict import Evidence
 from tools.report import ToolError
@@ -131,7 +131,7 @@ def run(
     """
 
     def say(message: str) -> None:
-        print(f"[{label}] {message}", flush=True)
+        report.say(label, message)
 
     harness = open_harness(harness_name, commands, system)
     launch = launch_of(harness)

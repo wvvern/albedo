@@ -27,7 +27,7 @@ from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
 from tools.project import Target
-from tools.report import ToolError
+from tools.report import ToolError, say
 
 ALL = "all"
 
@@ -40,9 +40,10 @@ def run_target(target: Target, options: RunOptions, system: System) -> bool:
         return devrun.launch(target, harness, options)
 
     suites = options.suites(target)
+    label = f"{target.name} {options.suite}"
     out = project.ROOT / options.out / target.name
     commands = script.compose(script.read_suites(suites), target)
-    finished = session.run(target.name, target.name, commands, launch_of, out, options.timeout, system)
+    finished = session.run(label, target.name, commands, launch_of, out, options.timeout, system)
     evidence = session.read_evidence(finished.harness, finished.launch.log, target.run_dir)
     failures = verdict.judge(evidence, devrun.expectations(target, options))
     result = "FAIL" if failures else "PASS"
@@ -52,7 +53,7 @@ def run_target(target: Target, options: RunOptions, system: System) -> bool:
     if failures and finished.launch.log.is_file():
         shutil.copy2(finished.launch.log, out)
     for line in [*failures, result]:
-        print(f"[{target.name}] {line}", flush=True)
+        say(label, line)
     return not failures
 
 
@@ -63,7 +64,7 @@ def run_suites(target: Target, runs: list[RunOptions], system: System) -> bool:
         try:
             passed &= run_target(target, options, system)
         except ToolError as error:
-            print(f"[{target.name}] FAIL {options.suite}: {error}", flush=True)
+            say(f"{target.name} {options.suite}", f"FAIL: {error}")
             passed = False
     return passed
 
