@@ -4,9 +4,6 @@ import dev.albedo.core.Category;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
-import dev.albedo.core.config.CategorySettings;
-import dev.albedo.core.config.Config;
-import dev.albedo.core.config.Rule;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -15,6 +12,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static dev.albedo.core.texture.TextureFixtures.PARTICLES;
+import static dev.albedo.core.texture.TextureFixtures.WHITE;
+import static dev.albedo.core.texture.TextureFixtures.cellColor;
+import static dev.albedo.core.texture.TextureFixtures.cells;
+import static dev.albedo.core.texture.TextureFixtures.group;
+import static dev.albedo.core.texture.TextureFixtures.paint;
+import static dev.albedo.core.texture.TextureFixtures.particles;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,54 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LayoutTest {
-    static final String PARTICLES = "minecraft:textures/particle/particles.png";
     private static final String PAINTINGS = "minecraft:textures/painting/paintings_kristoffer_zetterstrand.png";
     private static final String EXPLOSION = "minecraft:textures/entity/explosion.png";
-    private static final int WHITE = 0xFFFFFFFF;
     private static final int RED = 0xFFFF0000;
 
-    /** Paints with the Chroma hue on the CPU. */
-    static boolean paint(Layout layout, List<Appearance> looks, PixelBuffer img) {
-        return layout.paint(looks, img, true);
-    }
-
-    static Layout sheet(String location) {
+    private static Layout sheet(String location) {
         Layout layout = Layout.of(location);
         assertFalse(layout.tiles().isEmpty(), location + " is a sheet");
         return layout;
     }
 
-    static Layout.Tile tile(Layout layout, String id) {
+    private static Layout.Tile tile(Layout layout, String id) {
         for (Layout.Tile t : layout.tiles()) if (t.key().id().equals("minecraft:" + id)) return t;
         throw new AssertionError("no tile " + id);
-    }
-
-    /** A sheet with one opaque color for each cell of a 16 x 16 grid, so that each cell has its own average. */
-    static PixelBuffer.Heap cells(int width, int height) {
-        PixelBuffer.Heap img = new PixelBuffer.Heap(width, height);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) img.setArgb(x, y, cellColor(x * 16 / width, y * 16 / height));
-        }
-        return img;
-    }
-
-    static int cellColor(int col, int row) {
-        return 0xFF000000 | (col * 16 << 16) | (row * 16 << 8) | 0x40;
-    }
-
-    /** The default profile with one category set to {@code look} and {@code groups}. */
-    static Policy policy(Category category, Appearance look, Rule... groups) {
-        Config c = Config.defaults();
-        CategorySettings cs = new CategorySettings(look, false, Arrays.asList(groups));
-        return Policy.of(c.withProfile(c.activeProfile().with(category, cs)));
-    }
-
-    static Policy particles(Appearance look, Rule... groups) {
-        return policy(Category.PARTICLES, look, groups);
-    }
-
-    static Rule group(String pattern, Appearance look) {
-        return new Rule(pattern, Collections.singletonList(pattern), look, false);
     }
 
     /** The color at the center of a cell of the 16 x 16 grid. */
@@ -210,9 +179,7 @@ class LayoutTest {
     @Test
     void aSheetThatItsTilesCoverHasNoLookOfItsOwn() {
         Layout layout = sheet(EXPLOSION);
-        Config c = Config.defaults();
-        CategorySettings red = new CategorySettings(Appearance.solid(RED), false, Collections.<Rule>emptyList());
-        Policy mobs = Policy.of(c.withProfile(c.activeProfile().with(Category.ENTITIES, red)));
+        Policy mobs = TextureFixtures.policy(Category.ENTITIES, Appearance.solid(RED));
         assertEquals(Appearance.ORIGINAL, layout.looks(mobs).get(0));
         assertFalse(paint(layout, layout.looks(mobs), cells(128, 128)), "the Entities look does not reach the explosion");
     }

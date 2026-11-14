@@ -9,7 +9,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static dev.albedo.core.config.ConfigFixtures.recolor;
+import static dev.albedo.core.texture.TextureFixtures.lightness;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecolorTest {
@@ -27,10 +29,6 @@ class RecolorTest {
         PixelBuffer.Heap copy = img.copy();
         PixelTransformer.apply(a, copy);
         return copy;
-    }
-
-    private static double lightness(int argb) {
-        return Recolor.lab(argb)[0];
     }
 
     @Test
@@ -134,12 +132,17 @@ class RecolorTest {
     }
 
     @Test
-    void aTextureWithManyColorsStaysFast() {
-        int[] px = new int[256 * 256];
-        for (int i = 0; i < px.length; i++) px[i] = 0xFF000000 | (i * 2654435761L % 0xFFFFFF > 0 ? (int) (i * 2654435761L % 0xFFFFFF) : i);
-        PixelBuffer.Heap noisy = new PixelBuffer.Heap(256, 256, px);
-        long start = System.nanoTime();
-        apply(recolor(0xFF3A6EA5, 100, 50, 0), noisy);
-        assertTrue((System.nanoTime() - start) / 1000000 < 2000, "a full cache does not slow the recolor down");
+    void aFullColorCacheGivesTheSpareResult() {
+        // Two pixels give 8 slots, of which the cache keeps at most 4.
+        Recolor.ColorCache cache = new Recolor.ColorCache(2);
+        for (int color = 1; color <= 4; color++) cache.store(cache.slot(color), color, color * 10);
+        int slot = cache.slot(5);
+        assertFalse(cache.has(slot));
+        cache.store(slot, 5, 50);
+        assertFalse(cache.has(cache.slot(5)), "a color over the limit is not kept");
+        assertEquals(50, cache.value(cache.slot(5), 5));
+        for (int color = 1; color <= 4; color++) assertEquals(color * 10, cache.value(cache.slot(color), color));
+        cache.store(cache.slot(6), 6, 60);
+        assertEquals(60, cache.value(cache.slot(6), 6), "the last color over the limit replaces the spare");
     }
 }
