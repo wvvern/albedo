@@ -14,6 +14,10 @@ public final class SkyTurning {
     public static final int MAX_TRAILS = 90;
     /** The {@link #trailLight} of a design that does not set it. */
     public static final int TRAIL_LIGHT = 50;
+    /** The {@link #poleHeight} of a new turning. */
+    public static final int DEFAULT_POLE_HEIGHT = 45;
+    /** The {@link #amount} at which the sky turns at its full {@link #speed}. */
+    public static final int FULL_AMOUNT = 100;
 
     /** What time turns the sky. */
     public enum Clock {
@@ -35,9 +39,9 @@ public final class SkyTurning {
     }
 
     /** A sky that does not turn, which is also the turning that the bake reads when the sky has no trails. */
-    public static final SkyTurning STILL = new SkyTurning(0, 1, Clock.WORLD, 45, Direction.NORMAL, 0);
+    public static final SkyTurning STILL = new SkyTurning(0, 1, Clock.WORLD, DEFAULT_POLE_HEIGHT, Direction.NORMAL, 0);
     /** The turning of a new custom sky: one slow turn in each Minecraft day of real time. */
-    public static final SkyTurning DEFAULT = new SkyTurning(100, 1, Clock.REAL, 45, Direction.NORMAL, 0);
+    public static final SkyTurning DEFAULT = new SkyTurning(FULL_AMOUNT, 1, Clock.REAL, DEFAULT_POLE_HEIGHT, Direction.NORMAL, 0);
 
     private final int amount, speed, poleHeight, pole, trails, trailLight;
     private final Clock clock;
@@ -62,7 +66,7 @@ public final class SkyTurning {
      * @param trailLight the light of the trails in percent, from 0 to 100
      */
     public SkyTurning(int amount, int speed, Clock clock, int poleHeight, Direction direction, int pole, int trails, int trailLight) {
-        this.amount = clamp(amount, 0, 100);
+        this.amount = clamp(amount, 0, FULL_AMOUNT);
         this.speed = clamp(speed, 1, MAX_SPEED);
         this.clock = clock;
         this.poleHeight = clamp(poleHeight, 0, MAX_POLE_HEIGHT);
@@ -99,11 +103,11 @@ public final class SkyTurning {
 
     /** The part of the turning that the bake reads: the trails with their pole and direction, or {@link #STILL} with no trails. */
     public SkyTurning baked() {
-        return showsTrails() ? new SkyTurning(100, 1, Clock.WORLD, poleHeight, direction, pole, trails, trailLight) : STILL;
+        return showsTrails() ? new SkyTurning(FULL_AMOUNT, 1, Clock.WORLD, poleHeight, direction, pole, trails, trailLight) : STILL;
     }
 
     /** The turns of the sky in one Minecraft day. */
-    public double turnsPerDay() { return speed * amount / 100.0; }
+    public double turnsPerDay() { return speed * amount / (double) FULL_AMOUNT; }
 
     public SkyTurning withAmount(int a) { return new SkyTurning(a, speed, clock, poleHeight, direction, pole, trails, trailLight); }
 

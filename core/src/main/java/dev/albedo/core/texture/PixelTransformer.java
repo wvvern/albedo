@@ -6,6 +6,11 @@ import dev.albedo.core.config.Appearance;
 
 /** Applies an {@link Appearance} to an image in place, as a pure function of its inputs. */
 public final class PixelTransformer {
+    /** The {@link #average} of a fully transparent image. */
+    private static final int MID_GRAY = 0xFF808080;
+    /** The Rec. 601 luma weights in thousandths, which {@link #grayscale} uses. */
+    private static final int LUMA_R = 299, LUMA_G = 587, LUMA_B = 114, LUMA_SUM = 1000;
+
     private PixelTransformer() {}
 
     /** @return true if the image was changed */
@@ -14,16 +19,16 @@ public final class PixelTransformer {
             case ORIGINAL:
                 return false;
             case HIDDEN:
-                fill(img, 0x00000000, Appearance.Alpha.OPAQUE, false);
+                fillAll(img, 0x00000000);
                 return true;
             case SOLID:
-                fill(img, a.color(), a.alpha(), true);
+                fillShape(img, a.color(), a.alpha());
                 return true;
             case RECOLOR:
                 Recolor.apply(a, img);
                 return true;
             case AVERAGE:
-                fill(img, average(img), a.alpha(), true);
+                fillShape(img, average(img), a.alpha());
                 return true;
             case GRAYSCALE:
                 grayscale(img, a.alpha());
@@ -45,14 +50,18 @@ public final class PixelTransformer {
         return pixel.getArgb(0, 0);
     }
 
-    /**
-     * Fills every pixel with {@code color}, and with {@code respectShape} the output alpha follows the source pixel's
-     * alpha per {@code alphaMode} (multiplied by the color's own alpha).
-     */
-    static void fill(PixelBuffer img, int color, Appearance.Alpha alphaMode, boolean respectShape) {
+    /** Sets every pixel to {@code color}. */
+    private static void fillAll(PixelBuffer img, int color) {
+        for (int y = 0; y < img.height(); y++) {
+            for (int x = 0; x < img.width(); x++) img.setArgb(x, y, color);
+        }
+    }
+
+    /** Fills every pixel with {@code color}, where the alpha follows the source pixel's alpha per {@code alphaMode}, times the color's alpha. */
+    static void fillShape(PixelBuffer img, int color, Appearance.Alpha alphaMode) {
         for (int y = 0; y < img.height(); y++) {
             for (int x = 0; x < img.width(); x++) {
-                int a = respectShape ? shapeAlpha(Colors.alpha(img.getArgb(x, y)), alphaMode) : 255;
+                int a = shapeAlpha(Colors.alpha(img.getArgb(x, y)), alphaMode);
                 img.setArgb(x, y, Colors.withAlpha(color, withColorAlpha(a, color)));
             }
         }
@@ -95,7 +104,7 @@ public final class PixelTransformer {
                 w += a;
             }
         }
-        if (w == 0) return 0xFF808080;
+        if (w == 0) return MID_GRAY;
         return Colors.argb(255, (int) (r / w), (int) (g / w), (int) (b / w));
     }
 
@@ -103,7 +112,7 @@ public final class PixelTransformer {
         for (int y = 0; y < img.height(); y++) {
             for (int x = 0; x < img.width(); x++) {
                 int p = img.getArgb(x, y);
-                int l = (Colors.red(p) * 299 + Colors.green(p) * 587 + Colors.blue(p) * 114) / 1000;
+                int l = (Colors.red(p) * LUMA_R + Colors.green(p) * LUMA_G + Colors.blue(p) * LUMA_B) / LUMA_SUM;
                 img.setArgb(x, y, Colors.argb(shapeAlpha(Colors.alpha(p), alphaMode), l, l, l));
             }
         }

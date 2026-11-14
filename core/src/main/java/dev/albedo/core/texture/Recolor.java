@@ -31,7 +31,7 @@ final class Recolor {
     static void apply(Appearance a, PixelBuffer img) {
         Stats s = Stats.of(img);
         if (s == null) {
-            PixelTransformer.fill(img, a.color(), a.alpha(), true);
+            PixelTransformer.fillShape(img, a.color(), a.alpha());
             return;
         }
         double[] target = lab(a.color());

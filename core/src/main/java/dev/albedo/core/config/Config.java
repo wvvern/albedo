@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** The whole user configuration, immutable so that each edit produces a new instance. */
@@ -168,7 +169,7 @@ public final class Config {
 
     /** Profile names are lower-case words joined by "-", e.g. "my-profile". */
     public static String normalizeName(String name) {
-        return name.trim().replaceAll("\\s+", "-").toLowerCase(java.util.Locale.ROOT);
+        return name.trim().replaceAll("\\s+", "-").toLowerCase(Locale.ROOT);
     }
 
     /**

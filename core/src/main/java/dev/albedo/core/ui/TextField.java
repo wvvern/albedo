@@ -5,10 +5,7 @@ final class TextField {
         boolean accepts(char c);
     }
 
-    static final Filter ANY = new Filter() {
-        @Override
-        public boolean accepts(char c) { return true; }
-    };
+    static final Filter ANY = c -> true;
 
     String text = "";
     int cursor;

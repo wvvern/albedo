@@ -153,6 +153,7 @@ public final class Harness {
 
     /** The smallest mean difference of a channel in 8-bit steps at which {@code framechanged} says that the frame changed. */
     static final double FRAME_CHANGE_LIMIT = 8.0;
+    private static final Keys.Key LEFT_CONTROL = Keys.byName("LEFT_CONTROL"), RIGHT_CONTROL = Keys.byName("RIGHT_CONTROL");
 
     private static volatile File logFile;
 
@@ -365,7 +366,7 @@ public final class Harness {
     }
 
     private boolean ctrlHeld() {
-        return held.contains(Keys.byName("LEFT_CONTROL")) || held.contains(Keys.byName("RIGHT_CONTROL"));
+        return held.contains(LEFT_CONTROL) || held.contains(RIGHT_CONTROL);
     }
 
     /** Logs PASS when the settings screen is {@code open} or {@code closed} as the argument says, else a line that starts with "!". */

@@ -8,6 +8,7 @@ public final class Transform {
     /** The parts of a transform that a kind of layer uses. */
     public enum Axis { YAW, PITCH, ROLL, SCALE }
 
+    public static final int MIN_YAW = 0, MAX_YAW = 359;
     public static final int MIN_PITCH = -90, MAX_PITCH = 90, MIN_ROLL = -180, MAX_ROLL = 180, MIN_SCALE = 25, MAX_SCALE = 400;
     public static final Transform IDENTITY = new Transform(0, 0, 0, 100);
 
@@ -57,7 +58,7 @@ public final class Transform {
 
     public static int min(Axis a) {
         switch (a) {
-            case YAW: return 0;
+            case YAW: return MIN_YAW;
             case PITCH: return MIN_PITCH;
             case ROLL: return MIN_ROLL;
             default: return MIN_SCALE;
@@ -66,7 +67,7 @@ public final class Transform {
 
     public static int max(Axis a) {
         switch (a) {
-            case YAW: return 359;
+            case YAW: return MAX_YAW;
             case PITCH: return MAX_PITCH;
             case ROLL: return MAX_ROLL;
             default: return MAX_SCALE;

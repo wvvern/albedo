@@ -27,15 +27,13 @@ final class Ui {
     static final int LINE = 9;
     /** Height of buttons, fields and segmented controls. */
     static final int H = 14;
+    static final int SLIDER_H = 12;
     /** Space between rows of a wrapped segmented control. */
     private static final int ROW_GAP = 2;
     /** Least space around a label inside a segment. */
     private static final int SEG_PAD = 6;
     /** Time in ms a delete button stays armed after the first click. */
     private static final int CONFIRM_MS = 3000;
-
-    /** Time in ms a pointer must rest on a widget before its tooltip shows. */
-    int tipDelay = 400;
 
     enum Style { NORMAL, PRIMARY, DANGER, GHOST }
 
@@ -92,6 +90,8 @@ final class Ui {
     }
 
     Canvas c;
+    /** Time in ms a pointer must rest on a widget before its tooltip shows. */
+    int tipDelay = 400;
     private final Pointer pointer = new Pointer();
     private final Tip tip = new Tip();
     private Armed armed;
@@ -676,8 +676,6 @@ final class Ui {
         float fy = Math.max(0f, Math.min(1f, (pointer.y - y) / (float) Math.max(1, h - 1)));
         return new float[]{fx, fy};
     }
-
-    static final int SLIDER_H = 12;
 
     /** A 0 to 100 slider with its value at the right, which returns the value after a click or drag. */
     int slider(String id, int x, int y, int w, int value, String tipText) {

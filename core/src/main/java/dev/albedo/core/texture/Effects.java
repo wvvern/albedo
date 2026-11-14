@@ -16,7 +16,40 @@ final class Effects {
     /** Lightness change of Bevel at the edge, and of the Outline color from the tile, at full strength. */
     private static final double BEVEL_DEPTH = 0.22, OUTLINE_CONTRAST = 0.35;
     /** The OKLab hue band in degrees that Chroma skips, because yellow-olive looks muddy at mid lightness. */
-    private static final double MUDDY_FROM = 70, MUDDY_TO = 125;
+    static final double MUDDY_FROM = 70, MUDDY_TO = 125;
+    /** The smallest frame width and height that get Bevel and Outline. */
+    static final int MIN_LINE_FRAME = 4;
+    /** The width of the Bevel band and of the Outline line, as a part of the frame width. */
+    private static final float BEVEL_WIDTH = 3 / 16f, LINE_WIDTH = 1 / 16f;
+    /** {@link #meanLightness} reads about this many samples across a frame. */
+    private static final int SAMPLE_CELLS = 16;
+    /** A tile darker than this OKLab lightness gets a lighter Outline. */
+    private static final double DARK_TILE = 0.45;
+    private static final double TAU = 2 * Math.PI;
+
+    /** The target of Chroma in one frame: the OKLab chroma, the strength and the lightness limits. */
+    private static final class ChromaTarget {
+        final double chroma, strength, top, bottom;
+
+        /** @param withHue false to move the colors only toward gray and the lightness limits */
+        ChromaTarget(Chroma c, boolean withHue) {
+            chroma = withHue ? MAX_CHROMA * c.saturation() / 100.0 : 0;
+            strength = c.strength() / 100.0;
+            double shift = (c.brightness() - Chroma.DEFAULT_BRIGHTNESS) / 50.0 * BRIGHTNESS_RANGE;
+            top = Recolor.clamp(CHROMA_TOP + shift, 0, 1);
+            bottom = Recolor.clamp(CHROMA_BOTTOM + shift, 0, 1);
+        }
+
+        /** Moves a color toward the target chroma at {@code hue} radians and into the lightness limits. */
+        int color(int rgb, double hue) {
+            double[] lab = Recolor.lab(rgb);
+            double l = lab[0];
+            if (l > top) l -= (l - top) * strength;
+            else if (l < bottom) l += (bottom - l) * strength;
+            double ta = chroma * Math.cos(hue), tb = chroma * Math.sin(hue);
+            return Recolor.srgb(l, lab[1] + (ta - lab[1]) * strength, lab[2] + (tb - lab[2]) * strength);
+        }
+    }
 
     /** Parts of a block that end its texture name and must not change its hue. */
     private static final String[] PART_SUFFIXES = {"_overlay", "_side", "_top", "_bottom", "_front", "_back", "_end", "_inner",
@@ -48,16 +81,17 @@ final class Effects {
         int w = img.width(), frameH = tile || outline ? frameHeight(img) : img.height();
         int frames = img.height() / frameH;
         // At Speed 0 the CPU paints the hue, because the pass adds none.
-        boolean withHue = !a.chromaMoves();
+        ChromaTarget target = chroma ? new ChromaTarget(c, !a.chromaMoves()) : null;
         // Outline and Edge use one line for all frames, because the texels of the GPU pass are the same for all frames of a sprite.
         boolean edgeOn = chroma && c.edge();
-        boolean[] line = outline && w >= 4 && frameH >= 4 && (edgeOn || a.outline() > 0) ? edgeMask(img, id, frameH) : null;
+        boolean lined = w >= MIN_LINE_FRAME && frameH >= MIN_LINE_FRAME;
+        boolean[] line = outline && lined && (edgeOn || a.outline() > 0) ? edgeMask(img, id, frameH) : null;
         boolean[] edge = edgeOn ? line : null;
         // Each frame of a block animation gets the next part of the colors, which only the CPU can do for the same reason.
         for (int f = 0; f < frames; f++) {
             int y0 = f * frameH;
-            if (chroma) chroma(img, y0, frameH, hueTurns(id), tile ? 2 * Math.PI * f / frames : 0, edge, c, withHue);
-            if (!tile && !outline || w < 4 || frameH < 4) continue;
+            if (chroma) chroma(img, y0, frameH, hueTurns(id), tile ? TAU * f / frames : 0, edge, target);
+            if (!tile && !outline || !lined) continue;
             double tileL = meanLightness(img, y0, frameH);
             if (tile && a.bevel() > 0) bevel(img, y0, frameH, tileL, a.bevel() / 100.0);
             if (outline && a.outline() > 0) outline(img, line, y0, tileL, a.outline() / 100.0);
@@ -78,13 +112,13 @@ final class Effects {
         double amount = MAX_CHROMA * c.saturation() / 100.0 * c.strength() / 100.0;
         // The outline halves the chroma of its pixels at full strength, so the hue that the pass adds there is smaller too.
         double onLine = amount * (1 - 0.5 * a.outline() / 100.0);
-        int inner = ChromaTexels.pack(c.speed(), hue(id) / (2 * Math.PI), amount);
-        int edge = ChromaTexels.pack(c.speed(), hue(id) / (2 * Math.PI), onLine);
+        double turns = hueTurns(id), hueTurn = hueAt(turns) / TAU;
+        int inner = ChromaTexels.pack(c.speed(), hueTurn, amount);
+        int edge = ChromaTexels.pack(c.speed(), hueTurn, onLine);
         boolean edgeOnly = c.edge() && line != null;
-        double turns = hueTurns(id);
         for (int i = 0; i < w * h; i++) {
             // A texel of speed 0 keeps the color that the CPU painted.
-            if (edgeOnly) out[i] = line[i] ? ChromaTexels.pack(c.speed(), edgeHue(turns, i % w, i / w, w, h) / (2 * Math.PI), onLine) : 0;
+            if (edgeOnly) out[i] = line[i] ? ChromaTexels.pack(c.speed(), edgeHue(turns, i % w, i / w, w, h) / TAU, onLine) : 0;
             else out[i] = line != null && line[i] ? edge : inner;
         }
         return true;
@@ -122,7 +156,7 @@ final class Effects {
 
     /** The Edge hue of a pixel: the hue of the id, turned by the angle of the pixel around the center of its frame. */
     private static double edgeHue(double turns, int x, int y, int w, int h) {
-        return hueAt(turns + Math.atan2(y + 0.5 - h / 2.0, x + 0.5 - w / 2.0) / (2 * Math.PI));
+        return hueAt(turns + Math.atan2(y + 0.5 - h / 2.0, x + 0.5 - w / 2.0) / TAU);
     }
 
     /** The name that gives a texture its hue: no folder, frame number or part suffix, and the modern block name. */
@@ -155,16 +189,12 @@ final class Effects {
     }
 
     /**
-     * Moves the colors of a frame toward the hue of {@code turns} turned by {@code offset} radians, or with
-     * {@code withHue} false only toward gray and the lightness limits.
+     * Moves the colors of a frame toward {@code target} at the hue of {@code turns} turned by {@code offset} radians.
      *
      * @param edge null to change every pixel, or the pixels of the {@link #edgeMask} to change, each toward its {@link #edgeHue}
      */
-    private static void chroma(PixelBuffer img, int y0, int frameH, double turns, double offset, boolean[] edge, Chroma c, boolean withHue) {
-        double target = withHue ? MAX_CHROMA * c.saturation() / 100.0 : 0, s = c.strength() / 100.0;
+    private static void chroma(PixelBuffer img, int y0, int frameH, double turns, double offset, boolean[] edge, ChromaTarget target) {
         double hue = hueAt(turns) + offset;
-        double shift = (c.brightness() - Chroma.DEFAULT_BRIGHTNESS) / 50.0 * BRIGHTNESS_RANGE;
-        double top = Recolor.clamp(CHROMA_TOP + shift, 0, 1), bottom = Recolor.clamp(CHROMA_BOTTOM + shift, 0, 1);
         // Pixel art repeats few colors, so each color is converted once per frame where the hue is the same for all pixels.
         Recolor.ColorCache cache = new Recolor.ColorCache(img.width() * frameH);
         int w = img.width();
@@ -175,11 +205,10 @@ final class Effects {
                 int rgb = p | 0xFF000000, out;
                 if (edge != null) {
                     if (!edge[(y - y0) * w + x]) continue;
-                    double h = edgeHue(turns, x, y - y0, w, frameH) + offset;
-                    out = chroma(rgb, target * Math.cos(h), target * Math.sin(h), s, top, bottom);
+                    out = target.color(rgb, edgeHue(turns, x, y - y0, w, frameH) + offset);
                 } else {
                     int slot = cache.slot(rgb);
-                    if (!cache.has(slot)) cache.store(slot, rgb, chroma(rgb, target * Math.cos(hue), target * Math.sin(hue), s, top, bottom));
+                    if (!cache.has(slot)) cache.store(slot, rgb, target.color(rgb, hue));
                     out = cache.value(slot, rgb);
                 }
                 img.setArgb(x, y, Colors.withAlpha(out, Colors.alpha(p)));
@@ -187,17 +216,9 @@ final class Effects {
         }
     }
 
-    private static int chroma(int rgb, double ta, double tb, double s, double top, double bottom) {
-        double[] lab = Recolor.lab(rgb);
-        double l = lab[0];
-        if (l > top) l -= (l - top) * s;
-        else if (l < bottom) l += (bottom - l) * s;
-        return Recolor.srgb(l, lab[1] + (ta - lab[1]) * s, lab[2] + (tb - lab[2]) * s);
-    }
-
     /** Shades a band inside the frame edges toward the side that contrasts with the tile, the same on every side. */
     private static void bevel(PixelBuffer img, int y0, int frameH, double tileL, double s) {
-        int depth = Math.max(1, Math.round(img.width() * 3 / 16f));
+        int depth = Math.max(1, Math.round(img.width() * BEVEL_WIDTH));
         double sign = tileL > 0.5 ? -1 : 1;
         for (int y = y0; y < y0 + frameH; y++) {
             for (int x = 0; x < img.width(); x++) {
@@ -211,7 +232,7 @@ final class Effects {
 
     /** Moves the pixels of {@code line} in a frame toward a color that is darker than the tile, or lighter for a dark tile. */
     private static void outline(PixelBuffer img, boolean[] line, int y0, double tileL, double s) {
-        double target = tileL < 0.45 ? Math.min(1, tileL + OUTLINE_CONTRAST) : Math.max(0, tileL - OUTLINE_CONTRAST);
+        double target = tileL < DARK_TILE ? Math.min(1, tileL + OUTLINE_CONTRAST) : Math.max(0, tileL - OUTLINE_CONTRAST);
         for (int i = 0; i < line.length; i++) {
             if (line[i]) shiftLightness(img, i % img.width(), y0 + i / img.width(), target, s);
         }
@@ -232,11 +253,11 @@ final class Effects {
 
     /**
      * The pixels of the frame that starts at row {@code y0} that are on the Outline, by rows: those in the square of the
-     * line width around an edge pixel, where an edge pixel is one outside the frame or a fully transparent one. On an
-     * opaque frame this is the band along the frame border.
+     * line width around an edge pixel (one outside the frame or a fully transparent one), which on an opaque frame is
+     * the band along the frame border.
      */
     private static boolean[] line(PixelBuffer img, String id, int y0, int frameH) {
-        int w = img.width(), n = w * frameH, width = Math.max(1, Math.round(w / 16f));
+        int w = img.width(), n = w * frameH, width = Math.max(1, Math.round(w * LINE_WIDTH));
         boolean[] edge = new boolean[n], nearInRow = new boolean[n], out = new boolean[n];
         // An overlay lies on another texture of its block or item, so its transparent pixels are not the edge of a shape.
         if (!id.endsWith("_overlay")) {
@@ -290,7 +311,7 @@ final class Effects {
     /** The alpha-weighted mean OKLab lightness of a frame from a grid of samples, or 0.5 when it is fully transparent. */
     private static double meanLightness(PixelBuffer img, int y0, int frameH) {
         double sum = 0, weight = 0;
-        int step = Math.max(1, img.width() / 16);
+        int step = Math.max(1, img.width() / SAMPLE_CELLS);
         for (int y = y0; y < y0 + frameH; y += step) {
             for (int x = 0; x < img.width(); x += step) {
                 int p = img.getArgb(x, y);

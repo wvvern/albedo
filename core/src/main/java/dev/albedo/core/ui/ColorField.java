@@ -4,6 +4,9 @@ import dev.albedo.core.Colors;
 
 /** A hex input for one color, which keeps the typed text while it has the focus; each color on a page has its own. */
 final class ColorField {
+    /** The widest hex input, which shows a whole #AARRGGBB color. */
+    static final int HEX_W = 62;
+
     private final Ui ui;
     private final TextField hex = new TextField(9, c -> Character.digit(c, 16) >= 0 || c == '#');
 
@@ -27,6 +30,6 @@ final class ColorField {
     /** A swatch and the hex input on one row, which returns the color. */
     int draw(String id, int x, int y, int w, int argb) {
         ui.swatch(x, y + 2, 10, 10, argb);
-        return hex(id, x + 14, y, Math.min(62, w - 14), argb);
+        return hex(id, x + 14, y, Math.min(HEX_W, w - 14), argb);
     }
 }

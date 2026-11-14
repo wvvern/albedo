@@ -57,9 +57,9 @@ final class SkyLayersEditor {
             this.preset = preset;
         }
 
-        SkyPage add() { return new SkyPage(Screen.ADD, 0, LayerTab.LOOK, PreviewSource.RESULT, null); }
+        static SkyPage add() { return new SkyPage(Screen.ADD, 0, LayerTab.LOOK, PreviewSource.RESULT, null); }
 
-        SkyPage gallery(String chosen) { return new SkyPage(Screen.GALLERY, 0, LayerTab.LOOK, PreviewSource.RESULT, chosen); }
+        static SkyPage gallery(String chosen) { return new SkyPage(Screen.GALLERY, 0, LayerTab.LOOK, PreviewSource.RESULT, chosen); }
 
         SkyPage layer(int id) { return new SkyPage(Screen.LAYER, id, LayerTab.LOOK, source, null); }
 
@@ -79,6 +79,8 @@ final class SkyLayersEditor {
     private static final int TURNED_W = 384;
     /** The seconds between two images of a turning preview. */
     private static final double TURN_STEP_S = 0.05;
+    /** The colors of the lines and the label over the preview. */
+    private static final int HORIZON = 0x99FFFFFF, SUN_PATH = 0xCCFFD24D, ZENITH_LINE = 0x66FFFFFF, ZENITH_TEXT = 0xCCFFFFFF;
     private static final String MOTION = "sky.motion";
     private static final String SKIES = "Skies";
     private static final String TURNING = "Turning", SPEED = "Speed", FOLLOW_TIME = "Follow time", POLE_HEIGHT = "Pole height",
@@ -200,14 +202,14 @@ final class SkyLayersEditor {
             ui.c.image("sky.preview", shown, x, y, w, ph);
         }
         int horizon = SkyPreviewGeometry.y(strip, drawn, 0);
-        ui.fill(x, horizon, w, 1, 0x99FFFFFF);
+        ui.fill(x, horizon, w, 1, HORIZON);
         // The vanilla sun rises in the east, passes through the zenith and sets in the west.
         for (int az : new int[]{SkyPreviewGeometry.SUNRISE, SkyPreviewGeometry.SUNSET}) {
             int sx = SkyPreviewGeometry.x(strip, az);
-            for (int dy = y; dy < horizon; dy += 4) ui.fill(sx, dy, 1, Math.min(2, horizon - dy), 0xCCFFD24D);
+            for (int dy = y; dy < horizon; dy += 4) ui.fill(sx, dy, 1, Math.min(2, horizon - dy), SUN_PATH);
         }
-        ui.fill(x, y, w, 1, 0x66FFFFFF);
-        ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, 0xCCFFFFFF);
+        ui.fill(x, y, w, 1, ZENITH_LINE);
+        ui.textFit("Zenith", x + w - ui.width("Zenith") - 3, y + 2, w, ZENITH_TEXT);
         ui.tip(x, y, w, ph, "White line: the horizon. Yellow: the sun path. The world sky changes after Apply or Done.");
         if (w >= 24) {
             for (int i = 0; i < SkyPreviewGeometry.COMPASS.length; i++) {
@@ -245,12 +247,12 @@ final class SkyLayersEditor {
         int aw = ui.buttonWidth(addLabel);
         if (ui.button("sky.add", x, cy, aw, Ui.H, addLabel, Ui.Style.PRIMARY, !design.isFull(),
                 design.isFull() ? "A sky has a maximum of " + SkyDesign.MAX_LAYERS + " layers" : "Add a layer at the top")) {
-            go(page.add());
+            go(SkyPage.add());
             return;
         }
         int sw = ui.buttonWidth(SKIES);
         if (ui.button("sky.skies", x + w - sw, cy, sw, Ui.H, SKIES, Ui.Style.NORMAL, true, "Start from a ready-made sky")) {
-            go(page.gallery(null));
+            go(SkyPage.gallery(null));
             return;
         }
         cy += Ui.H + GAP;
@@ -480,7 +482,7 @@ final class SkyLayersEditor {
             cy += preview(x, cy, w, chosen == null ? design : started(chosen, design), -1) + GAP;
         }
         String clicked = gallery.draw(x, cy, w, bottom - cy, page.preset);
-        if (clicked != null && !clicked.equals(page.preset)) go(page.gallery(clicked));
+        if (clicked != null && !clicked.equals(page.preset)) go(SkyPage.gallery(clicked));
     }
 
     private void addScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {

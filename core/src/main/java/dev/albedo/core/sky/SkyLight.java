@@ -6,6 +6,8 @@ import dev.albedo.core.config.SkyDesign;
 public final class SkyLight {
     /** The least brightness, so that a night sky keeps a trace of its colors. */
     private static final float NIGHT = 0.04f;
+    /** The ticks of one Minecraft day. */
+    static final double DAY_TICKS = 24000;
 
     private SkyLight() {}
 
@@ -28,10 +30,22 @@ public final class SkyLight {
      * @param dayTime the time of day in ticks, where 0 is sunrise and 6000 is noon
      */
     static double sunAngle(double dayTime) {
-        double d = dayTime / 24000.0 - 0.25;
+        double d = daysFromNoon(dayTime);
         d -= Math.floor(d);
         double e = 0.5 - Math.cos(d * Math.PI) / 2.0;
         return (d * 2.0 + e) / 3.0;
+    }
+
+    /**
+     * The turns of the vanilla sun since midnight with no wrap, so that a turning of one turn each day goes with the sun
+     * and shows the design as it is at midnight.
+     */
+    static double sunTurns(double dayTime) {
+        return Math.floor(daysFromNoon(dayTime)) + sunAngle(dayTime) - 0.5;
+    }
+
+    private static double daysFromNoon(double dayTime) {
+        return dayTime / DAY_TICKS - 0.25;
     }
 
     /** The factor for a design: {@link #brightness} for {@link SkyDesign.Light#DAY_NIGHT}, otherwise 1. */

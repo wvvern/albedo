@@ -1,6 +1,10 @@
 package dev.albedo.core.texture;
 
+import dev.albedo.core.config.Chroma;
+import dev.albedo.core.sky.SkyShaderSource;
 import org.junit.jupiter.api.Test;
+
+import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,14 +51,14 @@ class ChromaTexelsTest {
 
     @Test
     void theShaderUsesTheSameMaximumAmount() throws Exception {
-        String include = dev.albedo.core.sky.SkyShaderSource.read("include/chroma.glsl");
+        String include = SkyShaderSource.read("include/chroma.glsl");
         assertTrue(include.contains("#define ALBEDO_CHROMA_MAX_AMOUNT " + ChromaTexels.MAX_AMOUNT), include);
-        assertTrue(include.contains("#define ALBEDO_CHROMA_VEC4S " + dev.albedo.core.config.Chroma.TURN_FLOATS / 4 + "\n"), include);
+        assertTrue(include.contains("#define ALBEDO_CHROMA_VEC4S " + Chroma.TURN_FLOATS / 4 + "\n"), include);
     }
 
     @Test
     void rgbaPutsTheBytesOfEachTexelInTheOrderOfAnRgba8Texture() {
-        java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(8);
+        ByteBuffer out = ByteBuffer.allocate(8);
         ChromaTexels.rgba(new int[]{0x44112233, 0x88AABBCC}, out);
         assertEquals(0, out.position(), "the buffer is ready to read");
         byte[] bytes = new byte[8];

@@ -25,21 +25,13 @@ public final class SkyTurn {
      */
     public static SkyTurn at(SkyTurning t, double dayTime) {
         if (!t.turns()) return STILL;
-        double days = t.clock() == SkyTurning.Clock.WORLD ? sunTurns(dayTime) : SkyClock.longSeconds() / DAY_SECONDS;
+        double days = t.clock() == SkyTurning.Clock.WORLD ? SkyLight.sunTurns(dayTime) : SkyClock.longSeconds() / DAY_SECONDS;
         return of(t, t.turnsPerDay() * days);
     }
 
     /** The rotation of a turning in real time, also for the world clock, so that the editor preview, which has no world, shows the move. */
     public static SkyTurn preview(SkyTurning t) {
         return t.turns() ? of(t, t.turnsPerDay() * SkyClock.longSeconds() / DAY_SECONDS) : STILL;
-    }
-
-    /**
-     * The turns of the vanilla sun since midnight with no wrap, so that a turning of one turn each day goes with the sun
-     * and shows the design as it is at midnight.
-     */
-    static double sunTurns(double dayTime) {
-        return Math.floor(dayTime / 24000.0 - 0.25) + SkyLight.sunAngle(dayTime) - 0.5;
     }
 
     /** The rotation after some turns around the pole of a turning, in its direction. */

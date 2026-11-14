@@ -131,18 +131,10 @@ final class Labels {
     /** The name of a layer parameter, which depends on the kind (Amount is Radius for a blur). */
     static String param(SkyLayer.Kind k, SkyLayer.Param p) {
         switch (p) {
-            case COLOR_1:
-                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "Low"
-                        : k == SkyLayer.Kind.NOISE || k == SkyLayer.Kind.FRACTAL ? "Dark"
-                        : k == SkyLayer.Kind.GALAXY ? "Arms" : k == SkyLayer.Kind.METEORS ? "Head"
-                        : k == SkyLayer.Kind.DEEP_FIELD ? "Warm" : "Color";
-            case COLOR_2:
-                return k == SkyLayer.Kind.GRADIENT || k == SkyLayer.Kind.AURORA ? "High" : k == SkyLayer.Kind.GALAXY ? "Core"
-                        : k == SkyLayer.Kind.METEORS ? "Trail" : k == SkyLayer.Kind.DEEP_FIELD ? "Cool" : "Light";
+            case COLOR_1: return color1(k);
+            case COLOR_2: return color2(k);
             case COLOR_3: return "Jet color";
-            case HEIGHT:
-                return k == SkyLayer.Kind.GRADIENT ? "Middle" : k == SkyLayer.Kind.BLOOM ? "Threshold"
-                        : k == SkyLayer.Kind.STARS ? "Spikes" : k == SkyLayer.Kind.DEEP_FIELD ? "Star cloud" : "Height";
+            case HEIGHT: return height(k);
             case TILT: return "Tilt";
             case DUST: return "Dust";
             case JETS: return "Jets";
@@ -156,6 +148,37 @@ final class Labels {
             case TWINKLE: return "Twinkle";
             case PULSE: return "Pulse";
             default: return amount(k);
+        }
+    }
+
+    private static String color1(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: case AURORA: return "Low";
+            case NOISE: case FRACTAL: return "Dark";
+            case GALAXY: return "Arms";
+            case METEORS: return "Head";
+            case DEEP_FIELD: return "Warm";
+            default: return "Color";
+        }
+    }
+
+    private static String color2(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: case AURORA: return "High";
+            case GALAXY: return "Core";
+            case METEORS: return "Trail";
+            case DEEP_FIELD: return "Cool";
+            default: return "Light";
+        }
+    }
+
+    private static String height(SkyLayer.Kind k) {
+        switch (k) {
+            case GRADIENT: return "Middle";
+            case BLOOM: return "Threshold";
+            case STARS: return "Spikes";
+            case DEEP_FIELD: return "Star cloud";
+            default: return "Height";
         }
     }
 

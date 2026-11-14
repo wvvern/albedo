@@ -11,6 +11,12 @@ final class ColorPicker {
     /** The smallest square of the full picker. */
     static final int MIN_SQUARE = 24;
     private static final int GAP = 6;
+    /** The widest saturation and brightness square. */
+    private static final int SQUARE_MAX_W = 84;
+    /** The width of the large preview beside the hex input. */
+    private static final int PREVIEW_W = 22;
+    /** The size of one palette swatch. */
+    private static final int SWATCH = 9;
 
     /** The picker's own HSV, kept apart from the color so that hue survives at zero saturation or brightness. */
     private static final class Hsv {
@@ -51,7 +57,7 @@ final class ColorPicker {
     int draw(String id, int x, int y, int w, int sqH, int color) {
         if (hsv.color == null || hsv.color != color) hsv.sync(color);
         int alpha = Colors.alpha(color);
-        int sqW = Math.min(84, w / 3);
+        int sqW = Math.min(SQUARE_MAX_W, w / 3);
 
         // saturation (x) / brightness (y) square, drawn in 3px cells
         for (int yy = 0; yy < sqH; yy += 3) {
@@ -91,14 +97,14 @@ final class ColorPicker {
 
         // The large preview is left out when it would make the hex field too narrow to show a whole color.
         int px = ax + 14, pw = Math.max(40, x + w - px);
-        int hexW = Math.min(62, pw), previewW = pw - hexW >= 22 ? 22 : 0;
+        int hexW = Math.min(ColorField.HEX_W, pw), previewW = pw - hexW >= PREVIEW_W ? PREVIEW_W : 0;
         if (previewW > 0) ui.swatch(px, y, 18, 18, next);
         int typed = field.hex(id + ".hex", px + previewW, y + 2, hexW, color);
         if (typed != color) {
             hsv.sync(typed);
             next = typed;
         }
-        int sw = 9, perRow = Math.max(1, Math.min(8, (pw + 2) / (sw + 2)));
+        int sw = SWATCH, perRow = Math.max(1, Math.min(8, (pw + 2) / (sw + 2)));
         for (int i = 0; i < PALETTE.length; i++) {
             int sx = px + (i % perRow) * (sw + 2), sy = y + 22 + (i / perRow) * (sw + 2);
             if (sy + sw > y + sqH) break; // rows that do not fit beside the square are left out, never drawn over the next row

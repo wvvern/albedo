@@ -22,7 +22,7 @@ final class Sheets {
         Map<TextureKey, TextureKey> sheetOf = new HashMap<TextureKey, TextureKey>();
         for (Layout l : new Layout[]{particles(), paintings(), explosion()}) {
             m.put(l.key(), l);
-            for (Layout.Tile t : l.tiles()) if (t.key.category() == l.key().category()) sheetOf.put(t.key, l.key());
+            for (Layout.Tile t : l.tiles()) if (t.key().category() == l.key().category()) sheetOf.put(t.key(), l.key());
         }
         ALL = Collections.unmodifiableMap(m);
         SHEET_OF = Collections.unmodifiableMap(sheetOf);

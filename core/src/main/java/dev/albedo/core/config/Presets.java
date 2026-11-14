@@ -71,18 +71,23 @@ public final class Presets {
         Map<Category, CategorySettings> c = new EnumMap<Category, CategorySettings>(Category.class);
         // Half-strength Chroma keeps the colors soft, and one turn takes about 13 s.
         Chroma pastel = new Chroma(55, 54, Chroma.DEFAULT_SATURATION, Chroma.DEFAULT_BRIGHTNESS);
-        Appearance blocks = new Appearance(Appearance.Mode.RECOLOR, 0xFFF1E6F6, Appearance.Alpha.KEEP, 60, 0, 35, 30, 0, pastel);
+        Appearance blocks = recolor(0xFFF1E6F6, 60, 0, 35).withEffects(30, 0, pastel);
         Rule solidLeaves = new Rule("Leaves", Collections.singletonList("*leaves*"),
                 blocks.withAlpha(Appearance.Alpha.OPAQUE), EnumSet.of(Appearance.Field.ALPHA));
         c.put(Category.BLOCKS, new CategorySettings(blocks, true, Collections.singletonList(solidLeaves)));
         // Only the 1.21 versions keep the chests in an atlas that the GPU pass can move, so the block entities get no Chroma.
         c.put(Category.BLOCK_ENTITIES, plain(blocks.withEffects(0, 0, Chroma.OFF), false));
-        c.put(Category.DECORATIONS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFE8DCEF, Appearance.Alpha.KEEP, 85, 40, 30), false));
-        c.put(Category.FLUIDS, plain(new Appearance(Appearance.Mode.RECOLOR, 0xFFA6D8EE, Appearance.Alpha.KEEP, 70, 0, 0), true));
+        c.put(Category.DECORATIONS, plain(recolor(0xFFE8DCEF, 85, 40, 30), false));
+        c.put(Category.FLUIDS, plain(recolor(0xFFA6D8EE, 70, 0, 0), true));
         c.put(Category.SKY, flat(0xFFF9D4E6, false));
         Set<Toggle> on = Profile.defaultToggles();
         on.add(Toggle.FULLBRIGHT);
         return new Profile("pastel", c, on);
+    }
+
+    /** A Recolor look that keeps the alpha, with no effects. */
+    private static Appearance recolor(int color, int detail, int keepColors, int keepLight) {
+        return Appearance.of(Appearance.Mode.RECOLOR).withColor(color).withRecolor(detail, keepColors, keepLight);
     }
 
     /** A category with one look and no groups. */

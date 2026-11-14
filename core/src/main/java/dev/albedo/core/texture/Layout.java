@@ -16,11 +16,11 @@ import java.util.List;
 public final class Layout {
     /** A named rectangle in the cells of the grid of its texture. */
     static final class Tile {
-        final TextureKey key;
-        final int x;
-        final int y;
-        final int w;
-        final int h;
+        private final TextureKey key;
+        private final int x;
+        private final int y;
+        private final int w;
+        private final int h;
 
         Tile(TextureKey key, int x, int y, int w, int h) {
             this.key = key;
@@ -31,6 +31,14 @@ public final class Layout {
         }
 
         TextureKey key() { return key; }
+
+        int x() { return x; }
+
+        int y() { return y; }
+
+        int w() { return w; }
+
+        int h() { return h; }
     }
 
     private final TextureKey key;
@@ -66,8 +74,8 @@ public final class Layout {
         List<TextureKey> keys = new ArrayList<TextureKey>();
         int cells = 0;
         for (Tile t : tiles) {
-            keys.add(t.key);
-            cells += t.w * t.h;
+            keys.add(t.key());
+            cells += t.w() * t.h();
         }
         this.catalogKeys = Collections.unmodifiableList(keys);
         this.covered = cells == cols * rows;
@@ -104,7 +112,7 @@ public final class Layout {
         if (tiles.isEmpty()) return Collections.singletonList(policy.appearanceFor(key));
         List<Appearance> out = new ArrayList<Appearance>(tiles.size() + 1);
         out.add(covered ? Appearance.ORIGINAL : policy.appearanceFor(key));
-        for (Tile t : tiles) out.add(policy.appearanceFor(t.key));
+        for (Tile t : tiles) out.add(policy.appearanceFor(t.key()));
         return Collections.unmodifiableList(out);
     }
 
@@ -153,7 +161,8 @@ public final class Layout {
         PixelBuffer.Heap styled = original.copy();
         PixelTransformer.apply(a, styled);
         int sw = styled.width(), sh = Effects.frameHeight(styled);
-        if (sw < 4 || sh < 4 || w < 4 || h < 4) return null;
+        int min = Effects.MIN_LINE_FRAME;
+        if (sw < min || sh < min || w < min || h < min) return null;
         boolean[] mask = Effects.edgeMask(styled, key.id(), sh), out = new boolean[w * h];
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) out[y * w + x] = mask[y * sh / h * sw + x * sw / w];
@@ -183,7 +192,7 @@ public final class Layout {
 
     /** The pixel bounds of a tile as {x0, y0, x1, y1}, in grid fractions so that resource packs of any size fit. */
     int[] bounds(Tile t, int width, int height) {
-        return new int[]{t.x * width / cols, t.y * height / rows, (t.x + t.w) * width / cols, (t.y + t.h) * height / rows};
+        return new int[]{t.x() * width / cols, t.y() * height / rows, (t.x() + t.w()) * width / cols, (t.y() + t.h()) * height / rows};
     }
 
     private PixelBuffer.Heap copy(PixelBuffer img, Tile t) {

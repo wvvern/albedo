@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Policy {
     public static final Policy DISABLED = new Policy(null);
+    /** Far above the brightness slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
+    static final float FULLBRIGHT_GAMMA = 16f;
 
     private final Profile profile; // null when disabled
     private final ConcurrentHashMap<TextureKey, Appearance> cache = new ConcurrentHashMap<TextureKey, Appearance>();
@@ -135,9 +137,6 @@ public final class Policy {
         int c = profile.get(Category.SKY).appearance().color();
         return new float[]{Colors.red(c) / 255f, Colors.green(c) / 255f, Colors.blue(c) / 255f};
     }
-
-    /** Far above the brightness slider's maximum of 1.0: the lightmap ends up fully lit everywhere. */
-    static final float FULLBRIGHT_GAMMA = 16f;
 
     /** The brightness (gamma) that the lightmap uses in place of the player's {@code setting}. */
     public double gamma(double setting) {

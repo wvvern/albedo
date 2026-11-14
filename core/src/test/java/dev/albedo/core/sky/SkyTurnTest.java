@@ -84,15 +84,15 @@ class SkyTurnTest {
 
     @Test
     void theWorldClockFollowsTheSunAndShowsTheDesignAtMidnight() {
-        assertEquals(0, SkyTurn.sunTurns(18000), 1e-9, "midnight");
-        assertEquals(-0.5, SkyTurn.sunTurns(6000), 1e-9, "noon");
-        assertEquals(0.5, SkyTurn.sunTurns(30000), 1e-9, "the next noon");
+        assertEquals(0, SkyLight.sunTurns(18000), 1e-9, "midnight");
+        assertEquals(-0.5, SkyLight.sunTurns(6000), 1e-9, "noon");
+        assertEquals(0.5, SkyLight.sunTurns(30000), 1e-9, "the next noon");
         assertArrayEquals(SkyTurn.STILL.matrix(), SkyTurn.at(SUN, 18000 + 24000 * 7).matrix(), 1e-6f);
         double[] zenith = toWorld(SkyTurn.at(SUN, 6000), 0, 1, 0);
         assertArrayEquals(new double[]{0, -1, 0}, zenith, 1e-6, "at noon the top of the design is below, as the moon is");
-        double last = SkyTurn.sunTurns(0);
+        double last = SkyLight.sunTurns(0);
         for (int tick = 1; tick <= 48000; tick++) {
-            double next = SkyTurn.sunTurns(tick);
+            double next = SkyLight.sunTurns(tick);
             assertTrue(next > last && next - last < 0.0001, "the turns go up with no jump at tick " + tick);
             last = next;
         }

@@ -9,16 +9,16 @@ import java.util.Locale;
  * since 1.8 because only the folder names differ (plural {@code blocks/} and {@code items/} before 1.13).
  */
 public final class TextureClassifier {
-    private TextureClassifier() {}
+    /** The folders of the textures that the game downloads for players, as in "minecraft:skins/<hash>". */
+    private static final String[] DOWNLOADED_FOLDERS = {"skins", "capes", "elytra"};
 
-    private static TextureKey classify(String namespace, String path) {
-        String p = optiFine(normalise(path));
-        int slash = p.indexOf('/');
-        String folder = slash < 0 ? p : p.substring(0, slash);
-        String rest = slash < 0 ? p : p.substring(slash + 1);
-        String ns = namespace == null || namespace.isEmpty() ? "minecraft" : namespace.toLowerCase(Locale.ROOT);
-        return new TextureKey(category(folder, rest), ns + ":" + rest);
-    }
+    private static final String[] BLOCK_ENTITY_FOLDERS = {
+            // entity/shulker/ is deliberately absent: the same texture is used by the shulker mob.
+            "chest/", "bed/", "conduit/", "decorated_pot/", "bell/", "enchanting_table_book", "end_portal", "end_gateway",
+            "beacon_beam", "lectern_book", "copper_golem_statue", "shelf/",
+    };
+
+    private TextureClassifier() {}
 
     /** The key of a location such as "minecraft:textures/block/stone.png", where no namespace means "minecraft". */
     public static TextureKey classify(String location) {
@@ -28,27 +28,9 @@ public final class TextureClassifier {
         return colon < 0 ? classify("minecraft", location) : classify(location.substring(0, colon), location.substring(colon + 1));
     }
 
-    /** The folders of the textures that the game downloads for players, as in "minecraft:skins/<hash>". */
-    private static final String[] DOWNLOADED_FOLDERS = {"skins", "capes", "elytra"};
-
     /** Whether a texture is a player skin, cape or elytra that the game downloads, which has no resource file. */
     public static boolean isDownloaded(String location) {
         return downloadedFolder(location) != null;
-    }
-
-    /**
-     * The folder of a downloaded texture name ("minecraft:skins/<hash>"), or null for other names, which have the
-     * {@code textures/} prefix or the {@code .png} suffix of a resource.
-     */
-    private static String downloadedFolder(String location) {
-        int colon = location.indexOf(':');
-        if (colon >= 0 && !location.substring(0, colon).equals("minecraft")) return null;
-        String path = location.substring(colon + 1);
-        int slash = path.indexOf('/');
-        if (slash < 0 || path.endsWith(".png")) return null;
-        String folder = path.substring(0, slash);
-        for (String f : DOWNLOADED_FOLDERS) if (f.equals(folder)) return f;
-        return null;
     }
 
     /**
@@ -87,6 +69,30 @@ public final class TextureClassifier {
         if (p.startsWith("random/entity/")) return p.substring("random/".length());
         if (p.startsWith("mob/")) return "entity/" + p.substring("mob/".length());
         return path;
+    }
+
+    private static TextureKey classify(String namespace, String path) {
+        String p = optiFine(normalise(path));
+        int slash = p.indexOf('/');
+        String folder = slash < 0 ? p : p.substring(0, slash);
+        String rest = slash < 0 ? p : p.substring(slash + 1);
+        String ns = namespace == null || namespace.isEmpty() ? "minecraft" : namespace.toLowerCase(Locale.ROOT);
+        return new TextureKey(category(folder, rest), ns + ":" + rest);
+    }
+
+    /**
+     * The folder of a downloaded texture name ("minecraft:skins/<hash>"), or null for other names, which have the
+     * {@code textures/} prefix or the {@code .png} suffix of a resource.
+     */
+    private static String downloadedFolder(String location) {
+        int colon = location.indexOf(':');
+        if (colon >= 0 && !location.substring(0, colon).equals("minecraft")) return null;
+        String path = location.substring(colon + 1);
+        int slash = path.indexOf('/');
+        if (slash < 0 || path.endsWith(".png")) return null;
+        String folder = path.substring(0, slash);
+        for (String f : DOWNLOADED_FOLDERS) if (f.equals(folder)) return f;
+        return null;
     }
 
     /** The block id of a connected texture: the OptiFine defaults by number, a resource pack by its folder. */
@@ -137,12 +143,6 @@ public final class TextureClassifier {
     private static boolean isPlayer(String rest) {
         return rest.startsWith("player/") || rest.equals("steve") || rest.equals("alex");
     }
-
-    private static final String[] BLOCK_ENTITY_FOLDERS = {
-            // entity/shulker/ is deliberately absent: the same texture is used by the shulker mob.
-            "chest/", "bed/", "conduit/", "decorated_pot/", "bell/", "enchanting_table_book", "end_portal", "end_gateway",
-            "beacon_beam", "lectern_book", "copper_golem_statue", "shelf/",
-    };
 
     /** Signs (1.8.9 "sign", later "signs/oak" and "signs/hanging/oak") and banners. */
     private static boolean isDecoration(String rest) {

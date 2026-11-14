@@ -16,34 +16,46 @@ import java.util.concurrent.TimeUnit;
  */
 final class CursorClip {
     private static final long WAIT_SECONDS = 30;
+    /** The probe prints the left, top, right and bottom of the clip, then the left, top, width and height of the virtual screen. */
+    private static final int PROBE_NUMBERS = 8;
+
+    /** The cursor clip and the size of the virtual screen. */
+    static final class ClipProbe {
+        final int clipLeft, clipTop, clipRight, clipBottom, screenWidth, screenHeight;
+
+        ClipProbe(int clipLeft, int clipTop, int clipRight, int clipBottom, int screenWidth, int screenHeight) {
+            this.clipLeft = clipLeft;
+            this.clipTop = clipTop;
+            this.clipRight = clipRight;
+            this.clipBottom = clipBottom;
+            this.screenWidth = screenWidth;
+            this.screenHeight = screenHeight;
+        }
+
+        /** The log line of the check, which starts with "!" when the clip is smaller than the virtual screen. */
+        String line() {
+            int clipWidth = clipRight - clipLeft;
+            int clipHeight = clipBottom - clipTop;
+            String shape = "clip " + clipLeft + "," + clipTop + "," + clipRight + "," + clipBottom + " (" + clipWidth + " x " + clipHeight
+                    + "), screen " + screenWidth + " x " + screenHeight;
+            if (clipWidth < screenWidth || clipHeight < screenHeight) return "! cursorfree: the cursor is clipped, " + shape;
+            return "cursorfree: ok, " + shape;
+        }
+    }
 
     private CursorClip() {}
 
-    /**
-     * The log line of the check, which starts with "!" when the clip is smaller than the virtual screen.
-     *
-     * @param numbers left, top, right and bottom of the clip, then left, top, width and height of the virtual screen
-     */
-    static String line(int[] numbers) {
-        int clipWidth = numbers[2] - numbers[0];
-        int clipHeight = numbers[3] - numbers[1];
-        String shape = "clip " + numbers[0] + "," + numbers[1] + "," + numbers[2] + "," + numbers[3] + " (" + clipWidth + " x " + clipHeight
-                + "), screen " + numbers[6] + " x " + numbers[7];
-        if (clipWidth < numbers[6] || clipHeight < numbers[7]) return "! cursorfree: the cursor is clipped, " + shape;
-        return "cursorfree: ok, " + shape;
-    }
-
-    /** Parses the output of the clip probe: eight numbers, or null when the line is not that. */
-    static int[] parse(String output) {
+    /** Parses the output of the clip probe, or returns null when the line is not {@link #PROBE_NUMBERS} numbers. */
+    static ClipProbe parse(String output) {
         String[] words = output.trim().split("\\s+");
-        if (words.length != 8) return null;
-        int[] numbers = new int[8];
+        if (words.length != PROBE_NUMBERS) return null;
+        int[] n = new int[PROBE_NUMBERS];
         try {
-            for (int i = 0; i < 8; i++) numbers[i] = Integer.parseInt(words[i]);
+            for (int i = 0; i < PROBE_NUMBERS; i++) n[i] = Integer.parseInt(words[i]);
         } catch (NumberFormatException e) {
             return null;
         }
-        return numbers;
+        return new ClipProbe(n[0], n[1], n[2], n[3], n[6], n[7]);
     }
 
     /**
@@ -64,8 +76,8 @@ final class CursorClip {
                 return "! cursorfree: the clip probe did not finish";
             }
             String output = new String(readAll(process), StandardCharsets.UTF_8);
-            int[] numbers = parse(output);
-            return numbers == null ? "! cursorfree: the clip probe gave: " + output.trim() : line(numbers);
+            ClipProbe probe = parse(output);
+            return probe == null ? "! cursorfree: the clip probe gave: " + output.trim() : probe.line();
         } catch (IOException e) {
             return "! cursorfree: cannot run the clip probe: " + e;
         } catch (InterruptedException e) {
