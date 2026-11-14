@@ -111,8 +111,25 @@ public final class GlSky {
         }
     }
 
-    // Draws the sky with the matrices of the vanilla disc in column order, and returns false when the game must draw its disc.
-    public static boolean draw(float[] skyModelView, float[] projection) {
+    // Draws the sky with the matrices of the vanilla disc, and returns false when the game must draw its disc.
+    //? if >=1.19.3 {
+    public static boolean draw(org.joml.Matrix4fc skyModelView, org.joml.Matrix4fc projection) {
+        return drawColumns(skyModelView.get(new float[16]), projection.get(new float[16]));
+    }
+    //?} else {
+    /^public static boolean draw(com.mojang.math.Matrix4f skyModelView, com.mojang.math.Matrix4f projection) {
+        return drawColumns(columns(skyModelView), columns(projection));
+    }
+
+    // The 16 floats of a matrix in column order, which is how a GL uniform takes them.
+    private static float[] columns(com.mojang.math.Matrix4f matrix) {
+        java.nio.FloatBuffer buffer = java.nio.FloatBuffer.allocate(16);
+        matrix.store(buffer);
+        return buffer.array();
+    }
+    ^///?}
+
+    private static boolean drawColumns(float[] skyModelView, float[] projection) {
         boolean drawn = drawSphere(skyModelView, projection);
         ModernSky.discDrawn(drawn);
         return drawn;
@@ -122,7 +139,7 @@ public final class GlSky {
     // Draws the sky in place of the sky disc of SkyRenderer with the matrices of RenderSystem, and returns false when the game must draw its disc.
     public static boolean drawDisc() {
         try (Bound ignored = mainTarget()) {
-            return draw(RenderSystem.getModelViewMatrix().get(new float[16]), RenderSystem.getProjectionMatrix().get(new float[16]));
+            return draw(RenderSystem.getModelViewMatrix(), RenderSystem.getProjectionMatrix());
         }
     }
     //?}
@@ -173,8 +190,14 @@ public final class GlSky {
         return true;
     }
 
+    // The cutout layer is the last solid layer of the world.
+    public static void afterLayer(net.minecraft.client.renderer.RenderType type) {
+        if (type == net.minecraft.client.renderer.RenderType.cutout()) afterSolid();
+    }
+
     // Draws the sharp sky that waits, after the solid world, only on the pixels that the world left empty.
-    public static void afterSolid() {
+    private static void afterSolid() {
+        ModernHooks.AFTER_SOLID.run();
         Waiting waiting = DEFER.take();
         if (waiting == null) return;
         try (Bound ignored = mainTarget()) {

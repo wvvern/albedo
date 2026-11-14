@@ -1,6 +1,5 @@
 package dev.albedo.modern.mixin;
 
-import dev.albedo.modern.ModernHooks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,7 +16,6 @@ public abstract class SkyAfterSolidMixin {
     private void albedo$skyAfterSolid(net.minecraft.client.renderer.chunk.ChunkSectionsToRender sections,
                                       net.minecraft.client.renderer.feature.FeatureRenderDispatcher.PreparedFrame frame,
                                       com.mojang.renderpearl.api.commands.RenderPass pass, CallbackInfo ci) {
-        ModernHooks.AFTER_SOLID.run();
         dev.albedo.modern.PearlSky.afterSolid(pass);
     }
 }
@@ -27,21 +25,16 @@ public abstract class SkyAfterSolidMixin {
     // The level renderer sets the light of the level directly after the solid terrain, also when Sodium draws the terrain.
     @Inject(method = "setupFor", at = @At("HEAD"), require = 0)
     private void albedo$skyAfterSolid(com.mojang.blaze3d.platform.Lighting.Entry entry, CallbackInfo ci) {
-        if (entry != com.mojang.blaze3d.platform.Lighting.Entry.LEVEL) return;
-        ModernHooks.AFTER_SOLID.run();
-        dev.albedo.modern.PrecompiledSky.afterSolid();
+        if (entry == com.mojang.blaze3d.platform.Lighting.Entry.LEVEL) dev.albedo.modern.PrecompiledSky.afterSolid();
     }
 }
 *///?} elif >=1.20.5 {
 /*@Mixin(net.minecraft.client.renderer.LevelRenderer.class)
 public abstract class SkyAfterSolidMixin {
-    // The cutout layer is the last solid layer of the world.
     @Inject(method = "renderSectionLayer", at = @At("TAIL"), require = 0)
     private void albedo$skyAfterSolid(net.minecraft.client.renderer.RenderType type, double x, double y, double z,
                                       org.joml.Matrix4f modelView, org.joml.Matrix4f projection, CallbackInfo ci) {
-        if (type != net.minecraft.client.renderer.RenderType.cutout()) return;
-        ModernHooks.AFTER_SOLID.run();
-        dev.albedo.modern.GlSky.afterSolid();
+        dev.albedo.modern.GlSky.afterLayer(type);
     }
 }
 *///?}

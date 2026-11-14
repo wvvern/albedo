@@ -7,7 +7,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.math.Matrix4f;
 import dev.albedo.modern.FixedSky;
-import dev.albedo.modern.ModernHooks;
 import dev.albedo.modern.ModernSky;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
@@ -49,12 +48,9 @@ public abstract class FixedSkyMixin {
         else BufferUploader.end(builder);
     }
 
-    // The cutout layer is the last solid layer of the world.
     @Inject(method = "renderChunkLayer", at = @At("TAIL"), require = 0)
     private void albedo$skyAfterSolid(RenderType type, PoseStack pose, double x, double y, double z, CallbackInfo ci) {
-        if (type != RenderType.cutout()) return;
-        ModernHooks.AFTER_SOLID.run();
-        FixedSky.afterSolid();
+        FixedSky.afterLayer(type);
     }
 }
 *///?}

@@ -128,8 +128,14 @@ public final class FixedSky {
         RenderSystem.popMatrix();
     }
 
+    // The cutout layer is the last solid layer of the world.
+    public static void afterLayer(net.minecraft.client.renderer.RenderType type) {
+        if (type == net.minecraft.client.renderer.RenderType.cutout()) afterSolid();
+    }
+
     // Draws the sharp sky that waits, after the solid world, only on the pixels that the world left empty.
-    public static void afterSolid() {
+    private static void afterSolid() {
+        ModernHooks.AFTER_SOLID.run();
         Waiting waiting = DEFER.take();
         if (waiting == null) return;
         drawSharp(waiting);

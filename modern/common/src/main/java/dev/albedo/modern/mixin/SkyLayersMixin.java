@@ -65,31 +65,4 @@ public abstract class SkyLayersMixin {
         if (ModernSky.hidesStars()) ci.cancel();
     }
 }
-*///?} elif >=1.19.3 && <1.21.2 {
-/*@Mixin(net.minecraft.client.renderer.LevelRenderer.class)
-public abstract class SkyLayersMixin {
-    // The vertex buffer draws of renderSky are the sky disc, the stars and the dark lower disc, in this order.
-    @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
-            target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
-    private void albedo$sky(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
-                            net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!dev.albedo.modern.GlSky.draw(modelView.get(new float[16]), projection.get(new float[16]))) {
-            buffer.drawWithShader(modelView, projection, shader);
-        }
-    }
-
-    @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 1,
-            target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
-    private void albedo$stars(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
-                              net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!ModernSky.hidesStarsThisPass()) buffer.drawWithShader(modelView, projection, shader);
-    }
-
-    @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 2,
-            target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
-    private void albedo$darkDisc(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
-                                 net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!ModernSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
-    }
-}
 *///?}

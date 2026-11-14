@@ -75,6 +75,7 @@ public final class PrecompiledSky {
 
     // Draws the sharp sky that waits, after the solid world, only on the pixels that the world left empty.
     public static void afterSolid() {
+        ModernHooks.AFTER_SOLID.run();
         GpuBufferSlice waiting = DEFER.take();
         if (waiting == null) return;
         try (RenderPass pass = pass()) {

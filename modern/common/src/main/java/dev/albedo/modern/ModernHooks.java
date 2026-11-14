@@ -16,7 +16,8 @@ import java.util.List;
 
 /** The adapter that the mixins call: it turns Minecraft types into core calls. */
 public final class ModernHooks {
-    public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
+    /** The afterSolid method of each sky family runs it. */
+    static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
     public static final HookCounter SODIUM_SHADE = new HookCounter("sodiumShade");
     public static final HookCounter DRY_FOLIAGE = new HookCounter("dryFoliage");
     private static final HookCounter TINT = new HookCounter("tint");
