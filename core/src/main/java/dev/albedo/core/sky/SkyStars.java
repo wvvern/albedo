@@ -111,7 +111,7 @@ final class SkyStars {
      * @param trailLight the light of the trails from 0 to 1
      * @param axis the unit trail axis in the layer frame, around which a positive angle goes back along the trail
      */
-    SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up, float trail, float trailLight,
+    private SkyStars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up, float trail, float trailLight,
             float[] axis) {
         float m = 0.2f + 0.8f * amount;
         density = m * m;
@@ -126,19 +126,27 @@ final class SkyStars {
         this.axis = axis.clone();
     }
 
+    /**
+     * The stars of layer {@code index} of a program block.
+     *
+     * @param up the unit direction of the sky zenith in the layer frame
+     * @param time the seconds of the sky clock, 0 for the bake
+     */
+    static SkyStars of(float[] block, int index, float[] up, float time) {
+        float[] axis = new float[3];
+        for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
+        return new SkyStars(block[SkyProgram.at(index, SkyProgram.AMOUNT)], block[SkyProgram.at(index, SkyProgram.HEIGHT)] * 2,
+                block[SkyProgram.at(index, SkyProgram.SCALE)], (int) block[SkyProgram.at(index, SkyProgram.SEED)],
+                block[SkyProgram.at(index, SkyProgram.TWINKLE)], time, up, block[SkyProgram.at(index, SkyProgram.TRAIL)],
+                block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis);
+    }
+
     /** The linear light of the stars in the unit direction {@code p} of the layer frame, as color and alpha into {@code out}. */
     void shade(float[] p, float footprint, float[] tint, float alpha, float[] out) {
         float[] light = new float[3];
         light(p, footprint, light);
-        float peak = 0;
-        for (int c = 0; c < 3; c++) {
-            light[c] *= tint[c];
-            peak = Math.max(peak, light[c]);
-        }
-        // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
-        float a = Math.min(1f, peak);
-        for (int c = 0; c < 3; c++) out[c] = a > 0 ? light[c] / a : tint[c];
-        out[3] = a * alpha;
+        for (int c = 0; c < 3; c++) light[c] *= tint[c];
+        SkyGenerator.lightAlpha(light, tint, alpha, out);
     }
 
     /** Adds the linear light of the stars of both tiers in the unit direction {@code p} to {@code light}. */
@@ -194,7 +202,7 @@ final class SkyStars {
                         float back = (float) Math.atan2(-(star[0] * sx + star[1] * sy + star[2] * sz), star[0] * rx + star[1] * ry + star[2] * rz);
                         // Only the part whose piece of the arc holds the star adds it, so that no star adds its trail twice.
                         if (back <= 0 || back >= trail || Math.min(parts - 1, (int) (back / step)) != part) continue;
-                        addTrail(star, p, footprint, work, light);
+                        addTrail(star, footprint, work, light, h, radius, back);
                     }
                 }
             }
@@ -233,7 +241,17 @@ final class SkyStars {
         float sx = ay * rz - az * ry, sy = az * rx - ax * rz, sz = ax * ry - ay * rx;
         // The angle around the axis from the star back to the point, which is the age of this part of the trail.
         float back = (float) Math.atan2(-(s[0] * sx + s[1] * sy + s[2] * sz), s[0] * rx + s[1] * ry + s[2] * rz);
+        addTrail(s, footprint, work, light, h, radius, back);
+    }
+
+    /**
+     * {@link #addTrail(float[], float[], float, float[], float[])} with the place of the point around the axis: its height
+     * {@code h} along the axis, its distance {@code radius} from the axis, and the angle {@code back} around the axis from the
+     * star back to it.
+     */
+    private void addTrail(float[] s, float footprint, float[] work, float[] light, float h, float radius, float back) {
         if (back <= 0 || back >= trail) return;
+        float ax = axis[0], ay = axis[1], az = axis[2];
         float sh = s[0] * ax + s[1] * ay + s[2] * az;
         float width = trailWidth(footprint), cut = TRAIL_REACH * width;
         // The distance across the trail is the difference of the angles from the axis of the star and the point.
@@ -254,18 +272,7 @@ final class SkyStars {
         int h = Noise.hash(hx, hy, hz, seed * 31 + t.salt);
         float chance = (h >>> 24) / 256f;
         if (chance >= density) return false;
-        int j = Noise.hash(hx, hy, hz, seed * 31 + t.salt + 1);
-        float vx = hx + ((j >>> 22) + 0.5f) / 1024f;
-        float vy = hy + (((j >>> 12) & 1023) + 0.5f) / 1024f;
-        float vz = hz + (((j >>> 2) & 1023) + 0.5f) / 1024f;
-        float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
-        if (len < 1e-3f) return false;
-        float x = vx / len, y = vy / len, z = vz / len, n = t.cells / scale;
-        // The star is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
-        if ((int) Math.floor(x * n) != hx || (int) Math.floor(y * n) != hy || (int) Math.floor(z * n) != hz) return false;
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
+        if (!Noise.cellPoint(hx, hy, hz, Noise.hash(hx, hy, hz, seed * 31 + t.salt + 1), t.cells / scale, out)) return false;
         float u = (((h >>> 12) & 4095) + 0.5f) / 4096f;
         out[3] = Math.min(t.maxFlux, t.minFlux * (float) Math.pow(u, -1 / t.slope));
         out[4] = ((h & 4095) + 0.5f) / 4096f;

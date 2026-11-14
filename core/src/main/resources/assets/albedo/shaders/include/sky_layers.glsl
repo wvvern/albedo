@@ -113,6 +113,34 @@ float albedoNoise(vec3 p, int seed) {
     return albedoLerp(albedoLerp(x00, x10, u.y), albedoLerp(x01, x11, u.y), u.z);
 }
 
+// Noise.value: smooth value noise in two dimensions from 0 to 1, which repeats after the cells of period, or never on an axis of 0.
+float albedoValue(vec2 q, ivec2 period, int seed) {
+    vec2 i = floor(q);
+    int x0 = int(i.x), y0 = int(i.y);
+    int x1 = period.x > 0 ? albedoRepeat(x0 + 1, period.x) : x0 + 1, y1 = period.y > 0 ? albedoRepeat(y0 + 1, period.y) : y0 + 1;
+    if (period.x > 0) x0 = albedoRepeat(x0, period.x);
+    if (period.y > 0) y0 = albedoRepeat(y0, period.y);
+    vec2 f = q - i;
+    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float a = albedoUnit(albedoHash(ivec3(x0, y0, 0), seed)), b = albedoUnit(albedoHash(ivec3(x1, y0, 0), seed));
+    float d = albedoUnit(albedoHash(ivec3(x0, y1, 0), seed)), e = albedoUnit(albedoHash(ivec3(x1, y1, 0), seed));
+    float top = albedoLerp(a, b, u.x);
+    return albedoLerp(top, albedoLerp(d, e, u.x), u.y);
+}
+
+// Noise.cellPoint: the jittered point of a cell on the unit sphere, from the hash hj of the cell, with n cells for each unit.
+// The point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
+bool albedoCellPoint(ivec3 cell, uint hj, float n, out vec3 s) {
+    vec3 v = vec3(cell) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
+    float len = length(v);
+    if (len < 1e-3) {
+        s = vec3(0.0);
+        return false;
+    }
+    s = v / len;
+    return ivec3(floor(s * n)) == cell;
+}
+
 // Noise.fbmSoft: fbm where each octave fades out as its cell comes near the size of a pixel, the footprint in noise units.
 float albedoFbmSoft(vec3 p, int seed, int octaves, float footprint) {
     // The sum of the weights of all octaves, the same as in fbm, also when the fine octaves are gone.
@@ -165,9 +193,15 @@ float albedoSmooth(float a, float b, float t) {
     return x * x * (3.0 - 2.0 * x);
 }
 
-// The OKLab lightness of a linear color.
 float albedoLightness(vec3 c) {
     return albedoLinearToLab(c).x;
+}
+
+// SkyGenerator.lightAlpha: the alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all
+// of the light; empty is the color where there is no light.
+vec4 albedoLightAlpha(vec3 light, vec3 empty) {
+    float a = min(1.0, max(light.r, max(light.g, light.b)));
+    return vec4(a > 0.0 ? light / a : empty, a);
 }
 
 vec4 albedoLayer(int layer, int slot) {
@@ -352,13 +386,8 @@ vec3 albedoStarTier(vec3 p, float footprint, float cells, float minFlux, float m
                 uint hb = albedoHash(h, seed * 31 + salt);
                 float chance = float(hb >> 24u) / 256.0;
                 if (chance >= density) continue;
-                uint hj = albedoHash(h, seed * 31 + salt + 1);
-                vec3 v = vec3(h) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
-                float len = length(v);
-                if (len < 1e-3) continue;
-                vec3 s = v / len;
-                // The star is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
-                if (ivec3(floor(s * n)) != h) continue;
+                vec3 s;
+                if (!albedoCellPoint(h, albedoHash(h, seed * 31 + salt + 1), n, s)) continue;
                 vec3 d = p - s;
                 float d2 = dot(d, d);
                 if (d2 >= reach * reach) continue;
@@ -430,12 +459,8 @@ vec3 albedoStarTrails(vec3 p, float footprint, float cells, float minFlux, float
                     ivec3 cell = ivec3(x, y, z);
                     uint hb = albedoHash(cell, hashSeed);
                     if (float(hb >> 24u) / 256.0 >= density) continue;
-                    uint hj = albedoHash(cell, hashSeed + 1);
-                    vec3 v = vec3(cell) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
-                    float len = length(v);
-                    if (len < 1e-3) continue;
-                    vec3 s = v / len;
-                    if (ivec3(floor(s * n)) != cell) continue;
+                    vec3 s;
+                    if (!albedoCellPoint(cell, albedoHash(cell, hashSeed + 1), n, s)) continue;
                     // The height difference is never more than the angle difference, so a star that it puts far away is far away.
                     float sh = dot(s, axis);
                     if (abs(sh - h) >= cut) continue;
@@ -482,11 +507,8 @@ vec4 albedoStars(int layer, vec3 p, float footprint, int flags) {
     if (trail.w > 0.0) {
         light += albedoStarTrails(p, footprint, 16.0, 0.9, 60.0, 1.2, 13, density, shape.x, seed, trail, albedoLayer(layer, 6).w);
     }
-    light *= albedoLayer(layer, 3).rgb;
-    float peak = max(light.r, max(light.g, light.b));
-    // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
-    float a = min(1.0, peak);
-    return vec4(a > 0.0 ? light / a : albedoLayer(layer, 3).rgb, a * shape.z);
+    vec4 c = albedoLightAlpha(light * albedoLayer(layer, 3).rgb, albedoLayer(layer, 3).rgb);
+    return vec4(c.rgb, c.a * shape.z);
 }
 
 // The slow noise of SkyGenerator.pulse that sets the regions of a cloud layer and their phases.
@@ -1019,13 +1041,8 @@ vec3 albedoFieldGalaxies(int layer, vec3 p, float footprint, float scale, int se
             for (int k = 0; k <= 1; k++) {
                 ivec3 h = base + ivec3(i, j, k);
                 if (albedoUnit(albedoHash(h, seed)) >= chance) continue;
-                uint hj = albedoHash(h, seed + 1);
-                vec3 v = vec3(h) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
-                float len = length(v);
-                if (len < 1e-3) continue;
-                vec3 s = v / len;
-                // The galaxy is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
-                if (ivec3(floor(s * n)) != h) continue;
+                vec3 s;
+                if (!albedoCellPoint(h, albedoHash(h, seed + 1), n, s)) continue;
                 vec3 d = p - s;
                 float d2 = dot(d, d);
                 if (d2 >= reach * reach) continue;
@@ -1079,12 +1096,8 @@ vec3 albedoFieldStars(vec3 p, float footprint, float scale, int seed, float dens
                 ivec3 h = base + ivec3(i, j, k);
                 uint hb = albedoHash(h, seed);
                 if (float(hb >> 24u) / 256.0 >= density) continue;
-                uint hj = albedoHash(h, seed + 1);
-                vec3 v = vec3(h) + (vec3(float(hj >> 22u), float((hj >> 12u) & 1023u), float((hj >> 2u) & 1023u)) + 0.5) / 1024.0;
-                float len = length(v);
-                if (len < 1e-3) continue;
-                vec3 s = v / len;
-                if (ivec3(floor(s * n)) != h) continue;
+                vec3 s;
+                if (!albedoCellPoint(h, albedoHash(h, seed + 1), n, s)) continue;
                 vec3 d = p - s;
                 float d2 = dot(d, d);
                 if (d2 >= reach * reach) continue;
@@ -1118,10 +1131,8 @@ vec4 albedoDeepField(int layer, vec3 p, float footprint, int flags) {
     int seed = int(shape.y) * 31 + 5;
     vec3 light = albedoFieldGalaxies(layer, p, footprint, shape.x, seed);
     if ((flags & ALBEDO_FLAG_CLOUD) != 0) light += albedoFieldCloud(p, footprint, shape.x, seed, albedoLayer(layer, 1).w);
-    float peak = max(light.r, max(light.g, light.b));
-    // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
-    float a = min(1.0, peak);
-    return vec4(a > 0.0 ? light / a : vec3(0.0), a * max(shape.z, shape.w));
+    vec4 c = albedoLightAlpha(light, vec3(0.0));
+    return vec4(c.rgb, c.a * max(shape.z, shape.w));
 }
 
 // The slots of time of the meteors, as in SkyMeteors: the slot length, the meteors in each slot and the slots that can still show one.
@@ -1216,21 +1227,6 @@ vec4 albedoMeteors(int layer, vec3 q, float footprint) {
     }
     float a = clamp(max(light.r, max(light.g, light.b)), 0.0, 1.0);
     return a > 0.0 ? vec4(light / a, a) : vec4(0.0);
-}
-
-// Aurora.value: smooth value noise in two dimensions from 0 to 1, which repeats after the cells of period, or never on an axis of 0.
-float albedoValue(vec2 q, ivec2 period, int seed) {
-    vec2 i = floor(q);
-    int x0 = int(i.x), y0 = int(i.y);
-    int x1 = period.x > 0 ? albedoRepeat(x0 + 1, period.x) : x0 + 1, y1 = period.y > 0 ? albedoRepeat(y0 + 1, period.y) : y0 + 1;
-    if (period.x > 0) x0 = albedoRepeat(x0, period.x);
-    if (period.y > 0) y0 = albedoRepeat(y0, period.y);
-    vec2 f = q - i;
-    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-    float a = albedoUnit(albedoHash(ivec3(x0, y0, 0), seed)), b = albedoUnit(albedoHash(ivec3(x1, y0, 0), seed));
-    float d = albedoUnit(albedoHash(ivec3(x0, y1, 0), seed)), e = albedoUnit(albedoHash(ivec3(x1, y1, 0), seed));
-    float top = albedoLerp(a, b, u.x);
-    return albedoLerp(top, albedoLerp(d, e, u.x), u.y);
 }
 
 // Aurora.octave: one octave of rays, which goes to its mean 0.5 as a ray gets narrower than about three pixels.
@@ -1531,7 +1527,6 @@ vec4 albedoField(int slot, vec3 dir) {
     return ALBEDO_TERM_READ(vec2(u, (float(slot) * slotRows + y) / rows));
 }
 
-// The linear color of a term image in a sky direction.
 vec3 albedoTerm(int slot, vec3 dir) {
     return albedoField(slot, dir).rgb;
 }

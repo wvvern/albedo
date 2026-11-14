@@ -62,6 +62,43 @@ final class Noise {
         return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w);
     }
 
+    /** Smooth value noise in two dimensions from 0 to 1, which repeats after {@code periodX} and {@code periodY} cells, or never on an axis of 0. */
+    static float value(float x, float y, int periodX, int periodY, int seed) {
+        float fx = (float) Math.floor(x), fy = (float) Math.floor(y);
+        int x0 = repeat((int) fx, periodX), x1 = repeat((int) fx + 1, periodX), y0 = repeat((int) fy, periodY), y1 = repeat((int) fy + 1, periodY);
+        float u = fade(x - fx), v = fade(y - fy);
+        float a = unit(hash(x0, y0, 0, seed)), b = unit(hash(x1, y0, 0, seed));
+        float c = unit(hash(x0, y1, 0, seed)), d = unit(hash(x1, y1, 0, seed));
+        float top = a + (b - a) * u, bottom = c + (d - c) * u;
+        return top + (bottom - top) * v;
+    }
+
+    /** The cell {@code i} of a row that repeats after {@code n} cells, or {@code i} for an {@code n} of 0. */
+    static int repeat(int i, int n) {
+        return n > 0 ? Math.floorMod(i, n) : i;
+    }
+
+    /**
+     * The jittered point of a cell on the unit sphere into {@code out}, from the hash {@code hash} of the cell.
+     *
+     * @param n the cells for each unit
+     * @return false when the point leaves its cell
+     */
+    static boolean cellPoint(int hx, int hy, int hz, int hash, float n, float[] out) {
+        float vx = hx + ((hash >>> 22) + 0.5f) / 1024f;
+        float vy = hy + (((hash >>> 12) & 1023) + 0.5f) / 1024f;
+        float vz = hz + (((hash >>> 2) & 1023) + 0.5f) / 1024f;
+        float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
+        if (len < 1e-3f) return false;
+        float x = vx / len, y = vy / len, z = vz / len;
+        // The point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
+        if ((int) Math.floor(x * n) != hx || (int) Math.floor(y * n) != hy || (int) Math.floor(z * n) != hz) return false;
+        out[0] = x;
+        out[1] = y;
+        out[2] = z;
+        return true;
+    }
+
     /** Fractal sum of {@code octaves} noise layers, each at twice the frequency and half the weight, from about -1 to 1. */
     static float fbm(float x, float y, float z, int seed, int octaves) {
         return fbmSoft(x, y, z, seed, octaves, 0);

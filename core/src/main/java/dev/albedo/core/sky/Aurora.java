@@ -256,7 +256,7 @@ final class Aurora {
          * there, fade out or are gaps of open sky, with wider gaps in the far curtain and none at the center.
          */
         float presence(int c, float th) {
-            float part = value(th / GAP, t * (PART_ROWS / PERIOD), 0, PART_ROWS, seed + 31 + c)
+            float part = Noise.value(th / GAP, t * (PART_ROWS / PERIOD), 0, PART_ROWS, seed + 31 + c)
                     + (c == 0 ? 0.35f * (float) Math.exp(-th * th / 0.25f) : 0);
             return smooth(0.25f + 0.15f * c, 0.7f + 0.15f * c, part);
         }
@@ -304,7 +304,7 @@ final class Aurora {
          */
         void rays(int c, float theta, float k, float slope) {
             float th = angle(c, theta), along = DISTANCE[c] * (float) Math.tan(th) / scale, cos = (float) Math.cos(th);
-            float bright = k * (0.4f + 0.9f * value(along / 70, t * (LIGHT_ROWS / PERIOD), 0, LIGHT_ROWS, seed + 33 + c));
+            float bright = k * (0.4f + 0.9f * Noise.value(along / 70, t * (LIGHT_ROWS / PERIOD), 0, LIGHT_ROWS, seed + 33 + c));
             lit += bright;
             if (h <= -2 * soft) return;
             // The km of the rays in one pixel, which is more where the view runs along the sheet, as near the tip of a fold.
@@ -385,22 +385,6 @@ final class Aurora {
     /** One octave of rays from 0 to 1, which goes to its mean 0.5 as a ray gets narrower than about three pixels. */
     private static float octave(float x, float y, int periodX, int periodY, int seed, float width) {
         float k = 1 - smooth(0.18f, 0.45f, width);
-        return k <= 0 ? 0.5f : 0.5f + (value(x, y, periodX, periodY, seed) - 0.5f) * k;
-    }
-
-    /** Smooth value noise in two dimensions from 0 to 1, which repeats after {@code periodX} and {@code periodY} cells, or never on an axis of 0. */
-    static float value(float x, float y, int periodX, int periodY, int seed) {
-        float fx = (float) Math.floor(x), fy = (float) Math.floor(y);
-        int x0 = repeat((int) fx, periodX), x1 = repeat((int) fx + 1, periodX), y0 = repeat((int) fy, periodY), y1 = repeat((int) fy + 1, periodY);
-        float u = Noise.fade(x - fx), v = Noise.fade(y - fy);
-        float a = Noise.unit(Noise.hash(x0, y0, 0, seed)), b = Noise.unit(Noise.hash(x1, y0, 0, seed));
-        float c = Noise.unit(Noise.hash(x0, y1, 0, seed)), d = Noise.unit(Noise.hash(x1, y1, 0, seed));
-        float top = a + (b - a) * u, bottom = c + (d - c) * u;
-        return top + (bottom - top) * v;
-    }
-
-    /** The cell {@code i} of a row that repeats after {@code n} cells, or {@code i} for an {@code n} of 0. */
-    private static int repeat(int i, int n) {
-        return n > 0 ? Math.floorMod(i, n) : i;
+        return k <= 0 ? 0.5f : 0.5f + (Noise.value(x, y, periodX, periodY, seed) - 0.5f) * k;
     }
 }

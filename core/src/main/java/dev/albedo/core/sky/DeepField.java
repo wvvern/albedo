@@ -11,6 +11,8 @@ final class DeepField {
     static final float CLOUD_WIDTH = 0.22f, CLOUD_LENGTH = 1.1f;
     /** The linear light of the cloud that the eye cannot split into stars, at a cloud of 100 percent. */
     static final float[] CLOUD_GLOW = {0.07f, 0.063f, 0.06f};
+    /** The color of a pixel with no light. */
+    private static final float[] NO_LIGHT = {0, 0, 0};
 
     private DeepField() {}
 
@@ -27,11 +29,8 @@ final class DeepField {
         galaxies(block, index, p, footprint, scale, seed, light);
         float cloud = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
         if (cloud > 0) cloud(p, footprint, scale, seed, cloud, light);
-        float peak = Math.max(light[0], Math.max(light[1], light[2]));
-        // The alpha carries the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
-        float a = Math.min(1f, peak);
-        for (int c = 0; c < 3; c++) out[c] = a > 0 ? light[c] / a : 0;
-        out[3] = a * Math.max(block[SkyProgram.at(index, SkyProgram.ALPHA_1)], block[SkyProgram.at(index, SkyProgram.ALPHA_2)]);
+        SkyGenerator.lightAlpha(light, NO_LIGHT,
+                Math.max(block[SkyProgram.at(index, SkyProgram.ALPHA_1)], block[SkyProgram.at(index, SkyProgram.ALPHA_2)]), out);
     }
 
     /** Adds the far galaxies near a direction: discs at each tilt and angle, the old ones in COLOR_1 and the young ones, with arms, in COLOR_2. */
@@ -39,20 +38,14 @@ final class DeepField {
         float chance = 0.15f + 0.85f * block[SkyProgram.at(index, SkyProgram.AMOUNT)];
         float n = CELLS / scale, reach = 0.5f * scale / CELLS;
         int bx = (int) Math.floor(p[0] * n - 0.5f), by = (int) Math.floor(p[1] * n - 0.5f), bz = (int) Math.floor(p[2] * n - 0.5f);
+        float[] s = new float[3];
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
                 for (int k = 0; k <= 1; k++) {
                     int hx = bx + i, hy = by + j, hz = bz + k;
                     if (Noise.unit(Noise.hash(hx, hy, hz, seed)) >= chance) continue;
-                    int hj = Noise.hash(hx, hy, hz, seed + 1);
-                    float vx = hx + ((hj >>> 22) + 0.5f) / 1024f;
-                    float vy = hy + (((hj >>> 12) & 1023) + 0.5f) / 1024f;
-                    float vz = hz + (((hj >>> 2) & 1023) + 0.5f) / 1024f;
-                    float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
-                    if (len < 1e-3f) continue;
-                    float sx = vx / len, sy = vy / len, sz = vz / len;
-                    // The galaxy is the point of the cell moved onto the sphere, and the cell keeps it only when it stays in the cell.
-                    if ((int) Math.floor(sx * n) != hx || (int) Math.floor(sy * n) != hy || (int) Math.floor(sz * n) != hz) continue;
+                    if (!Noise.cellPoint(hx, hy, hz, Noise.hash(hx, hy, hz, seed + 1), n, s)) continue;
+                    float sx = s[0], sy = s[1], sz = s[2];
                     float dx = p[0] - sx, dy = p[1] - sy, dz = p[2] - sz;
                     float d2 = dx * dx + dy * dy + dz * dz;
                     if (d2 >= reach * reach) continue;
@@ -117,7 +110,7 @@ final class DeepField {
     private static void stars(float[] p, float footprint, float scale, int seed, float density, float cloud, float[] light) {
         float n = CLOUD_CELLS / scale, reach = 0.5f * scale / CLOUD_CELLS;
         float blur = SkyStars.PIXEL * footprint, core = SkyStars.CORE * scale, core2 = core * core + blur * blur;
-        float[] color = new float[3];
+        float[] color = new float[3], s = new float[3];
         int bx = (int) Math.floor(p[0] * n - 0.5f), by = (int) Math.floor(p[1] * n - 0.5f), bz = (int) Math.floor(p[2] * n - 0.5f);
         for (int i = 0; i <= 1; i++) {
             for (int j = 0; j <= 1; j++) {
@@ -125,15 +118,8 @@ final class DeepField {
                     int hx = bx + i, hy = by + j, hz = bz + k;
                     int h = Noise.hash(hx, hy, hz, seed);
                     if ((h >>> 24) / 256f >= density) continue;
-                    int hj = Noise.hash(hx, hy, hz, seed + 1);
-                    float vx = hx + ((hj >>> 22) + 0.5f) / 1024f;
-                    float vy = hy + (((hj >>> 12) & 1023) + 0.5f) / 1024f;
-                    float vz = hz + (((hj >>> 2) & 1023) + 0.5f) / 1024f;
-                    float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
-                    if (len < 1e-3f) continue;
-                    float sx = vx / len, sy = vy / len, sz = vz / len;
-                    if ((int) Math.floor(sx * n) != hx || (int) Math.floor(sy * n) != hy || (int) Math.floor(sz * n) != hz) continue;
-                    float dx = p[0] - sx, dy = p[1] - sy, dz = p[2] - sz;
+                    if (!Noise.cellPoint(hx, hy, hz, Noise.hash(hx, hy, hz, seed + 1), n, s)) continue;
+                    float dx = p[0] - s[0], dy = p[1] - s[1], dz = p[2] - s[2];
                     float d2 = dx * dx + dy * dy + dz * dz;
                     if (d2 >= reach * reach) continue;
                     float flux = Math.min(0.7f, 0.03f * (float) Math.pow((((h >>> 12) & 4095) + 0.5f) / 4096f, -1 / 1.3f));

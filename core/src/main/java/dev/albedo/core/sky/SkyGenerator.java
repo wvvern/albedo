@@ -299,12 +299,7 @@ public final class SkyGenerator {
             termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
             float[] up = new float[3];
             local(0, 1, 0, up);
-            float[] axis = new float[3];
-            for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
-            stars = layer.kind() == SkyLayer.Kind.STARS
-                    ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up,
-                            block[SkyProgram.at(index, SkyProgram.TRAIL)], block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis)
-                    : null;
+            stars = layer.kind() == SkyLayer.Kind.STARS ? SkyStars.of(block, index, up, 0) : null;
         }
 
         private static float[] slice(float[] block, int from) {
@@ -464,6 +459,19 @@ public final class SkyGenerator {
             k = (peak + room * (1 - (float) Math.exp(-peak * (k - 1) / room))) / peak;
         }
         for (int c = 0; c < 3; c++) rgb[c] *= k;
+    }
+
+    /**
+     * Splits linear light into a color and an alpha as {@code albedoLightAlpha} in the sky shader does, where the alpha carries
+     * the light up to 1 and the color carries the rest, so that an added layer adds all of the light.
+     *
+     * @param empty the color where there is no light
+     * @param alpha the factor of the alpha
+     */
+    static void lightAlpha(float[] light, float[] empty, float alpha, float[] out) {
+        float a = Math.min(1f, Math.max(light[0], Math.max(light[1], light[2])));
+        for (int c = 0; c < 3; c++) out[c] = a > 0 ? light[c] / a : empty[c];
+        out[3] = a * alpha;
     }
 
     /** Thin bright lines of ridged noise, bent by more noise, where AMOUNT is how much they bend. */
