@@ -23,19 +23,19 @@ final class DeepField {
      * @param footprint the width of one pixel in radians
      */
     static void sample(float[] block, int index, float[] p, float footprint, float[] out) {
-        float scale = block[SkyProgram.at(index, SkyProgram.SCALE)];
-        int seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)] * 31 + 5;
+        float scale = block[SkyProgram.index(index, SkyProgram.SCALE)];
+        int seed = (int) block[SkyProgram.index(index, SkyProgram.SEED)] * 31 + 5;
         float[] light = new float[3];
         galaxies(block, index, p, footprint, scale, seed, light);
-        float cloud = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
+        float cloud = block[SkyProgram.index(index, SkyProgram.HEIGHT)];
         if (cloud > 0) cloud(p, footprint, scale, seed, cloud, light);
         SkyGenerator.lightAlpha(light, NO_LIGHT,
-                Math.max(block[SkyProgram.at(index, SkyProgram.ALPHA_1)], block[SkyProgram.at(index, SkyProgram.ALPHA_2)]), out);
+                Math.max(block[SkyProgram.index(index, SkyProgram.ALPHA_1)], block[SkyProgram.index(index, SkyProgram.ALPHA_2)]), out);
     }
 
     /** Adds the far galaxies near a direction: discs at each tilt and angle, the old ones in COLOR_1 and the young ones, with arms, in COLOR_2. */
     private static void galaxies(float[] block, int index, float[] p, float footprint, float scale, int seed, float[] light) {
-        float chance = 0.15f + 0.85f * block[SkyProgram.at(index, SkyProgram.AMOUNT)];
+        float chance = 0.15f + 0.85f * block[SkyProgram.index(index, SkyProgram.AMOUNT)];
         float n = CELLS / scale, reach = 0.5f * scale / CELLS;
         int bx = (int) Math.floor(p[0] * n - 0.5f), by = (int) Math.floor(p[1] * n - 0.5f), bz = (int) Math.floor(p[2] * n - 0.5f);
         float[] s = new float[3];
@@ -79,7 +79,8 @@ final class DeepField {
                     prof *= 1 + arms * (0.9f * wave * wave - 0.45f);
                     prof *= 1 - SkyMath.smooth(0.8f * reach, reach, (float) Math.sqrt(d2));
                     for (int c = 0; c < 3; c++) {
-                        float warm = block[SkyProgram.at(index, SkyProgram.COLOR_1) + c], blue = block[SkyProgram.at(index, SkyProgram.COLOR_2) + c];
+                        float warm = block[SkyProgram.index(index, SkyProgram.COLOR_1) + c];
+                        float blue = block[SkyProgram.index(index, SkyProgram.COLOR_2) + c];
                         light[c] += (warm + (blue - warm) * young) * prof;
                     }
                 }

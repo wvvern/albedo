@@ -116,13 +116,13 @@ final class Aurora {
         // The far ribbon with its shorter rays is never more than about 40 degrees high.
         if (curtains > 1 && el < FAR_TOP) view.add(1, light);
         // The thick air near the horizon dims the light, so that no bright edge lies along it, and the light fades out before the search stops.
-        float bright = block[SkyProgram.at(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el)
+        float bright = block[SkyProgram.index(layer, SkyProgram.AMOUNT)] * 2 * smooth(-0.02f, 0.22f, el)
                 * (1 - smooth(MAX_AZIMUTH - 0.2f, MAX_AZIMUTH, Math.abs(a)));
-        float alpha1 = block[SkyProgram.at(layer, SkyProgram.ALPHA_1)], alpha2 = block[SkyProgram.at(layer, SkyProgram.ALPHA_2)];
+        float alpha1 = block[SkyProgram.index(layer, SkyProgram.ALPHA_1)], alpha2 = block[SkyProgram.index(layer, SkyProgram.ALPHA_2)];
         float m = 0;
         for (int c = 0; c < 3; c++) {
-            e[c] = bright * (block[SkyProgram.at(layer, SkyProgram.COLOR_1) + c] * alpha1 * light[0]
-                    + block[SkyProgram.at(layer, SkyProgram.COLOR_2) + c] * alpha2 * light[1]);
+            e[c] = bright * (block[SkyProgram.index(layer, SkyProgram.COLOR_1) + c] * alpha1 * light[0]
+                    + block[SkyProgram.index(layer, SkyProgram.COLOR_2) + c] * alpha2 * light[1]);
             m = Math.max(m, e[c]);
         }
         if (m <= 0) return;
@@ -160,10 +160,10 @@ final class Aurora {
             this.el = el;
             this.wide = wide;
             this.footprint = footprint;
-            t = block[SkyProgram.at(layer, SkyProgram.CLOCK)];
-            scale = block[SkyProgram.at(layer, SkyProgram.SCALE)];
-            height = 70 + 260 * block[SkyProgram.at(layer, SkyProgram.HEIGHT)];
-            seed = (int) block[SkyProgram.at(layer, SkyProgram.SEED)];
+            t = block[SkyProgram.index(layer, SkyProgram.CLOCK)];
+            scale = block[SkyProgram.index(layer, SkyProgram.SCALE)];
+            height = 70 + 260 * block[SkyProgram.index(layer, SkyProgram.HEIGHT)];
+            seed = (int) block[SkyProgram.index(layer, SkyProgram.SEED)];
         }
 
         /**

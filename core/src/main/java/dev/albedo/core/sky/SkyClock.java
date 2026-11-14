@@ -24,6 +24,12 @@ public final class SkyClock {
         return Float.isNaN(h) ? nanos() / 1e9 : h;
     }
 
+    /** A time of {@link #longSeconds} in seconds, wrapped every {@link #PERIOD_MS} in double precision. */
+    static double wrap(double seconds) {
+        double period = PERIOD_MS / 1000.0;
+        return seconds - period * Math.floor(seconds / period);
+    }
+
     /** Holds the clock still at a time in seconds, so that a screenshot of the moving layers is the same each time. */
     public static void hold(float seconds) {
         held = seconds;

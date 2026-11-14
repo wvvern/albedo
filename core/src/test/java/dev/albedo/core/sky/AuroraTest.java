@@ -39,7 +39,7 @@ class AuroraTest {
     void theClockGoesOnAcrossTheWrapWithNoJump() {
         SkyProgram b = block(SkyLayer.of(1, SkyLayer.Kind.AURORA));
         float[] before = b.at(0, SkyTurn.STILL).clone(), after = b.at(0, SkyTurn.STILL).clone();
-        int clock = SkyProgram.at(0, SkyProgram.CLOCK);
+        int clock = SkyProgram.index(0, SkyProgram.CLOCK);
         before[clock] = Aurora.PERIOD - 0.001f;
         after[clock] = 0.001f;
         float worst = 0, total = 0;

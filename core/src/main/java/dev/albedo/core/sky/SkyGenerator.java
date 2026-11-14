@@ -254,28 +254,28 @@ public final class SkyGenerator {
             this.layer = layer;
             this.block = block;
             this.index = index;
-            opacity = block[SkyProgram.at(index, SkyProgram.OPACITY)];
+            opacity = block[SkyProgram.index(index, SkyProgram.OPACITY)];
             for (int row = 0; row < 3; row++) {
-                for (int c = 0; c < 3; c++) r[c * 3 + row] = block[SkyProgram.at(index, SkyProgram.LOCAL + row * 4 + c)];
+                for (int c = 0; c < 3; c++) r[c * 3 + row] = block[SkyProgram.index(index, SkyProgram.LOCAL + row * 4 + c)];
             }
-            scale = block[SkyProgram.at(index, SkyProgram.SCALE)];
-            color1 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_1));
-            color2 = slice(block, SkyProgram.at(index, SkyProgram.COLOR_2));
-            lab1 = slice(block, SkyProgram.at(index, SkyProgram.LAB_1));
-            lab2 = slice(block, SkyProgram.at(index, SkyProgram.LAB_2));
-            alpha1 = block[SkyProgram.at(index, SkyProgram.ALPHA_1)];
-            alpha2 = block[SkyProgram.at(index, SkyProgram.ALPHA_2)];
-            amount = block[SkyProgram.at(index, SkyProgram.AMOUNT)];
-            height = block[SkyProgram.at(index, SkyProgram.HEIGHT)];
-            tilt = block[SkyProgram.at(index, SkyProgram.TILT)];
-            dust = block[SkyProgram.at(index, SkyProgram.DUST)];
-            jets = block[SkyProgram.at(index, SkyProgram.JETS)];
+            scale = block[SkyProgram.index(index, SkyProgram.SCALE)];
+            color1 = slice(block, SkyProgram.index(index, SkyProgram.COLOR_1));
+            color2 = slice(block, SkyProgram.index(index, SkyProgram.COLOR_2));
+            lab1 = slice(block, SkyProgram.index(index, SkyProgram.LAB_1));
+            lab2 = slice(block, SkyProgram.index(index, SkyProgram.LAB_2));
+            alpha1 = block[SkyProgram.index(index, SkyProgram.ALPHA_1)];
+            alpha2 = block[SkyProgram.index(index, SkyProgram.ALPHA_2)];
+            amount = block[SkyProgram.index(index, SkyProgram.AMOUNT)];
+            height = block[SkyProgram.index(index, SkyProgram.HEIGHT)];
+            tilt = block[SkyProgram.index(index, SkyProgram.TILT)];
+            dust = block[SkyProgram.index(index, SkyProgram.DUST)];
+            jets = block[SkyProgram.index(index, SkyProgram.JETS)];
             boolean galaxy = layer.kind() == SkyLayer.Kind.GALAXY;
-            detail = galaxy ? block[SkyProgram.at(index, SkyProgram.DETAIL)] : 0;
-            motion = galaxy ? block[SkyProgram.at(index, SkyProgram.MOTION)] : 0;
-            for (int c = 0; c < 3; c++) color3[c] = block[SkyProgram.at(index, SkyProgram.COLOR_3 + c * 4)];
-            seed = (int) block[SkyProgram.at(index, SkyProgram.SEED)];
-            termSlot = (int) block[SkyProgram.at(index, SkyProgram.TERM_SLOT)];
+            detail = galaxy ? block[SkyProgram.index(index, SkyProgram.DETAIL)] : 0;
+            motion = galaxy ? block[SkyProgram.index(index, SkyProgram.MOTION)] : 0;
+            for (int c = 0; c < 3; c++) color3[c] = block[SkyProgram.index(index, SkyProgram.COLOR_3 + c * 4)];
+            seed = (int) block[SkyProgram.index(index, SkyProgram.SEED)];
+            termSlot = (int) block[SkyProgram.index(index, SkyProgram.TERM_SLOT)];
             float[] up = new float[3];
             local(0, 1, 0, up);
             stars = layer.kind() == SkyLayer.Kind.STARS ? SkyStars.of(block, index, up, 0) : null;
@@ -367,7 +367,7 @@ public final class SkyGenerator {
 
     /** The smooth values of a cloud layer (its value and its pulse noise) or a fractal layer (its bend and its pulse noise). */
     private static void field(Layer l, float[] p, float[] out) {
-        float pulse = l.block[SkyProgram.at(l.index, SkyProgram.PULSE)] > 0 ? pulseNoise(l.scale, l.seed, p) : 0;
+        float pulse = l.block[SkyProgram.index(l.index, SkyProgram.PULSE)] > 0 ? pulseNoise(l.scale, l.seed, p) : 0;
         out[3] = 0;
         if (l.layer.kind() == SkyLayer.Kind.NOISE) {
             float f = 2.5f / l.scale;
@@ -403,7 +403,7 @@ public final class SkyGenerator {
 
     /** Multiplies the color of a cloud layer by its pulse at time 0. */
     private static void pulse(Layer l, float[] p, float v, float[] out) {
-        brighten(pulse(l.block[SkyProgram.at(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0), out);
+        brighten(pulse(l.block[SkyProgram.index(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0), out);
     }
 
     /**

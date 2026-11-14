@@ -28,14 +28,14 @@ class SkyStarsTest {
     private static SkyStars stars(float amount, float spikes, float scale, int seed, float twinkle, float time, float[] up, float trail,
             float trailLight, float[] axis) {
         float[] block = new float[SkyProgram.FLOATS];
-        block[SkyProgram.at(0, SkyProgram.AMOUNT)] = amount;
-        block[SkyProgram.at(0, SkyProgram.HEIGHT)] = spikes / 2;
-        block[SkyProgram.at(0, SkyProgram.SCALE)] = scale;
-        block[SkyProgram.at(0, SkyProgram.SEED)] = seed;
-        block[SkyProgram.at(0, SkyProgram.TWINKLE)] = twinkle;
-        block[SkyProgram.at(0, SkyProgram.TRAIL)] = trail;
-        block[SkyProgram.at(0, SkyProgram.TRAIL_LIGHT)] = trailLight;
-        for (int c = 0; c < 3; c++) block[SkyProgram.at(0, SkyProgram.TRAIL_AXIS + c * 4)] = axis[c];
+        block[SkyProgram.index(0, SkyProgram.AMOUNT)] = amount;
+        block[SkyProgram.index(0, SkyProgram.HEIGHT)] = spikes / 2;
+        block[SkyProgram.index(0, SkyProgram.SCALE)] = scale;
+        block[SkyProgram.index(0, SkyProgram.SEED)] = seed;
+        block[SkyProgram.index(0, SkyProgram.TWINKLE)] = twinkle;
+        block[SkyProgram.index(0, SkyProgram.TRAIL)] = trail;
+        block[SkyProgram.index(0, SkyProgram.TRAIL_LIGHT)] = trailLight;
+        for (int c = 0; c < 3; c++) block[SkyProgram.index(0, SkyProgram.TRAIL_AXIS + c * 4)] = axis[c];
         return SkyStars.of(block, 0, up, time);
     }
 

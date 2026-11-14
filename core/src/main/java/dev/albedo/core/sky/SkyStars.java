@@ -134,11 +134,11 @@ final class SkyStars {
      */
     static SkyStars of(float[] block, int index, float[] up, float time) {
         float[] axis = new float[3];
-        for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
-        return new SkyStars(block[SkyProgram.at(index, SkyProgram.AMOUNT)], block[SkyProgram.at(index, SkyProgram.HEIGHT)] * 2,
-                block[SkyProgram.at(index, SkyProgram.SCALE)], (int) block[SkyProgram.at(index, SkyProgram.SEED)],
-                block[SkyProgram.at(index, SkyProgram.TWINKLE)], time, up, block[SkyProgram.at(index, SkyProgram.TRAIL)],
-                block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis);
+        for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.index(index, SkyProgram.TRAIL_AXIS + c * 4)];
+        return new SkyStars(block[SkyProgram.index(index, SkyProgram.AMOUNT)], block[SkyProgram.index(index, SkyProgram.HEIGHT)] * 2,
+                block[SkyProgram.index(index, SkyProgram.SCALE)], (int) block[SkyProgram.index(index, SkyProgram.SEED)],
+                block[SkyProgram.index(index, SkyProgram.TWINKLE)], time, up, block[SkyProgram.index(index, SkyProgram.TRAIL)],
+                block[SkyProgram.index(index, SkyProgram.TRAIL_LIGHT)], axis);
     }
 
     /** The linear light of the stars in the unit direction {@code p} of the layer frame, as color and alpha into {@code out}. */

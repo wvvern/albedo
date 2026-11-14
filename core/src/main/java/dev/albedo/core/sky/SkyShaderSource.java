@@ -123,23 +123,23 @@ public final class SkyShaderSource {
      */
     public static String layerSteps(SkyProgram program) {
         float[] b = program.block();
-        int count = (int) b[0];
+        int count = (int) b[SkyProgram.LAYER_COUNT];
         boolean[] source = new boolean[count];
         for (int i = 0; i < count; i++) {
-            int mask = (int) b[SkyProgram.at(i, SkyProgram.MASK_INDEX)];
+            int mask = (int) b[SkyProgram.index(i, SkyProgram.MASK_INDEX)];
             if (mask >= 0) source[mask] = true;
         }
         StringBuilder out = new StringBuilder("#define ALBEDO_LAYER_STEPS");
         for (int i = 0; i < count; i++) {
-            int use = (int) b[SkyProgram.at(i, SkyProgram.USE)];
+            int use = (int) b[SkyProgram.index(i, SkyProgram.USE)];
             if (use == SkyProgram.USE_NONE) continue;
             out.append(" s = ").append(call(b, i)).append(';');
             if (source[i]) out.append(" albedoMaskSource(").append(i).append(", s);");
             if (use != SkyProgram.USE_SHOW) continue;
             out.append(" img = albedoShow(img, s, ").append(i)
-                    .append(", ").append((int) b[SkyProgram.at(i, SkyProgram.BLEND)])
-                    .append(", ").append((int) b[SkyProgram.at(i, SkyProgram.MASK_INDEX)])
-                    .append(", ").append(b[SkyProgram.at(i, SkyProgram.MASK_DARK)] > 0.5f)
+                    .append(", ").append((int) b[SkyProgram.index(i, SkyProgram.BLEND)])
+                    .append(", ").append((int) b[SkyProgram.index(i, SkyProgram.MASK_INDEX)])
+                    .append(", ").append(b[SkyProgram.index(i, SkyProgram.MASK_DARK)] > 0.5f)
                     .append(");");
         }
         return out.append('\n').toString();
@@ -154,9 +154,9 @@ public final class SkyShaderSource {
     private static String call(float[] b, int layer) {
         String frame = "albedoFrame(" + layer + ", dir)";
         int flags = flags(b, layer);
-        int kind = (int) b[SkyProgram.at(layer, SkyProgram.KIND)];
+        int kind = (int) b[SkyProgram.index(layer, SkyProgram.KIND)];
         // A cloud or fractal layer with a field image reads its slow noise from there.
-        int slot = (int) b[SkyProgram.at(layer, SkyProgram.TERM_SLOT)];
+        int slot = (int) b[SkyProgram.index(layer, SkyProgram.TERM_SLOT)];
         String field = slot >= 0 ? "albedoField(" + slot + ", dir)" : null;
         switch (kind) {
             case SkyProgram.KIND_GRADIENT: return "albedoGradient(" + layer + ", " + frame + ")";
@@ -188,21 +188,21 @@ public final class SkyShaderSource {
 
     /** The ALBEDO_FLAG bits of the parts of a layer that its values turn on. */
     private static int flags(float[] b, int layer) {
-        int kind = (int) b[SkyProgram.at(layer, SkyProgram.KIND)];
+        int kind = (int) b[SkyProgram.index(layer, SkyProgram.KIND)];
         int flags = 0;
         if (kind == SkyProgram.KIND_STARS) {
-            if (b[SkyProgram.at(layer, SkyProgram.TWINKLE)] > 0) flags |= FLAG_TWINKLE;
-            if (b[SkyProgram.at(layer, SkyProgram.TRAIL)] > 0) flags |= FLAG_TRAILS;
-            if (b[SkyProgram.at(layer, SkyProgram.HEIGHT)] > 0) flags |= FLAG_SPIKES;
+            if (b[SkyProgram.index(layer, SkyProgram.TWINKLE)] > 0) flags |= FLAG_TWINKLE;
+            if (b[SkyProgram.index(layer, SkyProgram.TRAIL)] > 0) flags |= FLAG_TRAILS;
+            if (b[SkyProgram.index(layer, SkyProgram.HEIGHT)] > 0) flags |= FLAG_SPIKES;
         } else if (kind == SkyProgram.KIND_NOISE || kind == SkyProgram.KIND_FRACTAL) {
-            if (b[SkyProgram.at(layer, SkyProgram.PULSE)] > 0) flags |= FLAG_PULSE;
+            if (b[SkyProgram.index(layer, SkyProgram.PULSE)] > 0) flags |= FLAG_PULSE;
         } else if (kind == SkyProgram.KIND_GALAXY) {
-            if (b[SkyProgram.at(layer, SkyProgram.DUST)] > 0) flags |= FLAG_DUST;
-            if (b[SkyProgram.at(layer, SkyProgram.JETS)] > 0) flags |= FLAG_JETS;
-            if (b[SkyProgram.at(layer, SkyProgram.DETAIL)] > 0) flags |= FLAG_DETAIL;
-            if (b[SkyProgram.at(layer, SkyProgram.MOTION)] > 0) flags |= FLAG_MOTION;
+            if (b[SkyProgram.index(layer, SkyProgram.DUST)] > 0) flags |= FLAG_DUST;
+            if (b[SkyProgram.index(layer, SkyProgram.JETS)] > 0) flags |= FLAG_JETS;
+            if (b[SkyProgram.index(layer, SkyProgram.DETAIL)] > 0) flags |= FLAG_DETAIL;
+            if (b[SkyProgram.index(layer, SkyProgram.MOTION)] > 0) flags |= FLAG_MOTION;
         } else if (kind == SkyProgram.KIND_DEEP_FIELD) {
-            if (b[SkyProgram.at(layer, SkyProgram.HEIGHT)] > 0) flags |= FLAG_CLOUD;
+            if (b[SkyProgram.index(layer, SkyProgram.HEIGHT)] > 0) flags |= FLAG_CLOUD;
         }
         return flags;
     }

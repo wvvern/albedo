@@ -53,16 +53,16 @@ public final class SkyMeteors {
      * The meteor of a slot and a channel of layer {@code layer} of a program block, or null when none starts there.
      */
     static Meteor of(float[] block, int layer, int slot, int channel) {
-        int seed = (int) block[SkyProgram.at(layer, SkyProgram.SEED)] * 7 + 13;
-        float amount = block[SkyProgram.at(layer, SkyProgram.AMOUNT)];
+        int seed = (int) block[SkyProgram.index(layer, SkyProgram.SEED)] * 7 + 13;
+        float amount = block[SkyProgram.index(layer, SkyProgram.AMOUNT)];
         if (unit(slot, channel, 0, seed) >= perMinute(amount) * SLOT / 60f / CHANNELS) return null;
         Meteor m = new Meteor();
         m.birth = slot * SLOT + unit(slot, channel, 1, seed) * SLOT;
         m.fireball = unit(slot, channel, 2, seed) < FIREBALLS;
         m.duration = (0.3f + 0.7f * unit(slot, channel, 3, seed)) * (m.fireball ? FIREBALL_LIFE : 1f);
-        float speed = block[SkyProgram.at(layer, SkyProgram.SPEED)];
+        float speed = block[SkyProgram.index(layer, SkyProgram.SPEED)];
         m.speed = (float) Math.toRadians(8f + 32f * speed) * (0.7f + 0.6f * unit(slot, channel, 4, seed));
-        float length = block[SkyProgram.at(layer, SkyProgram.LENGTH)];
+        float length = block[SkyProgram.index(layer, SkyProgram.LENGTH)];
         m.trail = (float) Math.toRadians(3f + 7f * length) * (0.75f + 0.5f * unit(slot, channel, 5, seed)) * (m.fireball ? FIREBALL_TRAIL : 1f);
         // Hash value 6 is the brightness, which only the shader uses.
         float azimuth = (float) (2 * Math.PI) * unit(slot, channel, 7, seed);
@@ -73,13 +73,13 @@ public final class SkyMeteors {
         m.start[2] = -c * (float) Math.cos(azimuth);
         float[] p = m.start;
         // A shower meteor moves away from the radiant, the layer center: the -z axis of the layer frame.
-        float rx = -block[SkyProgram.at(layer, SkyProgram.LOCAL + 8)];
-        float ry = -block[SkyProgram.at(layer, SkyProgram.LOCAL + 9)];
-        float rz = -block[SkyProgram.at(layer, SkyProgram.LOCAL + 10)];
+        float rx = -block[SkyProgram.index(layer, SkyProgram.LOCAL + 8)];
+        float ry = -block[SkyProgram.index(layer, SkyProgram.LOCAL + 9)];
+        float rz = -block[SkyProgram.index(layer, SkyProgram.LOCAL + 10)];
         float along = p[0] * rx + p[1] * ry + p[2] * rz;
         float ax = p[0] * along - rx, ay = p[1] * along - ry, az = p[2] * along - rz;
         float away = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-        float shower = block[SkyProgram.at(layer, SkyProgram.SHOWER)];
+        float shower = block[SkyProgram.index(layer, SkyProgram.SHOWER)];
         if (unit(slot, channel, 9, seed) < shower && away > 1e-3f) {
             m.motion[0] = ax / away;
             m.motion[1] = ay / away;

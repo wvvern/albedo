@@ -33,16 +33,22 @@ public final class SkyProgram {
     public static final int MAX_SLOTS = 6;
     /** The vec4 values of each layer. */
     public static final int LAYER_VEC4S = 10;
+    /** The float index of the layer count in the header. */
+    static final int LAYER_COUNT = 0;
+    /** The float index of the extent in the header: 1 for the full sphere, else 0. */
+    static final int SPHERE = 1;
+    /** The float index of the count of term and field images in the header. */
+    static final int TERM_COUNT = 2;
+    /** The float index of the time in seconds, the last value of the header, which each adapter writes for each frame. */
+    public static final int TIME = 3;
     /** The float index of the three rows of the turn from sky directions to world directions, each a vec4 after the header. */
     public static final int WORLD = 4;
     /** The float index of the first layer, after the header and the turn. */
-    public static final int LAYERS = WORLD + 12;
+    public static final int LAYERS = WORLD + 3 * 4;
     /** The float index of the first horizon color. */
     public static final int RING = LAYERS + SkyDesign.MAX_LAYERS * LAYER_VEC4S * 4;
     /** The number of floats in the block. */
     public static final int FLOATS = RING + SkyImage.RING * 4;
-    /** The float index of the time in seconds, the last value of the header, which each adapter writes for each frame. */
-    public static final int TIME = 3;
     /** The time of a still sky, in which the layers that move draw nothing, as in the CPU bake. */
     public static final float STILL = -1f;
 
@@ -98,78 +104,19 @@ public final class SkyProgram {
 
     private SkyProgram(SkyDesign design, float[] ring) {
         List<SkyLayer> layers = design.layers();
-        // The header: the layer count, the extent (1 for the full sphere), the term count and the time.
-        block[0] = layers.size();
-        block[1] = design.drawnExtent() == SkyDesign.Extent.SPHERE ? 1 : 0;
-        block[TIME] = STILL;
-        for (int row = 0; row < 3; row++) block[WORLD + row * 5] = 1;
-        boolean anyMoves = false;
+        writeHeader(design);
+        boolean[] maskSource = maskSources(design);
         paths = new Path[layers.size()];
-        boolean[] maskSource = new boolean[layers.size()];
-        for (int i = 0; i < layers.size(); i++) {
-            SkyMask m = layers.get(i).mask();
-            int source = m.isNone() ? -1 : design.indexOf(m.layer());
-            if (source >= 0 && source < i) maskSource[source] = true;
-        }
         int slots = 0;
+        boolean anyMoves = false;
         for (int i = 0; i < layers.size(); i++) {
-            SkyLayer l = layers.get(i);
-            paths[i] = path(l.kind());
-            if (paths[i] == Path.TERM && slots == MAX_TERMS) paths[i] = Path.BAKED;
-            int base = LAYERS + i * LAYER_VEC4S * 4;
-            block[base + TERM_SLOT] = paths[i] == Path.TERM ? slots++ : -1;
-            block[base + KIND] = kindCode(l.kind());
-            block[base + BLEND] = blendCode(l.blend());
-            block[base + USE] = l.output() == SkyLayer.Output.SHOW ? USE_SHOW : maskSource[i] ? USE_MASK : USE_NONE;
-            int source = l.mask().isNone() ? -1 : design.indexOf(l.mask().layer());
-            block[base + MASK_INDEX] = source < i ? source : -1;
-            block[base + MASK_DARK] = l.mask().mode() == SkyMask.Mode.DARK ? 1 : 0;
-            block[base + OPACITY] = l.opacity() / 100f;
-            block[base + AMOUNT] = l.param(SkyLayer.Param.AMOUNT) / 100f;
-            block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
-            block[base + SCALE] = l.transform().scale() / 100f;
-            block[base + SEED] = l.param(SkyLayer.Param.SEED);
-            anyMoves |= movesWithTime(l) && block[base + USE] != USE_NONE;
-            color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
-            color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
-            if (l.kind() == SkyLayer.Kind.GALAXY) {
-                block[base + TILT] = l.param(SkyLayer.Param.TILT) / 90f;
-                block[base + DUST] = l.param(SkyLayer.Param.DUST) / 100f;
-                block[base + JETS] = l.param(SkyLayer.Param.JETS) / 100f;
-                block[base + DETAIL] = l.param(SkyLayer.Param.DETAIL) / 100f;
-                block[base + MOTION] = l.param(SkyLayer.Param.MOTION) / 100f;
-                float[] jet = Oklab.linear(l.param(SkyLayer.Param.COLOR_3));
-                for (int c = 0; c < 3; c++) block[base + COLOR_3 + c * 4] = jet[c];
-            } else if (l.kind() == SkyLayer.Kind.METEORS) {
-                block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
-                block[base + LENGTH] = l.param(SkyLayer.Param.LENGTH) / 100f;
-                block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
-            } else if (l.kind() == SkyLayer.Kind.AURORA) {
-                block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
-            } else if (l.kind() == SkyLayer.Kind.STARS) {
-                block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
-                if (design.turning().showsTrails()) trails(design.turning(), l.transform(), base);
-            } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
-                block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
-            }
-            double[] r = l.transform().rotation();
-            for (int row = 0; row < 3; row++) {
-                for (int c = 0; c < 3; c++) block[base + LOCAL + row * 4 + c] = (float) r[c * 3 + row];
-            }
+            slots = writeLayer(i, design, maskSource[i], slots);
+            anyMoves |= movesWithTime(layers.get(i)) && block[index(i, USE)] != USE_NONE;
         }
-        // The cloud and fractal layers that show or mask get the free slots up to MAX_SLOTS for their field images, in their order,
-        // only when the shader can draw the sky.
-        for (int i = 0; i < layers.size() && drawsSharp(); i++) {
-            SkyLayer.Kind kind = layers.get(i).kind();
-            int base = LAYERS + i * LAYER_VEC4S * 4;
-            if ((kind == SkyLayer.Kind.NOISE || kind == SkyLayer.Kind.FRACTAL) && block[base + USE] != USE_NONE && slots < MAX_SLOTS) {
-                block[base + TERM_SLOT] = slots++;
-            }
-        }
-        terms = slots;
+        terms = assignFieldSlots(layers, slots);
         moves = anyMoves;
-        block[2] = slots;
-        for (int s = 0; s < SkyImage.RING; s++) System.arraycopy(ring, s * 3, block, RING + s * 4, 3);
+        block[TERM_COUNT] = terms;
+        writeRing(ring);
     }
 
     /**
@@ -181,31 +128,109 @@ public final class SkyProgram {
         return new SkyProgram(design, ring);
     }
 
-    /** The path of a kind: a filter that reads near pixels or other directions is a term image, and the other kinds are pixels. */
-    static Path path(SkyLayer.Kind kind) {
-        switch (kind) {
-            case GRADIENT:
-            case GLOW:
-            case NOISE:
-            case FRACTAL:
-            case GALAXY:
-            case STARS:
-            case DEEP_FIELD:
-            case METEORS:
-            case AURORA:
-            case POSTERIZE:
-            case HUE_SHIFT:
-            case VIGNETTE:
-                return Path.PIXEL;
-            case BLUR:
-            case PIXELATE:
-            case CRYSTALLIZE:
-            case SWIRL:
-            case BLOOM:
-                return Path.TERM;
-            default:
-                throw new IllegalArgumentException("no path for " + kind);
+    /** Writes the header of a still sky and the identity turn. */
+    private void writeHeader(SkyDesign design) {
+        block[LAYER_COUNT] = design.layers().size();
+        block[SPHERE] = design.drawnExtent() == SkyDesign.Extent.SPHERE ? 1 : 0;
+        block[TIME] = STILL;
+        for (int row = 0; row < 3; row++) block[WORLD + row * 5] = 1;
+    }
+
+    /** True for each layer that a higher layer uses as its mask. */
+    private static boolean[] maskSources(SkyDesign design) {
+        List<SkyLayer> layers = design.layers();
+        boolean[] maskSource = new boolean[layers.size()];
+        for (int i = 0; i < layers.size(); i++) {
+            int source = maskIndex(design, i);
+            if (source >= 0 && source < i) maskSource[source] = true;
         }
+        return maskSource;
+    }
+
+    /** The index of the mask layer of a layer, or -1 when it has no mask. */
+    private static int maskIndex(SkyDesign design, int layer) {
+        SkyMask m = design.layers().get(layer).mask();
+        return m.isNone() ? -1 : design.indexOf(m.layer());
+    }
+
+    /**
+     * Writes the path and the values of one layer.
+     *
+     * @param slots the term slots that the lower layers use
+     * @return the term slots that this layer and the lower layers use
+     */
+    private int writeLayer(int i, SkyDesign design, boolean maskSource, int slots) {
+        SkyLayer l = design.layers().get(i);
+        ShaderKind kind = ShaderKind.of(l.kind());
+        paths[i] = kind.path;
+        if (paths[i] == Path.TERM && slots == MAX_TERMS) paths[i] = Path.BAKED;
+        int base = index(i, 0);
+        block[base + TERM_SLOT] = paths[i] == Path.TERM ? slots++ : -1;
+        block[base + KIND] = kind.code;
+        block[base + BLEND] = blendCode(l.blend());
+        block[base + USE] = l.output() == SkyLayer.Output.SHOW ? USE_SHOW : maskSource ? USE_MASK : USE_NONE;
+        int source = maskIndex(design, i);
+        block[base + MASK_INDEX] = source < i ? source : -1;
+        block[base + MASK_DARK] = l.mask().mode() == SkyMask.Mode.DARK ? 1 : 0;
+        block[base + OPACITY] = l.opacity() / 100f;
+        block[base + AMOUNT] = l.param(SkyLayer.Param.AMOUNT) / 100f;
+        block[base + HEIGHT] = l.param(SkyLayer.Param.HEIGHT) / 100f;
+        block[base + SCALE] = l.transform().scale() / 100f;
+        block[base + SEED] = l.param(SkyLayer.Param.SEED);
+        color(l.param(SkyLayer.Param.COLOR_1), base + ALPHA_1, base + COLOR_1, base + LAB_1);
+        color(l.param(SkyLayer.Param.COLOR_2), base + ALPHA_2, base + COLOR_2, base + LAB_2);
+        writeKindValues(l, design, base);
+        double[] r = l.transform().rotation();
+        for (int row = 0; row < 3; row++) {
+            for (int c = 0; c < 3; c++) block[base + LOCAL + row * 4 + c] = (float) r[c * 3 + row];
+        }
+        return slots;
+    }
+
+    /** Writes the values that only one kind reads, after the common values, because the galaxy detail and motion use their floats. */
+    private void writeKindValues(SkyLayer l, SkyDesign design, int base) {
+        if (l.kind() == SkyLayer.Kind.GALAXY) {
+            block[base + TILT] = l.param(SkyLayer.Param.TILT) / 90f;
+            block[base + DUST] = l.param(SkyLayer.Param.DUST) / 100f;
+            block[base + JETS] = l.param(SkyLayer.Param.JETS) / 100f;
+            block[base + DETAIL] = l.param(SkyLayer.Param.DETAIL) / 100f;
+            block[base + MOTION] = l.param(SkyLayer.Param.MOTION) / 100f;
+            float[] jet = Oklab.linear(l.param(SkyLayer.Param.COLOR_3));
+            for (int c = 0; c < 3; c++) block[base + COLOR_3 + c * 4] = jet[c];
+        } else if (l.kind() == SkyLayer.Kind.METEORS) {
+            block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
+            block[base + LENGTH] = l.param(SkyLayer.Param.LENGTH) / 100f;
+            block[base + SHOWER] = l.param(SkyLayer.Param.SHOWER) / 100f;
+        } else if (l.kind() == SkyLayer.Kind.AURORA) {
+            block[base + SPEED] = l.param(SkyLayer.Param.SPEED) / 100f;
+        } else if (l.kind() == SkyLayer.Kind.STARS) {
+            block[base + TWINKLE] = l.param(SkyLayer.Param.TWINKLE) / 100f;
+            if (design.turning().showsTrails()) trails(design.turning(), l.transform(), base);
+        } else if (l.kind() == SkyLayer.Kind.NOISE || l.kind() == SkyLayer.Kind.FRACTAL) {
+            block[base + PULSE] = l.param(SkyLayer.Param.PULSE) / 100f;
+        }
+    }
+
+    /**
+     * Gives the cloud and fractal layers that show or mask the free slots up to {@link #MAX_SLOTS} for their field images, in
+     * their order, only when the shader can draw the sky; call it after all paths are set, because it reads {@link #drawsSharp}.
+     *
+     * @param slots the term slots of the filters
+     * @return the term and field slots
+     */
+    private int assignFieldSlots(List<SkyLayer> layers, int slots) {
+        for (int i = 0; i < layers.size() && drawsSharp(); i++) {
+            SkyLayer.Kind kind = layers.get(i).kind();
+            int base = index(i, 0);
+            if ((kind == SkyLayer.Kind.NOISE || kind == SkyLayer.Kind.FRACTAL) && block[base + USE] != USE_NONE && slots < MAX_SLOTS) {
+                block[base + TERM_SLOT] = slots++;
+            }
+        }
+        return slots;
+    }
+
+    private void writeRing(float[] ring) {
+        for (int s = 0; s < SkyImage.RING; s++) System.arraycopy(ring, s * 3, block, RING + s * 4, 3);
     }
 
     /** The block of a still sky that does not turn, which the caller must not change. */
@@ -221,10 +246,9 @@ public final class SkyProgram {
         System.arraycopy(block, 0, frame, 0, FLOATS);
         turn.rows(frame, WORLD);
         if (!moves) return frame;
-        double period = SkyClock.PERIOD_MS / 1000.0;
-        frame[TIME] = (float) (seconds - period * Math.floor(seconds / period));
+        frame[TIME] = (float) SkyClock.wrap(seconds);
         for (int i = 0; i < paths.length; i++) {
-            if ((int) block[at(i, KIND)] == KIND_AURORA) frame[at(i, CLOCK)] = Aurora.clock(seconds, block[at(i, SPEED)]);
+            if ((int) block[index(i, KIND)] == KIND_AURORA) frame[index(i, CLOCK)] = Aurora.clock(seconds, block[index(i, SPEED)]);
         }
         return frame;
     }
@@ -251,11 +275,11 @@ public final class SkyProgram {
 
     /** The term image of a filter or the field image of a cloud or fractal layer, or -1 when it has none. */
     int termSlot(int layer) {
-        return (int) block[at(layer, TERM_SLOT)];
+        return (int) block[index(layer, TERM_SLOT)];
     }
 
     /** The float index of a value of a layer. */
-    static int at(int layer, int offset) {
+    static int index(int layer, int offset) {
         return LAYERS + layer * LAYER_VEC4S * 4 + offset;
     }
 
@@ -301,30 +325,6 @@ public final class SkyProgram {
                 return layer.param(SkyLayer.Param.MOTION) > 0;
             default:
                 return false;
-        }
-    }
-
-    /** The kind code of the shader, where the filters are the codes from {@link #KIND_BLOOM} to {@link #KIND_VIGNETTE}. */
-    static int kindCode(SkyLayer.Kind kind) {
-        switch (kind) {
-            case GRADIENT: return KIND_GRADIENT;
-            case GLOW: return KIND_GLOW;
-            case STARS: return KIND_STARS;
-            case NOISE: return KIND_NOISE;
-            case FRACTAL: return KIND_FRACTAL;
-            case GALAXY: return KIND_GALAXY;
-            case METEORS: return KIND_METEORS;
-            case BLOOM: return KIND_BLOOM;
-            case BLUR: return KIND_BLUR;
-            case PIXELATE: return KIND_PIXELATE;
-            case CRYSTALLIZE: return KIND_CRYSTALLIZE;
-            case SWIRL: return KIND_SWIRL;
-            case POSTERIZE: return KIND_POSTERIZE;
-            case HUE_SHIFT: return KIND_HUE_SHIFT;
-            case VIGNETTE: return KIND_VIGNETTE;
-            case AURORA: return KIND_AURORA;
-            case DEEP_FIELD: return KIND_DEEP_FIELD;
-            default: throw new IllegalArgumentException("no kind code for " + kind);
         }
     }
 

@@ -74,7 +74,7 @@ class SkyProgramTest {
     }
 
     private static float arc(SkyDesign design, int layer) {
-        return program(design).block()[SkyProgram.at(layer, SkyProgram.TRAIL)];
+        return program(design).block()[SkyProgram.index(layer, SkyProgram.TRAIL)];
     }
 
     @Test
@@ -88,14 +88,14 @@ class SkyProgramTest {
         float[] frame = aurora.at(3600 + 12.5, turn);
         assertEquals(12.5f, frame[SkyProgram.TIME], "the header time wraps after one period of the clock");
         int layer = 0;
-        while ((int) still[SkyProgram.at(layer, SkyProgram.KIND)] != SkyProgram.KIND_AURORA) layer++;
-        float speed = still[SkyProgram.at(layer, SkyProgram.SPEED)];
-        assertEquals(Aurora.clock(3612.5, speed), frame[SkyProgram.at(layer, SkyProgram.CLOCK)]);
+        while ((int) still[SkyProgram.index(layer, SkyProgram.KIND)] != SkyProgram.KIND_AURORA) layer++;
+        float speed = still[SkyProgram.index(layer, SkyProgram.SPEED)];
+        assertEquals(Aurora.clock(3612.5, speed), frame[SkyProgram.index(layer, SkyProgram.CLOCK)]);
         float[] m = turn.matrix();
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) assertEquals(m[col * 4 + row], frame[SkyProgram.WORLD + row * 4 + col], 1e-6f);
         }
-        assertEquals(0f, still[SkyProgram.at(layer, SkyProgram.CLOCK)], "the bake draws the aurora at clock 0");
+        assertEquals(0f, still[SkyProgram.index(layer, SkyProgram.CLOCK)], "the bake draws the aurora at clock 0");
     }
 
     @Test
@@ -104,8 +104,8 @@ class SkyProgramTest {
         assertTrue(meteors.drawsSharp());
         assertTrue(meteors.moves());
         assertEquals(SkyProgram.STILL, meteors.block()[SkyProgram.TIME], "the block is a still sky until the adapter writes the time");
-        assertEquals(SkyProgram.KIND_METEORS, meteors.block()[SkyProgram.at(3, SkyProgram.KIND)]);
-        assertEquals(0.7f, meteors.block()[SkyProgram.at(3, SkyProgram.SHOWER)], 1e-6f);
+        assertEquals(SkyProgram.KIND_METEORS, meteors.block()[SkyProgram.index(3, SkyProgram.KIND)]);
+        assertEquals(0.7f, meteors.block()[SkyProgram.index(3, SkyProgram.SHOWER)], 1e-6f);
         assertFalse(SkyGenerator.bake(SkyPresets.DUSK, 64, 32).program().moves());
         SkyDesign hidden = SkyPresets.METEORS.withLayer(3, SkyPresets.METEORS.layers().get(3).withOutput(SkyLayer.Output.MASK_ONLY))
                 .withLayer(2, SkyPresets.METEORS.layers().get(2).withParam(SkyLayer.Param.TWINKLE, 0));
@@ -125,10 +125,10 @@ class SkyProgramTest {
         assertFalse(program(stars, clouds).moves(), "the default stars and clouds are still");
         SkyProgram twinkling = program(stars.withParam(SkyLayer.Param.TWINKLE, 40), clouds);
         assertTrue(twinkling.moves());
-        assertEquals(0.4f, twinkling.block()[SkyProgram.at(0, SkyProgram.TWINKLE)], 1e-6f);
+        assertEquals(0.4f, twinkling.block()[SkyProgram.index(0, SkyProgram.TWINKLE)], 1e-6f);
         SkyProgram pulsing = program(stars, clouds.withParam(SkyLayer.Param.PULSE, 60));
         assertTrue(pulsing.moves());
-        assertEquals(0.6f, pulsing.block()[SkyProgram.at(1, SkyProgram.PULSE)], 1e-6f);
+        assertEquals(0.6f, pulsing.block()[SkyProgram.index(1, SkyProgram.PULSE)], 1e-6f);
         // The stars and the clouds read the twinkle and the pulse from the last value of slot 4, as the bake does.
         assertEquals(4 * 4 + 3, SkyProgram.TWINKLE);
         assertEquals(4 * 4 + 3, SkyProgram.PULSE);
@@ -144,13 +144,13 @@ class SkyProgramTest {
         SkyDesign still = design(stars, galaxy);
         SkyTurning turning = new SkyTurning(100, 2, SkyTurning.Clock.REAL, 40, SkyTurning.Direction.REVERSE, 30, 45, 70);
         float[] block = program(still.withTurning(turning)).block();
-        assertEquals((float) Math.toRadians(45), block[SkyProgram.at(0, SkyProgram.TRAIL)], 1e-6f);
-        assertEquals(0.7f, block[SkyProgram.at(0, SkyProgram.TRAIL_LIGHT)], 1e-6f);
+        assertEquals((float) Math.toRadians(45), block[SkyProgram.index(0, SkyProgram.TRAIL)], 1e-6f);
+        assertEquals(0.7f, block[SkyProgram.index(0, SkyProgram.TRAIL_LIGHT)], 1e-6f);
         double[] axis = SkyTurn.trailAxis(turning);
         for (int row = 0; row < 3; row++) {
             double v = 0;
-            for (int c = 0; c < 3; c++) v += block[SkyProgram.at(0, SkyProgram.LOCAL + row * 4 + c)] * axis[c];
-            assertEquals(v, block[SkyProgram.at(0, SkyProgram.TRAIL_AXIS + row * 4)], 1e-6, "the axis in the layer frame, row " + row);
+            for (int c = 0; c < 3; c++) v += block[SkyProgram.index(0, SkyProgram.LOCAL + row * 4 + c)] * axis[c];
+            assertEquals(v, block[SkyProgram.index(0, SkyProgram.TRAIL_AXIS + row * 4)], 1e-6, "the axis in the layer frame, row " + row);
         }
         assertArrayEquals(program(still).block(), program(still.withTurning(turning.withTrails(0))).block(), "no trails");
         assertArrayEquals(program(still).block(), program(still.withTurning(turning.withAmount(0))).block(), "a still sky has no trails");
@@ -177,16 +177,16 @@ class SkyProgramTest {
         assertEquals(1, nebula.termSlot(6), "the bloom");
         assertEquals(2, nebula.termSlot(1), "the field image of the fractal comes after the terms");
         assertEquals(3, nebula.termSlot(2), "the field image of the noise mask");
-        assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.at(4, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_STARS, nebula.block()[SkyProgram.at(5, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_HUE_SHIFT, nebula.block()[SkyProgram.index(4, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_STARS, nebula.block()[SkyProgram.index(5, SkyProgram.KIND)]);
         SkyProgram galaxy = SkyGenerator.bake(SkyPresets.GALAXY, 64, 32).program();
         assertTrue(galaxy.drawsSharp(), "gradient, noise, stars, galaxy, deep field, fractal and the bloom term");
-        assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.at(1, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.at(3, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_DEEP_FIELD, galaxy.block()[SkyProgram.at(4, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.at(6, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_NOISE, galaxy.block()[SkyProgram.index(1, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_GALAXY, galaxy.block()[SkyProgram.index(3, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_DEEP_FIELD, galaxy.block()[SkyProgram.index(4, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_BLOOM, galaxy.block()[SkyProgram.index(6, SkyProgram.KIND)]);
         assertEquals(3, galaxy.terms());
-        assertEquals(3, galaxy.block()[2], "the header has the count of term and field images");
+        assertEquals(3, galaxy.block()[SkyProgram.TERM_COUNT], "the header has the count of term and field images");
         assertEquals(-1, galaxy.termSlot(3));
         assertEquals(-1, galaxy.termSlot(4), "the deep field is calculated for each pixel");
         assertEquals(0, galaxy.termSlot(6));
@@ -199,8 +199,8 @@ class SkyProgramTest {
         SkyProgram aurora = SkyGenerator.bake(SkyPresets.AURORA, 64, 32).program();
         assertTrue(aurora.drawsSharp(), "gradient, glow, stars and aurora");
         assertEquals(0, aurora.terms());
-        assertEquals(SkyProgram.KIND_AURORA, aurora.block()[SkyProgram.at(3, SkyProgram.KIND)]);
-        assertEquals(0.5f, aurora.block()[SkyProgram.at(3, SkyProgram.SPEED)]);
+        assertEquals(SkyProgram.KIND_AURORA, aurora.block()[SkyProgram.index(3, SkyProgram.KIND)]);
+        assertEquals(0.5f, aurora.block()[SkyProgram.index(3, SkyProgram.SPEED)]);
     }
 
     @Test
@@ -208,15 +208,15 @@ class SkyProgramTest {
         SkyLayer g = SkyLayer.of(1, SkyLayer.Kind.GALAXY).withParam(SkyLayer.Param.TILT, 45).withParam(SkyLayer.Param.DUST, 30)
                 .withParam(SkyLayer.Param.JETS, 80).withParam(SkyLayer.Param.COLOR_3, 0xFFFF0000);
         float[] b = program(SkyPresets.GALAXY.withLayers(Collections.singletonList(g))).block();
-        assertEquals(0.5f, b[SkyProgram.at(0, SkyProgram.TILT)], 1e-6f);
-        assertEquals(0.3f, b[SkyProgram.at(0, SkyProgram.DUST)], 1e-6f);
-        assertEquals(0.8f, b[SkyProgram.at(0, SkyProgram.JETS)], 1e-6f);
-        assertEquals(1f, b[SkyProgram.at(0, SkyProgram.COLOR_3)], 1e-6f);
-        assertEquals(0f, b[SkyProgram.at(0, SkyProgram.COLOR_3 + 4)], 1e-6f);
+        assertEquals(0.5f, b[SkyProgram.index(0, SkyProgram.TILT)], 1e-6f);
+        assertEquals(0.3f, b[SkyProgram.index(0, SkyProgram.DUST)], 1e-6f);
+        assertEquals(0.8f, b[SkyProgram.index(0, SkyProgram.JETS)], 1e-6f);
+        assertEquals(1f, b[SkyProgram.index(0, SkyProgram.COLOR_3)], 1e-6f);
+        assertEquals(0f, b[SkyProgram.index(0, SkyProgram.COLOR_3 + 4)], 1e-6f);
         // The rotation rows keep their own floats.
-        assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)] * b[SkyProgram.at(0, SkyProgram.LOCAL)]
-                + b[SkyProgram.at(0, SkyProgram.LOCAL + 1)] * b[SkyProgram.at(0, SkyProgram.LOCAL + 1)]
-                + b[SkyProgram.at(0, SkyProgram.LOCAL + 2)] * b[SkyProgram.at(0, SkyProgram.LOCAL + 2)], 1e-5f);
+        assertEquals(1f, b[SkyProgram.index(0, SkyProgram.LOCAL)] * b[SkyProgram.index(0, SkyProgram.LOCAL)]
+                + b[SkyProgram.index(0, SkyProgram.LOCAL + 1)] * b[SkyProgram.index(0, SkyProgram.LOCAL + 1)]
+                + b[SkyProgram.index(0, SkyProgram.LOCAL + 2)] * b[SkyProgram.index(0, SkyProgram.LOCAL + 2)], 1e-5f);
         int[] used = {SkyProgram.KIND, SkyProgram.BLEND, SkyProgram.USE, SkyProgram.MASK_INDEX, SkyProgram.MASK_DARK, SkyProgram.OPACITY,
             SkyProgram.AMOUNT, SkyProgram.HEIGHT, SkyProgram.SCALE, SkyProgram.SEED, SkyProgram.ALPHA_1, SkyProgram.ALPHA_2,
             SkyProgram.TERM_SLOT, SkyProgram.TILT, SkyProgram.DUST, SkyProgram.JETS};
@@ -237,8 +237,8 @@ class SkyProgramTest {
         SkyLayer plain = SkyLayer.of(1, SkyLayer.Kind.GALAXY);
         SkyLayer fine = plain.withParam(SkyLayer.Param.DETAIL, 70).withParam(SkyLayer.Param.MOTION, 40);
         SkyProgram p = program(fine);
-        assertEquals(0.7f, p.block()[SkyProgram.at(0, SkyProgram.DETAIL)], 1e-6f);
-        assertEquals(0.4f, p.block()[SkyProgram.at(0, SkyProgram.MOTION)], 1e-6f);
+        assertEquals(0.7f, p.block()[SkyProgram.index(0, SkyProgram.DETAIL)], 1e-6f);
+        assertEquals(0.4f, p.block()[SkyProgram.index(0, SkyProgram.MOTION)], 1e-6f);
         // A galaxy has no height and mixes no OKLab colors, so the detail is in slot 1 and the motion in slot 5, as the shader reads them.
         assertEquals(SkyProgram.HEIGHT, SkyProgram.DETAIL);
         assertEquals(SkyProgram.LAB_1, SkyProgram.MOTION);
@@ -262,9 +262,9 @@ class SkyProgramTest {
         for (SkyLayer.Kind kind : SkyLayer.Kind.values()) {
             boolean readsOthers = kind == SkyLayer.Kind.BLUR || kind == SkyLayer.Kind.BLOOM || kind == SkyLayer.Kind.PIXELATE
                     || kind == SkyLayer.Kind.CRYSTALLIZE || kind == SkyLayer.Kind.SWIRL;
-            assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, SkyProgram.path(kind), kind.name());
+            assertEquals(readsOthers ? SkyProgram.Path.TERM : SkyProgram.Path.PIXEL, ShaderKind.of(kind).path, kind.name());
             boolean filter = kind.role() == SkyLayer.Role.FILTER;
-            int code = SkyProgram.kindCode(kind);
+            int code = ShaderKind.of(kind).code;
             assertEquals(filter, code >= SkyProgram.KIND_BLOOM && code <= SkyProgram.KIND_VIGNETTE, kind.name());
             assertTrue(code > 0, kind.name());
             assertTrue(codes.add(code), "each kind has its own code: " + kind.name());
@@ -322,18 +322,18 @@ class SkyProgramTest {
     void theDuskBlockHasTheLayersTheMaskAndTheHorizonColors() {
         SkyImage img = SkyGenerator.bake(SkyPresets.DUSK, 64, 32);
         float[] b = img.program().block();
-        assertEquals(4, b[0], "four layers");
-        assertEquals(1, b[1], "the sky goes around the full sphere");
-        assertEquals(SkyProgram.KIND_GRADIENT, b[SkyProgram.at(0, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.KIND_GLOW, b[SkyProgram.at(1, SkyProgram.KIND)]);
-        assertEquals(SkyProgram.USE_MASK, b[SkyProgram.at(2, SkyProgram.USE)], "the mask only layer is made for the stars");
-        assertEquals(SkyProgram.KIND_STARS, b[SkyProgram.at(3, SkyProgram.KIND)]);
-        assertEquals(2, b[SkyProgram.at(3, SkyProgram.MASK_INDEX)], "the stars use the third layer as their mask");
-        assertEquals(1, b[SkyProgram.at(3, SkyProgram.MASK_DARK)]);
-        assertEquals(SkyProgram.BLEND_ADD, b[SkyProgram.at(3, SkyProgram.BLEND)]);
-        assertEquals(0.75f, b[SkyProgram.at(3, SkyProgram.OPACITY)], 1e-6f);
-        assertEquals(-1, b[SkyProgram.at(0, SkyProgram.MASK_INDEX)]);
-        assertEquals(1f, b[SkyProgram.at(0, SkyProgram.LOCAL)], 1e-6f, "an identity rotation");
+        assertEquals(4, b[SkyProgram.LAYER_COUNT], "four layers");
+        assertEquals(1, b[SkyProgram.SPHERE], "the sky goes around the full sphere");
+        assertEquals(SkyProgram.KIND_GRADIENT, b[SkyProgram.index(0, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.KIND_GLOW, b[SkyProgram.index(1, SkyProgram.KIND)]);
+        assertEquals(SkyProgram.USE_MASK, b[SkyProgram.index(2, SkyProgram.USE)], "the mask only layer is made for the stars");
+        assertEquals(SkyProgram.KIND_STARS, b[SkyProgram.index(3, SkyProgram.KIND)]);
+        assertEquals(2, b[SkyProgram.index(3, SkyProgram.MASK_INDEX)], "the stars use the third layer as their mask");
+        assertEquals(1, b[SkyProgram.index(3, SkyProgram.MASK_DARK)]);
+        assertEquals(SkyProgram.BLEND_ADD, b[SkyProgram.index(3, SkyProgram.BLEND)]);
+        assertEquals(0.75f, b[SkyProgram.index(3, SkyProgram.OPACITY)], 1e-6f);
+        assertEquals(-1, b[SkyProgram.index(0, SkyProgram.MASK_INDEX)]);
+        assertEquals(1f, b[SkyProgram.index(0, SkyProgram.LOCAL)], 1e-6f, "an identity rotation");
     }
 
     @Test
