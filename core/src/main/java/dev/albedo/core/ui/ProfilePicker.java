@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** The searchable profile list under the profile button of the header or of a server row. */
+/** The open searchable profile list under the profile button of the header or of a server row, with its search and choice. */
 final class ProfilePicker {
     /** The choice in the list of a server that turns Albedo off there, which no profile name can be (it has a space). */
     static final String OFF = "Albedo off";
@@ -19,23 +19,22 @@ final class ProfilePicker {
     private final DraftSession session;
     private final TextField search = new TextField(32, TextField.ANY);
     /** The server whose profile the list picks, or null when it picks the profile of the screen. */
-    String server;
+    final String server;
     /** The button that the list belongs to. */
-    Rect anchor = new Rect(0, 0, 0, 0);
+    Rect anchor;
     /** Whether the button of {@link #server} showed in this frame, so that the list closes when its row scrolls away. */
     boolean anchorShown;
-    /** The top and bottom of the page that the list must stay inside. */
-    int bodyTop, bodyBottom;
+    /** The page that the list must stay inside. */
+    Rect body;
     private int picked;
 
-    ProfilePicker(Ui ui, DraftSession session) {
+    /** Opens the list on the name in effect, with the keyboard in the empty search. */
+    ProfilePicker(Ui ui, DraftSession session, String server, Rect anchor, Rect body) {
         this.ui = ui;
         this.session = session;
-    }
-
-    /** Starts the list with an empty search on the name in effect, with the keyboard in the search. */
-    void open() {
-        search.set("");
+        this.server = server;
+        this.anchor = anchor;
+        this.body = body;
         picked = Math.max(0, names().indexOf(pickedNow()));
         ui.focus(SEARCH);
     }
@@ -44,7 +43,6 @@ final class ProfilePicker {
     void close() {
         ui.releaseFocus(SEARCH); // a click on Rename has just focused its own field
         ui.endOverlay();
-        server = null;
     }
 
     /** The name the list marks as chosen: the profile of the screen, or the profile of the server ({@link #OFF} for none). */
@@ -68,7 +66,7 @@ final class ProfilePicker {
     Rect area() {
         Config draft = session.draft();
         int need = Math.max(1, server == null ? draft.profiles().size() : draft.profiles().size() + 1);
-        int below = (bodyBottom - anchor.bottom() - 1 - Ui.H - 6) / ROW, above = (anchor.y - 1 - bodyTop - Ui.H - 6) / ROW;
+        int below = (body.bottom() - anchor.bottom() - 1 - Ui.H - 6) / ROW, above = (anchor.y - 1 - body.y - Ui.H - 6) / ROW;
         boolean up = below < need && above > below;
         int rows = Math.max(1, Math.min(need, up ? above : below)), h = Ui.H + 6 + rows * ROW;
         // As wide as the longest name with its tag, ending where the button ends.

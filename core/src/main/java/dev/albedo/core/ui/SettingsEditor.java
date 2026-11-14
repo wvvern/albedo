@@ -149,7 +149,7 @@ public final class SettingsEditor {
         ui.tipBounds(new Rect(x0, y0, pw, ph));
 
         int bodyTop = y0 + 26, bodyBottom = y1 - 24;
-        header.beginFrame(bodyTop, bodyBottom);
+        header.beginFrame(new Rect(x0 + 8, bodyTop, pw - 16, bodyBottom - bodyTop));
         header.draw(x0 + 8, y0 + 6, pw - 16);
         ui.fill(x0 + 8, bodyTop - 3, pw - 16, 1, Ui.BORDER);
         int sideW = Math.min(ui.widest(NAMES) + 22, pw / 4 + 20);

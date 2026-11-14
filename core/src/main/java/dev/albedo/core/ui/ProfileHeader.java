@@ -17,29 +17,32 @@ final class ProfileHeader {
     private final Ui ui;
     private final DraftSession session;
     private final Runnable relayout;
-    private final ProfilePicker picker;
     private final TextField rename = new TextField(32, c -> Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == ' ');
     private Mode mode = Mode.BROWSE;
+    /** The open profile list, which is null in all modes but {@link Mode#PICK_PROFILE}. */
+    private ProfilePicker picker;
+    /** The page of this frame, which an open list must stay inside. */
+    private Rect body = new Rect(0, 0, 0, 0);
 
     /** @param relayout tells the screen that the mode changed */
     ProfileHeader(Ui ui, DraftSession session, Runnable relayout) {
         this.ui = ui;
         this.session = session;
         this.relayout = relayout;
-        this.picker = new ProfilePicker(ui, session);
     }
 
-    /** Starts a frame, where the open list must stay between {@code bodyTop} and {@code bodyBottom}. */
-    void beginFrame(int bodyTop, int bodyBottom) {
-        picker.bodyTop = bodyTop;
-        picker.bodyBottom = bodyBottom;
+    /** Starts a frame, where an open list must stay inside {@code page}. */
+    void beginFrame(Rect page) {
+        body = page;
+        if (picker == null) return;
+        picker.body = page;
         picker.anchorShown = false;
     }
 
     /** Ends a frame: closes the list of a server whose row did not show, then draws the open list over the page. */
     void endFrame() {
-        if (mode == Mode.PICK_PROFILE && picker.server != null && !picker.anchorShown) setMode(Mode.BROWSE);
-        if (mode == Mode.PICK_PROFILE && picker.draw()) setMode(Mode.BROWSE);
+        if (picker != null && picker.server != null && !picker.anchorShown) setMode(Mode.BROWSE);
+        if (picker != null && picker.draw()) setMode(Mode.BROWSE);
     }
 
     /** Keeps the typed name, for Done. */
@@ -47,14 +50,26 @@ final class ProfileHeader {
         if (mode == Mode.RENAME) finishRename();
     }
 
-    /** The only way the mode changes: the old mode gives back its focus and overlay, the new one sets its own. */
     private void setMode(Mode next) {
-        if (mode == Mode.PICK_PROFILE) picker.close();
+        setMode(next, null, null);
+    }
+
+    /**
+     * The only way the mode changes: the old mode gives back its focus and overlay, the new one sets its own.
+     *
+     * @param server the server whose profile a new list picks, or null for the profile of the screen
+     * @param anchor the button of a new list
+     */
+    private void setMode(Mode next, String server, Rect anchor) {
+        if (picker != null) {
+            picker.close();
+            picker = null;
+        }
         if (mode == Mode.RENAME) ui.releaseFocus("rename");
         mode = next;
         relayout.run();
         if (next == Mode.PICK_PROFILE) {
-            picker.open();
+            picker = new ProfilePicker(ui, session, server, anchor, body);
         } else if (next == Mode.RENAME) {
             rename.set(session.draft().activeProfileName());
             rename.selectAll = true;
@@ -130,13 +145,13 @@ final class ProfileHeader {
         if (mode == Mode.RENAME || pw < 40) return;
 
         draft = session.draft();
-        boolean listHere = mode == Mode.PICK_PROFILE && picker.server == null;
+        boolean listHere = picker != null && picker.server == null;
         Rect button = new Rect(px, y, pw, Ui.H);
         if (listHere) picker.anchor = button;
         if (ui.button("profiles", px, y, pw, Ui.H, "", Ui.Style.NORMAL, true,
                 "Select a profile. " + draft.keys().cycleProfile + " selects the next profile in game.")) {
             openPicker(null, button, listHere);
-            listHere = mode == Mode.PICK_PROFILE;
+            listHere = picker != null;
         }
         String name = draft.activeProfileName(), tag = builtIn ? ProfilePicker.BUILT_IN : "";
         int tagW = tag.isEmpty() ? 0 : ui.width(tag) + 6, room = pw - 18 - tagW;
@@ -150,31 +165,24 @@ final class ProfileHeader {
 
     /** Opens the profile list for a server (null: the profile of the screen), or closes it when it is open there. */
     private void openPicker(String server, Rect anchor, boolean openHere) {
-        if (openHere) {
-            setMode(Mode.BROWSE);
-            return;
-        }
-        if (mode == Mode.PICK_PROFILE) setMode(Mode.BROWSE);
-        picker.server = server;
-        picker.anchor = anchor;
-        setMode(Mode.PICK_PROFILE);
+        setMode(openHere ? Mode.BROWSE : Mode.PICK_PROFILE, server, anchor);
     }
 
     /** Reserves the open list of a server before the page draws, so that no row above or below it takes its clicks. */
     void reserveServerList() {
-        if (mode == Mode.PICK_PROFILE && picker.server != null) ui.reserveOverlay(picker.area());
+        if (picker != null && picker.server != null) ui.reserveOverlay(picker.area());
     }
 
     /** The profile button of a server row, which opens or closes its list on a click. */
     void serverButton(String server, Rect button, String tip) {
-        boolean open = mode == Mode.PICK_PROFILE && server.equals(picker.server);
+        boolean open = picker != null && server.equals(picker.server);
         if (open) {
             picker.anchor = button;
             picker.anchorShown = true;
         }
         if (ui.button("server.profile." + server, button.x, button.y, button.w, button.h, "", Ui.Style.NORMAL, true, tip)) {
             openPicker(server, button, open);
-            picker.anchorShown = true;
+            if (picker != null) picker.anchorShown = true;
         }
     }
 }
