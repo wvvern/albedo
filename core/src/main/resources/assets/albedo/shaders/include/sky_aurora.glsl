@@ -26,8 +26,7 @@ const float ALBEDO_AURORA_TOP = 3.4;
 const float ALBEDO_AURORA_EDGE_ON = 2.5;
 const float ALBEDO_AURORA_GAP = 0.6;
 #define ALBEDO_AURORA_STEPS 10
-// Aurora.PERIOD: the aurora clock goes back to 0 after these seconds, in which each wave turns and each ray and noise row moves on
-// a whole number of times, so that the wrap has no jump; the drift of the rays in it is ALBEDO_AURORA_DRIFT * PERIOD = 4320 km.
+// Aurora.PERIOD in seconds: every wave, ray and noise row repeats a whole number of times in it, so the wrap has no jump.
 const float ALBEDO_AURORA_PERIOD = 7200.0;
 // The angle in radians for each second of a wave that turns once in a period.
 const float ALBEDO_AURORA_TURN = 6.2831853 / ALBEDO_AURORA_PERIOD;
