@@ -27,10 +27,11 @@ loom.runs {
     }
     getByName('client') {
         displayName.set("Client:${project.loader}:${stonecutter.current.version}")
-        // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
+        // -Pharness=<dir> enables the file-driven test harness (see core Harness) at the size -Pharness_window=<w>x<h>.
         if (project.hasProperty('harness')) {
             property('albedo.harness', new File(project.property('harness') as String).absolutePath)
-            programArgs('--width', '1600', '--height', '900')
+            def (width, height) = (project.findProperty('harness_window') ?: '1600x900').toString().split('x')
+            programArgs('--width', width, '--height', height)
         }
         // -Pbackend=vulkan|opengl forces the graphics backend of 26.2 and later; -PvulkanValidation turns on the Vulkan validation layers.
         if (project.hasProperty('backend')) programArgs('--graphicsBackend', project.property('backend') as String)

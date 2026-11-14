@@ -14,8 +14,10 @@ TAKEN = "commands.taken"
 LOG = "log.txt"
 CLIP_PROBE = "clip-probe.txt"
 JVM_PROPERTY = "-Dalbedo.harness="
-# Same as --width and --height of the run task in modern/gradle/platform.gradle and legacy/version.gradle.kts.
+# The dev run gets it as -Pharness_window; modern/gradle/platform.gradle and legacy/version.gradle.kts have it as the default.
 WINDOW_SIZE = (1600, 900)
+# The value of -Pharness_window, for example 1600x900.
+WINDOW_PROPERTY = f"{WINDOW_SIZE[0]}x{WINDOW_SIZE[1]}"
 
 HOOKS = "hooks"
 QUIT = "quit"

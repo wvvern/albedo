@@ -1,9 +1,10 @@
+import re
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from tools import project
-from tools.harness import devrun, rundir, verdict
+from tools.harness import devrun, protocol, rundir, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.verdict import Loader
 from tools.project import Target
@@ -37,7 +38,13 @@ class OptionsTest(unittest.TestCase):
 class LaunchTest(unittest.TestCase):
     def test_the_gradle_properties_of_a_plain_run(self):
         properties = devrun.gradle_properties(FABRIC, HARNESS, RunOptions())
-        self.assertEqual({"harness": "harness"}, {name: value for name, value in properties.items() if value})
+        self.assertEqual({"harness": "harness", "harness_window": "1600x900"}, {name: value for name, value in properties.items() if value})
+
+    def test_the_run_task_scripts_default_to_the_window_size_of_the_harness(self):
+        window = f"{protocol.WINDOW_SIZE[0]}x{protocol.WINDOW_SIZE[1]}"
+        for script in (project.MODERN / "gradle" / "platform.gradle", project.LEGACY / "version.gradle.kts"):
+            defaults = re.findall(r"findProperty\(['\"]harness_window['\"]\) \?: ['\"](\w+)['\"]", script.read_text(encoding="utf-8"))
+            self.assertEqual([window], defaults, script.name)
 
     def test_quilt_runs_the_release_jar_and_quilt_dev_the_classes(self):
         quilt = devrun.gradle_properties(FABRIC, HARNESS, RunOptions(loader=Loader.QUILT))

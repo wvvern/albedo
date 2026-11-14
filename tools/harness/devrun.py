@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools import gradle, project
-from tools.harness import rundir, script, verdict
+from tools.harness import protocol, rundir, script, verdict
 from tools.harness.session import Launch
 from tools.harness.verdict import Expectations, Loader
 from tools.project import Target
@@ -75,6 +75,7 @@ def gradle_properties(target: Target, harness: Path, options: RunOptions) -> dic
         "quilt": options.loader.on_quilt,
         # The release jar of the node as a mod, not the classes of the dev run.
         "quiltJar": options.loader.release_jar,
+        "harness_window": protocol.WINDOW_PROPERTY,
     }
 
 

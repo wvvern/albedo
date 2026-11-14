@@ -145,9 +145,10 @@ tasks.register<JavaExec>("runClientDev") {
         "-Dfabric.dli.env=client",
         "-Dfabric.dli.main=net.minecraft.launchwrapper.Launch",
     )
-    // -Pharness=<dir> enables the file-driven test harness (see core Harness) at a fixed window size.
+    // -Pharness=<dir> enables the file-driven test harness (see core Harness) at the size -Pharness_window=<w>x<h>.
     if (project.hasProperty("harness")) {
         systemProperty("albedo.harness", File(project.property("harness") as String).absolutePath)
-        args("--width", "1600", "--height", "900")
+        val (width, height) = (project.findProperty("harness_window") ?: "1600x900").toString().split("x")
+        args("--width", width, "--height", height)
     }
 }
