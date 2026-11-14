@@ -2,8 +2,12 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HookCounter;
+import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.texture.ITextureObject;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
@@ -25,6 +29,9 @@ import java.util.List;
 final class LegacyHarnessHost implements Harness.Host {
     /** The Windows virtual key of a typed character that has no key of its own. */
     private static final int VK_PACKET = 0xE7;
+    /** Parts of the lParam of a Windows key message: repeat count 1, the extended key, the bits of a key that goes up, the scancode. */
+    private static final long REPEAT_ONE = 1L, EXTENDED_KEY = 1L << 24, KEY_UP_BITS = 3L << 30;
+    private static final int SCANCODE_SHIFT = 16;
 
     @Override
     public boolean inWorld() {
@@ -58,10 +65,7 @@ final class LegacyHarnessHost implements Harness.Host {
     public void screenshot(final File png) {
         Minecraft mc = Minecraft.getMinecraft();
         final int w = mc.displayWidth, h = mc.displayHeight;
-        if (OpenGlHelper.isFramebufferEnabled()) mc.getFramebuffer().bindFramebuffer(true);
-        final IntBuffer pixels = BufferUtils.createIntBuffer(w * h);
-        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
-        GL11.glReadPixels(0, 0, w, h, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        final IntBuffer pixels = readFrame(w, h);
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -84,16 +88,23 @@ final class LegacyHarnessHost implements Harness.Host {
     public void framePixels(Harness.FramePixels done) {
         Minecraft mc = Minecraft.getMinecraft();
         int w = mc.displayWidth, h = mc.displayHeight;
-        if (OpenGlHelper.isFramebufferEnabled()) mc.getFramebuffer().bindFramebuffer(true);
-        IntBuffer pixels = BufferUtils.createIntBuffer(w * h);
-        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
-        GL11.glReadPixels(0, 0, w, h, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        IntBuffer pixels = readFrame(w, h);
         int[] argb = new int[w * h];
         // The GL rows go from the bottom up.
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) argb[y * w + x] = pixels.get((h - 1 - y) * w + x) | 0xFF000000;
         }
         done.accept(w, h, argb);
+    }
+
+    /** The BGRA pixels of the frame of the game, from the bottom row up. */
+    private static IntBuffer readFrame(int w, int h) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (OpenGlHelper.isFramebufferEnabled()) mc.getFramebuffer().bindFramebuffer(true);
+        IntBuffer pixels = BufferUtils.createIntBuffer(w * h);
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+        GL11.glReadPixels(0, 0, w, h, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+        return pixels;
     }
 
     @Override
@@ -125,7 +136,8 @@ final class LegacyHarnessHost implements Harness.Host {
     public boolean key(Keys.Key key, boolean down, boolean ctrl) {
         int virtualKey = virtualKey(key.lwjgl2);
         if (virtualKey < 0) return false;
-        long lParam = 1L | (long) (key.lwjgl2 & 0x7F) << 16 | (key.lwjgl2 >= 0x80 ? 1L << 24 : 0L) | (down ? 0L : 3L << 30);
+        long lParam = REPEAT_ONE | (long) (key.lwjgl2 & 0x7F) << SCANCODE_SHIFT | (key.lwjgl2 >= 0x80 ? EXTENDED_KEY : 0L)
+                | (down ? 0L : KEY_UP_BITS);
         return windowMessage("handleKeyButton", virtualKey, lParam);
     }
 
@@ -135,9 +147,9 @@ final class LegacyHarnessHost implements Harness.Host {
      */
     @Override
     public boolean character(char c, boolean afterKey) {
-        if (!afterKey && !windowMessage("handleKeyButton", VK_PACKET, 1L)) return false;
-        boolean sent = windowMessage("handleChar", c, 1L);
-        if (!afterKey) windowMessage("handleKeyButton", VK_PACKET, 1L | 3L << 30);
+        if (!afterKey && !windowMessage("handleKeyButton", VK_PACKET, REPEAT_ONE)) return false;
+        boolean sent = windowMessage("handleChar", c, REPEAT_ONE);
+        if (!afterKey) windowMessage("handleKeyButton", VK_PACKET, REPEAT_ONE | KEY_UP_BITS);
         return sent;
     }
 
@@ -193,13 +205,13 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(dev.albedo.core.sky.SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
+    public boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
                                 Harness.SkyDone done) {
         return LegacySharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
     }
 
     @Override
-    public List<dev.albedo.core.dev.HookCounter> hookCounters() {
+    public List<HookCounter> hookCounters() {
         return LegacyHooks.COUNTERS;
     }
 
@@ -208,10 +220,9 @@ final class LegacyHarnessHost implements Harness.Host {
     public boolean cloudsDrawn() {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.gameSettings.shouldRenderClouds() == 0) return false;
-        net.minecraft.client.renderer.texture.ITextureObject clouds =
-                mc.getTextureManager().getTexture(new ResourceLocation("textures/environment/clouds.png"));
+        ITextureObject clouds = mc.getTextureManager().getTexture(new ResourceLocation("textures/environment/clouds.png"));
         if (clouds == null) return false;
-        net.minecraft.client.renderer.GlStateManager.bindTexture(clouds.getGlTextureId());
+        GlStateManager.bindTexture(clouds.getGlTextureId());
         int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
         int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
         IntBuffer pixels = BufferUtils.createIntBuffer(width * height);

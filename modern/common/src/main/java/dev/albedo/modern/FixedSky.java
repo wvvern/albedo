@@ -36,8 +36,7 @@ public final class FixedSky {
 
     private static DynamicTexture texture;
     private static long uploaded = -1;
-    // The display list of the sphere, or -1 before the first draw.
-    private static int sphere = -1;
+    private static int sphere;
     // The matrix of a turning sky for the GL, which each draw fills again.
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
     private static final SkyDefer<Waiting> DEFER = new SkyDefer<Waiting>();
@@ -147,6 +146,11 @@ public final class FixedSky {
 
     // Sends a new image to the texture of the baked image, and makes the sphere once; the render thread calls this.
     private static void prepare(SkyImage img) {
+        ensureTexture(img);
+        ensureSphere();
+    }
+
+    private static void ensureTexture(SkyImage img) {
         if (texture == null || texture.getPixels().getWidth() != img.width() || texture.getPixels().getHeight() != img.height()) {
             if (texture != null) texture.close();
             texture = new DynamicTexture(img.width(), img.height(), false);
@@ -172,12 +176,14 @@ public final class FixedSky {
             GlStateManager._activeTexture(active);
             uploaded = img.serial();
         }
-        if (sphere < 0) {
-            sphere = GL11.glGenLists(1);
-            GL11.glNewList(sphere, GL11.GL_COMPILE);
-            FixedSharpSky.drawTriangles(SkyImage.sphere(ModernSky.RADIUS));
-            GL11.glEndList();
-        }
+    }
+
+    private static void ensureSphere() {
+        if (sphere != 0) return;
+        sphere = GL11.glGenLists(1);
+        GL11.glNewList(sphere, GL11.GL_COMPILE);
+        FixedSharpSky.drawTriangles(SkyImage.sphere(ModernSky.RADIUS));
+        GL11.glEndList();
     }
 }
 *///?}

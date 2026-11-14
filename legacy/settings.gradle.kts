@@ -18,6 +18,7 @@ pluginManagement {
 }
 
 plugins {
+    // Set for the Gradle 8.8 wrapper of this build; modern/ runs Gradle 9 with 1.0.0.
     id("org.gradle.toolchains.foojay-resolver-convention") version ("0.8.0")
 }
 

@@ -35,6 +35,8 @@ public final class LegacyHooks {
     /** The counters of the hooks that can miss their target with no error, which the harness command "hooks" logs. */
     static final List<HookCounter> COUNTERS = Arrays.asList(AFTER_SOLID, BEFORE_CLOUDS, TINT, SHADE, RELOAD_STEP, TEXTURE_UPLOAD, MOUSE_GRAB,
             CAPE, ELYTRA);
+    /** The folder of the texture that SkinManager.loadSkin loads on this thread now ("skins" or "capes"), or null. */
+    private static final ThreadLocal<String> LOADING_SKIN = new ThreadLocal<String>();
     /** The host of the last connection to a server, which stays until the next connection. */
     private static volatile String connectedHost;
 
@@ -93,9 +95,6 @@ public final class LegacyHooks {
         else upload = TextureStore.RELOAD_ONLY; // a texture type from a different mod
         return process(String.valueOf(location), image, upload);
     }
-
-    /** The folder of the texture that SkinManager.loadSkin loads on this thread now ("skins" or "capes"), or null. */
-    private static final ThreadLocal<String> LOADING_SKIN = new ThreadLocal<String>();
 
     /** SkinManager.loadSkin starts with a texture type ("SKIN", "CAPE"), or ends when {@code type} is null. */
     public static void skinLoading(String type) {

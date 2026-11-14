@@ -47,7 +47,7 @@ public final class LegacyChroma {
     private static final FloatBuffer TURNS = BufferUtils.createFloatBuffer(Chroma.TURN_FLOATS);
     private static final float[] TURN_VALUES = new float[Chroma.TURN_FLOATS];
     /** The OptiFine Multitexture setting of the last frame, with which the blocks draw from a texture of each sprite. */
-    private static boolean multiTexture;
+    private static boolean lastMultiTexture;
 
     /** The GL texture of the atlas and its size, and the pristine copy and the texels, or 0 without moving texels. */
     private static int live;
@@ -85,10 +85,10 @@ public final class LegacyChroma {
         // The end of the last frame did not run when its render stopped early, so its colors must not go into the pristine copy.
         restore();
         // The pass cannot reach the texture of each sprite that OptiFine Multitexture draws, so Chroma is then off.
-        boolean single = OptiFine.multiTexture();
-        if (single != multiTexture) {
-            multiTexture = single;
-            sc.chromaGpu(!single);
+        boolean multiTexture = OptiFine.multiTexture();
+        if (multiTexture != lastMultiTexture) {
+            lastMultiTexture = multiTexture;
+            sc.chromaGpu(!multiTexture);
         }
         if (sc.chromaStill()) {
             close();

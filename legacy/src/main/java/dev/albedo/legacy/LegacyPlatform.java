@@ -15,6 +15,9 @@ import java.io.File;
 
 final class LegacyPlatform implements Platform {
     private static final Logger LOG = LogManager.getLogger("albedo");
+    private static final int CHUNK_BLOCKS = 16;
+    /** The highest block y of 1.8.9 and 1.12.2. */
+    private static final int TOP_Y = 255;
 
     @Override
     public String describe() {
@@ -36,12 +39,7 @@ final class LegacyPlatform implements Platform {
         long start = System.nanoTime();
         LegacyChroma.restore();
         // refreshResources also rebuilds the chunks.
-        ReloadScreen.run(new Runnable() {
-            @Override
-            public void run() {
-                mc.refreshResources();
-            }
-        });
+        ReloadScreen.run(() -> mc.refreshResources());
         info("Reloaded all resources in " + (System.nanoTime() - start) / 1000000 + " ms");
     }
 
@@ -54,9 +52,9 @@ final class LegacyPlatform implements Platform {
         Minecraft mc = Minecraft.getMinecraft();
         Entity view = mc.getRenderViewEntity();
         if (mc.renderGlobal == null || view == null) return;
-        int r = (mc.gameSettings.renderDistanceChunks + 1) * 16;
+        int r = (mc.gameSettings.renderDistanceChunks + 1) * CHUNK_BLOCKS;
         int x = Game.floor(view.posX), z = Game.floor(view.posZ);
-        mc.renderGlobal.markBlockRangeForRenderUpdate(x - r, 0, z - r, x + r, 255, z + r);
+        mc.renderGlobal.markBlockRangeForRenderUpdate(x - r, 0, z - r, x + r, TOP_Y, z + r);
     }
 
     @Override

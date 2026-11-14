@@ -15,6 +15,10 @@ import org.lwjgl.opengl.GL11;
 final class ReloadScreen {
     private static final long FRAME_MS = 100;
     private static final String TITLE = "Albedo: reloading resources";
+    /** The texture loads at which the bar is half way through the part of a listener. */
+    private static final float LOADS_HALF_STEP = 200f;
+    private static final int BAR_WIDTH = 100, BAR_HEIGHT = 2;
+    private static final int TITLE_COLOR = 0xFFFFFF, DETAIL_COLOR = 0xA0A0A0, BAR_BACK = 0xFF808080, BAR_DONE = 0xFF80FF80;
 
     private static boolean active;
     private static int step;
@@ -62,7 +66,7 @@ final class ReloadScreen {
         lastFrame = now;
         // Each listener has an equal part, in which the bar moves toward its end as the textures load.
         float part = steps <= 0 ? 0f : 1f / steps;
-        float progress = steps <= 0 ? 0f : Math.max(0, step - 1) * part + part * loads / (loads + 200f);
+        float progress = steps <= 0 ? 0f : Math.max(0, step - 1) * part + part * loads / (loads + LOADS_HALF_STEP);
 
         Framebuffer fb = mc.getFramebuffer();
         fb.bindFramebuffer(true);
@@ -86,12 +90,12 @@ final class ReloadScreen {
         Game.drawBackground(w, h);
 
         FontRenderer font = Game.font();
-        font.drawStringWithShadow(TITLE, (w - font.getStringWidth(TITLE)) / 2f, h / 2f - 20, 0xFFFFFF);
+        font.drawStringWithShadow(TITLE, (w - font.getStringWidth(TITLE)) / 2f, h / 2f - 20, TITLE_COLOR);
         String detail = steps > 0 ? "Step " + Math.max(1, step) + " of " + steps : "Starting";
-        font.drawStringWithShadow(detail, (w - font.getStringWidth(detail)) / 2f, h / 2f - 6, 0xA0A0A0);
-        int barX = w / 2 - 50, barY = h / 2 + 10;
-        Gui.drawRect(barX, barY, barX + 100, barY + 2, 0xFF808080);
-        Gui.drawRect(barX, barY, barX + Math.round(100 * Math.min(1f, progress)), barY + 2, 0xFF80FF80);
+        font.drawStringWithShadow(detail, (w - font.getStringWidth(detail)) / 2f, h / 2f - 6, DETAIL_COLOR);
+        int barX = w / 2 - BAR_WIDTH / 2, barY = h / 2 + 10;
+        Gui.drawRect(barX, barY, barX + BAR_WIDTH, barY + BAR_HEIGHT, BAR_BACK);
+        Gui.drawRect(barX, barY, barX + Math.round(BAR_WIDTH * Math.min(1f, progress)), barY + BAR_HEIGHT, BAR_DONE);
         GlStateManager.enableDepth();
 
         fb.unbindFramebuffer();

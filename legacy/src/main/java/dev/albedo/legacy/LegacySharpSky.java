@@ -148,6 +148,8 @@ final class LegacySharpSky {
     private static final SkyShaderCache<Program> EQUIRECT = new SkyShaderCache<Program>(SkyShaderCache.SIZE,
             steps -> new Program(SkyShaderSource.EQUIRECT, steps), Program::close);
 
+    /** The bytes of one RGBA texel of half floats. */
+    private static final int HALF_RGBA_BYTES = 8;
     private static final Block BLOCK = new Block();
     private static int termTexture;
     private static long blockSerial = -1;
@@ -216,8 +218,9 @@ final class LegacySharpSky {
 
     /** A new half float texture with the term images of a sky one under the other, or one texel of 0 when the sky has no terms. */
     private static int uploadTerms(SkyImage img) {
-        int width = img.termTextureWidth(), height = img.termTextureHeight();
-        ByteBuffer bytes = BufferUtils.createByteBuffer(width * height * 8);
+        int width = img.termTextureWidth();
+        int height = img.termTextureHeight();
+        ByteBuffer bytes = BufferUtils.createByteBuffer(width * height * HALF_RGBA_BYTES);
         bytes.asShortBuffer().put(img.terms());
         int texture = GlStateManager.generateTexture();
         // Unit 1 holds the lightmap, so the terms go on unit 0.
@@ -272,7 +275,7 @@ final class LegacySharpSky {
         boolean timed = caps.OpenGL33 || caps.GL_ARB_timer_query;
         int query = timed ? GL15.glGenQueries() : 0;
         if (timed) GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, query);
-        for (int i = 0; i < repeat; i++) quad(view);
+        for (int i = 0; i < repeat; i++) Game.drawTriangles(SkyImage.quad(view));
         long nanos = -1;
         if (timed) {
             GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
@@ -307,10 +310,5 @@ final class LegacySharpSky {
         }
         done.accept(argb, nanos);
         return true;
-    }
-
-    /** Draws the {@link SkyImage#quad} of a view, or of the whole image for null. */
-    private static void quad(float[] view) {
-        Game.drawTriangles(SkyImage.quad(view));
     }
 }
