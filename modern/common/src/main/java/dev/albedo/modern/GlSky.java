@@ -55,10 +55,20 @@ public final class GlSky {
     private static int texture;
     private static long uploaded = -1;
     private static GlMesh sphere;
-    // The model view matrix of the sharp sky of the sky pass, which waits for the solid world with its projection and brightness.
-    private static final SkyDefer<float[]> DEFER = new SkyDefer<>();
-    private static float[] waitingProjection;
-    private static float waitingBrightness;
+    // The sharp sky of the sky pass that waits for the solid world.
+    private static final class Waiting {
+        final float[] modelView;
+        final float[] projection;
+        final float brightness;
+
+        Waiting(float[] modelView, float[] projection, float brightness) {
+            this.modelView = modelView;
+            this.projection = projection;
+            this.brightness = brightness;
+        }
+    }
+
+    private static final SkyDefer<Waiting> DEFER = new SkyDefer<>();
 
     private GlSky() {}
 
@@ -144,15 +154,8 @@ public final class GlSky {
         float k = ModernSky.brightness(img);
         float[] modelView = turned(skyModelView, ModernSky.turn(img));
         if (GlSharpSky.prepare(img)) {
-            // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
             GlSharpSky.drawBlack(sphere, modelView, projection);
-            // The sharp sky waits for the solid world, which then hides a part of it from the shader.
-            if (DEFER.defer(modelView)) {
-                waitingProjection = projection;
-                waitingBrightness = k;
-            } else {
-                GlSharpSky.draw(sphere, modelView, projection, k);
-            }
+            if (!DEFER.defer(new Waiting(modelView, projection, k))) GlSharpSky.draw(sphere, modelView, projection, k);
             return true;
         }
         if (!BAKED.ready()) return false;
@@ -172,10 +175,10 @@ public final class GlSky {
 
     // Draws the sharp sky that waits, after the solid world, only on the pixels that the world left empty.
     public static void afterSolid() {
-        float[] waiting = DEFER.take();
+        Waiting waiting = DEFER.take();
         if (waiting == null) return;
         try (Bound ignored = mainTarget()) {
-            GlSharpSky.draw(sphere, waiting, waitingProjection, waitingBrightness);
+            GlSharpSky.draw(sphere, waiting.modelView, waiting.projection, waiting.brightness);
         }
     }
 

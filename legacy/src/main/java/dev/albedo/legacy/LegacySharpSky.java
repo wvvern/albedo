@@ -94,11 +94,43 @@ final class LegacySharpSky {
 
     /** The bytes of one RGBA texel of half floats. */
     private static final int HALF_RGBA_BYTES = 8;
+    /** The term images of the last image on the GPU. */
+    private static final class TermTexture {
+        private long serial = -1;
+        private int id;
+
+        /** Sends the term images of a new image to the GPU, and returns the texture. */
+        int ensure(SkyImage img) {
+            if (serial != img.serial()) {
+                close();
+                id = uploadTerms(img);
+                serial = img.serial();
+            }
+            return id;
+        }
+
+        void close() {
+            if (id != 0) GlStateManager.deleteTexture(id);
+            id = 0;
+            serial = -1;
+        }
+    }
+
+    /** The sky of one frame that the sky shader draws: the program, the term texture and the block. */
+    static final class Prepared {
+        private final Program program;
+        private final int terms;
+        private final float[] block;
+
+        private Prepared(Program program, int terms, float[] block) {
+            this.program = program;
+            this.terms = terms;
+            this.block = block;
+        }
+    }
+
     private static final Block BLOCK = new Block();
-    private static int termTexture;
-    private static long blockSerial = -1;
-    /** The program of the image of the last {@link #prepare}, or null when the baked texture must draw it. */
-    private static Program ready;
+    private static final TermTexture TERMS = new TermTexture();
 
     private LegacySharpSky() {}
 
@@ -118,27 +150,21 @@ final class LegacySharpSky {
      * Compiles the program, sends the term images of a new image to the GPU and takes the block of this frame, in a sky
      * with this turn.
      *
-     * @return true when the sky shader draws this image, false when the baked texture must draw it
+     * @return the sky for {@link #draw}, or null when the baked texture must draw this image
      */
-    static boolean prepare(SkyImage img, SkyTurn turn) {
+    static Prepared prepare(SkyImage img, SkyTurn turn) {
         Program sharp = img.drawsSharp() ? SHARP.get(img.program().shaderSteps()) : null;
-        ready = sharp != null && sharp.ready() ? sharp : null;
-        if (ready == null) return false;
-        if (blockSerial != img.serial()) {
-            if (termTexture != 0) GlStateManager.deleteTexture(termTexture);
-            termTexture = uploadTerms(img);
-            blockSerial = img.serial();
-        }
-        BLOCK.set(img.program().at(SkyClock.longSeconds(), turn));
-        return true;
+        if (sharp == null || !sharp.ready()) return null;
+        int terms = TERMS.ensure(img);
+        return new Prepared(sharp, terms, img.program().at(SkyClock.longSeconds(), turn).clone());
     }
 
     /**
-     * Adds the image of the last {@link #prepare} on the sphere display list to a black frame, only where the depth is
-     * still the far depth of the clear, and leaves the blend and the depth write off.
+     * Adds a prepared sky on the sphere display list to a black frame, only where the depth is still the far depth of the
+     * clear, and leaves the blend and the depth write off.
      */
-    static void draw(int sphere, float brightness) {
-        ready.use(BLOCK, termTexture, brightness);
+    static void draw(Prepared sky, int sphere, float brightness) {
+        sky.program.use(BLOCK.set(sky.block), sky.terms, brightness);
         GlStateManager.enableDepth();
         GlStateManager.depthFunc(GL11.GL_LEQUAL);
         GlStateManager.depthMask(false);

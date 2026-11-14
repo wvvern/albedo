@@ -22,15 +22,17 @@ import java.nio.FloatBuffer;
 // sphere, in place of the vanilla sky disc, with a display list of the sphere and a texture that the mod owns.
 // Twin of legacy LegacySky: a fix lands in both, with the steps in the same order.
 public final class FixedSky {
-    // The sky of the sky pass that waits for the solid world: the camera matrix of the sky disc and the turn of the sky.
+    // The sharp sky of the sky pass that waits for the solid world, with the camera matrix of the sky disc.
     private static final class Waiting {
         final Matrix4f camera;
         final SkyTurn turn;
+        final FixedSharpSky.Prepared sharp;
         final float brightness;
 
-        Waiting(Matrix4f camera, SkyTurn turn, float brightness) {
+        Waiting(Matrix4f camera, SkyTurn turn, FixedSharpSky.Prepared sharp, float brightness) {
             this.camera = camera;
             this.turn = turn;
+            this.sharp = sharp;
             this.brightness = brightness;
         }
     }
@@ -62,12 +64,11 @@ public final class FixedSky {
         prepare(img);
         float k = ModernSky.brightness(img);
         SkyTurn turn = ModernSky.turn(img);
-        if (FixedSharpSky.prepare(img, turn)) {
-            // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
+        FixedSharpSky.Prepared sharp = FixedSharpSky.prepare(img, turn);
+        if (sharp != null) {
             drawBlack(camera, turn);
-            // The sharp sky waits for the solid world, which then hides a part of it from the shader.
-            if (DEFER.defer(new Waiting(new Matrix4f(camera), turn, k))) return true;
-            drawSharp(camera, turn, k);
+            Waiting waiting = new Waiting(new Matrix4f(camera), turn, sharp, k);
+            if (!DEFER.defer(waiting)) drawSharp(waiting);
             return true;
         }
         RenderSystem.pushMatrix();
@@ -95,8 +96,9 @@ public final class FixedSky {
         GL11.glMultMatrixf(TURN);
     }
 
-    // Draws black on the sphere at the far depth with no blend, texture or fog, so that only the pixels that still have the
-    // far depth of the clear become black, and leaves the depth test on as the sharp sky does.
+    // The sharp sky adds its color to the frame, so this draws black below it on the sphere at the far depth with no blend,
+    // texture or fog, only on the pixels that still have the far depth of the clear, and leaves the depth test on as the
+    // sharp sky does.
     private static void drawBlack(Matrix4f camera, SkyTurn turn) {
         RenderSystem.pushMatrix();
         RenderSystem.multMatrix(camera);
@@ -119,11 +121,11 @@ public final class FixedSky {
         RenderSystem.popMatrix();
     }
 
-    private static void drawSharp(Matrix4f camera, SkyTurn turn, float brightness) {
+    private static void drawSharp(Waiting sky) {
         RenderSystem.pushMatrix();
-        RenderSystem.multMatrix(camera);
-        turnMatrix(turn);
-        FixedSharpSky.draw(sphere, brightness);
+        RenderSystem.multMatrix(sky.camera);
+        turnMatrix(sky.turn);
+        FixedSharpSky.draw(sky.sharp, sphere, sky.brightness);
         RenderSystem.popMatrix();
     }
 
@@ -131,7 +133,7 @@ public final class FixedSky {
     public static void afterSolid() {
         Waiting waiting = DEFER.take();
         if (waiting == null) return;
-        drawSharp(waiting.camera, waiting.turn, waiting.brightness);
+        drawSharp(waiting);
     }
 
     // Sends a new image to the texture of the baked image, and makes the sphere once; the render thread calls this.

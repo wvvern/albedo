@@ -37,8 +37,19 @@ public final class LegacySky {
     /** The matrix of a turning sky for the GL, which each frame fills again. */
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
     /** The sharp sky of the sky pass that waits for the clouds or the solid world. */
-    private static final SkyDefer<SkyTurn> DEFER = new SkyDefer<SkyTurn>();
-    private static float waitingBrightness;
+    private static final class Waiting {
+        final SkyTurn turn;
+        final LegacySharpSky.Prepared sharp;
+        final float brightness;
+
+        Waiting(SkyTurn turn, LegacySharpSky.Prepared sharp, float brightness) {
+            this.turn = turn;
+            this.sharp = sharp;
+            this.brightness = brightness;
+        }
+    }
+
+    private static final SkyDefer<Waiting> DEFER = new SkyDefer<Waiting>();
     /** True in a frame where the fog of water, lava or blindness hides the sky, so that the fogged vanilla sky draws. */
     private static boolean fogHidesSky;
 
@@ -105,12 +116,11 @@ public final class LegacySky {
         prepare(img);
         float k = brightness(img);
         SkyTurn turn = turn(img);
-        if (LegacySharpSky.prepare(img, turn)) {
-            // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
+        LegacySharpSky.Prepared sharp = LegacySharpSky.prepare(img, turn);
+        if (sharp != null) {
             drawBlack();
-            // The sharp sky waits for the solid world, which then hides a part of it from the shader.
-            if (DEFER.defer(turn)) waitingBrightness = k;
-            else drawSharp(turn, k);
+            Waiting waiting = new Waiting(turn, sharp, k);
+            if (!DEFER.defer(waiting)) drawSharp(waiting);
             return true;
         }
         GlStateManager.pushMatrix();
@@ -138,8 +148,9 @@ public final class LegacySky {
     }
 
     /**
-     * Draws black on the sphere at the far depth with no blend, texture or fog, so that only the pixels that still have the
-     * far depth of the clear become black, and leaves the depth test on as the sharp sky does.
+     * The sharp sky adds its color to the frame, so this draws black below it on the sphere at the far depth with no blend,
+     * texture or fog, only on the pixels that still have the far depth of the clear, and leaves the depth test on as the
+     * sharp sky does.
      */
     private static void drawBlack() {
         GlStateManager.disableTexture2D();
@@ -159,18 +170,18 @@ public final class LegacySky {
         GlStateManager.enableFog();
     }
 
-    private static void drawSharp(SkyTurn turn, float brightness) {
+    private static void drawSharp(Waiting sky) {
         GlStateManager.pushMatrix();
-        turnMatrix(turn);
-        LegacySharpSky.draw(sphere, brightness);
+        turnMatrix(sky.turn);
+        LegacySharpSky.draw(sky.sharp, sphere, sky.brightness);
         GlStateManager.popMatrix();
     }
 
     /** Draws the sharp sky that waits, before the clouds or after the solid world, whose camera matrix is that of the sky. */
     public static void drawWaiting() {
-        SkyTurn waiting = DEFER.take();
+        Waiting waiting = DEFER.take();
         if (waiting == null) return;
-        drawSharp(waiting, waitingBrightness);
+        drawSharp(waiting);
         GlStateManager.depthMask(true);
         // The sky shader left its term texture on the unit of the block textures.
         Minecraft.getMinecraft().getTextureManager().bindTexture(Game.blocksTexture());

@@ -134,7 +134,8 @@ final class GlSharpSky {
         saved.restore();
     }
 
-    // Draws black on the sphere at the far depth with no blend, so that only the pixels that still have the far depth of the clear become black.
+    // The sharp sky adds its color to the frame, so this draws black below it on the sphere at the far depth with no blend,
+    // only on the pixels that still have the far depth of the clear.
     static void drawBlack(GlMesh sphere, float[] modelView, float[] projection) {
         GlState saved = GlState.ofDraw();
         BLACK.use(modelView, projection);

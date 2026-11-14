@@ -19,7 +19,8 @@ public final class SkyDefer<T> {
     }
 
     /**
-     * Keeps the sky of the sky pass for the hook when the hook ran in the frame before.
+     * Keeps the sharp sky of the sky pass for the hook when the hook ran in the frame before, so that the sky waits for the
+     * solid world, which then hides a part of it from the shader.
      *
      * @return false when the sky pass must draw the sky itself
      */

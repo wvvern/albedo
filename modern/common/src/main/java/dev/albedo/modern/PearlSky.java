@@ -89,9 +89,7 @@ public final class PearlSky {
         GpuBufferSlice transforms = RenderSystem.getDynamicUniforms()
                 .writeTransform(ModernSky.turned(RenderSystem.getModelViewMatrixCopy(), img), new Vector4f(k, k, k, 1f));
         if (SharpSky.ready()) {
-            // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
             SharpSky.drawBlack(pass, transforms, sphere, vertexCount);
-            // The sharp sky waits for the solid world, which then hides a part of it from the shader.
             if (!DEFER.defer(transforms)) SharpSky.draw(pass, transforms, sphere, vertexCount);
             return true;
         }

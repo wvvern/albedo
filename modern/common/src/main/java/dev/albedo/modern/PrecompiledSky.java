@@ -60,9 +60,7 @@ public final class PrecompiledSky {
         GpuBufferSlice transforms = DeviceApi.transforms(ModernSky.turned(DeviceApi.modelView(), img), new Vector4f(k, k, k, 1f));
         try (RenderPass pass = pass()) {
             if (sharp) {
-                // The sharp sky adds its color to the frame, so the sky of this level view must be black below it.
                 PrecompiledSharpSky.drawBlack(pass, transforms, sphere, vertexCount);
-                // The sharp sky waits for the solid world, which then hides a part of it from the shader.
                 if (!DEFER.defer(transforms)) PrecompiledSharpSky.draw(pass, transforms, sphere, vertexCount);
                 return true;
             }
