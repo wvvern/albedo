@@ -1,5 +1,5 @@
 # The jar entries that can be different from the reference jars, for python -m tools compare-jars.
-# The reference is the 7 jars of the tag v0.5.1, the last release (see the header of tools/jar_compare.py).
+# The reference is the 7 jars of the tag v0.5.1 (see the header of tools/jar_compare.py).
 # Format: <entry wildcard> <reason>. Add a line in the commit that changes the entry.
 architectury_inject_* The Architectury transformer puts a random id in this folder name in each build.
 mixins.albedo.refmap.json The Mixin annotation processor of the 1.8.9 build writes the mixins in a different sequence in each build.

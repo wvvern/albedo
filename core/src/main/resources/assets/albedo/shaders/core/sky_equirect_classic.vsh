@@ -1,4 +1,4 @@
-// A quad over the equirectangular image or a camera view, for the GL programs of 1.21.11, 1.21.1 and 1.8.9.
+// A quad over the equirectangular image or a camera view, for the classic GL programs.
 
 #ifdef ALBEDO_FIXED_FUNCTION
 #if __VERSION__ >= 130

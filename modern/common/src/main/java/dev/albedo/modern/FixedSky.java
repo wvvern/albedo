@@ -19,6 +19,7 @@ import java.nio.FloatBuffer;
 
 // The custom sky of the fixed function versions: the sky shader of FixedSharpSky when it can draw, else the baked image on the
 // sphere, in place of the vanilla sky disc, with a display list of the sphere and a texture that the mod owns.
+// Twin of legacy LegacySky: a fix lands in both, with the steps in the same order.
 public final class FixedSky {
     // The sky of the sky pass that waits for the solid world: the camera matrix of the sky disc and the turn of the sky.
     private static final class Waiting {

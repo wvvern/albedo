@@ -1,4 +1,4 @@
-// The sky for each pixel of the sky sphere, for the GL programs of 1.21.11, 1.21.1 and 1.8.9.
+// The sky for each pixel of the sky sphere, for the classic GL programs.
 
 #include <albedo:sky_layers.glsl>
 

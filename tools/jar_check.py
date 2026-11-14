@@ -17,7 +17,7 @@ from tools import project
 from tools.project import Target
 from tools.report import Problem, ToolError
 
-# The newest level that the Mixin of the 26.x loaders knows.
+# Mixin 0.8 knows no compatibility level above JAVA_21. The build side is compatibilityLevel in modern/gradle/shared.gradle.
 NEWEST_MIXIN_LEVEL = 21
 # The major version of a class file is its Java version plus this.
 CLASS_VERSION_OFFSET = 44

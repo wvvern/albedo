@@ -49,7 +49,7 @@ if (loader == 'common') {
         include '*Mixin.class', '*Accessor.class', '*Invoker.class'
         exclude '*$*'
     }
-    // Mixin 0.8 has no level above JAVA_21 on all loaders, and a config can be at a lower level than its classes.
+    // Mixin 0.8 knows no compatibility level above JAVA_21. A config can be at a lower level than its classes.
     def compatibilityLevel = "JAVA_${Math.min(javaVersion, 21)}"
     processResources {
         dependsOn 'compileJava'

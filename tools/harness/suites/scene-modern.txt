@@ -41,7 +41,6 @@ run setblock 4 -59 -6 emerald_block
 run setblock 5 -59 -6 lapis_block
 run setblock 6 -59 -6 mossy_cobblestone
 run setblock 0 -59 -6 torch
-# Water and lava pits, plants
 run fill -6 -61 -4 -4 -61 -3 water
 run fill 4 -61 -4 6 -61 -3 lava
 run setblock -2 -60 -2 short_grass

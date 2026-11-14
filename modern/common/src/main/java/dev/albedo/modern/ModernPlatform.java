@@ -20,7 +20,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-/** The {@link Platform} for Minecraft 1.21 and later on all loaders, which keeps loader code in the entrypoints. */
+/** The {@link Platform} of all modern versions and loaders. */
 final class ModernPlatform implements Platform {
     static final String MINECRAFT = /*$ minecraft*/ "26.3";
     //? if >=1.18 {

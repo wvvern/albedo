@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * The item icons of the screens, which 1.21.11 and later draw once into an item atlas and again only for an animated item,
- * with @Pseudo making this a no-op on 1.21.1, where the class does not exist.
+ * Item icons of the screens, which the game draws once into an item atlas from 1.21.6 and again only for an animated item.
+ * {@code @Pseudo}: the class exists from 1.21.4.
  */
 @Pseudo
 @Mixin(targets = "net.minecraft.client.renderer.item.ItemStackRenderState")

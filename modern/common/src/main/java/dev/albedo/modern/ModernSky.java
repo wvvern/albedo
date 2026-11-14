@@ -16,8 +16,8 @@ import org.joml.Matrix4fc;
 //?}
 
 /**
- * What each version needs for the custom sky, which draws on a sphere in place of the vanilla sky disc in the sky class of
- * the version ({@code PearlSky}, {@code PrecompiledSky} or {@code GlSky}).
+ * The version-independent parts of the custom sky. {@link #frameStart} calls the family class: {@code FixedSky},
+ * {@code GlSky}, {@code PrecompiledSky} or {@code PearlSky}.
  */
 public final class ModernSky {
     static final float RADIUS = 100f;

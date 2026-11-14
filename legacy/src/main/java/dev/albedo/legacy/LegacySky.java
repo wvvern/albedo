@@ -5,9 +5,9 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.sky.SkyDayTime;
 import dev.albedo.core.sky.SkyDefer;
 import dev.albedo.core.sky.SkyImage;
-import dev.albedo.legacy.mixin.MinecraftAccessor;
 import dev.albedo.core.sky.SkyLight;
 import dev.albedo.core.sky.SkyTurn;
+import dev.albedo.legacy.mixin.MinecraftAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
@@ -24,14 +24,14 @@ import java.nio.FloatBuffer;
 
 /**
  * Draws the custom sky on a sphere in place of the legacy sky disc, with {@link LegacySharpSky} when it can, else from
- * one texture of a fixed size that is uploaded on the render thread only when the core has a new image.
+ * one texture of a fixed size that is uploaded on the render thread only when the core has a new image, as the twin of
+ * modern {@code FixedSky}: a fix lands in both, with the steps in the same order.
  */
 public final class LegacySky {
     private static final float RADIUS = 100f;
     private static DynamicTexture texture;
     private static long uploaded = -1;
-    /** The display list of the sphere, or -1 before the first draw. */
-    private static int sphere = -1;
+    private static int sphere;
     /** The matrix of a turning sky for the GL, which each frame fills again. */
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
     /** The sharp sky of the sky pass that waits for the clouds or the solid world. */
@@ -175,6 +175,11 @@ public final class LegacySky {
     }
 
     private static void prepare(SkyImage img) {
+        ensureTexture(img);
+        ensureSphere();
+    }
+
+    private static void ensureTexture(SkyImage img) {
         if (texture == null || texture.getTextureData().length != img.argb().length) {
             if (texture != null) texture.deleteGlTexture();
             texture = new DynamicTexture(img.width(), img.height());
@@ -191,12 +196,14 @@ public final class LegacySky {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
             uploaded = img.serial();
         }
-        if (sphere < 0) {
-            sphere = GLAllocation.generateDisplayLists(1);
-            GL11.glNewList(sphere, GL11.GL_COMPILE);
-            Game.drawTriangles(SkyImage.sphere(RADIUS));
-            GL11.glEndList();
-        }
+    }
+
+    private static void ensureSphere() {
+        if (sphere != 0) return;
+        sphere = GLAllocation.generateDisplayLists(1);
+        GL11.glNewList(sphere, GL11.GL_COMPILE);
+        Game.drawTriangles(SkyImage.sphere(RADIUS));
+        GL11.glEndList();
     }
 
     /** Draws the sky disc of renderSky, or the custom sky in its place. */

@@ -73,7 +73,7 @@ def old_grass_name(line: str) -> str:
 
 
 def move_scene_up(line: str) -> str:
-    """The ground of a superflat world is at y=-61 from 1.18 and at y=3 before it, so a scene line moves up by 64 blocks on the old versions."""
+    """Superflat ground is y=-61 from 1.18 and y=3 before, so heights in [-64, 0) move up by 64."""
     words = line.split(" ")
     if words[0] != "run" or len(words) < 5:
         return line
@@ -109,8 +109,7 @@ RULES = (
 
 
 def compose(lines: Iterable[str], target: Target) -> list[str]:
-    """The command file of a target: the lines of its build, changed by each rule of the target, with the hook counters logged before the
-    game stops, so that the result can show a hook that did not run."""
+    """The lines of the target's build after its rules, with 'hooks' before each 'quit' so that the verdict sees each hook count."""
     rules = [rule.rewrite for rule in RULES if rule.applies(target)]
     commands = []
     for line in lines:

@@ -1,4 +1,4 @@
-// Writes the Chroma color of each moving texel into the atlas for the GL programs of 1.21.11, 1.21.1 and 1.8.9.
+// Writes the Chroma color of each moving texel into the atlas, for the classic GL programs.
 
 #include <albedo:chroma.glsl>
 

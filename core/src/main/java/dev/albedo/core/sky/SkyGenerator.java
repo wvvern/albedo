@@ -11,7 +11,8 @@ import java.util.function.IntConsumer;
 
 /**
  * Bakes a {@link SkyDesign} into a {@link SkyImage} in one pass from the bottom layer up, in linear light, where each
- * generator works on directions (no seam, no pinch at the zenith) and each filter size is in degrees.
+ * generator works on directions (no seam, no pinch at the zenith) and each filter size is in degrees, as a still sky at
+ * time 0 that does not turn.
  */
 public final class SkyGenerator {
     /** Runs an index from 0 to count - 1 for each row or column of a pass, on one or more threads. */
@@ -136,8 +137,9 @@ public final class SkyGenerator {
         for (int i = 0; i < layers.size(); i++) {
             SkyLayer layer = layers.get(i);
             Layer ctx = new Layer(layer, block, i);
-            float[] light = lastUse.containsKey(layer.id() * 2) ? new float[w * h] : null;
-            float[] dark = lastUse.containsKey(layer.id() * 2 + 1) ? new float[w * h] : null;
+            int lightKey = planeKey(layer.id(), SkyMask.Mode.LIGHT), darkKey = planeKey(layer.id(), SkyMask.Mode.DARK);
+            float[] light = lastUse.containsKey(lightKey) ? new float[w * h] : null;
+            float[] dark = lastUse.containsKey(darkKey) ? new float[w * h] : null;
             float[] mask = layer.mask().isNone() ? null : planes.get(planeKey(layer.mask()));
             boolean show = layer.output() == SkyLayer.Output.SHOW;
             boolean ok;
@@ -149,8 +151,8 @@ public final class SkyGenerator {
                 ok = filter(ctx) && rows.run(used, y -> blendRow(ctx, y, tmp, show, mask, light, dark));
             }
             if (!ok) return null;
-            if (light != null) planes.put(layer.id() * 2, light);
-            if (dark != null) planes.put(layer.id() * 2 + 1, dark);
+            if (light != null) planes.put(lightKey, light);
+            if (dark != null) planes.put(darkKey, dark);
             for (Map.Entry<Integer, Integer> e : lastUse.entrySet()) if (e.getValue() == i) planes.remove(e.getKey());
         }
         tmp = null;
@@ -174,7 +176,12 @@ public final class SkyGenerator {
     }
 
     private static int planeKey(SkyMask m) {
-        return m.layer() * 2 + (m.mode() == SkyMask.Mode.DARK ? 1 : 0);
+        return planeKey(m.layer(), m.mode());
+    }
+
+    /** The key of the light or dark mask plane of a layer. */
+    private static int planeKey(int layerId, SkyMask.Mode mode) {
+        return layerId * 2 + (mode == SkyMask.Mode.DARK ? 1 : 0);
     }
 
     private void generatorRow(Layer l, int y, boolean show, float[] mask, float[] light, float[] dark) {
@@ -242,7 +249,7 @@ public final class SkyGenerator {
         return Math.max(0, Math.min(255, Math.round(v)));
     }
 
-    /** The mean linear color of each azimuth sector from 0 to 6 degrees of elevation, softened across near sectors. */
+    /** The {@link SkyImage} ring of the baked pixels, softened across near sectors. */
     private float[] ring() {
         float[] ring = new float[SkyImage.RING * 3];
         int[] count = new int[SkyImage.RING];
@@ -318,7 +325,6 @@ public final class SkyGenerator {
             local(0, 1, 0, up);
             float[] axis = new float[3];
             for (int c = 0; c < 3; c++) axis[c] = block[SkyProgram.at(index, SkyProgram.TRAIL_AXIS + c * 4)];
-            // The bake is a still sky, so the stars twinkle as at time 0.
             stars = layer.kind() == SkyLayer.Kind.STARS
                     ? new SkyStars(amount, height * 2, scale, seed, block[SkyProgram.at(index, SkyProgram.TWINKLE)], 0, up,
                             block[SkyProgram.at(index, SkyProgram.TRAIL)], block[SkyProgram.at(index, SkyProgram.TRAIL_LIGHT)], axis)
@@ -360,13 +366,11 @@ public final class SkyGenerator {
             case GLOW: glow(l, p, out); break;
             case NOISE: noise(l, p, out); break;
             case FRACTAL: fractal(l, p, out); break;
-            // The bake is a still sky, so the galaxy is as at time 0.
             case GALAXY: galaxy(l, p, texel, 0, out); break;
             case STARS: stars(l, p, out); break;
             case DEEP_FIELD: DeepField.sample(l.block, l.index, p, texel, out); break;
-            // The bake is a still sky that does not turn: it draws the aurora at clock 0, and only the sky shader draws the meteors.
             case AURORA: Aurora.sample(l.block, l.index, p, texel, out); break;
-            default: out[3] = 0;
+            default: out[3] = 0; // only the sky shader draws the meteors
         }
     }
 
@@ -446,7 +450,7 @@ public final class SkyGenerator {
         pulse(l, p, v, out);
     }
 
-    /** Multiplies the color of a cloud layer by its pulse, where the bake is a still sky at time 0. */
+    /** Multiplies the color of a cloud layer by its pulse at time 0. */
     private static void pulse(Layer l, float[] p, float v, float[] out) {
         brighten(pulse(l.block[SkyProgram.at(l.index, SkyProgram.PULSE)], l.scale, l.seed, p, v, 0), out);
     }
@@ -833,7 +837,6 @@ public final class SkyGenerator {
         for (int c = 0; c < 3; c++) light[c] += v * SUPERNOVA[c];
     }
 
-    /** Stars with the brightness spread and the colors of real stars, where the footprint of a texel widens only their thin parts. */
     private void stars(Layer l, float[] p, float[] out) {
         l.stars.shade(p, texel, l.color1, l.alpha1, out);
     }

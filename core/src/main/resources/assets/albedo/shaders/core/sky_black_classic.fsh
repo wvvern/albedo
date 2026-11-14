@@ -1,4 +1,4 @@
-// Black on the sky sphere of sky_sharp_classic.vsh for the GL programs of 1.21.11, which resets only the pixels at the far depth.
+// Black on the sky sphere of sky_sharp_classic.vsh, which resets only the pixels at the far depth.
 
 #if __VERSION__ >= 130
 in vec3 skyPosition;

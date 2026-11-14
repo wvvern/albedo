@@ -89,7 +89,7 @@ Traps:
 
 - Between frames the atlas holds the painted colors, so the game and Albedo always write into those. A repaint or reload mid-frame restores the pristine copy first (`restore`). If the previous frame's end did not run, the next start restores first, so the hue never leaks into the pristine copy.
 - Texels are rebuilt only when a moving texture changes (`Albedo.texturePaints`) or an atlas gets a new sprite map (1.21.1 uploads a reloaded atlas of the same size into the same GL texture).
-- 1.21.8 and later bake item icons into an item atlas once; while colors move, each icon is marked animated (`ItemIconMixin`).
+- 1.21.6 and later bake item icons into an item atlas once; while colors move, each icon is marked animated (`ItemIconMixin`).
 - 1.8.9 with OptiFine Multitexture draws blocks from per-sprite textures, so the pass stops and sprites get no Chroma.
 - On 1.21.11 and NeoForge 26.3, `CommandEncoder.copyTextureToTexture` copies only mip level 0 whatever level it is given, so the other levels are copied with a draw (`chroma_copy.fsh`). Without it, sprites at the top left of the atlas turn into a checker of extreme colors.
 - 1.21.5 to 1.21.10: a render pass draws only into mip level 0 and the atlas cannot be a render target, so these versions use `GlChromaPass` on the atlas GL name, unwrapping the NeoForge validation layer (`getRealTexture`).

@@ -3,10 +3,8 @@ package dev.albedo.core.sky;
 import static dev.albedo.core.sky.SkyGenerator.smooth;
 
 /**
- * The aurora generator, which the sky shader repeats in {@code albedoAurora}: a near and a far curtain of light high above
- * the ground toward the layer center, each with one smooth lower edge across the sky, where the light comes in softly and is
- * brightest just above it, and above it the rays of a thin sheet on a folded curve, of varied heights, that fade up from
- * COLOR_1 to COLOR_2.
+ * Java twin of {@code albedoAurora}: a near and a far folded curtain toward the layer center, with a soft lower edge and rays
+ * that fade from COLOR_1 up to COLOR_2.
  */
 final class Aurora {
     /** The radius of the earth in km, which makes a far ribbon sink to the horizon. */
@@ -155,7 +153,6 @@ final class Aurora {
         /** The light and the place where it is seen of the last {@link #aim}. */
         private float aimed, seen;
 
-        /** Sets the view direction and the numbers of layer {@code layer} of a program block. */
         void set(float[] block, int layer, float a, float el, float wide, float footprint) {
             this.a = a;
             this.el = el;

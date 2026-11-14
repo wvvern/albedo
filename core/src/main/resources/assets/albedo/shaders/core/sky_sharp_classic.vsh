@@ -1,4 +1,4 @@
-// The sky sphere for the GL programs of 1.21.11, 1.21.1 and 1.8.9, where SkyShaderSource puts the version line and the defines on top.
+// The sky sphere for the classic GL programs, where SkyShaderSource puts the version line and the defines on top.
 
 #ifdef ALBEDO_FIXED_FUNCTION
 #if __VERSION__ >= 130

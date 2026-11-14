@@ -20,7 +20,8 @@ import java.util.function.Predicate;
 
 /**
  * Converts {@link Config} to and from JSON such as the example below, where an unknown key is an error so that a
- * typo is reported instead of silently ignored:
+ * typo is reported instead of silently ignored, and where the encoder leaves out each key at its default or without
+ * meaning, so that an older version of the mod can still read the file:
  * <pre>
  * {
  *   "enabled": true,
@@ -194,7 +195,8 @@ public final class ConfigCodec {
             }
             int color = map.containsKey("color") ? Colors.parse(str(map, "color", "")) : parent.color();
             Appearance.Alpha alpha = choice(map, "alpha", parent.alpha());
-            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
+            boolean recolor = category.supportedModes().contains(Appearance.Mode.RECOLOR);
+            if (!recolor && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
             }
             if (!category.hasBevel() && map.containsKey("bevel")) {
@@ -206,10 +208,10 @@ public final class ConfigCodec {
             if (!category.hasOutline() && map.containsKey("chromaEdge")) {
                 throw new IllegalArgumentException("'chromaEdge' works only on blocks, fluids and items");
             }
-            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && map.containsKey("chroma")) {
+            if (!recolor && map.containsKey("chroma")) {
                 throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
             }
-            if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
+            if (!recolor && !Collections.disjoint(map.keySet(), CHROMA_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + CHROMA_KEYS + " have no meaning here");
             }
             // Mobs and players cannot have Chroma; older files can, so drop it.
@@ -241,7 +243,6 @@ public final class ConfigCodec {
         keys.put("cycleProfile", config.keys().cycleProfile);
         keys.put("settings", config.keys().settings);
         root.put("keys", keys);
-        // Only when there are rules, so that an older version of the mod can still read the file.
         if (!config.servers().isEmpty()) {
             Map<String, Object> servers = new LinkedHashMap<String, Object>();
             for (ServerRule r : config.servers().values()) servers.put(r.server(), r.profile() == null ? (Object) false : r.profile());
@@ -258,11 +259,9 @@ public final class ConfigCodec {
         for (Toggle t : Toggle.values()) if (p.is(t) != t.defaultOn) out.put(t.key, p.is(t));
         for (Map.Entry<Category, CategorySettings> e : p.configured().entrySet()) {
             CategorySettings cs = e.getValue();
-            // Sky layers are kept only for the style "layers", so that an older version can still read the file.
             boolean layers = cs.appearance().mode() == Appearance.Mode.LAYERS;
             if (!layers && cs.withSky(SkyDesign.NONE).equals(CategorySettings.UNTOUCHED)) continue;
             Map<String, Object> m = new LinkedHashMap<String, Object>();
-            // Recolor and effect fields only where a look uses them, so that an older version can still read the file.
             boolean recolor = uses(cs, a -> a.mode() == Appearance.Mode.RECOLOR);
             boolean effects = uses(cs, Appearance::hasEffects);
             Appearance written = unused(cs.appearance(), Appearance.ORIGINAL, recolor, effects);
@@ -305,7 +304,6 @@ public final class ConfigCodec {
         if (a.outline() != base.outline()) m.put("outline", a.outline());
         Chroma c = a.chroma(), b = base.chroma();
         if (c.strength() != b.strength()) m.put("chroma", c.strength());
-        // The options only where Chroma is on, so that an older version can still read a file without Chroma.
         if (!c.isOn()) return;
         if (c.speed() != b.speed()) m.put("chromaSpeed", c.speed());
         if (c.saturation() != b.saturation()) m.put("chromaSaturation", c.saturation());

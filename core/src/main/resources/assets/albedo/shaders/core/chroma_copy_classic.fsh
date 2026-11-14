@@ -1,4 +1,4 @@
-// Copies one mip level of the atlas or of its pristine copy into the same mip level of the other texture, for the GL programs of 1.21.11.
+// Copies one mip level of the atlas or of its pristine copy into the same mip level of the other texture, for PrecompiledChromaPass.
 
 // The mip level to copy, as the base level of the texture.
 uniform sampler2D AlbedoSource;

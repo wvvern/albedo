@@ -7,10 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Skips the sky pass when the sky is flat, which leaves behind the world the frame's clear color that {@link FogMixin}
- * sets to the flat color.
- */
+/** Skips the sky pass when the sky is flat, so the clear color (the flat fog color) shows behind the world. */
 @Mixin(LevelRenderer.class)
 public abstract class SkyMixin {
     // NeoForge 1.21.11 adds an addSkyPass with a fourth parameter and calls only that one, so the hook goes into each overload.

@@ -19,7 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Every loaded texture with a copy of its original pixels, safe for the worker threads that load textures on modern versions. */
+/**
+ * Every loaded texture with a copy of its original pixels, safe for the worker threads that load textures on modern versions:
+ * record and forget lock the store, and repaint does not lock, because record puts a new entry in place of an old one and
+ * never changes an entry that a repaint can read.
+ */
 public final class TextureStore {
     /** How an adapter writes new pixels into a loaded texture on the client thread. */
     public interface Upload {
@@ -99,10 +103,6 @@ public final class TextureStore {
     private final AtomicInteger version = new AtomicInteger();
     private final Map<Category, Map<String, Integer>> views = new EnumMap<Category, Map<String, Integer>>(Category.class);
     private int viewsVersion = -1;
-    /**
-     * Counts each record, drop and repaint of a texture whose colors move on the GPU before or after it, so that an adapter
-     * knows when to read the {@link #chromaTexels} again and a downloaded skin does not make it read them.
-     */
     private final AtomicInteger paints = new AtomicInteger();
     /** Counts each record and drop of any texture, for the cache of {@link #movingChroma}. */
     private final AtomicInteger changes = new AtomicInteger();
@@ -190,7 +190,7 @@ public final class TextureStore {
         return changed;
     }
 
-    /** The bytes of original pixels of the downloaded skins, capes and elytra, which do not count toward the budget. */
+    /** Bytes of the kept downloaded skins, capes and elytra. */
     public long downloadedBytes() {
         return downloadedBytes.get();
     }
@@ -268,7 +268,7 @@ public final class TextureStore {
 
     /**
      * A number that changes after each record, drop and repaint of a texture whose Chroma colors move on the GPU, so that
-     * an adapter knows when to read the {@link #chromaTexels} again.
+     * an adapter knows when to read the {@link #chromaTexels} again (a downloaded skin does not change it).
      */
     public int paints() {
         return paints.get();

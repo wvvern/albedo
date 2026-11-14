@@ -1,4 +1,4 @@
-// Draws the sky into the equirectangular image of the CPU bake, or into a camera view, for the GL programs of 1.21.11, 1.21.1 and 1.8.9.
+// Draws the sky into the equirectangular image of the CPU bake, or into a camera view, for the classic GL programs.
 
 #include <albedo:sky_layers.glsl>
 

@@ -139,12 +139,10 @@ public final class LegacyHooks {
         return Albedo.processTexture(location, new BufferedImagePixels(argb), upload) ? argb : image;
     }
 
-    /** The start of a resource reload, with its number of reload listeners. */
     public static void reloadBegin(int listeners) {
         ReloadScreen.begin(listeners);
     }
 
-    /** The next reload listener starts. */
     public static void reloadStep() {
         ReloadScreen.step();
     }

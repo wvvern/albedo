@@ -1,9 +1,8 @@
 package dev.albedo.core.sky;
 
 /**
- * The stars generator, with the same steps as {@code albedoStars} in the sky shader: many faint points and few bright stars
- * with the colors of real stars, each with a hard core, a thin colored rim, a soft halo and, when bright, thin diffraction
- * spikes, where all sizes are angles and the footprint (the angle of one pixel) widens only the parts thinner than a pixel.
+ * Java twin of {@code albedoStars}, where all sizes are angles in radians and the footprint (the angle of one pixel)
+ * widens only the parts thinner than a pixel.
  */
 final class SkyStars {
     /** One grid of stars, where a star stays in its cell and reaches at most half a cell, so a search of 2 x 2 x 2 cells finds all. */
@@ -19,7 +18,7 @@ final class SkyStars {
         final float minFlux, maxFlux;
         /** The power of the brightness spread: the count of stars brighter than a light falls as the light to this power. */
         final float slope;
-        /** The value that makes the hashes of this grid different from the hashes of the other grid. */
+        /** The hash salt of this grid. */
         final int salt;
         /** True when the stars have a rim and spikes, which only bright stars show. */
         final boolean detail;
@@ -284,7 +283,7 @@ final class SkyStars {
     /**
      * Adds the light of one star in the direction {@code p} to {@code light}, which is 0 from half a cell of its tier.
      *
-     * @param work {@link #WORK_FLOATS} floats of room for the rim, the spikes and the color, so that no pixel makes new arrays
+     * @param work {@link #WORK_FLOATS} scratch floats for the rim, the spikes and the color
      */
     void add(Tier t, float[] s, float[] p, float footprint, float[] work, float[] light) {
         float dx = p[0] - s[0], dy = p[1] - s[1], dz = p[2] - s[2];

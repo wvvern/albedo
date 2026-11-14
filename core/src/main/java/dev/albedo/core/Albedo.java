@@ -179,7 +179,7 @@ public final class Albedo {
         return sc != null && sc.store.repainting();
     }
 
-    /** A number that changes after each change to a kept texture with moving Chroma colors, so that an adapter reads {@link #chromaTexels}. */
+    /** {@link TextureStore#paints} of the instance, or 0 before init. */
     public static int texturePaints() {
         Albedo sc = instance;
         return sc == null ? 0 : sc.store.paints();

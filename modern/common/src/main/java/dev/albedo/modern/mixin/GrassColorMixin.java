@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Grass colormap, flattened as it is (re)loaded through {@code init(int[])}, which has the same shape since 1.13. */
+/** Grass colormap, repainted in {@code init(int[])}, which has the same signature on all modern versions. */
 @Mixin(GrassColor.class)
 public abstract class GrassColorMixin {
     @Inject(method = "init", at = @At("HEAD"))

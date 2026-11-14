@@ -5,6 +5,7 @@ import dev.albedo.core.Colors;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +30,9 @@ final class SkyCodec {
             "color3", "amount", "height", "tilt", "dust", "jets", "detail", "motion", "seed", "speed", "length", "shower", "twinkle",
             "pulse", "transform");
     private static final List<String> MASK_KEYS = Arrays.asList("layer", "mode");
+    /** Left out at 0, so that the file stays short. */
+    private static final Set<SkyLayer.Param> OPTIONAL_PARAMS =
+            EnumSet.of(SkyLayer.Param.TWINKLE, SkyLayer.Param.PULSE, SkyLayer.Param.DETAIL, SkyLayer.Param.MOTION);
     private static final List<String> TRANSFORM_KEYS = Arrays.asList("yaw", "pitch", "roll", "scale");
 
     private SkyCodec() {}
@@ -187,10 +191,7 @@ final class SkyCodec {
             m.put("mask", mask);
         }
         for (SkyLayer.Param p : l.kind().params()) {
-            // A layer with no twinkle, pulse, detail or motion leaves the key out, so that the file stays short and an older version,
-            // which does not know the key, can still read it.
-            boolean optional = p == SkyLayer.Param.TWINKLE || p == SkyLayer.Param.PULSE || p == SkyLayer.Param.DETAIL || p == SkyLayer.Param.MOTION;
-            if (optional && l.param(p) == 0) continue;
+            if (OPTIONAL_PARAMS.contains(p) && l.param(p) == 0) continue;
             m.put(p.key, p.isColor() ? (Object) Colors.format(l.param(p)) : l.param(p));
         }
         Map<String, Object> t = new LinkedHashMap<String, Object>();

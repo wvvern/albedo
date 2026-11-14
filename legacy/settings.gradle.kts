@@ -24,6 +24,7 @@ plugins {
 rootProject.name = "albedo-legacy"
 
 // Each Minecraft version is a subproject in versions/<mc> that the shared version.gradle.kts builds.
+// tools/project.py reads this listOf; keep it the first listOf of the file and on one line.
 for (mc in listOf("1.8.9", "1.12.2")) {
     include(mc)
     project(":$mc").apply {

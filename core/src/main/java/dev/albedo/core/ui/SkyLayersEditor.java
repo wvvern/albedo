@@ -23,7 +23,7 @@ import java.util.function.Consumer;
  * for each layer, over a preview.
  */
 final class SkyLayersEditor {
-    /** What the editor shows, which only {@link #go} changes. */
+    /** What the editor shows; {@link #go} and {@link #reset} change it. */
     enum Screen { LIST, ADD, GALLERY, LAYER }
 
     /** The two pages of a layer: its look, or its place on the sky. */
@@ -115,7 +115,7 @@ final class SkyLayersEditor {
         for (SkyLayer.Param p : SkyLayer.Param.values()) if (p.isColor()) colors.put(p, new ColorField(ui));
     }
 
-    /** The only way the page changes; a text field or scroll of the old page does not carry over. */
+    /** Changes the page; the focus and scroll of the old page do not carry over. */
     private void go(SkyPage next) {
         // A click on a card keeps the place of the cards.
         if (next.screen != page.screen) ui.resetScroll(SkyGallery.SCROLL);

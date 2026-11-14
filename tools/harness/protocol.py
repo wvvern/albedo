@@ -13,7 +13,7 @@ TAKEN = "commands.taken"
 LOG = "log.txt"
 CLIP_PROBE = "clip-probe.txt"
 JVM_PROPERTY = "-Dalbedo.harness="
-# The game starts at the size of the run task.
+# Same as --width and --height of the run task in modern/gradle/shared.gradle and legacy/version.gradle.kts.
 WINDOW_SIZE = (1600, 900)
 
 HOOKS = "hooks"

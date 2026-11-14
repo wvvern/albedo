@@ -11,7 +11,7 @@ import dev.albedo.core.config.Transform;
 import java.util.EnumMap;
 import java.util.Map;
 
-/** The words the settings screen uses for categories, styles and world toggles. */
+/** The words and tooltips of the settings screen. */
 final class Labels {
     private Labels() {}
 

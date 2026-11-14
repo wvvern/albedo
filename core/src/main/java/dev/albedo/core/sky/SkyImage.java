@@ -28,7 +28,7 @@ public final class SkyImage {
     private final float[] ring;
     private final SkyProgram program;
     private final int termWidth, termHeight;
-    /** The half float RGBA texels of the term images, one under the other in the order of their slots. */
+    /** In slot order, see {@link #terms()}. */
     private final short[] terms;
     private final long serial = SERIALS.incrementAndGet();
     /** The mean linear {r, g, b} of cells of about 6 degrees on the whole sphere, made at the first fog of a turning sky. */

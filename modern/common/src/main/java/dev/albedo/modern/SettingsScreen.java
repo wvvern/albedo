@@ -7,10 +7,7 @@ import dev.albedo.core.ui.UiKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
-/**
- * Hosts the version-agnostic {@link SettingsEditor}: the life cycle and the input of the settings screen, which draws
- * through the {@link Canvas} of the version ({@code ExtractorCanvas} or {@code GraphicsCanvas}).
- */
+/** Hosts the {@link SettingsEditor} (screen life cycle and input), which draws through the {@link Canvas} of the version. */
 public final class SettingsScreen extends Screen {
     private final Screen parent;
     private final SettingsEditor editor;
@@ -166,8 +163,7 @@ public final class SettingsScreen extends Screen {
             case KeyCodes.KEY_DOWN: return UiKey.DOWN;
             case KeyCodes.KEY_HOME: return UiKey.HOME;
             case KeyCodes.KEY_END: return UiKey.END;
-            case KeyCodes.KEY_RETURN: return UiKey.ENTER;
-            case KeyCodes.KEY_NUMPADENTER: return UiKey.ENTER;
+            case KeyCodes.KEY_RETURN: case KeyCodes.KEY_NUMPADENTER: return UiKey.ENTER;
             case KeyCodes.KEY_ESCAPE: return UiKey.ESCAPE;
             case KeyCodes.KEY_TAB: return UiKey.TAB;
             default: return null;

@@ -1,4 +1,4 @@
-// The sky sphere with the baked sky image, for the GL programs of the versions with core shaders and no GPU device.
+// The sky sphere with the baked sky image, for GlSky (gl_sky family).
 
 uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;

@@ -20,10 +20,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * What the mixins call, as thin translations from Minecraft types to the core so that the mixins stay one-liners and
- * the per-version surface stays small.
- */
+/** The adapter that the mixins call: it turns Minecraft types into core calls. */
 public final class ModernHooks {
     public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
     public static final HookCounter SODIUM_SHADE = new HookCounter("sodiumShade");
@@ -68,13 +65,11 @@ public final class ModernHooks {
         if (sc != null) sc.clientTick(ModernPlatform.currentScreen() != null);
     }
 
-    /** The start of a frame, before it draws anything. */
     public static void frameStart() {
         ChromaAtlases.frameStart();
         ModernSky.frameStart();
     }
 
-    /** The end of a frame, after it drew the world and the screens. */
     public static void frameEnd() {
         ChromaAtlases.frameEnd();
     }
