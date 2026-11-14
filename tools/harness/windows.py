@@ -15,6 +15,8 @@ class Windows:
     def __init__(self):
         if os.name != "nt":
             raise ToolError("the game harness runs only on Windows, where it has a hidden desktop")
+        # Made once here, before the targets start on threads of their own.
+        desktop.hidden_desktop()
 
     def uses(self, harness: Path) -> bool:
         # The Gradle process of a dev run names the folder before its game does.

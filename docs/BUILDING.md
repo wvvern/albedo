@@ -72,9 +72,12 @@ Rules for the code in `tools/`:
 
 ```bash
 python -m tools harness fabric-26.3 forge-1.8.9 --suite sky-sharp --out build/run
+python -m tools harness all --suite shots chroma edges --out build/release
 ```
 
-- Suites: `shots` (each profile, mod on and off, hooks, window size, cursor), `sky-sharp` (`skycompare` on the presets), `chroma` with `pastel`, `typing`, `settings-pages`, `gallery` (the images in `modrinth/gallery`), `player-layers` (Player armor and Player cape on players and mobs). The `scene-*` suites set up the world and run first.
+- The targets run at the same time, each in its own game. The suites of `--suite` run one after the other in the game folder of each target, each in a new game, with its output in `<out>/<suite>/<target>`. A failed run also keeps its `gradle.log` there.
+
+- Suites: `shots` (each profile, mod on and off, hooks, window size, cursor), `sky-sharp` (`skycompare` on the presets), `chroma` with `pastel`, `typing`, `settings-pages`, `gallery` (the images in `modrinth/gallery`), `player-layers` (Player armor and Player cape on players and mobs), `edges` (Outline and Edge Chroma), `item-icons` (the hotbar after a look change), `off-switch` (the On switch, Apply and Done). The `scene-*` suites set up the world and run first.
 - A suite is written for the newest version. `tools/harness/script.py` has the rules that change a line for an older version (the ground level before 1.18, block and entity names), and a suite line that starts with `modern:` or `legacy:` runs only in that build.
 - Options: `--extra <suite>`, `--compat <mod>`, `--shader-pack <zip>`, `--config <config.json>`, `--option key:value` (for example `useVbo:true`), `--gui-scale <n>`, `--backend opengl|vulkan` (26.2+, add `--vulkan-validation` for the validation layers), `--loader quilt` (the node's release jar on Quilt Loader) or `quilt-dev`.
 - Each target gets a `result.txt`: `PASS` or `FAIL` on the first line, then the reasons. Reasons are log lines starting with `!` (including `! unknown command` and `! no such control`), a screenshot that is not 1600 x 900, a `skycompare` without `same`, or a missing hook; `tools/harness/verdict.py` has all of them. The exit code is 1 if any target fails.

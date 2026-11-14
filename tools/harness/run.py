@@ -4,8 +4,12 @@ The default suite builds a test scene in a superflat world and takes screenshots
 without fullbright, and the settings screen. Screenshots go to <out>/<target>/ with result.txt, which starts with PASS or FAIL and then
 has each reason. The exit code is 1 when a target fails. tools/harness/verdict.py has what a run must show to pass.
 
+The targets run at the same time, each in its own game. With several suites, the game of each target runs them one after the other,
+because they share its game folder, and the output of each goes to <out>/<suite>/<target>/.
+
     python -m tools harness fabric-26.3 forge-1.8.9
     python -m tools harness fabric-26.3 forge-1.8.9 --suite sky-sharp --out build/sky-sharp
+    python -m tools harness all --suite shots chroma edges --out build/release
     python -m tools harness fabric-1.21.11 --compat sodium --extra scene-compat --out build/compat-sodium
     python -m tools harness fabric-26.3 --compat iris --shader-pack C:/temp/pack.zip --extra scene-compat
     python -m tools harness fabric-26.3 --backend vulkan --out build/vulkan
@@ -13,10 +17,13 @@ has each reason. The exit code is 1 when a target fails. tools/harness/verdict.p
 """
 
 import argparse
+import dataclasses
+import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from tools import project
-from tools.harness import devrun, files, rundir, script, session, verdict
+from tools.harness import devrun, files, processes, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
 from tools.harness.windows import Windows
@@ -42,15 +49,30 @@ def run_target(target: Target, options: RunOptions, system: System) -> bool:
     result = "FAIL" if failures else "PASS"
     summary = [result, f"target: {target.name}", f"commands: {', '.join(f'{suite}.txt' for suite in suites)}", f"screenshots: {len(finished.images)}"]
     files.write_lines(out / "result.txt", summary + failures)
+    # The next suite of the target starts a new harness folder, so the output folder keeps the log of a failed run.
+    if failures and finished.launch.log.is_file():
+        shutil.copy2(finished.launch.log, out)
     for line in [*failures, result]:
         print(f"[{target.name}] {line}", flush=True)
     return not failures
 
 
-def parse(arguments: list[str]) -> tuple[list[Target], RunOptions]:
+def run_suites(target: Target, runs: list[RunOptions], system: System) -> bool:
+    """Runs each suite of one target, also after a failed one, and tells whether all passed."""
+    passed = True
+    for options in runs:
+        try:
+            passed &= run_target(target, options, system)
+        except ToolError as error:
+            print(f"[{target.name}] FAIL {options.suite}: {error}", flush=True)
+            passed = False
+    return passed
+
+
+def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
     parser = argparse.ArgumentParser(prog="python -m tools harness", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("targets", nargs="+", metavar="TARGET", help=f'for example fabric-26.3, or "{ALL}" for each target')
-    parser.add_argument("--suite", default=RunOptions.suite, help="the suite that runs after the scene (default: %(default)s)")
+    parser.add_argument("--suite", nargs="+", default=[RunOptions.suite], help="the suites that run after the scene (default: %(default)s)")
     parser.add_argument("--extra", nargs="+", default=[], metavar="SUITE", help="more suites, between the scene and the suite")
     parser.add_argument("--out", type=Path, default=RunOptions.out, help="the output folder, from the repository root (default: %(default)s)")
     parser.add_argument("--timeout", type=int, default=RunOptions.timeout, metavar="SECONDS")
@@ -76,7 +98,7 @@ def parse(arguments: list[str]) -> tuple[list[Target], RunOptions]:
     )
     parsed = parser.parse_args(arguments)
     options = RunOptions(
-        suite=parsed.suite,
+        suite=parsed.suite[0],
         extra=tuple(parsed.extra),
         out=parsed.out,
         timeout=parsed.timeout,
@@ -90,19 +112,24 @@ def parse(arguments: list[str]) -> tuple[list[Target], RunOptions]:
         loader=parsed.loader,
     )
     targets = list(project.targets()) if parsed.targets == [ALL] else [project.find_target(name) for name in parsed.targets]
-    for suite in (options.suite, *options.extra):
+    for suite in (*parsed.suite, *options.extra):
         script.suite_file(suite)
     if options.shader_pack and "iris" not in options.compat:
         raise ToolError("--shader-pack needs --compat iris")
     if options.loader != "fabric" and any(target.loader != "fabric" for target in targets):
         raise ToolError(f"--loader {options.loader} runs only fabric targets")
-    return targets, options
+    if len(parsed.suite) == 1:
+        return targets, [options]
+    return targets, [dataclasses.replace(options, suite=suite, out=options.out / suite) for suite in parsed.suite]
 
 
 def main(arguments: list[str]) -> int:
-    targets, options = parse(arguments)
+    targets, runs = parse(arguments)
     system = Windows()
-    failed = [target.name for target in targets if not run_target(target, options, system)]
+    processes.wait_for_tool(project.ROOT, "build")
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        passed = list(pool.map(lambda target: run_suites(target, runs, system), targets))
+    failed = [target.name for target, ok in zip(targets, passed, strict=True) if not ok]
     if failed:
         print(f"FAIL: {', '.join(failed)}")
     return 1 if failed else 0

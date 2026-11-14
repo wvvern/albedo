@@ -20,6 +20,7 @@ from tools.report import ToolError
 # Each checkout has its own folder, so that runs of the same target in two worktrees do not share a harness folder.
 HARNESS_ROOT = Path(tempfile.gettempdir()) / "albedo-harness" / project.ROOT.name
 POLL_SECONDS = 3
+DELETE_TRIES = 15
 # The game saves the world before it exits; 26.x can take 10 s or more.
 EXIT_SECONDS = 30
 # A loader that fails to start leaves the Gradle process running.
@@ -69,7 +70,12 @@ def open_harness(name: str, commands: list[str], system: System) -> Path:
     # A run of the same name from a different shell would lose its folder.
     if system.uses(harness):
         raise ToolError(f"a game with the harness {harness} is already running")
-    shutil.rmtree(harness, ignore_errors=True)
+    # The window fit and the cursor watch of the previous run hold a log in the folder for a few seconds after its game ends.
+    for _ in range(DELETE_TRIES):
+        shutil.rmtree(harness, ignore_errors=True)
+        if not harness.exists():
+            break
+        system.sleep(1)
     # A process of an earlier run can hold the folder, and its old log and images would then count for this run.
     if harness.exists():
         raise ToolError(f"cannot delete {harness}; stop the process that uses it")

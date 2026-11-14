@@ -1,3 +1,4 @@
+import shutil
 import struct
 import tempfile
 import unittest
@@ -143,6 +144,24 @@ class FilesTest(unittest.TestCase):
         (out / "old.png").write_bytes(b"old")
         self.assertEqual(["a.png", "b.png"], [image.name for image in session.collect(self.dir, out)])
         self.assertEqual(["a.png", "b.png"], sorted(file.name for file in out.iterdir()))
+
+    def test_a_held_harness_folder_gets_a_few_seconds_to_free(self):
+        harness = session.HARNESS_ROOT / "held"
+        harness.mkdir(parents=True, exist_ok=True)
+        system = FakeSystem(harness, Launch("", self.dir, self.dir / "log"), ends_at=None)
+        tries = []
+        real = shutil.rmtree
+
+        def rmtree(path, ignore_errors=False):
+            tries.append(path)
+            if len(tries) == 3:
+                real(path, ignore_errors=True)
+
+        with mock.patch("shutil.rmtree", rmtree):
+            session.open_harness("held", ["quit"], system)
+        real(harness, ignore_errors=True)
+        self.assertEqual(3, len(tries))
+        self.assertEqual(2, system.time)
 
     def test_collect_goes_on_when_the_old_folder_cannot_be_removed(self):
         self.png("a.png", 1, 1)
