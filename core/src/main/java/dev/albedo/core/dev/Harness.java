@@ -6,20 +6,18 @@ import dev.albedo.core.Platform;
 import dev.albedo.core.config.Config;
 import dev.albedo.core.config.Profile;
 import dev.albedo.core.config.Toggle;
+import dev.albedo.core.dev.HarnessQueue.Command;
+import dev.albedo.core.dev.HarnessQueue.Outcome;
 import dev.albedo.core.sky.SkyClock;
-import dev.albedo.core.sky.SkyGenerator;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
-import dev.albedo.core.sky.SkyTurn;
 import dev.albedo.core.ui.ScriptPort;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +26,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 /**
@@ -91,16 +88,12 @@ public final class Harness {
         void setFov(int degrees);
 
         /**
-         * Draws the program and the term images of a sky with the sharp sky shader {@code repeat} times into an image of
-         * this size, and later gives its pixels and the GPU time of one draw to {@code done}.
+         * Makes the draws of {@code draw} with the sharp sky shader, and later gives the pixels and the GPU time of one
+         * draw to {@code done}.
          *
-         * @param block the block of the program for the draw, from {@link SkyProgram#block} or {@link SkyProgram#at}
-         * @param view the sky directions of the corners of a camera view ({@code HarnessImages.viewCorners}), or null for
-         *        the equirectangular image
-         * @param png a file for the image, or null
          * @return false while the shader compiles, or when this version or GPU has no sharp sky
          */
-        boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png, SkyDone done);
+        boolean drawSharpSky(SkyDraw draw, SkyDone done);
 
         /**
          * Measures the GPU and CPU time of the GPU pass of Chroma in each of the next frames, then logs the times, the
@@ -126,27 +119,46 @@ public final class Harness {
         void accept(int width, int height, int[] argb);
     }
 
+    /** The draws of {@link Host#drawSharpSky}: the program and the term images of a sky, {@code repeat} times into an image of this size. */
+    public static final class SkyDraw {
+        public final SkyImage sky;
+        /** The block of the program for the draw, from {@link SkyProgram#block} or {@link SkyProgram#at}. */
+        public final float[] block;
+        public final int width;
+        public final int height;
+        public final int repeat;
+        /** The sky directions of the corners of a camera view ({@code HarnessImages.viewCorners}), or null for the equirectangular image. */
+        public final float[] view;
+        /** A file for the image, or null. */
+        public final File png;
+
+        public SkyDraw(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png) {
+            this.sky = sky;
+            this.block = block;
+            this.width = width;
+            this.height = height;
+            this.repeat = repeat;
+            this.view = view;
+            this.png = png;
+        }
+    }
+
     /** Receives the image of {@link Host#drawSharpSky}. */
     public interface SkyDone {
         /** @param gpuNanos the GPU time of one draw in nanoseconds, or -1 when the GPU did not give it */
         void accept(int[] argb, long gpuNanos);
     }
 
-    /** One harness command, which gets the text after its verb. */
+    /** One harness command. */
     private interface Verb {
+        Outcome run(Harness harness, Command command);
+    }
+
+    /** A harness command that is done when it returns, which gets the text after its verb. */
+    private interface Action {
         void run(Harness harness, String arg);
     }
 
-    /** The size of the image that {@code skycompare} draws on the GPU and bakes on the CPU. */
-    private static final int COMPARE_W = 512, COMPARE_H = 256;
-    /** The size and the count of the draws that {@code skytime} measures when the command gives no size. */
-    private static final int TIME_W = 1600, TIME_H = 900, TIME_REPEAT = 20;
-    /** The camera of {@code skytime} when the command gives none: the yaw, the pitch and the vertical field of view in degrees. */
-    private static final float TIME_YAW = 180, TIME_PITCH = -20, TIME_FOV = 70;
-    /** The ticks that a sky command waits for the shader to compile. */
-    private static final int SKY_TRIES = 200;
-    /** The largest mean OKLab distance between the GPU and the CPU sky that {@code skycompare} accepts. */
-    static final double COMPARE_LIMIT = 0.02;
     /** The number of frames that {@code chromatime} measures. */
     private static final int CHROMA_FRAMES = 300;
 
@@ -161,19 +173,12 @@ public final class Harness {
     private final Albedo albedo;
     private final Platform platform;
     private final Host host;
-    private final Deque<String> queue = new ArrayDeque<String>();
-    private final UiScript ui = new UiScript();
-    private int waitTicks;
-    private boolean waitingForWorld;
+    private final HarnessQueue queue = new HarnessQueue();
+    private final HarnessQueue.Runner runner;
+    private final RealClick realClick = new RealClick();
+    private final UiScript ui = new UiScript(realClick);
+    private final HarnessSkyChecks sky;
     private String lastStatus = "";
-    /** The GUI position of a {@code ui realclick} whose button is down until the next tick, or null. */
-    private int[] pressedAt;
-    /** The CPU bake of the last {@code skycompare}, which its tries share. */
-    private SkyImage compareCpu;
-    /** The screenshots that the running {@code frames} command still takes, its name and the index of the next one. */
-    private int burstLeft;
-    private String burstName;
-    private int burstIndex;
     /** The keys that {@code keydown} holds until {@code keyup}. */
     private final Set<Keys.Key> held = new HashSet<Keys.Key>();
     /** The middle of the frame of the last {@code keepframe}, which another thread gives. */
@@ -184,12 +189,28 @@ public final class Harness {
         this.albedo = albedo;
         this.platform = albedo.platform();
         this.host = platform.harnessHost();
+        this.sky = new HarnessSkyChecks(host, dir);
+        this.runner = new HarnessQueue.Runner() {
+            @Override
+            public boolean inWorld() {
+                return host.inWorld();
+            }
+
+            @Override
+            public Outcome run(Command command) {
+                return execute(command);
+            }
+        };
     }
 
-    /** The {@code ui} commands for the settings screen, and the label position of the last {@code realclick}. */
+    /** The {@code ui} commands for the settings screen, and the {@code realclick} that they ask for. */
     private static final class UiScript implements ScriptPort {
         final Queue<String> commands = new ConcurrentLinkedQueue<String>();
-        final AtomicReference<int[]> realClick = new AtomicReference<int[]>();
+        private final RealClick click;
+
+        UiScript(RealClick click) {
+            this.click = click;
+        }
 
         @Override public boolean waiting() { return !commands.isEmpty(); }
 
@@ -199,7 +220,7 @@ public final class Harness {
 
         @Override public void fail(String reason) { HarnessLog.fail(reason); }
 
-        @Override public void realClick(int[] at) { realClick.set(at); }
+        @Override public void realClick(int[] at) { click.request(at); }
     }
 
     /** The port through which the settings screen takes the {@code ui} commands. */
@@ -235,112 +256,81 @@ public final class Harness {
         writeStatus(host.inWorld() ? "world" : "menu");
         takeCommandFile();
         if (host.loading()) return;
-        realClick();
-        if (waitingForWorld) {
-            if (!host.inWorld()) return;
-            waitingForWorld = false;
-        }
-        if (waitTicks > 0) {
-            waitTicks--;
-            return;
-        }
-        if (burstLeft > 0) return;
-        while (!queue.isEmpty() && waitTicks == 0 && !waitingForWorld && burstLeft == 0) {
-            String line = queue.poll().trim();
-            if (line.isEmpty() || line.startsWith("#")) continue;
-            HarnessLog.log("> " + line);
-            try {
-                execute(line);
-            } catch (RuntimeException e) {
-                HarnessLog.fail(e.toString());
-            }
-        }
+        realClick.tick(host);
+        queue.advance(runner);
     }
 
-    /** Presses the button for a waiting {@code ui realclick} and releases it on the next tick, as a real click lasts some frames. */
-    private void realClick() {
-        if (pressedAt != null) {
-            host.mouseButton(pressedAt[0], pressedAt[1], false);
-            pressedAt = null;
-            return;
-        }
-        int[] at = ui.realClick.getAndSet(null);
-        if (at == null) return;
-        if (host.mouseButton(at[0], at[1], true)) {
-            pressedAt = at;
-            HarnessLog.log("realclick at " + at[0] + "," + at[1]);
-        } else {
-            HarnessLog.fail("realclick is not available on this version");
-        }
-    }
-
-    /** Runs one command line. */
-    private void execute(String line) {
-        int space = line.indexOf(' ');
-        String name = space < 0 ? line : line.substring(0, space);
-        String arg = space < 0 ? "" : line.substring(space + 1).trim();
-        Verb verb = VERBS.get(name);
-        Toggle toggle = verb == null ? Toggle.byKey(name) : null;
-        if (toggle != null) verb = profileVerb((profile, on) -> profile.with(toggle, on.equals("on")));
-        if (verb == null) HarnessLog.fail("unknown command: " + name);
-        else verb.run(this, arg);
+    private Outcome execute(Command command) {
+        Verb verb = VERBS.get(command.verb);
+        Toggle toggle = verb == null ? Toggle.byKey(command.verb) : null;
+        if (toggle != null) verb = done(profileVerb((profile, on) -> profile.with(toggle, on.equals("on"))));
+        if (verb != null) return verb.run(this, command);
+        HarnessLog.fail("unknown command: " + command.verb);
+        return Outcome.DONE;
     }
 
     private static Map<String, Verb> verbs() {
         Map<String, Verb> v = new HashMap<String, Verb>();
-        v.put("world", (h, arg) -> h.host.openWorld(arg));
-        v.put("waitworld", (h, arg) -> {
-            h.waitingForWorld = true;
-        });
-        v.put("run", (h, arg) -> h.host.runCommand(arg));
-        v.put("wait", (h, arg) -> {
-            h.waitTicks = Integer.parseInt(arg);
-        });
-        v.put("mod", configVerb((config, arg) -> config.withEnabled(arg.equals("on"))));
-        v.put("profile", configVerb((config, arg) -> config.withActiveProfile(arg).withEnabled(true)));
-        v.put("profilejson", configVerb(HarnessConfigCommands::withProfileJson));
-        v.put("effects", profileVerb((profile, arg) -> HarnessConfigCommands.withEffects(profile, arg.split("\\s+"))));
-        v.put("look", profileVerb((profile, arg) -> HarnessConfigCommands.withLook(profile, arg.split("\\s+"))));
-        v.put("sky", profileVerb(HarnessConfigCommands::withSky));
-        v.put("skyadd", profileVerb(HarnessConfigCommands::withSkyLayer));
-        v.put("skyrender", profileVerb(HarnessConfigCommands::withSkyRender));
-        v.put("skyturn", profileVerb((profile, arg) -> HarnessConfigCommands.withSkyTurning(profile, arg.split("\\s+"))));
-        v.put("skycompare", (h, arg) -> h.skyCompare(arg.isEmpty() ? SKY_TRIES : Integer.parseInt(arg)));
-        v.put("skytime", (h, arg) -> h.skyTime(arg.isEmpty() ? new String[0] : arg.split("\\s+")));
-        v.put("skyclock", (h, arg) -> skyClock(arg));
-        v.put("frames", (h, arg) -> h.frames(arg.split("\\s+")));
-        v.put("chromagpu", (h, arg) -> h.albedo.chromaGpu(arg.equals("on")));
-        v.put("chromatime", (h, arg) -> h.chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg)));
-        v.put("hooks", (h, arg) -> HarnessLog.log(hooksLine(h.host.hookCounters())));
-        v.put("cursorfree", (h, arg) -> HarnessLog.log(CursorClip.check(h.dir)));
-        v.put("fov", (h, arg) -> h.host.setFov(Integer.parseInt(arg)));
-        v.put("clouds", (h, arg) -> HarnessLog.log(cloudsLine(h.host.cloudsDrawn(), arg)));
-        v.put("keepframe", (h, arg) -> h.keepFrame());
-        v.put("framechanged", Harness::frameChanged);
-        v.put("settings", Harness::settings);
-        v.put("ui", (h, arg) -> h.ui.commands.add(arg));
-        v.put("type", Harness::type);
-        v.put("key", (h, arg) -> {
+        put(v, "world", (h, arg) -> h.host.openWorld(arg));
+        put(v, "waitworld", (h, arg) -> h.queue.waitWorld());
+        put(v, "run", (h, arg) -> h.host.runCommand(arg));
+        put(v, "wait", (h, arg) -> h.queue.waitTicks(Integer.parseInt(arg)));
+        put(v, "mod", configVerb((config, arg) -> config.withEnabled(arg.equals("on"))));
+        put(v, "profile", configVerb((config, arg) -> config.withActiveProfile(arg).withEnabled(true)));
+        put(v, "profilejson", configVerb(HarnessConfigCommands::withProfileJson));
+        put(v, "effects", profileVerb((profile, arg) -> HarnessConfigCommands.withEffects(profile, arg.split("\\s+"))));
+        put(v, "look", profileVerb((profile, arg) -> HarnessConfigCommands.withLook(profile, arg.split("\\s+"))));
+        put(v, "sky", profileVerb(HarnessConfigCommands::withSky));
+        put(v, "skyadd", profileVerb(HarnessConfigCommands::withSkyLayer));
+        put(v, "skyrender", profileVerb(HarnessConfigCommands::withSkyRender));
+        put(v, "skyturn", profileVerb((profile, arg) -> HarnessConfigCommands.withSkyTurning(profile, arg.split("\\s+"))));
+        v.put("skycompare", (h, command) -> h.sky.compare(command));
+        v.put("skytime", (h, command) -> h.sky.time(command));
+        put(v, "skyclock", (h, arg) -> skyClock(arg));
+        put(v, "frames", (h, arg) -> h.frames(arg.split("\\s+")));
+        put(v, "chromagpu", (h, arg) -> h.albedo.chromaGpu(arg.equals("on")));
+        put(v, "chromatime", (h, arg) -> h.chromaTime(arg.isEmpty() ? CHROMA_FRAMES : Integer.parseInt(arg)));
+        put(v, "hooks", (h, arg) -> HarnessLog.log(hooksLine(h.host.hookCounters())));
+        put(v, "cursorfree", (h, arg) -> HarnessLog.log(CursorClip.check(h.dir)));
+        put(v, "fov", (h, arg) -> h.host.setFov(Integer.parseInt(arg)));
+        put(v, "clouds", (h, arg) -> HarnessLog.log(cloudsLine(h.host.cloudsDrawn(), arg)));
+        put(v, "keepframe", (h, arg) -> h.keepFrame());
+        put(v, "framechanged", Harness::frameChanged);
+        put(v, "settings", Harness::settings);
+        put(v, "ui", (h, arg) -> h.ui.commands.add(arg));
+        put(v, "type", Harness::type);
+        put(v, "key", (h, arg) -> {
             h.key(arg, true);
             h.key(arg, false);
         });
-        v.put("keydown", (h, arg) -> h.key(arg, true));
-        v.put("keyup", (h, arg) -> h.key(arg, false));
-        v.put("expect", Harness::expectScreen);
-        v.put("hud", (h, arg) -> h.host.setHudVisible(arg.equals("on")));
-        v.put("reload", (h, arg) -> h.platform.reloadResources());
-        v.put("screenshot", (h, arg) -> h.host.screenshot(new File(h.dir, arg.endsWith(".png") ? arg : arg + ".png")));
-        v.put("quit", (h, arg) -> h.host.quit());
+        put(v, "keydown", (h, arg) -> h.key(arg, true));
+        put(v, "keyup", (h, arg) -> h.key(arg, false));
+        put(v, "expect", Harness::expectScreen);
+        put(v, "hud", (h, arg) -> h.host.setHudVisible(arg.equals("on")));
+        put(v, "reload", (h, arg) -> h.platform.reloadResources());
+        put(v, "screenshot", (h, arg) -> h.host.screenshot(new File(h.dir, arg.endsWith(".png") ? arg : arg + ".png")));
+        put(v, "quit", (h, arg) -> h.host.quit());
         return Collections.unmodifiableMap(v);
     }
 
+    private static void put(Map<String, Verb> verbs, String name, Action action) {
+        verbs.put(name, done(action));
+    }
+
+    private static Verb done(Action action) {
+        return (h, command) -> {
+            action.run(h, command.arg);
+            return Outcome.DONE;
+        };
+    }
+
     /** A command that applies a change of the stored config. */
-    private static Verb configVerb(BiFunction<Config, String, Config> change) {
+    private static Action configVerb(BiFunction<Config, String, Config> change) {
         return (h, arg) -> h.albedo.apply(change.apply(h.albedo.storedConfig(), arg));
     }
 
     /** A command that applies a change of the active profile. */
-    private static Verb profileVerb(BiFunction<Profile, String, Profile> change) {
+    private static Action profileVerb(BiFunction<Profile, String, Profile> change) {
         return configVerb((config, arg) -> config.withProfile(change.apply(config.activeProfile(), arg)));
     }
 
@@ -423,53 +413,6 @@ public final class Harness {
         else HarnessLog.fail("the settings screen is " + (open ? "open" : "closed") + ", expected " + state);
     }
 
-    /**
-     * Bakes the current sky design on the CPU, draws the same program with the sharp sky shader, and logs how far apart
-     * the two images are; while the shader compiles, it runs again on the next tick.
-     */
-    private void skyCompare(int tries) {
-        SkyImage world = Albedo.skyImage();
-        if (world == null || !world.program().drawsSharp()) {
-            HarnessLog.fail("skycompare: the sky is not a custom sky that the shader can draw");
-            return;
-        }
-        if (compareCpu == null || !compareCpu.design().equals(world.design())) compareCpu = SkyGenerator.bake(world.design(), COMPARE_W, COMPARE_H);
-        SkyImage cpu = compareCpu;
-        boolean started = host.drawSharpSky(cpu, cpu.program().block(), COMPARE_W, COMPARE_H, 1, null, new File(dir, "sky-gpu.png"), (gpu, nanos) -> {
-            double[] d = HarnessImages.oklabDifference(cpu.argb(), gpu);
-            HarnessLog.log(String.format(Locale.ROOT, "skycompare %dx%d: mean %.4f, 99%% %.4f, max %.4f: %s", COMPARE_W, COMPARE_H,
-                    d[0], d[1], d[2], d[0] < COMPARE_LIMIT ? "same" : "DIFFERENT"));
-        });
-        if (!started) again("skycompare " + (tries - 1), tries);
-    }
-
-    /**
-     * Draws the world sky with the sharp sky shader into a camera view full of sky and logs the GPU time of one draw, from
-     * {@code skytime [width height [yaw pitch fov]] [tries]}.
-     */
-    private void skyTime(String[] args) {
-        SkyImage world = Albedo.skyImage();
-        if (world == null || !world.program().drawsSharp()) {
-            HarnessLog.fail("skytime: the sky is not a custom sky that the shader can draw");
-            return;
-        }
-        int given = args.length >= 5 ? 5 : args.length >= 2 ? 2 : 0;
-        int width = given > 0 ? Integer.parseInt(args[0]) : TIME_W, height = given > 0 ? Integer.parseInt(args[1]) : TIME_H;
-        float yaw = given == 5 ? Float.parseFloat(args[2]) : TIME_YAW, pitch = given == 5 ? Float.parseFloat(args[3]) : TIME_PITCH;
-        float fov = given == 5 ? Float.parseFloat(args[4]) : TIME_FOV;
-        int tries = args.length > given ? Integer.parseInt(args[given]) : SKY_TRIES;
-        float[] view = HarnessImages.viewCorners(yaw, pitch, fov, (float) width / height);
-        float[] block = world.program().at(SkyClock.longSeconds(), SkyTurn.STILL);
-        boolean started = host.drawSharpSky(world, block, width, height, TIME_REPEAT, view, null, (gpu, nanos) -> {
-            if (nanos < 0) HarnessLog.fail("skytime: the GPU gave no time");
-            else HarnessLog.log(String.format(Locale.ROOT, "skytime %dx%d: %.3f ms on the GPU for each draw", width, height, nanos / 1e6));
-        });
-        if (started) return;
-        StringBuilder line = new StringBuilder("skytime");
-        for (int i = 0; i < given; i++) line.append(' ').append(args[i]);
-        again(line.append(' ').append(tries - 1).toString(), tries);
-    }
-
     private void chromaTime(int frames) {
         if (!host.timeChroma(frames)) HarnessLog.fail("chromatime: this version has no GPU pass of Chroma, or the pass does not run");
     }
@@ -504,12 +447,8 @@ public final class Harness {
 
     /** Starts {@code frames <count> <name>}: a screenshot at the end of each of the next frames, with the clock time of each. */
     private void frames(String[] args) {
-        int count = args.length == 2 ? Integer.parseInt(args[0]) : 0;
-        // A count below 1 would stop the queue for good, because only a screenshot of the burst counts it down.
-        if (count < 1) throw new IllegalArgumentException("frames <count of 1 or more> <name>");
-        burstLeft = count;
-        burstName = args[1];
-        burstIndex = 0;
+        boolean given = args.length == 2;
+        queue.burst(given ? Integer.parseInt(args[0]) : 0, given ? args[1] : null);
     }
 
     /**
@@ -519,27 +458,16 @@ public final class Harness {
      * @param seconds the clock time that the Chroma colors of this frame have
      */
     public void frame(double seconds) {
-        if (burstLeft <= 0) return;
-        String name = String.format(Locale.ROOT, "%s-%02d.png", burstName, burstIndex++);
+        String name = queue.nextFrame();
+        if (name == null) return;
         HarnessLog.log(String.format(Locale.ROOT, "frame %s at %.5f s", name, seconds));
         host.screenshot(new File(dir, name));
-        burstLeft--;
     }
 
     /** Holds the clock of the moving sky layers still at a time in seconds ({@code skyclock 12.5}), or lets it run ({@code skyclock run}). */
     private static void skyClock(String arg) {
         if (arg.equals("run")) SkyClock.run();
         else SkyClock.hold(Float.parseFloat(arg));
-    }
-
-    /** Runs a sky command line again on the next tick, until no tries are left. */
-    private void again(String line, int tries) {
-        if (tries <= 0) {
-            HarnessLog.fail(line.split(" ")[0] + ": this version has no sharp sky shader, or it does not compile");
-            return;
-        }
-        queue.addFirst(line);
-        waitTicks = 1;
     }
 
     private void takeCommandFile() {

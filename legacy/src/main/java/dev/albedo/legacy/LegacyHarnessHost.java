@@ -5,7 +5,6 @@ import dev.albedo.core.dev.GlReadback;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
-import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -198,9 +197,8 @@ final class LegacyHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
-                                Harness.SkyDone done) {
-        return LegacySharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+    public boolean drawSharpSky(Harness.SkyDraw d, Harness.SkyDone done) {
+        return LegacySharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
     }
 
     @Override

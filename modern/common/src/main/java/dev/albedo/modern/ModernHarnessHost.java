@@ -4,7 +4,6 @@ import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
 import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
-import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 
@@ -136,17 +135,16 @@ final class ModernHarnessHost implements Harness.Host {
     }
 
     @Override
-    public boolean drawSharpSky(SkyImage sky, float[] block, int width, int height, int repeat, float[] view, File png,
-                                Harness.SkyDone done) {
+    public boolean drawSharpSky(Harness.SkyDraw d, Harness.SkyDone done) {
         //? if gl_fixed {
-        /*return FixedSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        /*return FixedSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
         *///?}
         //? if >=26.3 {
-        return SharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        return SharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
         //?} elif >=1.21.6 {
-        /*return PrecompiledSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        /*return PrecompiledSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
         *///?} elif gl_sky {
-        /*return GlSharpSky.drawEquirect(sky, block, width, height, repeat, view, png, done);
+        /*return GlSharpSky.drawEquirect(d.sky, d.block, d.width, d.height, d.repeat, d.view, d.png, done);
         *///?}
     }
 
