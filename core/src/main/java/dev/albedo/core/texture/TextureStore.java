@@ -307,7 +307,7 @@ public final class TextureStore {
         Entry entry = entries.get(name);
         if (entry == null || !entry.gpuHue) return false;
         List<Appearance> looks = entry.applied;
-        return looks != null && entry.layout.chromaTexels(looks, w, h, out);
+        return looks != null && entry.layout.chromaTexels(looks, entry.original, w, h, out);
     }
 
     /** Drops a texture that the game released, so that the store does not keep its pixels. */

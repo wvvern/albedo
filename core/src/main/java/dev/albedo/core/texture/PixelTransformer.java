@@ -38,7 +38,7 @@ public final class PixelTransformer {
         PixelBuffer.Heap pixel = new PixelBuffer.Heap(1, 1, new int[]{original | 0xFF000000});
         Appearance opaque = a.withAlpha(Appearance.Alpha.OPAQUE);
         apply(opaque, pixel);
-        if (id != null) Effects.apply(opaque, pixel, id, false, false);
+        if (id != null) Effects.apply(opaque, pixel, id, false, false, false);
         return pixel.getArgb(0, 0);
     }
 

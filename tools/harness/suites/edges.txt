@@ -1,0 +1,30 @@
+# Outline on the shape of cutout blocks and items, and Edge Chroma, still and moving.
+wait 60
+run tp @e[type=!player] 0 -300 0
+run setblock -6 -60 -5 ladder[facing=south]
+run setblock -1 -60 -2 rail
+run setblock 0 -60 -2 oak_sapling
+run setblock 1 -60 -2 dandelion
+run setblock 3 -60 -2 cobweb
+modern: run summon item_display -1.5 -58.8 -1.5 {item:{id:"minecraft:diamond_sword",count:1}}
+modern: run summon item_display 0.5 -58.8 -1.5 {item:{id:"minecraft:bow",count:1}}
+modern: run summon item_display 2.5 -58.8 -1.5 {item:{id:"minecraft:apple",count:1}}
+profile quake-black
+look items solid #000000
+effects blocks outline 100
+effects items outline 100
+run tp @p 0.5 -60 1.5 180 14
+wait 200
+screenshot e1-outline
+effects blocks chroma 100 speed 0 edge 1
+effects fluids chroma 100 speed 0 edge 1
+effects items chroma 100 speed 0 edge 1
+wait 200
+screenshot e2-edge-still
+effects blocks chroma 100 speed 60 edge 1 outline 50
+effects fluids chroma 100 speed 60 edge 1
+wait 200
+chromacompare
+screenshot e3-edge-moving
+hooks
+quit

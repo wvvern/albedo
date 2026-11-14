@@ -21,6 +21,7 @@ import dev.albedo.core.texture.TextureKey;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -49,11 +50,13 @@ public final class SettingsEditor {
         "Speed: how fast the colors go around. 0 stops them.",
         "Vivid (saturation): how strong the colors are.",
         "Bright (brightness): how light the colors are."};
-    /** The effects after Chroma in the order they apply, which only blocks and fluids have. */
+    private static final String EDGE_LABEL = "Edge";
+    private static final String EDGE_TIP = "Edge: Chroma colors only the line around each block or item, and the colors go around it.";
+    /** The effects after Chroma in the order they apply: blocks and fluids have both, items only Outline. */
     private static final String[] EFFECT_LABELS = {"Bevel", "Outline"};
     private static final String[] EFFECT_TIPS = {
         "Bevel: a soft shade inside the edges of each block, so that blocks of one color stay easy to tell apart.",
-        "Outline: a line around each block."};
+        "Outline: a line around the shape of each block or item."};
     private static final String[] RECOLOR_LABELS = {"Detail", "Colors", "Light"};
     private static final String[] RECOLOR_TIPS = {
         "Detail: how much of the light and dark pattern stays. 0%: one flat color. 100%: all of it.",
@@ -745,22 +748,27 @@ public final class SettingsEditor {
 
     /**
      * The Effects heading, and under it when it is open Chroma with its options while it is on (Speed only where the
-     * GPU pass moves the colors), then Bevel and Outline for blocks and fluids.
+     * GPU pass moves the colors, Edge only with Outline), then Bevel and Outline for blocks and fluids, and Outline for
+     * items.
      */
     private List<Column.Item> effectsSection(CategorySettings cs, int index, Appearance target) {
-        boolean edges = page.category.hasEdgeEffects(), open = effectsOpen;
+        boolean edges = page.category.hasOutline(), bevel = page.category.hasBevel(), open = effectsOpen;
         Chroma chroma = target.chroma();
         boolean more = chroma.isOn() || edges, speed = sc.chromaCanMove(page.category);
         // The Chroma options that show, as indexes into CHROMA_LABELS.
         int[] shown = speed ? new int[]{0, 1, 2} : new int[]{1, 2};
+        int optionRows = shown.length + (edges ? 1 : 0);
+        // The first of EFFECT_LABELS that shows: Bevel needs square tiles, so items show only Outline.
+        int first = bevel ? 0 : 1;
+        String[] edgeLabels = Arrays.copyOfRange(EFFECT_LABELS, first, EFFECT_LABELS.length);
         // One item for each group of rows, so that a short window scrolls to each, with one guide line through all of them.
         int chromaH = more ? Form.rowsHeight(1) : Form.slidersHeight(1, false);
-        int optionsH = edges ? Form.rowsHeight(shown.length) : Form.slidersHeight(shown.length, false);
-        int edgesH = Form.slidersHeight(EFFECT_LABELS.length, false);
+        int optionsH = edges ? Form.rowsHeight(optionRows) : Form.slidersHeight(optionRows, false);
+        int edgesH = Form.slidersHeight(edgeLabels.length, false);
         List<Column.Item> items = new ArrayList<Column.Item>();
         items.add(Column.of(open ? Ui.H + 2 : SECTION_H, (x, y, w) -> {
-            String tip = (open ? "Hide" : "Show") + " the effects: " + CHROMA_LABEL + (edges ? ", " + String.join(", ", EFFECT_LABELS) : "");
-            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, edges), open, tip) == open) return false;
+            String tip = (open ? "Hide" : "Show") + " the effects: " + CHROMA_LABEL + (edges ? ", " + String.join(", ", edgeLabels) : "");
+            if (ui.sectionHeader(EFFECTS, x - 4, y, w + 4, "Effects", Labels.effects(target, bevel, edges), open, tip) == open) return false;
             effectsOpen = !open;
             changed = true;
             return true; // the rows under the heading move
@@ -781,14 +789,17 @@ public final class SettingsEditor {
                 Form form = form(x, w);
                 form.guide(y, edges ? optionsH : optionsH - GAP);
                 Form rows = form.indented();
-                rows.guide(y, Form.rowsHeight(shown.length) - 3);
+                rows.guide(y, Form.rowsHeight(optionRows) - 3);
                 int[] o = {chroma.speed(), chroma.saturation(), chroma.brightness()};
                 for (int row = 0; row < shown.length; row++) {
                     int i = shown[row];
                     String text = i == 0 && o[i] == 0 ? "Still" : o[i] + "%";
                     o[i] = rows.indented().slider(CHROMA_IDS[i], y + Form.rowsHeight(row), CHROMA_LABELS[i], CHROMA_TIPS[i], o[i], text);
                 }
-                Chroma next = chroma.withOptions(o[0], o[1], o[2]);
+                boolean edge = edges
+                        ? rows.indented().toggle("effects.chromaEdge", y + Form.rowsHeight(shown.length), EDGE_LABEL, EDGE_TIP, chroma.edge())
+                        : chroma.edge();
+                Chroma next = chroma.withOptions(o[0], o[1], o[2]).withEdge(edge);
                 if (!next.equals(chroma)) setLook(cs, index, target.withEffects(target.bevel(), target.outline(), next));
                 return false;
             }));
@@ -797,8 +808,9 @@ public final class SettingsEditor {
             items.add(Column.of(edgesH, (x, y, w) -> {
                 Form form = form(x, w);
                 form.guide(y, edgesH - GAP);
-                int[] e = {target.bevel(), target.outline()};
-                form.indented().sliders(EFFECTS, "Effects", EFFECT_LABELS, EFFECT_TIPS, e, y, false);
+                int[] e = {target.bevel(), target.outline()}, part = Arrays.copyOfRange(e, first, e.length);
+                form.indented().sliders(EFFECTS, "Effects", edgeLabels, Arrays.copyOfRange(EFFECT_TIPS, first, EFFECT_TIPS.length), part, y, false);
+                System.arraycopy(part, 0, e, first, part.length);
                 if (e[0] != target.bevel() || e[1] != target.outline()) setLook(cs, index, target.withEffects(e[0], e[1], chroma));
                 return false;
             }));

@@ -69,7 +69,7 @@ public final class Appearance {
 
     /**
      * @param bevel percent of the soft shade inside the edges of each block
-     * @param outline percent of the line around each block
+     * @param outline percent of the line around the shape of each block and item
      * @param chroma the rainbow color that each kind of texture gets
      */
     public Appearance(Mode mode, int color, Alpha alpha, int detail, int keepColors, int keepLight,

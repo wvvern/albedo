@@ -1,5 +1,6 @@
 package dev.albedo.core.texture;
 
+import dev.albedo.core.Category;
 import dev.albedo.core.PixelBuffer;
 import dev.albedo.core.Policy;
 import dev.albedo.core.config.Appearance;
@@ -133,23 +134,43 @@ public final class Layout {
 
     /**
      * Puts the {@link ChromaTexels} of one frame of {@code w} by {@code h} pixels into {@code out}, for a texture that
-     * {@link #paint} painted with {@code gpuHue}.
+     * {@link #paint} painted with {@code gpuHue} from {@code original}.
      *
      * @return false when the colors of the texture do not move, which leaves {@code out} as it is
      */
-    boolean chromaTexels(List<Appearance> looks, int w, int h, int[] out) {
-        return tiles.isEmpty() && Effects.texels(looks.get(0), key.id(), edges() && key.category().hasEdgeEffects(), w, h, out);
+    boolean chromaTexels(List<Appearance> looks, PixelBuffer.Heap original, int w, int h, int[] out) {
+        Appearance a = looks.get(0);
+        if (!tiles.isEmpty() || !a.chromaMoves()) return false;
+        boolean lined = (a.outline() > 0 || a.chroma().edge()) && edges() && key.category().hasOutline();
+        return Effects.texels(a, key.id(), lined ? line(a, original, w, h) : null, w, h, out);
     }
 
-    /** Whether the texture itself is block tiles that can get edge effects, which a sheet with tiles and a connected texture are not. */
+    /**
+     * The {@link Effects#edgeMask} of the image with the style of the look, sampled to {@code w} by {@code h} pixels so
+     * that it fits the frame in the atlas, or null when a frame is too small for a line.
+     */
+    private boolean[] line(Appearance a, PixelBuffer.Heap original, int w, int h) {
+        PixelBuffer.Heap styled = original.copy();
+        PixelTransformer.apply(a, styled);
+        int sw = styled.width(), sh = Effects.frameHeight(styled);
+        if (sw < 4 || sh < 4 || w < 4 || h < 4) return null;
+        boolean[] mask = Effects.edgeMask(styled, key.id(), sh), out = new boolean[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) out[y * w + x] = mask[y * sh / h * sw + x * sw / w];
+        }
+        return out;
+    }
+
+    /** Whether the texture itself can get edge effects, which a sheet with tiles and a connected texture cannot. */
     private boolean edges() {
         return tiles.isEmpty() && !connected;
     }
 
-    /** The style of a look and then its effects, where only block and fluid tiles get edge effects. */
+    /** The style of a look and then its effects, where only block and fluid tiles get Bevel, and items get Outline too. */
     private static boolean look(Appearance a, PixelBuffer img, TextureKey key, boolean edges, boolean gpuHue) {
         boolean changed = PixelTransformer.apply(a, img);
-        return Effects.apply(a, img, key.id(), edges && key.category().hasEdgeEffects(), gpuHue) || changed;
+        Category c = key.category();
+        return Effects.apply(a, img, key.id(), edges && c.hasBevel(), edges && c.hasOutline(), gpuHue) || changed;
     }
 
     /** The original average color for each of the {@link #catalogKeys}. */

@@ -34,6 +34,18 @@ class ChromaTexelsTest {
     }
 
     @Test
+    void theNextMipLevelAddsTheMeanHueOfAllFourTexels() {
+        int line = ChromaTexels.pack(30, 0.25, 0.2);
+        int[] half = ChromaTexels.halve(new int[]{line, 0, 0, line}, 2, 2);
+        assertEquals(30, ChromaTexels.speed(half[0]));
+        assertEquals(0.25, ChromaTexels.hue(half[0]), 1.0 / 0x10000);
+        assertEquals(0.1, ChromaTexels.amount(half[0]), 0.002, "two still texels add no hue, which halves the mean");
+        int opposite = ChromaTexels.pack(30, 0.75, 0.2);
+        half = ChromaTexels.halve(new int[]{line, opposite, line, opposite}, 2, 2);
+        assertEquals(0, ChromaTexels.amount(half[0]), 0.002, "opposite hues cancel");
+    }
+
+    @Test
     void theShaderUsesTheSameMaximumAmount() throws Exception {
         String include = dev.albedo.core.sky.SkyShaderSource.read("include/chroma.glsl");
         assertTrue(include.contains("#define ALBEDO_CHROMA_MAX_AMOUNT " + ChromaTexels.MAX_AMOUNT), include);

@@ -75,12 +75,188 @@ class EffectsTest {
     }
 
     @Test
-    void edgeEffectsLeaveItemsMobsAndConnectedTexturesAlone() {
-        for (String location : new String[]{"minecraft:item/diamond", "minecraft:textures/entity/pig/pig.png",
-                "minecraft:optifine/ctm/default/0_glass_white/12"}) {
+    void edgeEffectsLeaveMobsAndConnectedTexturesAlone() {
+        for (String location : new String[]{"minecraft:textures/entity/pig/pig.png", "minecraft:optifine/ctm/default/0_glass_white/12"}) {
             PixelBuffer.Heap img = painted(solid(WHITE, 100, 100, 0), location, 16, 16);
             assertEquals(WHITE, img.getArgb(0, 0), location);
         }
+    }
+
+    @Test
+    void itemsGetOutlineButNoBevel() {
+        assertEquals(WHITE, painted(solid(WHITE, 100, 0, 0), "minecraft:item/diamond", 16, 16).getArgb(0, 0));
+        PixelBuffer.Heap img = painted(solid(WHITE, 0, 100, 0), "minecraft:item/diamond", 16, 16);
+        assertNotEquals(WHITE, img.getArgb(0, 0));
+        assertEquals(WHITE, img.getArgb(1, 1));
+        for (Category c : Category.values()) {
+            assertEquals(c == Category.BLOCKS || c == Category.FLUIDS, c.hasBevel(), c.key());
+            assertEquals(c == Category.BLOCKS || c == Category.FLUIDS || c == Category.ITEMS, c.hasOutline(), c.key());
+        }
+    }
+
+    /** A 16 x 16 frame that is transparent outside an opaque square from 4 to 11, with a faint pixel in its center. */
+    private static PixelBuffer.Heap cutout() {
+        PixelBuffer.Heap img = filled(16, 16, 0x00000000);
+        for (int y = 4; y < 12; y++) {
+            for (int x = 4; x < 12; x++) img.setArgb(x, y, GRAY);
+        }
+        img.setArgb(7, 7, 0x40808080);
+        return img;
+    }
+
+    @Test
+    void outlineFollowsTheShapeOfACutout() {
+        for (String location : new String[]{"minecraft:block/ladder", "minecraft:item/stick"}) {
+            PixelBuffer.Heap img = cutout(), plain = cutout();
+            LayoutTest.paint(Layout.of(location), Collections.singletonList(solid(WHITE, 0, 100, 0)), img);
+            LayoutTest.paint(Layout.of(location), Collections.singletonList(solid(WHITE, 0, 0, 0)), plain);
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    boolean edge = x == 4 || x == 11 || y == 4 || y == 11;
+                    boolean inside = x >= 4 && x < 12 && y >= 4 && y < 12;
+                    String where = location + " at " + x + "," + y;
+                    assertEquals(inside && edge, img.getArgb(x, y) != plain.getArgb(x, y), where);
+                    assertEquals(Colors.alpha(plain.getArgb(x, y)), Colors.alpha(img.getArgb(x, y)), "alpha stays at " + where);
+                }
+            }
+        }
+    }
+
+    @Test
+    void outlineOfACutoutIsTwoPixelsWideAt32Pixels() {
+        PixelBuffer.Heap img = filled(32, 32, 0x00000000);
+        for (int y = 8; y < 24; y++) {
+            for (int x = 8; x < 24; x++) img.setArgb(x, y, GRAY);
+        }
+        PixelBuffer.Heap plain = img.copy();
+        LayoutTest.paint(Layout.of("minecraft:item/stick"), Collections.singletonList(solid(WHITE, 0, 100, 0)), img);
+        LayoutTest.paint(Layout.of("minecraft:item/stick"), Collections.singletonList(solid(WHITE, 0, 0, 0)), plain);
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 32; x++) {
+                boolean band = x >= 8 && x < 24 && y >= 8 && y < 24 && Math.min(Math.min(x - 8, 23 - x), Math.min(y - 8, 23 - y)) < 2;
+                assertEquals(band, img.getArgb(x, y) != plain.getArgb(x, y), x + "," + y);
+            }
+        }
+    }
+
+    @Test
+    void outlineOfAnOverlayStaysAtTheFrameBorder() {
+        PixelBuffer.Heap img = cutout();
+        for (int x = 0; x < 16; x++) img.setArgb(x, 0, GRAY);
+        PixelBuffer.Heap plain = img.copy();
+        Layout overlay = Layout.of("minecraft:block/grass_block_side_overlay");
+        LayoutTest.paint(overlay, Collections.singletonList(solid(WHITE, 0, 100, 0)), img);
+        LayoutTest.paint(overlay, Collections.singletonList(solid(WHITE, 0, 0, 0)), plain);
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) assertEquals(y == 0, img.getArgb(x, y) != plain.getArgb(x, y), x + "," + y);
+        }
+    }
+
+    @Test
+    void outlineOnAnOpaqueTileIsTheBandAlongTheFrameBorder() {
+        PixelBuffer.Heap img = filled(32, 32, GRAY), plain = filled(32, 32, GRAY);
+        LayoutTest.paint(Layout.of("minecraft:block/stone"), Collections.singletonList(solid(WHITE, 0, 100, 0)), img);
+        LayoutTest.paint(Layout.of("minecraft:block/stone"), Collections.singletonList(solid(WHITE, 0, 0, 0)), plain);
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 32; x++) {
+                boolean band = Math.min(Math.min(x, 31 - x), Math.min(y, 31 - y)) < 2;
+                assertEquals(band, img.getArgb(x, y) != plain.getArgb(x, y), x + "," + y);
+            }
+        }
+    }
+
+    @Test
+    void theTexelsMarkThePixelsOfThePaintedOutline() {
+        // Binary alpha makes the faint center pixel a hole, so the texels must take the shape after the style.
+        Appearance look = Appearance.solid(WHITE).withAlpha(Appearance.Alpha.BINARY).withEffects(0, 100, Chroma.of(100));
+        Appearance noLine = look.withEffects(0, 0, look.chroma());
+        for (String location : new String[]{"minecraft:block/ladder", "minecraft:item/stick"}) {
+            Layout layout = Layout.of(location);
+            PixelBuffer.Heap img = cutout(), plain = cutout();
+            LayoutTest.paint(layout, Collections.singletonList(look), img);
+            LayoutTest.paint(layout, Collections.singletonList(noLine), plain);
+            int[] texels = new int[16 * 16];
+            assertTrue(layout.chromaTexels(Collections.singletonList(look), cutout(), 16, 16, texels));
+            double full = ChromaTexels.amount(texels[5 * 16 + 5]);
+            int lined = 0;
+            for (int i = 0; i < texels.length; i++) {
+                if (Colors.alpha(img.argb()[i]) == 0) continue;
+                boolean line = img.argb()[i] != plain.argb()[i];
+                assertEquals(line, ChromaTexels.amount(texels[i]) < full - 0.01, location + " at " + i % 16 + "," + i / 16);
+                if (line) lined++;
+            }
+            assertEquals(28 + 8, lined, location + ": the border of the square and the eight pixels around the hole");
+        }
+    }
+
+    private static Appearance edgeChroma(int speed) {
+        return Appearance.solid(WHITE).withEffects(0, 0, new Chroma(100, speed, 50, 50, true));
+    }
+
+    @Test
+    void edgeChromaColorsOnlyTheLineWithAHueThatGoesAround() {
+        String stone = "minecraft:block/stone";
+        PixelBuffer.Heap img = painted(edgeChroma(0), stone, 16, 16), plain = painted(solid(WHITE, 0, 0, 0), stone, 16, 16);
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+                boolean line = Math.min(Math.min(x, 15 - x), Math.min(y, 15 - y)) == 0;
+                assertEquals(line, img.getArgb(x, y) != plain.getArgb(x, y), x + "," + y);
+            }
+        }
+        double[] a = Recolor.lab(img.getArgb(0, 0)), b = Recolor.lab(img.getArgb(15, 15));
+        double turn = Math.abs(Math.atan2(a[2], a[1]) - Math.atan2(b[2], b[1]));
+        assertTrue(turn > 1, "opposite corners get different hues: " + turn);
+    }
+
+    @Test
+    void edgeChromaFollowsTheShapeOfEveryFrameAndAlphaStays() {
+        // Two frames of an item strip: the square of cutout(), then the same square one pixel lower.
+        PixelBuffer.Heap img = filled(16, 32, 0x00000000);
+        for (int f = 0; f < 2; f++) {
+            for (int y = 4 + f; y < 12 + f; y++) {
+                for (int x = 4; x < 12; x++) img.setArgb(x, 16 * f + y, GRAY);
+            }
+        }
+        PixelBuffer.Heap plain = img.copy(), original = img.copy();
+        Layout layout = Layout.of("minecraft:item/stick");
+        LayoutTest.paint(layout, Collections.singletonList(edgeChroma(0)), img);
+        LayoutTest.paint(layout, Collections.singletonList(solid(WHITE, 0, 0, 0)), plain);
+        boolean[] union = Effects.edgeMask(plain, "minecraft:item/stick", 16);
+        for (int i = 0; i < 16 * 32; i++) {
+            int at = i % (16 * 16);
+            assertEquals(Colors.alpha(plain.argb()[i]), Colors.alpha(img.argb()[i]), "alpha stays at " + i);
+            if (Colors.alpha(plain.argb()[i]) != 0) assertEquals(union[at], img.argb()[i] != plain.argb()[i], "pixel " + i);
+        }
+        int[] texels = new int[16 * 16];
+        assertTrue(layout.chromaTexels(Collections.singletonList(edgeChroma(50)), original, 16, 16, texels));
+        for (int i = 0; i < texels.length; i++) assertEquals(union[i], ChromaTexels.speed(texels[i]) > 0, "texel " + i);
+    }
+
+    @Test
+    void edgeChromaColorsAllOfAMobAndATinyFrame() {
+        Appearance chroma = solid(WHITE, 0, 0, 100);
+        String pig = "minecraft:textures/entity/pig/pig.png";
+        assertEquals(painted(chroma, pig, 16, 16).getArgb(8, 8), painted(edgeChroma(0), pig, 16, 16).getArgb(8, 8));
+        String stone = "minecraft:block/stone";
+        assertEquals(painted(chroma, stone, 2, 2).getArgb(1, 1), painted(edgeChroma(0), stone, 2, 2).getArgb(1, 1));
+        int[] texels = new int[4];
+        assertTrue(Effects.texels(edgeChroma(50), "minecraft:block/stone", null, 2, 2, texels));
+        assertTrue(ChromaTexels.speed(texels[0]) > 0, "a frame with no line gets the hue everywhere");
+    }
+
+    @Test
+    void edgeChromaIsAChromaOptionInTheConfig() {
+        Config c = ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"chroma\": 50, \"chromaEdge\": true } } } }");
+        Appearance look = c.profiles().get("x").get(Category.BLOCKS).appearance();
+        assertTrue(look.chroma().edge());
+        assertTrue(ConfigCodec.encode(c).contains("\"chromaEdge\": true"), ConfigCodec.encode(c));
+        assertEquals(look, ConfigCodec.decode(ConfigCodec.encode(c)).profiles().get("x").get(Category.BLOCKS).appearance());
+        assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+                "{ \"profiles\": { \"x\": { \"entities\": { \"mode\": \"solid\", \"chroma\": 50, \"chromaEdge\": true } } } }"));
+        assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+                "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"chroma\": 50, \"chromaEdge\": 1 } } } }"));
+        assertNotEquals(Chroma.of(50), Chroma.of(50).withEdge(true));
+        assertTrue(Chroma.of(50).withEdge(true).withStrength(20).withOptions(0, 10, 10).edge(), "the other options keep Edge");
     }
 
     @Test
@@ -145,7 +321,7 @@ class EffectsTest {
         assertFalse(Appearance.ORIGINAL.withEffects(100, 100, Chroma.of(100)).hasEffects());
         assertFalse(Appearance.of(Appearance.Mode.HIDDEN).withEffects(100, 100, Chroma.of(100)).hasEffects());
         PixelBuffer.Heap tiny = filled(1, 1, GRAY);
-        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, false); // no exception on a 1x1 image
+        Effects.apply(solid(GRAY, 100, 100, 100), tiny, "minecraft:stone", true, true, false); // no exception on a 1x1 image
     }
 
     @Test
@@ -198,6 +374,10 @@ class EffectsTest {
                 "{ \"profiles\": { \"x\": { \"items\": { \"mode\": \"solid\", \"bevel\": 50 } } } }"));
         assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
                 "{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"solid\", \"outline\": 101 } } } }"));
+        assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(
+                "{ \"profiles\": { \"x\": { \"entities\": { \"mode\": \"solid\", \"outline\": 50 } } } }"));
+        Config items = ConfigCodec.decode("{ \"profiles\": { \"x\": { \"items\": { \"mode\": \"solid\", \"outline\": 50 } } } }");
+        assertEquals(50, items.profiles().get("x").get(Category.ITEMS).appearance().outline());
     }
 
     @Test
@@ -221,7 +401,7 @@ class EffectsTest {
         String[] ids = {"minecraft:block/stone", "minecraft:block/dirt", "minecraft:block/oak_planks"};
         for (int i = 0; i < ids.length; i++) {
             PixelBuffer.Heap img = filled(2, 2, i == 1 ? 0xFF000000 : WHITE);
-            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, false);
+            Effects.apply(solid(i == 1 ? 0xFF000000 : WHITE, 0, 0, 100), img, ids[i], false, false, false);
             assertEquals(Integer.toHexString(expected[i]), Integer.toHexString(img.getArgb(0, 0)), ids[i]);
         }
     }
@@ -240,7 +420,7 @@ class EffectsTest {
 
     private static int chromaPixel(Chroma c, int color) {
         PixelBuffer.Heap img = filled(1, 1, color);
-        Effects.apply(Appearance.solid(color).withEffects(0, 0, c), img, "minecraft:block/stone", false, false);
+        Effects.apply(Appearance.solid(color).withEffects(0, 0, c), img, "minecraft:block/stone", false, false, false);
         return img.getArgb(0, 0);
     }
 
@@ -263,22 +443,24 @@ class EffectsTest {
     void theGpuPassAtTurnZeroGivesTheStillChromaColors() {
         String id = "minecraft:block/stone";
         int[] colors = {WHITE, GRAY, 0xFF000000, 0xFF2060C0, 0xFFE0A030, 0x80C04040};
-        for (int[] edges : new int[][]{{0, 0}, {30, 0}, {0, 60}, {30, 60}}) {
-            Appearance a = Appearance.solid(WHITE).withEffects(edges[0], edges[1], new Chroma(80, 40, 70, 60));
+        // Bevel, Outline and Edge.
+        for (int[] edges : new int[][]{{0, 0, 0}, {30, 0, 0}, {0, 60, 0}, {30, 60, 0}, {0, 0, 1}, {30, 60, 1}}) {
+            Appearance a = Appearance.solid(WHITE).withEffects(edges[0], edges[1], new Chroma(80, 40, 70, 60, edges[2] == 1));
             double sum = 0;
             int count = 0;
             for (int color : colors) {
                 PixelBuffer.Heap still = filled(16, 16, color), neutral = filled(16, 16, color);
-                Effects.apply(a, still, id, true, false);
-                Effects.apply(a, neutral, id, true, true);
+                Effects.apply(a, still, id, true, true, false);
+                Effects.apply(a, neutral, id, true, true, true);
                 int[] texels = new int[16 * 16];
-                assertTrue(Effects.texels(a, id, true, 16, 16, texels));
+                assertTrue(Effects.texels(a, id, Effects.edgeMask(filled(16, 16, color), id, 16), 16, 16, texels));
                 for (int i = 0; i < texels.length; i++) {
                     int cpu = still.argb()[i], gpu = gpuPass(neutral.argb()[i], texels[i], 0);
                     String where = Integer.toHexString(color) + " with " + Arrays.toString(edges) + " at " + i + ": "
                             + Integer.toHexString(cpu) + " vs " + Integer.toHexString(gpu);
                     // The CPU fits a color into sRGB before the edge effects change its lightness, and the pass only after them.
-                    if (edges[0] == 0 && edges[1] == 0) assertTrue(maxChannelDifference(cpu, gpu) <= 3, where);
+                    // Edge hues go around all hues, and near the edge of sRGB one step of the 8-bit amount moves a channel more.
+                    if (edges[0] == 0 && edges[1] == 0 && edges[2] == 0) assertTrue(maxChannelDifference(cpu, gpu) <= 3, where);
                     double d = distance(cpu, gpu);
                     assertTrue(d < 0.06, where);
                     sum += d;
@@ -299,13 +481,13 @@ class EffectsTest {
         String id = "minecraft:block/stone";
         Appearance still = solid(GRAY, 0, 0, 100).withEffects(0, 0, Chroma.of(100).withOptions(0, 50, 50));
         PixelBuffer.Heap a = filled(4, 4, GRAY), b = filled(4, 4, GRAY);
-        Effects.apply(still, a, id, false, false);
-        Effects.apply(still, b, id, false, true);
+        Effects.apply(still, a, id, false, false, false);
+        Effects.apply(still, b, id, false, false, true);
         assertEquals(a.getArgb(1, 1), b.getArgb(1, 1), "still colors stay on the CPU");
-        assertFalse(Effects.texels(still, id, false, 4, 4, new int[16]), "still colors have no GPU texels");
+        assertFalse(Effects.texels(still, id, null, 4, 4, new int[16]), "still colors have no GPU texels");
         Appearance moving = solid(GRAY, 0, 0, 100);
         PixelBuffer.Heap neutral = filled(4, 4, WHITE);
-        Effects.apply(moving, neutral, id, false, true);
+        Effects.apply(moving, neutral, id, false, false, true);
         double[] lab = Recolor.lab(neutral.getArgb(1, 1));
         assertTrue(Math.hypot(lab[1], lab[2]) < 0.01, "the CPU leaves the hue to the pass");
     }
@@ -313,7 +495,8 @@ class EffectsTest {
     @Test
     void theOutlineBorderGetsLessHue() {
         int[] texels = new int[16 * 16];
-        assertTrue(Effects.texels(Appearance.solid(WHITE).withEffects(0, 100, Chroma.of(100)), "minecraft:block/stone", true, 16, 16, texels));
+        Appearance a = Appearance.solid(WHITE).withEffects(0, 100, Chroma.of(100));
+        assertTrue(Effects.texels(a, "minecraft:block/stone", Effects.edgeMask(filled(16, 16, WHITE), "minecraft:block/stone", 16), 16, 16, texels));
         assertEquals(ChromaTexels.amount(texels[8 * 16 + 8]) / 2, ChromaTexels.amount(texels[0]), 0.002);
         assertEquals(ChromaTexels.amount(texels[8 * 16 + 8]), ChromaTexels.amount(texels[16 + 1]), 1e-9, "the second ring has the full hue");
         assertEquals(Effects.hue("minecraft:block/stone") / (2 * Math.PI), ChromaTexels.hue(texels[0]), 1e-4);
@@ -325,9 +508,9 @@ class EffectsTest {
         Appearance a = solid(GRAY, 0, 0, 100);
         String id = "minecraft:block/stone";
         PixelBuffer.Heap neutral = filled(1, 1, GRAY);
-        Effects.apply(a, neutral, id, false, true);
+        Effects.apply(a, neutral, id, false, false, true);
         int[] texel = new int[1];
-        Effects.texels(a, id, false, 1, 1, texel);
+        Effects.texels(a, id, null, 1, 1, texel);
         java.util.Set<Integer> colors = new java.util.HashSet<Integer>();
         double before = Double.NaN;
         for (int frame = 0; frame < 120; frame++) {

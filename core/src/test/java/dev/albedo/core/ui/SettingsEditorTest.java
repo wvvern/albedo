@@ -521,13 +521,13 @@ class SettingsEditorTest {
         assertEquals(tintY, canvas.find("Remove biome tint")[1], "the tint switch does not move after the click");
     }
 
-    /** The user's own profile with a solid look with Chroma, Bevel and Outline for blocks, fluids and players. */
+    /** The user's own profile with a solid look with Chroma, Bevel and Outline for blocks, fluids, items and players. */
     private static Config withEffects() {
         Config c = withOwnProfile();
         Appearance look = new Appearance(Appearance.Mode.SOLID, 0xFFC0A080, Appearance.Alpha.KEEP, Appearance.DEFAULT_DETAIL,
                 Appearance.DEFAULT_KEEP_COLORS, Appearance.DEFAULT_KEEP_LIGHT, 20, 30, Chroma.of(50));
         Profile p = c.activeProfile();
-        for (Category category : new Category[]{Category.BLOCKS, Category.FLUIDS, Category.PLAYERS}) {
+        for (Category category : new Category[]{Category.BLOCKS, Category.FLUIDS, Category.ITEMS, Category.PLAYERS}) {
             p = p.with(category, new CategorySettings(look, false, Collections.<Rule>emptyList()));
         }
         return c.withProfile(p);
@@ -657,8 +657,9 @@ class SettingsEditorTest {
     void theLookTabFitsAtEverySizeWithTheEffectsClosedAndOpen() {
         int[][] sizes = {{320, 200}, {320, 240}, {427, 240}, {533, 300}, {640, 360}, {960, 540}};
         Map<String, String[]> rows = new LinkedHashMap<String, String[]>();
-        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Speed", "Bevel", "Outline", "Remove biome tint"});
-        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Blocks", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Speed", "Edge", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Fluids", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Edge", "Bevel", "Outline", "Remove biome tint"});
+        rows.put("Items", new String[]{"Style", "Color", "Shape", "Effects", "Chroma", "Edge", "Outline"});
         rows.put("Players", new String[]{"Style", "Color", "Shape", "Effects", "Chroma"});
         for (int[] size : sizes) {
             for (Map.Entry<String, String[]> page : rows.entrySet()) {
@@ -689,6 +690,10 @@ class SettingsEditorTest {
                     seen.addAll(canvas.texts.keySet());
                 }
                 for (String row : page.getValue()) assertTrue(seen.contains(row), row + " shows while scrolling on " + where + ": " + seen);
+                for (String option : new String[]{"Bevel", "Edge"}) {
+                    boolean row = Arrays.asList(page.getValue()).contains(option);
+                    assertEquals(row, seen.contains(option), option + " only where it is a row on " + where);
+                }
                 String last = page.getValue()[page.getValue().length - 1];
                 assertNotNull(canvas.texts.get(last), "the last row shows at the end on " + where + ": " + canvas.texts.keySet());
             }

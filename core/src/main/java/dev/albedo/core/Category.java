@@ -66,9 +66,17 @@ public enum Category {
         return hasChroma() && this != ENTITIES && this != PLAYERS;
     }
 
-    /** Whether Bevel and Outline mean something here, which needs square tiles such as block faces. */
-    public boolean hasEdgeEffects() {
+    /** Whether Bevel means something here, which needs square tiles such as block faces. */
+    public boolean hasBevel() {
         return this == BLOCKS || this == FLUIDS;
+    }
+
+    /**
+     * Whether Outline means something here, which follows the shape of block and item textures, while the textures of
+     * mobs, players and block entities are UV maps and particles are too small.
+     */
+    public boolean hasOutline() {
+        return hasBevel() || this == ITEMS;
     }
 
     public static Category byKey(String key) {

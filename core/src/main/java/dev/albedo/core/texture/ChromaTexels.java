@@ -104,25 +104,28 @@ public final class ChromaTexels {
     }
 
     /**
-     * The texels of the next mip level, half as wide and high: each keeps the speed and hue of the moving texels of its
-     * 2 by 2 block and their mean amount, because the pass turns each mip level of the atlas on its own.
+     * The texels of the next mip level, half as wide and high, because the pass turns each mip level of the atlas on its
+     * own. Each gets the speed of the first moving texel of its 2 by 2 block and the mean of the hue the four texels add,
+     * where a texel of speed 0 adds none, so that the hue matches a mip level of the painted colors.
      */
     public static int[] halve(int[] texels, int w, int h) {
         int nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);
         int[] out = new int[nw * nh];
         for (int y = 0; y < nh; y++) {
             for (int x = 0; x < nw; x++) {
-                int first = 0, sum = 0, count = 0;
+                int first = 0;
+                double a = 0, b = 0;
                 for (int dy = 0; dy < 2; dy++) {
                     for (int dx = 0; dx < 2; dx++) {
                         int t = texels[Math.min(h - 1, 2 * y + dy) * w + Math.min(w - 1, 2 * x + dx)];
                         if (speed(t) == 0) continue;
-                        if (count == 0) first = t;
-                        sum += t & 0xFF;
-                        count++;
+                        if (first == 0) first = t;
+                        double turn = 2 * Math.PI * hue(t);
+                        a += amount(t) * Math.cos(turn);
+                        b += amount(t) * Math.sin(turn);
                     }
                 }
-                out[y * nw + x] = count == 0 ? 0 : (first & 0xFFFFFF00) | (sum + count / 2) / count;
+                out[y * nw + x] = first == 0 ? 0 : pack(speed(first), Math.atan2(b, a) / (2 * Math.PI), Math.hypot(a, b) / 4);
             }
         }
         return out;

@@ -14,6 +14,7 @@ public final class Chroma {
     public static final Chroma OFF = new Chroma(0, DEFAULT_SPEED, DEFAULT_SATURATION, DEFAULT_BRIGHTNESS);
 
     private final int strength, speed, saturation, brightness;
+    private final boolean edge;
 
     /**
      * @param strength percent of the rainbow color, where 0 is off
@@ -22,10 +23,16 @@ public final class Chroma {
      * @param brightness percent, where 50 is the default lightness of the colors
      */
     public Chroma(int strength, int speed, int saturation, int brightness) {
+        this(strength, speed, saturation, brightness, false);
+    }
+
+    /** @param edge whether the colors are only on the line around the shape, where the category has Outline */
+    public Chroma(int strength, int speed, int saturation, int brightness, boolean edge) {
         this.strength = strength;
         this.speed = speed;
         this.saturation = saturation;
         this.brightness = brightness;
+        this.edge = edge;
     }
 
     /** Chroma at {@code strength} percent with the default speed, saturation and brightness. */
@@ -37,17 +44,20 @@ public final class Chroma {
     public int speed() { return speed; }
     public int saturation() { return saturation; }
     public int brightness() { return brightness; }
+    public boolean edge() { return edge; }
 
     public boolean isOn() { return strength > 0; }
 
     /** Whether the colors go around over time. */
     public boolean moves() { return strength > 0 && speed > 0; }
 
-    public Chroma withStrength(int s) { return new Chroma(s, speed, saturation, brightness); }
+    public Chroma withStrength(int s) { return new Chroma(s, speed, saturation, brightness, edge); }
 
     public Chroma withOptions(int newSpeed, int newSaturation, int newBrightness) {
-        return new Chroma(strength, newSpeed, newSaturation, newBrightness);
+        return new Chroma(strength, newSpeed, newSaturation, newBrightness, edge);
     }
+
+    public Chroma withEdge(boolean e) { return new Chroma(strength, speed, saturation, brightness, e); }
 
     /** The time in milliseconds of one turn around the colors, from 120 s at speed 1 down to 2 s at speed 100 on a log scale. */
     static double periodMs(int speed) {
@@ -73,12 +83,14 @@ public final class Chroma {
     public boolean equals(Object o) {
         if (!(o instanceof Chroma)) return false;
         Chroma c = (Chroma) o;
-        return strength == c.strength && speed == c.speed && saturation == c.saturation && brightness == c.brightness;
+        return strength == c.strength && speed == c.speed && saturation == c.saturation && brightness == c.brightness && edge == c.edge;
     }
 
     @Override
-    public int hashCode() { return Objects.hash(strength, speed, saturation, brightness); }
+    public int hashCode() { return Objects.hash(strength, speed, saturation, brightness, edge); }
 
     @Override
-    public String toString() { return "Chroma[" + strength + ", speed " + speed + ", saturation " + saturation + ", brightness " + brightness + "]"; }
+    public String toString() {
+        return "Chroma[" + strength + ", speed " + speed + ", saturation " + saturation + ", brightness " + brightness + (edge ? ", edge" : "") + "]";
+    }
 }

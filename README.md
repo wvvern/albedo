@@ -16,7 +16,7 @@ Textures are changed as they load, so modded blocks and resource packs work too.
 
 - **Profiles:** start from `quake-white`, `quake-black`, `minimal` or `pastel`, or make your own. Export and import them as files.
 - **Looks:** give each category (blocks, fluids, mobs, players, particles, sky and more) a flat color, a recolor, its average color, gray, or hide it.
-- **Effects:** Bevel shades block edges, Outline draws a line around each block, and Chroma cycles colors through every hue.
+- **Effects:** Bevel shades block edges, Outline draws a line around the shape of each block and item, and Chroma cycles colors through every hue, on the whole texture or only on its edge.
 - **Groups:** give a set of textures their own look, for example dirt, grass and gravel in one color.
 
 ### Build your sky

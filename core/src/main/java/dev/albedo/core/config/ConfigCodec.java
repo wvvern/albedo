@@ -40,9 +40,8 @@ import java.util.function.Predicate;
  */
 public final class ConfigCodec {
     private static final List<String> RECOLOR_KEYS = Arrays.asList("detail", "keepColors", "keepLight");
-    private static final List<String> EDGE_KEYS = Arrays.asList("bevel", "outline");
     /** The Chroma options, which have a meaning only when the resolved {@code chroma} is above 0. */
-    private static final List<String> CHROMA_KEYS = Arrays.asList("chromaSpeed", "chromaSaturation", "chromaBrightness");
+    private static final List<String> CHROMA_KEYS = Arrays.asList("chromaSpeed", "chromaSaturation", "chromaBrightness", "chromaEdge");
     /** The JSON key of each look field in the order of {@link Appearance.Field}, then the Chroma options. */
     private static final List<String> LOOK_KEYS = plus(Arrays.asList("mode", "color", "alpha", "detail", "keepColors", "keepLight",
             "bevel", "outline", "chroma"), CHROMA_KEYS.toArray(new String[0]));
@@ -198,8 +197,14 @@ public final class ConfigCodec {
             if (!category.supportedModes().contains(Appearance.Mode.RECOLOR) && !Collections.disjoint(map.keySet(), RECOLOR_KEYS)) {
                 throw new IllegalArgumentException("this category has no recolor style, so " + RECOLOR_KEYS + " have no meaning here");
             }
-            if (!category.hasEdgeEffects() && !Collections.disjoint(map.keySet(), EDGE_KEYS)) {
-                throw new IllegalArgumentException(EDGE_KEYS + " work only on blocks and fluids");
+            if (!category.hasBevel() && map.containsKey("bevel")) {
+                throw new IllegalArgumentException("'bevel' works only on blocks and fluids");
+            }
+            if (!category.hasOutline() && map.containsKey("outline")) {
+                throw new IllegalArgumentException("'outline' works only on blocks, fluids and items");
+            }
+            if (!category.hasOutline() && map.containsKey("chromaEdge")) {
+                throw new IllegalArgumentException("'chromaEdge' works only on blocks, fluids and items");
             }
             if (!category.hasChroma() && map.containsKey("chroma")) {
                 throw new IllegalArgumentException("this category has no recolor style, so 'chroma' has no meaning here");
@@ -222,7 +227,7 @@ public final class ConfigCodec {
         // A hand edit that turns Chroma off can leave the options in the file, which must not make the whole file invalid.
         if (!out.isOn()) return out;
         return out.withOptions(percent(map, "chromaSpeed", parent.speed()), percent(map, "chromaSaturation", parent.saturation()),
-                percent(map, "chromaBrightness", parent.brightness()));
+                percent(map, "chromaBrightness", parent.brightness())).withEdge(bool(map, "chromaEdge", parent.edge()));
     }
 
     public static String encode(Config config) {
@@ -304,6 +309,7 @@ public final class ConfigCodec {
         if (c.speed() != b.speed()) m.put("chromaSpeed", c.speed());
         if (c.saturation() != b.saturation()) m.put("chromaSaturation", c.saturation());
         if (c.brightness() != b.brightness()) m.put("chromaBrightness", c.brightness());
+        if (c.edge() != b.edge()) m.put("chromaEdge", c.edge());
     }
 
     /** Whether the category look or the look of a group matches. */

@@ -416,17 +416,18 @@ public final class Harness {
 
     /**
      * Sets the effects of a category's look from
-     * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]}, where a missing
-     * effect is off and a missing Chroma option has its default.
+     * {@code <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N] [edge N]}, where a
+     * missing effect is off, a missing Chroma option has its default, and Edge is on for N above 0.
      */
     static Profile withEffects(Profile profile, String[] args) {
         Category category = Category.byKey(args[0]);
         if (category == null) throw new IllegalArgumentException("unknown category: " + args[0]);
         if (!category.hasChroma()) throw new IllegalArgumentException("this category has no effects");
         if (args.length % 2 == 0) {
-            throw new IllegalArgumentException("effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N]");
+            throw new IllegalArgumentException(
+                    "effects <category> [bevel N] [outline N] [chroma N] [speed N] [saturation N] [brightness N] [edge N]");
         }
-        int bevel = 0, outline = 0, chroma = 0;
+        int bevel = 0, outline = 0, chroma = 0, edge = 0;
         int speed = Chroma.DEFAULT_SPEED, saturation = Chroma.DEFAULT_SATURATION, brightness = Chroma.DEFAULT_BRIGHTNESS;
         for (int i = 1; i < args.length; i += 2) {
             int value = Integer.parseInt(args[i + 1]);
@@ -438,13 +439,15 @@ public final class Harness {
             else if (args[i].equals("speed")) speed = value;
             else if (args[i].equals("saturation")) saturation = value;
             else if (args[i].equals("brightness")) brightness = value;
+            else if (args[i].equals("edge")) edge = value;
             else throw new IllegalArgumentException("unknown effect: " + args[i]);
         }
-        if ((bevel > 0 || outline > 0) && !category.hasEdgeEffects()) {
-            throw new IllegalArgumentException("only blocks and fluids have bevel and outline");
+        if (bevel > 0 && !category.hasBevel()) throw new IllegalArgumentException("only blocks and fluids have bevel");
+        if ((outline > 0 || edge > 0) && !category.hasOutline()) {
+            throw new IllegalArgumentException("only blocks, fluids and items have outline and edge");
         }
         CategorySettings settings = profile.get(category);
-        Chroma c = new Chroma(chroma, speed, saturation, brightness);
+        Chroma c = new Chroma(chroma, speed, saturation, brightness, edge > 0);
         return profile.with(category, settings.withAppearance(settings.appearance().withEffects(bevel, outline, c)));
     }
 
