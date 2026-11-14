@@ -9,8 +9,6 @@ import dev.albedo.core.sky.SkyTurn;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 //? if >=1.21.6 {
-import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 //?}
@@ -24,6 +22,8 @@ public final class ModernSky {
     private static java.lang.reflect.Method irisInUse;
     private static Object iris;
     private static boolean irisLooked;
+    /** True when the last sky disc of a sky pass was the custom sky, which the later parts of the same pass read. */
+    private static boolean replacedDisc;
 
     private ModernSky() {}
 
@@ -49,6 +49,21 @@ public final class ModernSky {
     public static boolean hidesStars() {
         SkyImage img = Albedo.skyImage();
         return img != null && !vanillaWithPack() && img.design().celestial() == SkyDesign.Celestial.HIDE;
+    }
+
+    /** Records whether the custom sky drew in place of the sky disc of this sky pass; the families with a disc call this. */
+    static void discDrawn(boolean replaced) {
+        replacedDisc = replaced;
+    }
+
+    /** True when the custom sky drew in place of the sky disc of this sky pass, so the dark lower disc and the sunrise fan must not draw. */
+    public static boolean replacedDisc() {
+        return replacedDisc;
+    }
+
+    /** True when the custom sky drew in this sky pass and hides the vanilla stars. */
+    public static boolean hidesStarsThisPass() {
+        return replacedDisc && hidesStars();
     }
 
     /** True when the image draws with the sky shader in this frame: the design and the setting permit it, and no shader pack draws the sky. */
@@ -135,38 +150,11 @@ public final class ModernSky {
     }
 
     //? if >=1.21.6 {
-    private static DynamicTexture texture;
-    private static long uploaded = -1;
-
     /** A copy of the model view matrix of the sky sphere, turned for a sky that turns. */
     static Matrix4f turned(Matrix4fc modelView, SkyImage img) {
         SkyTurn turn = turn(img);
         Matrix4f out = new Matrix4f(modelView);
         return turn.still() ? out : out.mul(new Matrix4f().set(turn.matrix()));
-    }
-
-    /** The texture of the baked image as {@link #upload} left it, or null before the first image. */
-    static DynamicTexture uploaded() {
-        return texture;
-    }
-
-    /** Sends a new image to the texture of the baked image, of a fixed size, and returns the texture; the render thread calls this. */
-    static DynamicTexture upload(SkyImage img) {
-        if (texture == null || texture.getPixels().getWidth() != img.width() || texture.getPixels().getHeight() != img.height()) {
-            if (texture != null) texture.close();
-            texture = new DynamicTexture(() -> "Albedo sky", new NativeImage(img.width(), img.height(), false));
-            uploaded = -1;
-        }
-        if (uploaded != img.serial()) {
-            NativeImagePixels out = new NativeImagePixels(texture.getPixels());
-            int[] argb = img.argb();
-            for (int y = 0; y < img.height(); y++) {
-                for (int x = 0; x < img.width(); x++) out.setArgb(x, y, argb[y * img.width() + x]);
-            }
-            texture.upload();
-            uploaded = img.serial();
-        }
-        return texture;
     }
     //?}
 }

@@ -52,7 +52,7 @@ public final class PrecompiledSky {
     public static boolean draw() {
         SkyImage img = Albedo.skyImage();
         if (img == null) return false;
-        DynamicTexture texture = ModernSky.upload(img);
+        DynamicTexture texture = BakedSkyTexture.upload(img);
         if (sphere == null) sphere = buildSphere();
         boolean sharp = PrecompiledSharpSky.prepare(img);
         float k = ModernSky.brightness(img);

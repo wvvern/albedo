@@ -43,12 +43,7 @@ final class HarnessShots {
     private static void pixels(NativeImage image, Harness.FramePixels done) {
         try (NativeImage owned = image) {
             NativeImagePixels pixels = new NativeImagePixels(owned);
-            int w = pixels.width(), h = pixels.height();
-            int[] argb = new int[w * h];
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) argb[y * w + x] = pixels.getArgb(x, y);
-            }
-            done.accept(w, h, argb);
+            done.accept(pixels.width(), pixels.height(), pixels.getAll());
         }
     }
 

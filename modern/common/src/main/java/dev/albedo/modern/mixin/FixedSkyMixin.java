@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.math.Matrix4f;
 import dev.albedo.modern.FixedSky;
 import dev.albedo.modern.ModernHooks;
+import dev.albedo.modern.ModernSky;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,13 +31,13 @@ public abstract class FixedSkyMixin {
     @Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 1,
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;draw(Lcom/mojang/math/Matrix4f;I)V"))
     private void albedo$stars(VertexBuffer buffer, Matrix4f matrix, int mode) {
-        if (!FixedSky.hidesStars()) buffer.draw(matrix, mode);
+        if (!ModernSky.hidesStarsThisPass()) buffer.draw(matrix, mode);
     }
 
     @Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 2,
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;draw(Lcom/mojang/math/Matrix4f;I)V"))
     private void albedo$darkDisc(VertexBuffer buffer, Matrix4f matrix, int mode) {
-        if (!FixedSky.replacedDisc()) buffer.draw(matrix, mode);
+        if (!ModernSky.replacedDisc()) buffer.draw(matrix, mode);
     }
 
     // The first mesh that renderSky uploads is the sunrise fan, and the glow layers of the custom sky take its place.
@@ -44,7 +45,7 @@ public abstract class FixedSkyMixin {
             target = "Lcom/mojang/blaze3d/vertex/BufferUploader;end(Lcom/mojang/blaze3d/vertex/BufferBuilder;)V"))
     private void albedo$sunrise(BufferBuilder builder) {
         // The builder keeps the mesh until the next upload takes it, so a mesh that does not draw is taken here.
-        if (FixedSky.replacedDisc()) builder.popNextBuffer();
+        if (ModernSky.replacedDisc()) builder.popNextBuffer();
         else BufferUploader.end(builder);
     }
 

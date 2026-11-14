@@ -38,4 +38,22 @@ public final class NativeImagePixels implements PixelBuffer {
         /*image.setPixelRGBA(x, y, Colors.swapRedBlue(argb));
         *///?}
     }
+
+    /** All pixels as ARGB, row by row from the top. */
+    public int[] getAll() {
+        int w = width(), h = height();
+        int[] argb = new int[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) argb[y * w + x] = getArgb(x, y);
+        }
+        return argb;
+    }
+
+    /** Sets all pixels from ARGB, row by row from the top. */
+    public void setAll(int[] argb) {
+        int w = width(), h = height();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) setArgb(x, y, argb[y * w + x]);
+        }
+    }
 }

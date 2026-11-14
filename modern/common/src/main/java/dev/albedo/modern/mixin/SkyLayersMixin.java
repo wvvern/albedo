@@ -82,14 +82,14 @@ public abstract class SkyLayersMixin {
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$stars(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                               net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!dev.albedo.modern.GlSky.hidesStars()) buffer.drawWithShader(modelView, projection, shader);
+        if (!ModernSky.hidesStarsThisPass()) buffer.drawWithShader(modelView, projection, shader);
     }
 
     @org.spongepowered.asm.mixin.injection.Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 2,
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$darkDisc(com.mojang.blaze3d.vertex.VertexBuffer buffer, org.joml.Matrix4f modelView, org.joml.Matrix4f projection,
                                  net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!dev.albedo.modern.GlSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
+        if (!ModernSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
     }
 }
 *///?}

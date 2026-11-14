@@ -256,10 +256,7 @@ final class GlSharpSky {
     // Writes pixels from the top row down into a PNG file.
     private static void save(int[] argb, int width, int height, File png) {
         try (NativeImage image = new NativeImage(width, height, false)) {
-            NativeImagePixels pixels = new NativeImagePixels(image);
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) pixels.setArgb(x, y, argb[y * width + x]);
-            }
+            new NativeImagePixels(image).setAll(argb);
             image.writeToFile(png);
         } catch (IOException e) {
             HarnessLog.fail("cannot save " + png + ": " + e);

@@ -3,6 +3,7 @@ package dev.albedo.modern.mixin;
 //? if >=1.17 && <1.19.3 {
 /*import dev.albedo.modern.GlSky;
 import dev.albedo.modern.ModernHooks;
+import dev.albedo.modern.ModernSky;
 import dev.albedo.modern.MojangMath;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,14 +26,14 @@ public abstract class MojangMathSkyMixin {
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lcom/mojang/math/Matrix4f;Lcom/mojang/math/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$stars(com.mojang.blaze3d.vertex.VertexBuffer buffer, com.mojang.math.Matrix4f modelView, com.mojang.math.Matrix4f projection,
                               net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!GlSky.hidesStars()) buffer.drawWithShader(modelView, projection, shader);
+        if (!ModernSky.hidesStarsThisPass()) buffer.drawWithShader(modelView, projection, shader);
     }
 
     @Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 2,
             target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lcom/mojang/math/Matrix4f;Lcom/mojang/math/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void albedo$darkDisc(com.mojang.blaze3d.vertex.VertexBuffer buffer, com.mojang.math.Matrix4f modelView, com.mojang.math.Matrix4f projection,
                                  net.minecraft.client.renderer.ShaderInstance shader) {
-        if (!GlSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
+        if (!ModernSky.replacedDisc()) buffer.drawWithShader(modelView, projection, shader);
     }
 
     // The cutout layer is the last solid layer of the world.

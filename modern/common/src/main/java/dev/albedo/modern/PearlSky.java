@@ -67,7 +67,7 @@ public final class PearlSky {
     public static void beforePass(boolean overworldSkybox) {
         SkyImage img = Albedo.skyImage();
         if (img == null || !overworldSkybox) return;
-        ModernSky.upload(img);
+        BakedSkyTexture.upload(img);
         if (sphere == null) sphere = buildSphere();
         SharpSky.prepare(img);
     }
@@ -82,7 +82,7 @@ public final class PearlSky {
     /** Draws the last uploaded image in the shared sky pass, also when a newer one waits for the next frame, and returns false when there is no custom sky. */
     public static boolean draw(RenderPass pass) {
         SkyImage img = Albedo.skyImage();
-        DynamicTexture texture = ModernSky.uploaded();
+        DynamicTexture texture = BakedSkyTexture.current();
         if (img == null || texture == null || sphere == null) return false;
         float k = ModernSky.brightness(img);
         GpuBufferSlice transforms = RenderSystem.getDynamicUniforms()

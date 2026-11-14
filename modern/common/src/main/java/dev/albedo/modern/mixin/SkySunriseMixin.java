@@ -13,21 +13,21 @@ public abstract class SkySunriseMixin {
     @Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lcom/mojang/blaze3d/vertex/BufferUploader;drawWithShader(Lcom/mojang/blaze3d/vertex/MeshData;)V"))
     private void albedo$sunrise(com.mojang.blaze3d.vertex.MeshData mesh) {
-        if (dev.albedo.modern.GlSky.replacedDisc()) mesh.close();
+        if (dev.albedo.modern.ModernSky.replacedDisc()) mesh.close();
         else com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
     }
     //?} elif >=1.19 {
     /^@Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lcom/mojang/blaze3d/vertex/BufferUploader;drawWithShader(Lcom/mojang/blaze3d/vertex/BufferBuilder$RenderedBuffer;)V"))
     private void albedo$sunrise(com.mojang.blaze3d.vertex.BufferBuilder.RenderedBuffer mesh) {
-        if (dev.albedo.modern.GlSky.replacedDisc()) mesh.release();
+        if (dev.albedo.modern.ModernSky.replacedDisc()) mesh.release();
         else com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
     }
     ^///?} else {
     /^@Redirect(method = "renderSky", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lcom/mojang/blaze3d/vertex/BufferUploader;end(Lcom/mojang/blaze3d/vertex/BufferBuilder;)V"))
     private void albedo$sunrise(com.mojang.blaze3d.vertex.BufferBuilder builder) {
-        if (dev.albedo.modern.GlSky.replacedDisc()) builder.popNextBuffer();
+        if (dev.albedo.modern.ModernSky.replacedDisc()) builder.popNextBuffer();
         else com.mojang.blaze3d.vertex.BufferUploader.end(builder);
     }
     ^///?}

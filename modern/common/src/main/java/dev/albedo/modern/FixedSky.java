@@ -40,8 +40,6 @@ public final class FixedSky {
     // The matrix of a turning sky for the GL, which each draw fills again.
     private static final FloatBuffer TURN = BufferUtils.createFloatBuffer(16);
     private static final SkyDefer<Waiting> DEFER = new SkyDefer<Waiting>();
-    // True when the last sky disc of a sky pass was the custom sky, which the later parts of the same pass read.
-    private static boolean replacedDisc;
 
     private FixedSky() {}
 
@@ -51,18 +49,9 @@ public final class FixedSky {
 
     // Draws the sky in place of the sky disc with the camera matrix of the disc, and returns false when the game must draw its disc.
     public static boolean draw(Matrix4f camera) {
-        replacedDisc = drawSphere(camera);
-        return replacedDisc;
-    }
-
-    // True when the custom sky drew in place of the sky disc of this sky pass, so the dark lower disc and the sunrise fan must not draw.
-    public static boolean replacedDisc() {
-        return replacedDisc;
-    }
-
-    // True when the custom sky drew in this sky pass and hides the vanilla stars.
-    public static boolean hidesStars() {
-        return replacedDisc && ModernSky.hidesStars();
+        boolean drawn = drawSphere(camera);
+        ModernSky.discDrawn(drawn);
+        return drawn;
     }
 
     // Draws the sky sphere, but not in the fog of a fluid or of blindness, which the fogged vanilla sky shows.
@@ -157,11 +146,7 @@ public final class FixedSky {
             uploaded = -1;
         }
         if (uploaded != img.serial()) {
-            NativeImagePixels out = new NativeImagePixels(texture.getPixels());
-            int[] argb = img.argb();
-            for (int y = 0; y < img.height(); y++) {
-                for (int x = 0; x < img.width(); x++) out.setArgb(x, y, argb[y * img.width() + x]);
-            }
+            new NativeImagePixels(texture.getPixels()).setAll(img.argb());
             int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);

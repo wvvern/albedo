@@ -264,11 +264,7 @@ final class PrecompiledSharpSky {
         }
         DeviceApi.Timer query = res.timer;
         Screenshot.takeScreenshot(res.target, image -> {
-            int[] argb = new int[width * height];
-            NativeImagePixels pixels = new NativeImagePixels(image);
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) argb[y * width + x] = pixels.getArgb(x, y);
-            }
+            int[] argb = new NativeImagePixels(image).getAll();
             if (png != null) {
                 try {
                     image.writeToFile(png);

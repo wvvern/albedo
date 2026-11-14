@@ -246,10 +246,7 @@ final class SharpSky {
             throw e;
         }
         Screenshot.takeScreenshot(res.target, image -> {
-            int[] argb = new int[width * height];
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) argb[y * width + x] = image.getPixel(x, y);
-            }
+            int[] argb = new NativeImagePixels(image).getAll();
             if (png != null) {
                 try {
                     image.writeToFile(png);

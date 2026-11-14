@@ -57,8 +57,6 @@ public final class GlSky {
     private static final SkyDefer<float[]> DEFER = new SkyDefer<>();
     private static float[] waitingProjection;
     private static float waitingBrightness;
-    // True when the last sky disc of a sky pass was the custom sky, which the later parts of the same pass read.
-    private static boolean replacedDisc;
 
     private GlSky() {}
 
@@ -103,8 +101,9 @@ public final class GlSky {
 
     // Draws the sky with the matrices of the vanilla disc in column order, and returns false when the game must draw its disc.
     public static boolean draw(float[] skyModelView, float[] projection) {
-        replacedDisc = drawSphere(skyModelView, projection);
-        return replacedDisc;
+        boolean drawn = drawSphere(skyModelView, projection);
+        ModernSky.discDrawn(drawn);
+        return drawn;
     }
 
     //? if >=1.21.2 {
@@ -133,16 +132,6 @@ public final class GlSky {
         //?} else {
         /^return () -> { };
         ^///?}
-    }
-
-    // True when the custom sky drew in place of the sky disc of this sky pass, so the dark lower disc and the sunrise fan must not draw.
-    public static boolean replacedDisc() {
-        return replacedDisc;
-    }
-
-    // True when the custom sky drew in this sky pass and hides the vanilla stars.
-    public static boolean hidesStars() {
-        return replacedDisc && ModernSky.hidesStars();
     }
 
     // Draws the sky sphere, but not with a shader pack, whose framebuffer needs the programs of the pack, and not where the game draws no sky (blindness on 1.17).
