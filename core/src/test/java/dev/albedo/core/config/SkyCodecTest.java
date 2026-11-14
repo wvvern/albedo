@@ -268,4 +268,16 @@ class SkyCodecTest {
         String blocks = "{\"profiles\": {\"night\": {\"blocks\": {\"mode\": \"layers\"}}}}";
         assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode(blocks), "layers is only for the sky");
     }
+
+    @Test
+    void aNullValueIsAnError() {
+        assertEquals("night.sky.layers[0].opacity: use a whole number from 0 to 100",
+                error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"opacity\": null}]}"));
+        assertTrue(error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"stars\", \"blend\": null}]}")
+                .startsWith("night.sky.layers[0].blend: use one of [normal, "));
+        assertEquals("night.sky.layers[0].color1: use a color such as \"#FF8000\"",
+                error("{\"mode\": \"layers\", \"layers\": [{\"id\": 1, \"kind\": \"gradient\", \"color1\": null}]}"));
+        assertEquals("night.sky.turning.amount: use a whole number from 0 to 100",
+                error("{\"mode\": \"layers\", \"turning\": {\"amount\": null}, \"layers\": []}"));
+    }
 }

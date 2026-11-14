@@ -36,6 +36,29 @@ class ConfigCodecTest {
     }
 
     @Test
+    void aNullValueIsMissingExceptForAChoice() {
+        Config c = ConfigCodec.decode("{ \"enabled\": null, \"activeProfile\": null, \"keys\": { \"toggle\": null },"
+                + " \"profiles\": { \"x\": { \"fullbright\": null, \"blocks\": { \"mode\": \"recolor\", \"detail\": null } } } }");
+        assertTrue(c.enabled());
+        assertEquals(Config.KeyBinds.DEFAULT, c.keys());
+        assertEquals(Appearance.ORIGINAL.detail(), c.profiles().get("x").get(Category.BLOCKS).appearance().detail());
+        IllegalArgumentException mode = assertThrows(IllegalArgumentException.class,
+                () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": null } } } }"));
+        assertTrue(mode.getMessage().startsWith("x.blocks: 'mode': use one of [original, "), mode.getMessage());
+    }
+
+    @Test
+    void aValueOfTheWrongTypeNamesTheKey() {
+        assertEquals("'enabled': use true or false",
+                assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode("{ \"enabled\": 1 }")).getMessage());
+        assertEquals("'activeProfile': use a string",
+                assertThrows(IllegalArgumentException.class, () -> ConfigCodec.decode("{ \"activeProfile\": 1 }")).getMessage());
+        assertEquals("x.blocks: 'detail': use a whole number from 0 to 100", assertThrows(IllegalArgumentException.class,
+                () -> ConfigCodec.decode("{ \"profiles\": { \"x\": { \"blocks\": { \"mode\": \"recolor\", \"detail\": 2.5 } } } }"))
+                .getMessage());
+    }
+
+    @Test
     void profileFilesRoundTripAndRejectBadInput() {
         Config c = ConfigCodec.decode("{ \"activeProfile\": \"Mine\", \"profiles\": { \"Mine\": { \"shadows\": false,"
                 + " \"blocks\": { \"mode\": \"solid\", \"onlyGroups\": true,"

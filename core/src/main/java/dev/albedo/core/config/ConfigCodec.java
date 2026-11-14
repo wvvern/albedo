@@ -6,18 +6,19 @@ import dev.albedo.core.Glob;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import static dev.albedo.core.config.JsonFields.keys;
+import static dev.albedo.core.config.JsonFields.object;
 
 /**
  * Converts {@link Config} to and from JSON such as the example below, where an unknown key is an error so that a
@@ -324,62 +325,35 @@ public final class ConfigCodec {
         return out.chroma().isOn() ? out : out.withEffects(out.bevel(), out.outline(), from.chroma().withStrength(0));
     }
 
-    /** A JSON object; with {@code known}, any other key is an error naming the allowed ones. */
-    @SuppressWarnings("unchecked")
-    static Map<String, Object> object(Object o, String where, List<String> known) {
-        if (!(o instanceof Map)) throw new IllegalArgumentException(where + ": use a JSON object");
-        Map<String, Object> map = (Map<String, Object>) o;
-        if (known != null) {
-            for (String key : map.keySet()) {
-                if (!known.contains(key)) throw new IllegalArgumentException(where + ": unknown setting '" + key + "'. Use one of " + known);
-            }
-        }
-        return map;
-    }
-
     private static List<String> plus(List<String> base, String... more) {
         List<String> out = new ArrayList<String>(base);
         out.addAll(Arrays.asList(more));
         return Collections.unmodifiableList(out);
     }
 
-    /** The keys of enum values in the file: their names in lower case. */
-    static List<String> keys(Collection<? extends Enum<?>> values) {
-        List<String> out = new ArrayList<String>();
-        for (Enum<?> v : values) out.add(v.name().toLowerCase(Locale.ROOT));
-        return out;
+    /** The place of a key in an error, which {@link #decodeAppearance} prefixes with the place of the look. */
+    private static String place(String key) {
+        return "'" + key + "'";
     }
 
-    /** The enum value that {@code key} names in lower case, or {@code def} when the key is not there. */
+    /** In the config file, a JSON null value counts as a missing key, except for a choice. */
+    private static boolean missing(Map<String, Object> m, String key) {
+        return m.get(key) == null;
+    }
+
     private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def) {
-        if (!m.containsKey(key)) return def;
-        Class<E> type = def.getDeclaringClass();
-        try {
-            return Enum.valueOf(type, str(m, key, "").trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("'" + key + "': use one of " + keys(Arrays.asList(type.getEnumConstants())), e);
-        }
+        return JsonFields.choice(m, key, def, place(key));
     }
 
     private static boolean bool(Map<String, Object> m, String key, boolean def) {
-        Object o = m.get(key);
-        if (o == null) return def;
-        if (!(o instanceof Boolean)) throw new IllegalArgumentException("'" + key + "': use true or false");
-        return (Boolean) o;
+        return missing(m, key) ? def : JsonFields.bool(m, key, place(key));
     }
 
     private static int percent(Map<String, Object> m, String key, int def) {
-        Object o = m.get(key);
-        if (o == null) return def;
-        double v = o instanceof Number ? ((Number) o).doubleValue() : Double.NaN;
-        if (v != Math.rint(v) || v < 0 || v > 100) throw new IllegalArgumentException("'" + key + "': use a whole number from 0 to 100");
-        return (int) v;
+        return missing(m, key) ? def : JsonFields.number(m, key, 0, 100, place(key));
     }
 
     private static String str(Map<String, Object> m, String key, String def) {
-        Object o = m.get(key);
-        if (o == null) return def;
-        if (!(o instanceof String)) throw new IllegalArgumentException("'" + key + "': use a string");
-        return (String) o;
+        return missing(m, key) ? def : JsonFields.string(m, key, place(key));
     }
 }

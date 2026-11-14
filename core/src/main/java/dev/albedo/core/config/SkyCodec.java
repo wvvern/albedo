@@ -9,12 +9,11 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import static dev.albedo.core.config.ConfigCodec.keys;
-import static dev.albedo.core.config.ConfigCodec.object;
+import static dev.albedo.core.config.JsonFields.keys;
+import static dev.albedo.core.config.JsonFields.object;
 
 /**
  * Reads and writes the layers of a custom sky inside the sky category, for example
@@ -88,9 +87,8 @@ final class SkyCodec {
                 number(map, "trailLight", 0, 100, d.trailLight(), at));
     }
 
-    /** The whole number at {@code key}, or {@code def} when the key is not there. */
     private static int number(Map<String, Object> m, String key, int min, int max, int def, String where) {
-        return m.containsKey(key) ? number(m, key, min, max, where) : def;
+        return JsonFields.number(m, key, min, max, def, where + "." + key);
     }
 
     /** One layer, whose mask may name only an id in {@code below}. */
@@ -111,7 +109,7 @@ final class SkyCodec {
             if (!kind.uses(p)) {
                 throw new IllegalArgumentException(at + ": '" + p.key + "' has no meaning for " + kind.key() + ". It uses " + paramKeys(kind));
             }
-            params.put(p, p.isColor() ? color(map, p.key, at) : number(map, p.key, p.min(), p.max(), at));
+            params.put(p, p.isColor() ? JsonFields.color(map, p.key, at + "." + p.key) : number(map, p.key, p.min(), p.max(), at));
         }
         SkyMask mask = map.containsKey("mask") ? mask(at + ".mask", object(map.get("mask"), at + ".mask", MASK_KEYS), below) : SkyMask.NONE;
         Transform transform = map.containsKey("transform")
@@ -126,15 +124,8 @@ final class SkyCodec {
         return SkyMask.of(layer, choice(map, "mode", SkyMask.Mode.LIGHT, at));
     }
 
-    /** The enum value that {@code key} names in lower case, or {@code def} when the key is not there. */
     private static <E extends Enum<E>> E choice(Map<String, Object> m, String key, E def, String where) {
-        if (!m.containsKey(key)) return def;
-        Class<E> type = def.getDeclaringClass();
-        try {
-            return Enum.valueOf(type, string(m, key, where).trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(where + "." + key + ": use one of " + keys(Arrays.asList(type.getEnumConstants())), e);
-        }
+        return JsonFields.choice(m, key, def, where + "." + key);
     }
 
     private static Transform transform(String at, Map<String, Object> map, SkyLayer.Kind kind) {
@@ -203,26 +194,7 @@ final class SkyCodec {
     }
 
     private static int number(Map<String, Object> m, String key, int min, int max, String where) {
-        Object o = m.get(key);
-        double v = o instanceof Number ? ((Number) o).doubleValue() : Double.NaN;
-        if (v != Math.rint(v) || v < min || v > max) {
-            throw new IllegalArgumentException(where + "." + key + ": use a whole number from " + min + " to " + max);
-        }
-        return (int) v;
-    }
-
-    private static int color(Map<String, Object> m, String key, String where) {
-        try {
-            return Colors.parse(string(m, key, where));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(where + "." + key + ": use a color such as \"#FF8000\"", e);
-        }
-    }
-
-    private static String string(Map<String, Object> m, String key, String where) {
-        Object o = m.get(key);
-        if (!(o instanceof String)) throw new IllegalArgumentException(where + "." + key + ": use a string");
-        return (String) o;
+        return JsonFields.number(m, key, min, max, where + "." + key);
     }
 
     private static List<String> paramKeys(SkyLayer.Kind kind) {
