@@ -1,12 +1,18 @@
 # Outline on the shape of cutout blocks and items, and Edge Chroma, still and moving. Run it after the scene:
 # python -m tools harness fabric-26.3 forge-1.8.9 --suite edges --out build/edges
 wait 60
-run tp @e[type=!player] 0 -300 0
+modern: run tp @e[type=!player] 0 -300 0
 modern: run setblock -6 -60 -5 ladder[facing=south]
-run setblock -1 -60 -2 rail
-run setblock 0 -60 -2 oak_sapling
-run setblock 1 -60 -2 dandelion
-run setblock 3 -60 -2 cobweb
+modern: run setblock -1 -60 -2 rail
+modern: run setblock 0 -60 -2 oak_sapling
+modern: run setblock 1 -60 -2 dandelion
+modern: run setblock 3 -60 -2 cobweb
+legacy: run kill @e[type=!Player]
+legacy: run setblock -6 4 -5 minecraft:ladder 3
+legacy: run setblock -1 4 -2 minecraft:rail
+legacy: run setblock 0 4 -2 minecraft:sapling
+legacy: run setblock 1 4 -2 minecraft:yellow_flower
+legacy: run setblock 3 4 -2 minecraft:web
 modern: run summon item_display -1.5 -58.8 -1.5 {item:{id:"minecraft:diamond_sword",count:1}}
 modern: run summon item_display 0.5 -58.8 -1.5 {item:{id:"minecraft:bow",count:1}}
 modern: run summon item_display 2.5 -58.8 -1.5 {item:{id:"minecraft:apple",count:1}}
@@ -14,7 +20,8 @@ profile quake-black
 look items solid #000000
 effects blocks outline 100
 effects items outline 100
-run tp @p 0.5 -60 1.5 180 14
+modern: run tp @p 0.5 -60 1.5 180 14
+legacy: run tp @p 0.5 4 1.5 180 14
 wait 200
 screenshot e1-outline
 effects blocks chroma 100 speed 0 edge 1

@@ -61,6 +61,14 @@ class JudgeTest(unittest.TestCase):
         self.assertEqual(1, len(failures))
         self.assertTrue(failures[0].startswith("the hook sodiumTint did not run"), failures[0])
 
+    def test_a_death_message_fails_and_command_feedback_does_not(self):
+        chat = (
+            "[Client thread/INFO]: [CHAT] Player187 fell out of the world\n[CHAT] [Server: Teleported Player655 to 0.5, -60, 4.5]\n"
+            "[CHAT] Dev has made the advancement [Acquire Hardware]\n[CHAT] Player484 has just earned the achievement [Taking Inventory]\n"
+        )
+        failures = judge(replace(GOOD, game_log=GOOD.game_log + chat), EXPECTED)
+        self.assertEqual(["the player died: Player187 fell out of the world"], failures)
+
     def test_each_reload_reason_fails_once_with_no_renderer_mod(self):
         evidence = replace(GOOD, game_log=GOOD.game_log + "x cannot be sent to the GPU\ny cannot be sent to the GPU\n")
         self.assertEqual(["the game log has a reload reason: cannot be sent to the GPU"], judge(evidence, EXPECTED))

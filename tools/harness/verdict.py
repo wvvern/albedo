@@ -8,6 +8,8 @@ from tools.harness import protocol
 from tools.project import Target
 
 RELOAD_REASON = re.compile(r"textures cannot be repainted|more textures than the mod keeps|cannot be sent to the GPU")
+# A chat line that starts with the name of the dev player is a death message or an advancement; command feedback starts otherwise.
+DEATH = re.compile(r"\[CHAT\] ((?:Player\d+|Dev) (?!has (?:made|just earned|reached|completed) ).*)")
 LEGACY_HOOKS = ("afterSolid", "beforeClouds", "tint", "shade", "reloadStep", "textureUpload", "mouseGrab")
 MODERN_HOOKS = ("afterSolid", "tint", "fullbright", "shadow", "skyPass", "mouseGrab")
 # A renderer mod replaces the terrain draw, so its own tint hook must run in place of the tint and afterSolid hooks of the game.
@@ -70,6 +72,8 @@ def judge(evidence: Evidence, expected: Expectations) -> list[str]:
     # With no other mod, each texture repaints in place; a failed upload reloads all resources, which hides the failure in the images.
     if not expected.renderer_mod:
         failures += [f"the game log has a reload reason: {reason}" for reason in dict.fromkeys(RELOAD_REASON.findall(game))]
+    # A dead player shows the death screen in each later screenshot.
+    failures += [f"the player died: {message}" for message in dict.fromkeys(DEATH.findall(game))]
     failures += [f"harness error: {line}" for line in protocol.errors(log)]
     failures += [f"harness compare: {line}" for line in protocol.failed_compares(log)]
     failures += hook_failures(log, expected.hooks)
