@@ -20,8 +20,13 @@ def hidden_command_line(build_dir: Path, task: str, properties: dict[str, str | 
 
     --no-daemon: a daemon from the visible desktop starts the game window on that desktop.
     """
-    flags = [f"-P{name}" if value is True else f'"-P{name}={value}"' for name, value in properties.items() if value]
+    flags = [f'"{flag}"' if "=" in flag else flag for flag in property_flags(properties)]
     return " ".join([f'"{wrapper(build_dir)}"', "--no-daemon", ONE_NODE, task, *flags])
+
+
+def property_flags(properties: dict[str, str | bool]) -> list[str]:
+    """A -P flag for each property that is set."""
+    return [f"-P{name}" if value is True else f"-P{name}={value}" for name, value in properties.items() if value]
 
 
 def run(build_dir: Path, *arguments: str, log: Path | None = None) -> None:

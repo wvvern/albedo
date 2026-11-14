@@ -24,7 +24,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from tools import project
+from tools import gradle, project
 from tools.harness import devrun, files, rundir, script, session, verdict
 from tools.harness.devrun import RunOptions
 from tools.harness.session import System
@@ -71,6 +71,20 @@ def run_job(target: Target, options: RunOptions, system: System) -> bool:
     except ToolError as error:
         say(f"{target.name} {options.suite}", f"FAIL: {error}")
         return False
+
+
+def prepare(target: Target, options: RunOptions) -> bool:
+    """Runs the tasks before the run task once, because the games of the suites of one node would compile its classes at the same time."""
+    harness = session.HARNESS_ROOT / options.harness_name(target)
+    flags = gradle.property_flags(devrun.gradle_properties(target, harness, options))
+    log = session.HARNESS_ROOT / f"{target.name}-prepare.log"
+    try:
+        # No daemon, because one daemon for each node at the same time would keep its heap long after the run.
+        gradle.run(target.build_dir, "--no-daemon", *flags, target.run_task, "-x", target.run_task, log=log)
+    except ToolError as error:
+        say(f"{target.name} prepare", f"FAIL: {error}")
+        return False
+    return True
 
 
 def game_slots(jobs: int, free_bytes: int, threads: int) -> int:
@@ -150,11 +164,18 @@ def main(arguments: list[str]) -> int:
     targets, runs = parse(arguments)
     system = Windows()
     processes.wait_for_tool(project.ROOT, "build")
+    slots = game_slots(len(targets) * len(runs), psutil.virtual_memory().available, psutil.cpu_count())
+    failed = []
+    if len(runs) > 1:
+        with ThreadPoolExecutor(max_workers=slots) as pool:
+            ready = list(pool.map(lambda target: prepare(target, runs[0]), targets))
+        failed = [target.name for target, ok in zip(targets, ready, strict=True) if not ok]
+        targets = [target for target, ok in zip(targets, ready, strict=True) if ok]
     # The first suite of each target starts first, so a slow target does not wait behind the other targets.
     jobs = [(target, options) for options in runs for target in targets]
-    with ThreadPoolExecutor(max_workers=game_slots(len(jobs), psutil.virtual_memory().available, psutil.cpu_count())) as pool:
+    with ThreadPoolExecutor(max_workers=slots) as pool:
         passed = list(pool.map(lambda job: run_job(*job, system), jobs))
-    failed = list(dict.fromkeys(target.name for (target, _), ok in zip(jobs, passed, strict=True) if not ok))
+    failed += list(dict.fromkeys(target.name for (target, _), ok in zip(jobs, passed, strict=True) if not ok))
     if failed:
         print(f"FAIL: {', '.join(failed)}")
     return 1 if failed else 0
