@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** The one entry point of the core for the adapters: it holds the config, watches its file, reads the keys and changes textures. */
@@ -40,10 +39,7 @@ public final class Albedo {
     /** The config with the state of the current server, which {@link #update} keeps in step with its inputs. */
     private volatile Config effective;
     private volatile Policy policy = Policy.DISABLED;
-    /** The host of the multiplayer server the player is on, or null. */
-    private String server;
-    /** The state the player chose on this server with F6, F7 or the settings, which lasts until the player leaves. */
-    private Config.State visitState;
+    private final ServerVisit visit = new ServerVisit();
     private final TextureStore store = new TextureStore();
     /** The sky in the world, which bakes only when a config with new layers is applied. */
     private final SkyBaker skyBaker;
@@ -93,19 +89,12 @@ public final class Albedo {
     public Config storedConfig() { return config; }
 
     /** The host of the server the player is on, or null in single player and the menus. */
-    public String server() { return server; }
+    public String server() { return visit.host(); }
 
-    /** Recomputes the config in effect and its policy after a change to the config, the server or the visit state. */
+    /** Recomputes the config in effect and its policy after a change to the config or the visit. */
     private void update() {
-        Config c = config;
-        ServerRule rule = server == null ? null : c.serverRule(server);
-        // The visit state belongs to the rule, so a removed rule takes it away too.
-        if (rule == null) visitState = null;
-        if (visitState != null && c.profiles().containsKey(visitState.profile)) c = c.withState(visitState);
-        else if (rule != null && rule.profile() == null) c = c.withEnabled(false);
-        else if (rule != null) c = c.withState(new Config.State(true, rule.profile()));
-        effective = c;
-        policy = Policy.of(c);
+        effective = visit.effective(config);
+        policy = Policy.of(effective);
         skyBaker.request(policy.skyDesign());
     }
 
@@ -293,11 +282,7 @@ public final class Albedo {
      */
     public RefreshResult apply(Config next, Config.State chosen) {
         Config before = effective, previous = config;
-        Config saved = next;
-        if (chosen != null) {
-            if (server != null && next.serverRule(server) != null) visitState = chosen;
-            else saved = next.withState(chosen);
-        }
+        Config saved = chosen == null ? next : visit.choose(next, chosen);
         Policy old = policy;
         setConfig(saved);
         if (effective.equals(before) && saved.equals(previous)) return RefreshResult.painted(0, false, 0);
@@ -310,11 +295,9 @@ public final class Albedo {
     private void watchServer() {
         String host = ServerRule.host(platform.currentServer());
         String now = host.isEmpty() ? null : host;
-        if (Objects.equals(now, server)) return;
         Config.State before = effective.state();
         Policy old = policy;
-        server = now;
-        visitState = null;
+        if (!visit.join(now)) return;
         update();
         Config.State after = effective.state();
         if (after.equals(before)) return;

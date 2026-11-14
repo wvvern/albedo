@@ -70,4 +70,44 @@ class ServerVisitTest {
         assertFalse(albedo.config().enabled(), "off on this server");
         assertTrue(saved().enabled(), "and on everywhere else");
     }
+
+    @Test
+    void aVisitWithoutARuleSavesTheChoiceAndKeepsTheStoredConfig() {
+        ServerVisit visit = new ServerVisit();
+        Config stored = withOwnProfile();
+        assertTrue(visit.join("example.org"));
+        assertFalse(visit.join("example.org"), "the same host is no new visit");
+        assertSame(stored, visit.effective(stored));
+        Config.State off = new Config.State(false, "test");
+        assertEquals(off, visit.choose(stored, off).state(), "the file takes the choice");
+        assertSame(stored, visit.effective(stored));
+    }
+
+    @Test
+    void aChoiceOnARuleServerLastsUntilThePlayerLeavesOrTheRuleGoes() {
+        ServerVisit visit = new ServerVisit();
+        Config stored = withOwnProfile().withServer(new ServerRule("hypixel.net", "quake-black"));
+        visit.join("hypixel.net");
+        assertEquals("quake-black", visit.effective(stored).activeProfileName());
+        assertSame(stored, visit.choose(stored, new Config.State(true, "minimal")), "the file keeps its state");
+        assertEquals("minimal", visit.effective(stored).activeProfileName());
+
+        visit.join(null);
+        assertNull(visit.host());
+        assertSame(stored, visit.effective(stored));
+        visit.join("hypixel.net");
+        assertEquals("quake-black", visit.effective(stored).activeProfileName(), "a new visit forgets the choice");
+
+        visit.choose(stored, new Config.State(true, "minimal"));
+        Config withoutRule = stored.withoutServer("hypixel.net");
+        assertSame(withoutRule, visit.effective(withoutRule));
+        assertEquals("quake-black", visit.effective(stored).activeProfileName(), "a removed rule took the choice");
+    }
+
+    @Test
+    void aRuleWithoutAProfileTurnsTheModOff() {
+        ServerVisit visit = new ServerVisit();
+        visit.join("example.org");
+        assertFalse(visit.effective(withOwnProfile().withServer(new ServerRule("example.org", null))).enabled());
+    }
 }
