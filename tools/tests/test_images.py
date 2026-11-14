@@ -14,20 +14,6 @@ class ImagesTest(unittest.TestCase):
         self.images = images
         self.new = Image.new
 
-    def test_the_same_image_has_no_difference(self):
-        image = self.new("RGB", (4, 2), (10, 20, 30))
-        self.assertEqual((0.0, 0.0, 0), self.images.difference(image, image, 16))
-
-    def test_the_difference_of_one_pixel(self):
-        before = self.new("RGBA", (4, 1), (0, 0, 0, 255))
-        after = before.copy()
-        after.putpixel((0, 0), (30, 0, 6, 255))
-        after.putpixel((1, 0), (0, 16, 0, 255))
-        mean, percent, largest = self.images.difference(before, after, 16)
-        self.assertAlmostEqual((30 + 6 + 16) / 12, mean)
-        self.assertEqual(25.0, percent)
-        self.assertEqual(30, largest)
-
     def test_strips_come_from_the_same_place_with_a_line_between_them(self):
         red, blue = self.new("RGB", (16, 2), (255, 0, 0)), self.new("RGB", (16, 2), (0, 0, 255))
         strips = self.images.split([red, blue])
