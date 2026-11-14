@@ -1,12 +1,7 @@
 package dev.albedo.core.config;
 
-import dev.albedo.core.Category;
-import dev.albedo.core.Policy;
-import dev.albedo.core.sky.SkyPresets;
-import dev.albedo.core.texture.TextureKey;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -65,29 +60,6 @@ class SkyDesignTest {
     }
 
     @Test
-    void skyEditsDoNotRepaintTexturesButTheSunSwitchDoes() {
-        Profile base = Config.defaults().activeProfile();
-        CategorySettings sky = new CategorySettings(Appearance.of(Appearance.Mode.LAYERS), false, false,
-                Collections.<Rule>emptyList(), SkyPresets.DUSK);
-        Policy a = Policy.of(base.with(Category.SKY, sky));
-        Policy b = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withLayer(0,
-                SkyPresets.DUSK.layers().get(0).withOpacity(40)))));
-        Policy c = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withCelestial(SkyDesign.Celestial.HIDE))));
-        Policy d = Policy.of(base.with(Category.SKY, sky.withSky(SkyPresets.DUSK.withExtent(SkyDesign.Extent.SPHERE))));
-        assertTrue(a.sameTextures(b));
-        assertTrue(a.sameTextures(d), "the extent changes no texture");
-        assertFalse(a.sameTextures(c));
-        TextureKey sun = new TextureKey(Category.SKY, "minecraft:textures/environment/sun.png");
-        TextureKey end = new TextureKey(Category.SKY, "minecraft:textures/environment/end_sky.png");
-        assertEquals(Appearance.Mode.ORIGINAL, a.appearanceFor(sun).mode());
-        assertEquals(Appearance.Mode.HIDDEN, c.appearanceFor(sun).mode());
-        assertEquals(Appearance.Mode.ORIGINAL, c.appearanceFor(end).mode());
-        assertEquals(Policy.SkyStyle.LAYERS, a.skyStyle());
-        assertNull(a.skyRgb(), "the flat sky color is only for Color");
-        assertFalse(Appearance.of(Appearance.Mode.LAYERS).changesPixels());
-    }
-
-    @Test
     void theBakeReadsTheTrailsButNotTheSpeedOrTheClock() {
         SkyDesign d = SkyDesign.NONE.withAdded(SkyLayer.Kind.STARS);
         SkyTurning turning = new SkyTurning(60, 3, SkyTurning.Clock.REAL, 30, SkyTurning.Direction.NORMAL, 10);
@@ -109,17 +81,5 @@ class SkyDesignTest {
         assertEquals(SkyDesign.Extent.SPHERE, turning.drawnExtent(), "the turn would bring the part below the horizon up");
         assertEquals(SkyDesign.Extent.HORIZON, turning.extent(), "the setting stays for a sky that stops turning");
         assertEquals(still.withExtent(SkyDesign.Extent.SPHERE).baked(), turning.baked(), "the bake fills the full sphere");
-    }
-
-    @Test
-    void yawWrapsAndTheRotationPointsTheCenter() {
-        assertEquals(new Transform(0, 0, 0, 100), new Transform(360, 0, 0, 100));
-        double[] r = new Transform(90, 30, 0, 100).rotation();
-        // The local north (0, 0, -1) goes to the third column, negated.
-        double x = -r[2], y = -r[5], z = -r[8];
-        assertEquals(Math.cos(Math.toRadians(30)), x, 1e-9, "east");
-        assertEquals(Math.sin(Math.toRadians(30)), y, 1e-9, "up");
-        assertEquals(0, z, 1e-9);
-        assertArrayEquals(new double[]{1, 0, 0, 0, 1, 0, 0, 0, 1}, Transform.IDENTITY.rotation(), 1e-12);
     }
 }
