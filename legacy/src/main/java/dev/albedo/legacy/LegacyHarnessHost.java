@@ -2,6 +2,7 @@ package dev.albedo.legacy;
 
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
@@ -47,14 +48,14 @@ final class LegacyHarnessHost implements Harness.Host {
     public void runCommand(final String command) {
         final MinecraftServer server = Minecraft.getMinecraft().getIntegratedServer();
         if (server == null) {
-            Harness.log("! no singleplayer server");
+            HarnessLog.fail("no singleplayer server");
             return;
         }
         server.addScheduledTask(new Runnable() {
             @Override
             public void run() {
                 List<EntityPlayerMP> players = Game.players(server);
-                if (players.isEmpty()) Harness.log("! no player for: " + command);
+                if (players.isEmpty()) HarnessLog.fail("no player for: " + command);
                 else server.getCommandManager().executeCommand(players.get(0), command);
             }
         });
@@ -76,9 +77,9 @@ final class LegacyHarnessHost implements Harness.Host {
                 }
                 try {
                     ImageIO.write(image, "png", png);
-                    Harness.log("saved " + png.getName());
+                    HarnessLog.log("saved " + png.getName());
                 } catch (IOException e) {
-                    Harness.log("! screenshot failed: " + png.getName() + ": " + e);
+                    HarnessLog.fail("screenshot failed: " + png.getName() + ": " + e);
                 }
             }
         }, "albedo-screenshot").start();
@@ -168,7 +169,7 @@ final class LegacyHarnessHost implements Harness.Host {
             method.invoke(display, wParam, lParam, Minecraft.getSystemTime());
             return true;
         } catch (ReflectiveOperationException e) {
-            Harness.log("! the LWJGL 2 window has no Windows key messages: " + e);
+            HarnessLog.fail("the LWJGL 2 window has no Windows key messages: " + e);
             return false;
         }
     }
@@ -180,7 +181,7 @@ final class LegacyHarnessHost implements Harness.Host {
             map.setAccessible(true);
             for (int vk = 1; vk < 256; vk++) if ((Integer) map.invoke(null, vk) == lwjglCode) return vk;
         } catch (ReflectiveOperationException e) {
-            Harness.log("! LWJGL 2 has no Windows key codes: " + e);
+            HarnessLog.fail("LWJGL 2 has no Windows key codes: " + e);
         }
         return -1;
     }

@@ -13,6 +13,7 @@ import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
@@ -250,7 +251,7 @@ final class PrecompiledSharpSky {
             try {
                 timer = DeviceApi.Timer.begin();
             } catch (IllegalStateException e) {
-                Harness.log("! the GPU timer is in use: " + e.getMessage());
+                HarnessLog.fail("the GPU timer is in use: " + e.getMessage());
             }
             for (int i = 0; i < repeat; i++) {
                 try (RenderPass pass = DeviceApi.pass("Albedo sky compare", target.getColorTextureView())) {
@@ -280,7 +281,7 @@ final class PrecompiledSharpSky {
                 try {
                     image.writeToFile(png);
                 } catch (IOException e) {
-                    Harness.log("! cannot save " + png + ": " + e);
+                    HarnessLog.fail("cannot save " + png + ": " + e);
                 }
             }
             image.close();

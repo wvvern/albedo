@@ -60,7 +60,7 @@ A target is `<loader>-<node>`, for example `fabric-26.3` or `forge-1.8.9`.
 Rules for the code in `tools/`:
 
 - `tools/project.py` is the only reader of the build layout: the node lists, the node properties, the jar names, the run folders and the Gradle task names. A tool asks it for nodes and targets and never names a node or a version list itself.
-- `tools/harness/protocol.py` is the only place with the file names and log lines of `core/dev/Harness.java`.
+- `tools/harness/protocol.py` is the only place with the file names and log lines of `core/dev/Harness.java` and `core/dev/HarnessLog.java`.
 - Only `harness/desktop.py` and `harness/cursor.py` call Windows, only `harness/processes.py` uses psutil, and only `images.py` uses Pillow.
 - A command module parses its arguments and prints; what it decides is in functions that take data and return data, with a test in `tools/tests/`. Tests take shared targets and temporary folders from `tools/tests/fixtures.py`. `lint` and `check-jar` are lists of such check functions.
 - What CI runs (`lint`, `build`, `check-jar`, `release-notes`, `ci-matrix` and the tests) uses only the standard library.

@@ -1,4 +1,4 @@
-"""The files and the log lines of the game side of the harness, core/src/main/java/dev/albedo/core/dev/Harness.java.
+"""The files and the log lines of the game side of the harness, Harness.java and HarnessLog.java in core/src/main/java/dev/albedo/core/dev/.
 
 The game runs with -Dalbedo.harness=<folder>. It takes <folder>/commands.txt, renames it to commands.taken, and appends to log.txt:
 "> <command>" for each command that it runs, the result lines of the commands, and a line that starts with "!" for each error.

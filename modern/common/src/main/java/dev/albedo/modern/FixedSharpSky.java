@@ -4,6 +4,7 @@ package dev.albedo.modern;
 /*import com.mojang.blaze3d.platform.GlStateManager;
 import dev.albedo.core.Albedo;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
@@ -339,7 +340,7 @@ final class FixedSharpSky {
             try {
                 ImageIO.write(image, "png", png);
             } catch (IOException e) {
-                Harness.log("! cannot save " + png + ": " + e);
+                HarnessLog.fail("cannot save " + png + ": " + e);
             }
         }
         done.accept(argb, nanos);

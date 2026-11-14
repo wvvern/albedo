@@ -18,6 +18,7 @@ final class CursorClip {
     private static final long WAIT_SECONDS = 30;
     /** The probe prints the left, top, right and bottom of the clip, then the left, top, width and height of the virtual screen. */
     private static final int PROBE_NUMBERS = 8;
+    private static final String FAILED = HarnessLog.FAIL_PREFIX + "cursorfree: ";
 
     /** The cursor clip and the size of the virtual screen. */
     static final class ClipProbe {
@@ -38,7 +39,7 @@ final class CursorClip {
             int clipHeight = clipBottom - clipTop;
             String shape = "clip " + clipLeft + "," + clipTop + "," + clipRight + "," + clipBottom + " (" + clipWidth + " x " + clipHeight
                     + "), screen " + screenWidth + " x " + screenHeight;
-            if (clipWidth < screenWidth || clipHeight < screenHeight) return "! cursorfree: the cursor is clipped, " + shape;
+            if (clipWidth < screenWidth || clipHeight < screenHeight) return FAILED + "the cursor is clipped, " + shape;
             return "cursorfree: ok, " + shape;
         }
     }
@@ -67,22 +68,22 @@ final class CursorClip {
         if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows")) return "cursorfree: skipped, not Windows";
         try {
             List<String> command = Files.readAllLines(new File(dir, "clip-probe.txt").toPath(), StandardCharsets.UTF_8);
-            if (command.isEmpty()) return "! cursorfree: clip-probe.txt has no command";
+            if (command.isEmpty()) return FAILED + "clip-probe.txt has no command";
             Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
             process.getOutputStream().close();
             // The wait comes before the read, because a read of a probe that hangs has no end; the one line of the probe fits in the pipe.
             if (!process.waitFor(WAIT_SECONDS, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
-                return "! cursorfree: the clip probe did not finish";
+                return FAILED + "the clip probe did not finish";
             }
             String output = new String(readAll(process), StandardCharsets.UTF_8);
             ClipProbe probe = parse(output);
-            return probe == null ? "! cursorfree: the clip probe gave: " + output.trim() : probe.line();
+            return probe == null ? FAILED + "the clip probe gave: " + output.trim() : probe.line();
         } catch (IOException e) {
-            return "! cursorfree: cannot run the clip probe: " + e;
+            return FAILED + "cannot run the clip probe: " + e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return "! cursorfree: stopped";
+            return FAILED + "stopped";
         }
     }
 

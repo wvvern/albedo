@@ -3,6 +3,7 @@ package dev.albedo.modern;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 
@@ -55,9 +56,9 @@ final class HarnessShots {
         new Thread(() -> {
             try (NativeImage owned = image) {
                 owned.writeToFile(png);
-                Harness.log("saved " + png.getName());
+                HarnessLog.log("saved " + png.getName());
             } catch (IOException e) {
-                Harness.log("! screenshot failed: " + e);
+                HarnessLog.fail("screenshot failed: " + e);
             }
         }, "albedo-screenshot").start();
     }

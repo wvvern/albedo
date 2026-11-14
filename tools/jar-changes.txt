@@ -86,4 +86,10 @@ dev/albedo/modern/mixin/SkySunriseMixin.class The sunrise fan redirect of SkyLay
 dev/albedo/modern/mixin/MouseGrabMixin.class A new mixin skips the window calls of the mouse grab and release only when the harness runs, with require = 0.
 dev/albedo/legacy/mixin/MouseGrabMixin.class A new mixin skips the LWJGL mouse grab and the cursor move only when the harness runs, with require = 0.
 dev/albedo/core/dev/CursorClip.class A new class is the check of the harness command cursorfree.
+dev/albedo/core/dev/HarnessLog.class A new class has the harness log; the classes that log call it instead of Harness.log.
+dev/albedo/core/dev/HarnessImages.class A new class has the image, timing and view math of the harness checks.
+dev/albedo/core/dev/HarnessConfigCommands.class A new class has the parsers of the harness commands that change the config.
+dev/albedo/core/dev/Harness$Verb.class A new interface is one entry of the verb table of the harness.
+dev/albedo/modern/FixedSharpSky.class The class logs through HarnessLog.
+dev/albedo/modern/SharpSky.class The class logs through HarnessLog.
 dev/albedo/modern/KeyCodes.class A new class has the key codes of the screens and the harness, because InputConstants has them only from 1.17.

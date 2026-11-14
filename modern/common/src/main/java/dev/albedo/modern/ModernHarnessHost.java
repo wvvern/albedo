@@ -2,6 +2,7 @@ package dev.albedo.modern;
 
 import dev.albedo.core.Keys;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.dev.HookCounter;
 import dev.albedo.core.sky.SkyImage;
 import net.minecraft.client.Minecraft;
@@ -44,7 +45,7 @@ final class ModernHarnessHost implements Harness.Host {
     public void runCommand(String command) {
         IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
         if (server == null) {
-            Harness.log("! no singleplayer server");
+            HarnessLog.fail("no singleplayer server");
             return;
         }
         //? if >=1.19 {

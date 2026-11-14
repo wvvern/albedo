@@ -1,6 +1,6 @@
 package dev.albedo.core.ui;
 
-import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -94,8 +94,8 @@ final class ScriptedInput {
                 int split = arg.indexOf(' ');
                 String id = split < 0 ? arg : arg.substring(0, split), want = split < 0 ? "" : arg.substring(split + 1);
                 String got = lastFields.get(id);
-                if (want.equals(got)) Harness.log("PASS " + id + " = \"" + got + "\"");
-                else Harness.log("! " + id + " = " + (got == null ? "not drawn" : "\"" + got + "\"") + ", expected \"" + want + "\"");
+                if (want.equals(got)) HarnessLog.log("PASS " + id + " = \"" + got + "\"");
+                else HarnessLog.fail(id + " = " + (got == null ? "not drawn" : "\"" + got + "\"") + ", expected \"" + want + "\"");
                 return false;
             }
             case "pointer":
@@ -112,13 +112,13 @@ final class ScriptedInput {
         if (at == null) {
             for (Map.Entry<String, int[]> e : lastTexts.entrySet()) if (e.getKey().contains(text)) at = e.getValue();
         }
-        if (at == null) Harness.log(noSuchControl(text));
+        if (at == null) HarnessLog.log(noSuchControl(text));
         return at;
     }
 
     /** The harness line for a command whose control the last frame did not draw, which fails a script that names an old label. */
     static String noSuchControl(String name) {
-        return "! no such control: " + name;
+        return HarnessLog.FAIL_PREFIX + "no such control: " + name;
     }
 
     /** Passes drawing through and keeps where each text was drawn. */

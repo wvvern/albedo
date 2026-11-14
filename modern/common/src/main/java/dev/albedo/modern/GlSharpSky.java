@@ -3,6 +3,7 @@ package dev.albedo.modern;
 //? if gl_sky {
 /*import com.mojang.blaze3d.platform.NativeImage;
 import dev.albedo.core.dev.Harness;
+import dev.albedo.core.dev.HarnessLog;
 import dev.albedo.core.sky.SkyClock;
 import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyProgram;
@@ -261,7 +262,7 @@ final class GlSharpSky {
             }
             image.writeToFile(png);
         } catch (IOException e) {
-            Harness.log("! cannot save " + png + ": " + e);
+            HarnessLog.fail("cannot save " + png + ": " + e);
         }
     }
 }
