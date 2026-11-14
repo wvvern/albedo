@@ -23,6 +23,13 @@ class OptionsTest(unittest.TestCase):
         self.assertEqual(["scene-modern", "pastel", "chroma"], options.suites(FABRIC))
         self.assertEqual(["scene-legacy", "pastel", "chroma"], options.suites(LEGACY))
 
+    def test_each_suite_with_its_own_folder_gets_a_game_folder_and_a_harness_name(self):
+        options = RunOptions(suite="chroma", own_folder=True)
+        self.assertEqual(FABRIC.project_dir / "runs" / "chroma", options.run_dir(FABRIC))
+        self.assertEqual("fabric-26.3-chroma", options.harness_name(FABRIC))
+        self.assertEqual("runs/chroma", devrun.gradle_properties(FABRIC, HARNESS, options)["runDir"])
+        self.assertEqual((FABRIC.run_dir, "fabric-26.3"), (RunOptions().run_dir(FABRIC), RunOptions().harness_name(FABRIC)))
+
     def test_only_a_game_with_a_choice_of_backend_gets_one(self):
         options = RunOptions(backend="vulkan")
         self.assertEqual("vulkan", options.forced_backend(FABRIC))

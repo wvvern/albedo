@@ -27,6 +27,8 @@ class RunOptions:
     backend: str = ""
     vulkan_validation: bool = False
     loader: Loader = Loader.FABRIC
+    # With several suites, each suite of a target gets its own game folder and harness folder, so all suites run at the same time.
+    own_folder: bool = False
 
     def iris(self, target: Target) -> bool:
         return not target.legacy and "iris" in [mod.strip() for mod in self.compat.split(",")]
@@ -36,6 +38,16 @@ class RunOptions:
 
     def suites(self, target: Target) -> list[str]:
         return [script.scene_of(target), *self.extra, self.suite]
+
+    def run_folder(self) -> str:
+        """The game folder, from the folder of the node. The Gradle run task gets it as -PrunDir."""
+        return f"runs/{self.suite}" if self.own_folder else "run"
+
+    def run_dir(self, target: Target) -> Path:
+        return target.project_dir / self.run_folder() if self.own_folder else target.run_dir
+
+    def harness_name(self, target: Target) -> str:
+        return f"{target.name}-{self.suite}" if self.own_folder else target.name
 
 
 def loader_config(target: Target, renderer_mod: bool) -> dict[str, tuple[str, str]]:
@@ -51,7 +63,7 @@ def loader_config(target: Target, renderer_mod: bool) -> dict[str, tuple[str, st
 
 
 def prepare_run_dir(target: Target, options: RunOptions) -> None:
-    run_dir = target.run_dir
+    run_dir = options.run_dir(target)
     # A new options file each run, so that no option of an earlier run changes the screenshots.
     game_options = rundir.QUIET_OPTIONS | {"guiScale": str(options.gui_scale)} | rundir.parse_option_lines(list(options.option_lines))
     rundir.write_options(run_dir / "options.txt", game_options)
@@ -76,6 +88,7 @@ def gradle_properties(target: Target, harness: Path, options: RunOptions) -> dic
         # The release jar of the node as a mod, not the classes of the dev run.
         "quiltJar": options.loader.release_jar,
         "harness_window": protocol.WINDOW_PROPERTY,
+        "runDir": options.run_folder() if options.own_folder else "",
     }
 
 

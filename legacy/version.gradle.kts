@@ -137,7 +137,8 @@ tasks.register<JavaExec>("runClientDev") {
     dependsOn("classes", "downloadAssets")
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("net.fabricmc.devlaunchinjector.Main")
-    workingDir = file("run")
+    // -PrunDir=<folder> gives the harness a game folder for each suite, so the suites of a node run at the same time.
+    workingDir = file(project.findProperty("runDir") ?: "run")
     doFirst { workingDir.mkdirs() }
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(8)) })
     jvmArgs(

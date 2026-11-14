@@ -15,7 +15,7 @@ def ownBuild = project.layout.buildDirectory.get().asFile.toPath()
 def commonBuild = rootProject.file("common/versions/${project.node}/build").toPath()
 if (project.hasProperty('quiltJar')) {
     // -PquiltJar runs the release jar of this node as a mod, with none of the classes of the node on the class path.
-    def modsDir = file('run/mods')
+    def modsDir = file("${project.findProperty('runDir') ?: 'run'}/mods")
     def installJar = tasks.register('installQuiltJar', Copy) {
         from project.releaseJarTask
         into modsDir

@@ -33,6 +33,8 @@ loom.runs {
             def (width, height) = (project.findProperty('harness_window') ?: '1600x900').toString().split('x')
             programArgs('--width', width, '--height', height)
         }
+        // -PrunDir=<folder> gives the harness a game folder for each suite, so the suites of a node run at the same time.
+        if (project.hasProperty('runDir')) runDir(project.property('runDir') as String)
         // -Pbackend=vulkan|opengl forces the graphics backend of 26.2 and later; -PvulkanValidation turns on the Vulkan validation layers.
         if (project.hasProperty('backend')) programArgs('--graphicsBackend', project.property('backend') as String)
         if (project.hasProperty('vulkanValidation')) programArgs('--vulkanValidation')

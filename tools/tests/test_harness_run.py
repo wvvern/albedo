@@ -15,6 +15,16 @@ class ParseTest(unittest.TestCase):
     def test_each_suite_gets_a_run_and_a_folder_of_its_own(self):
         _, runs = run.parse(["fabric-26.3", "--suite", "shots", "edges", "--out", "build/x"])
         self.assertEqual([("shots", Path("build/x/shots")), ("edges", Path("build/x/edges"))], [(options.suite, options.out) for options in runs])
+        self.assertTrue(all(options.own_folder for options in runs))
+
+    def test_one_suite_runs_in_the_game_folder_of_the_node(self):
+        _, runs = run.parse(["fabric-26.3", "--suite", "edges"])
+        self.assertFalse(runs[0].own_folder)
+
+    def test_the_games_that_run_at_the_same_time_fit_in_the_free_memory(self):
+        self.assertEqual(4, run.game_slots(112, 4 * run.GAME_BYTES + 1))
+        self.assertEqual(3, run.game_slots(3, 100 * run.GAME_BYTES))
+        self.assertEqual(1, run.game_slots(5, 0))
 
     def test_the_loader_is_fabric_unless_given(self):
         _, runs = run.parse(["fabric-26.3"])

@@ -75,7 +75,7 @@ python -m tools harness fabric-26.3 forge-1.8.9 --suite sky-sharp --out build/ru
 python -m tools harness all --suite shots chroma edges --out build/release
 ```
 
-- The targets run at the same time, each in its own game. The suites of `--suite` run one after the other in the game folder of each target, each in a new game, with its output in `<out>/<suite>/<target>`. A failed run also keeps its `gradle.log` there.
+- Each suite of `--suite` on each target runs in its own game, in the game folder `runs/<suite>` of the node, with its output in `<out>/<suite>/<target>`. All of these games run at the same time, as many as the free memory holds (about 3 GB each). A failed run also keeps its `gradle.log` there. Start one command with all targets and suites; do not run them one by one.
 
 - Suites: `shots` (each profile, mod on and off, hooks, window size, cursor), `sky-sharp` (`skycompare` on the presets), `chroma` with `pastel`, `typing`, `settings-pages`, `gallery` (the images in `modrinth/gallery`), `player-layers` (Player armor and Player cape on players and mobs), `edges` (Outline and Edge Chroma), `item-icons` (the hotbar after a look change), `off-switch` (the On switch, Apply and Done). The `scene-*` suites set up the world and run first.
 - A suite is written for the newest version. `tools/harness/script.py` has the rules that change a line for an older version (the ground level before 1.18, block and entity names), and a suite line that starts with `modern:` or `legacy:` runs only in that build.

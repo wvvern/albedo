@@ -4,8 +4,9 @@ The default suite builds a test scene in a superflat world and takes screenshots
 without fullbright, and the settings screen. Screenshots go to <out>/<target>/ with result.txt, which starts with PASS or FAIL and then
 has each reason. The exit code is 1 when a target fails. tools/harness/verdict.py has what a run must show to pass.
 
-The targets run at the same time, each in its own game. With several suites, the game of each target runs them one after the other,
-because they share its game folder, and the output of each goes to <out>/<suite>/<target>/.
+Each target runs in its own game, and all targets run at the same time. With several suites, each suite of each target runs in its own
+game, in the game folder runs/<suite> of the node, and all of these games also run at the same time, as many as the free memory holds.
+The output of each goes to <out>/<suite>/<target>/.
 
     python -m tools harness fabric-26.3 forge-1.8.9
     python -m tools harness fabric-26.3 forge-1.8.9 --suite sky-sharp --out build/sky-sharp
@@ -31,6 +32,8 @@ from tools.project import Target
 from tools.report import ToolError, say
 
 ALL = "all"
+# The memory of one hidden game and its Gradle process; the free memory divided by this is the number of games that run at the same time.
+GAME_BYTES = 3 * 1024**3
 
 
 def run_target(target: Target, options: RunOptions, system: System) -> bool:
@@ -44,8 +47,8 @@ def run_target(target: Target, options: RunOptions, system: System) -> bool:
     label = f"{target.name} {options.suite}"
     out = project.ROOT / options.out / target.name
     commands = script.compose(script.read_suites(suites), target)
-    finished = session.run(label, target.name, commands, launch_of, out, options.timeout, system)
-    evidence = session.read_evidence(finished.harness, finished.launch.log, target.run_dir)
+    finished = session.run(label, options.harness_name(target), commands, launch_of, out, options.timeout, system)
+    evidence = session.read_evidence(finished.harness, finished.launch.log, options.run_dir(target))
     failures = verdict.judge(evidence, devrun.expectations(target, options))
     result = "FAIL" if failures else "PASS"
     summary = [result, f"target: {target.name}", f"commands: {', '.join(f'{suite}.txt' for suite in suites)}", f"screenshots: {len(finished.images)}"]
@@ -58,16 +61,17 @@ def run_target(target: Target, options: RunOptions, system: System) -> bool:
     return not failures
 
 
-def run_suites(target: Target, runs: list[RunOptions], system: System) -> bool:
-    """Runs each suite of one target, also after a failed one, and tells whether all passed."""
-    passed = True
-    for options in runs:
-        try:
-            passed &= run_target(target, options, system)
-        except ToolError as error:
-            say(f"{target.name} {options.suite}", f"FAIL: {error}")
-            passed = False
-    return passed
+def run_job(target: Target, options: RunOptions, system: System) -> bool:
+    """Runs one suite of one target and tells whether it passed; an error fails only this run."""
+    try:
+        return run_target(target, options, system)
+    except ToolError as error:
+        say(f"{target.name} {options.suite}", f"FAIL: {error}")
+        return False
+
+
+def game_slots(jobs: int, free_bytes: int) -> int:
+    return max(1, min(jobs, free_bytes // GAME_BYTES))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -130,20 +134,24 @@ def parse(arguments: list[str]) -> tuple[list[Target], list[RunOptions]]:
     check(targets, options, parsed.suite)
     if len(parsed.suite) == 1:
         return targets, [options]
-    return targets, [dataclasses.replace(options, suite=suite, out=options.out / suite) for suite in parsed.suite]
+    return targets, [dataclasses.replace(options, suite=suite, out=options.out / suite, own_folder=True) for suite in parsed.suite]
 
 
 def main(arguments: list[str]) -> int:
     # Only a real run needs psutil and Windows, so the tests of parse run without them.
+    import psutil
+
     from tools.harness import processes
     from tools.harness.windows import Windows
 
     targets, runs = parse(arguments)
     system = Windows()
     processes.wait_for_tool(project.ROOT, "build")
-    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
-        passed = list(pool.map(lambda target: run_suites(target, runs, system), targets))
-    failed = [target.name for target, ok in zip(targets, passed, strict=True) if not ok]
+    # The first suite of each target starts first, so a slow target does not wait behind the other targets.
+    jobs = [(target, options) for options in runs for target in targets]
+    with ThreadPoolExecutor(max_workers=game_slots(len(jobs), psutil.virtual_memory().available)) as pool:
+        passed = list(pool.map(lambda job: run_job(*job, system), jobs))
+    failed = list(dict.fromkeys(target.name for (target, _), ok in zip(jobs, passed, strict=True) if not ok))
     if failed:
         print(f"FAIL: {', '.join(failed)}")
     return 1 if failed else 0
