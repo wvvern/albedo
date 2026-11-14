@@ -7,6 +7,7 @@ import dev.albedo.core.config.Transform;
 import dev.albedo.core.sky.SkyPresets;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -54,7 +55,6 @@ final class SkyLayersEditor {
 
     /** The height of one control row. */
     static final int ROW = 16;
-    static final int GAP = 6;
     /** A window lower than this shows no preview on a layer page, which has many rows. */
     private static final int LAYER_PREVIEW_MIN_H = 280;
     private static final String SKIES = "Skies";
@@ -112,11 +112,10 @@ final class SkyLayersEditor {
      * @param set takes the changed design
      */
     void draw(int x, int y, int w, int bottom, int screenH, SkyDesign design, Consumer<SkyDesign> set) {
-        labelW = 0;
-        for (SkyLayer.Kind k : SkyLayer.Kind.values()) for (SkyLayer.Param p : k.params()) labelW = Math.max(labelW, ui.width(Labels.param(k, p)));
-        for (String l : new String[]{"Blend", "Opacity", "Show", "Mask"}) labelW = Math.max(labelW, ui.width(l));
-        for (Transform.Axis a : Transform.Axis.values()) labelW = Math.max(labelW, ui.width(Labels.axis(a)));
-        labelW += 8;
+        List<String> labels = new ArrayList<String>(Arrays.asList("Blend", "Opacity", "Show", "Mask"));
+        for (SkyLayer.Kind k : SkyLayer.Kind.values()) for (SkyLayer.Param p : k.params()) labels.add(Labels.param(k, p));
+        for (Transform.Axis a : Transform.Axis.values()) labels.add(Labels.axis(a));
+        labelW = ui.widest(labels) + 8;
         int index = design.indexOf(page.layerId);
         if (page.screen == Screen.LAYER && index < 0) {
             go(SkyPage.LIST); // the layer is gone: deleted, or a different profile is active
@@ -136,7 +135,7 @@ final class SkyLayersEditor {
     private void listScreen(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
         int cy = y;
         if (bottom - y >= SkyPreview.height(w) + 3 * ROW + 40 + motion.height(design)) {
-            cy += preview.draw(x, y, w, design, -1, SkyPreviewSource.RESULT) + GAP;
+            cy += preview.draw(x, y, w, design, -1, SkyPreviewSource.RESULT) + Ui.GAP;
         }
         String addLabel = "+ Add layer";
         int aw = ui.buttonWidth(addLabel);
@@ -150,7 +149,7 @@ final class SkyLayersEditor {
             go(SkyPage.gallery(null));
             return;
         }
-        cy += Ui.H + GAP;
+        cy += Ui.H + Ui.GAP;
         boolean celestial = design.celestial() == SkyDesign.Celestial.SHOW, night = design.light() == SkyDesign.Light.DAY_NIGHT;
         boolean sphere = design.extent() == SkyDesign.Extent.SPHERE, sharp = design.render() == SkyDesign.Render.SHARP;
         Switch[] switches = {
@@ -195,10 +194,10 @@ final class SkyLayersEditor {
 
     /** Draws the switches in two columns when the width permits, else in one, and returns the y below them. */
     private int switches(int x, int y, int w, Switch[] switches, Consumer<SkyDesign> set) {
-        int columns = w >= 300 ? 2 : 1, cw = (w - GAP * (columns - 1)) / columns, rowH = 14;
+        int columns = w >= 300 ? 2 : 1, cw = (w - Ui.GAP * (columns - 1)) / columns, rowH = 14;
         for (int i = 0; i < switches.length; i++) {
             Switch s = switches[i];
-            int sx = x + i % columns * (cw + GAP), sy = y + i / columns * rowH;
+            int sx = x + i % columns * (cw + Ui.GAP), sy = y + i / columns * rowH;
             if (s.flipped == null) ui.lockedToggleRow(sx - 4, sy, cw + 4, s.label, s.on, s.tip);
             else if (ui.toggleRow(s.id, sx - 4, sy, cw + 4, s.label, s.on, s.tip) != s.on) set.accept(s.flipped);
         }
@@ -272,9 +271,9 @@ final class SkyLayersEditor {
             return;
         }
         ui.textFit("Start from a sky", x + 16, y + 3, w - uw - 20, Ui.TEXT);
-        int cy = y + Ui.H + GAP;
-        if (bottom - cy >= SkyPreview.height(w) + GAP + SkyGallery.height(w, 2)) {
-            cy += preview.draw(x, cy, w, chosen == null ? design : started(chosen, design), -1, SkyPreviewSource.RESULT) + GAP;
+        int cy = y + Ui.H + Ui.GAP;
+        if (bottom - cy >= SkyPreview.height(w) + Ui.GAP + SkyGallery.height(w, 2)) {
+            cy += preview.draw(x, cy, w, chosen == null ? design : started(chosen, design), -1, SkyPreviewSource.RESULT) + Ui.GAP;
         }
         String clicked = gallery.draw(x, cy, w, bottom - cy, page.preset);
         if (clicked != null && !clicked.equals(page.preset)) go(SkyPage.gallery(clicked));
@@ -286,7 +285,7 @@ final class SkyLayersEditor {
             return;
         }
         ui.text("Add a layer", x + 16, y + 3, Ui.TEXT);
-        int cy = y + Ui.H + GAP, rowH = Ui.H + 2;
+        int cy = y + Ui.H + Ui.GAP, rowH = Ui.H + 2;
         // The lines scroll when they do not all fit, and then the scroll bar takes some of their width.
         List<List<SkyLayer.Kind>> fit = kindLines(w);
         List<List<SkyLayer.Kind>> lines = fit.size() * rowH > bottom - cy ? kindLines(w - 6) : fit;

@@ -4,6 +4,7 @@ import dev.albedo.core.config.SkyDesign;
 import dev.albedo.core.config.SkyTurning;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -15,19 +16,17 @@ final class MotionSection {
         Labels.DIRECTION, Labels.POLE, Labels.TRAILS, Labels.TRAIL_LIGHT};
 
     private final Ui ui;
-    private final Runnable relayout;
-    /** True while the section is open; only a click on its heading changes it. */
-    private boolean open;
+    private final Section section;
 
     /** @param relayout tells the screen that the layout changed, so that it draws the frame again */
     MotionSection(Ui ui, Runnable relayout) {
         this.ui = ui;
-        this.relayout = relayout;
+        this.section = new Section(ui, ID, relayout);
     }
 
     /** The height of the section: its heading, and when it is open the Turning row and, while the sky turns, its options. */
     int height(SkyDesign design) {
-        return open ? Ui.H + 2 + SkyLayersEditor.ROW * rows(design) + SkyLayersEditor.GAP : Ui.H + SkyLayersEditor.GAP;
+        return section.isOpen() ? Ui.H + 2 + SkyLayersEditor.ROW * rows(design) + Ui.GAP : Ui.H + Ui.GAP;
     }
 
     /** The rows under the open heading: Turning, and its options while the sky turns. */
@@ -40,20 +39,15 @@ final class MotionSection {
      * which returns the y below the section.
      */
     int draw(int x, int y, int w, int bottom, SkyDesign design, Consumer<SkyDesign> set) {
-        int row = SkyLayersEditor.ROW, gap = SkyLayersEditor.GAP;
+        int row = SkyLayersEditor.ROW, gap = Ui.GAP;
         SkyTurning t = design.turning();
-        boolean wasOpen = open;
+        boolean wasOpen = section.isOpen();
         if (y + Ui.H > bottom) return y; // a very short window has no room for the section
-        String tip = (wasOpen ? "Hide" : "Show") + " the turning of the sky";
-        if (ui.sectionHeader(ID, x - 4, y, w + 4, "Motion", Labels.turning(t), wasOpen, tip) != wasOpen) {
-            open = !wasOpen;
-            relayout.run();
-        }
+        section.header(x, y, w, "Motion", Labels.turning(t), (wasOpen ? "Hide" : "Show") + " the turning of the sky");
         if (!wasOpen) return y + Ui.H + gap;
         int top = y + Ui.H + 2, count = rows(design);
         int h = Math.max(0, Math.min(count * row, bottom - top));
-        int labelW = ui.width(Labels.TURNING) + Form.INDENT;
-        for (String l : TURNING_OPTIONS) labelW = Math.max(labelW, ui.width(l) + 2 * Form.INDENT);
+        int labelW = Math.max(ui.width(Labels.TURNING) + Form.INDENT, ui.widest(Arrays.asList(TURNING_OPTIONS)) + 2 * Form.INDENT);
         // A short window scrolls the rows, with room for the scroll bar.
         Form form = new Form(ui, x, count * row > h ? w - 6 : w, labelW + 8), turning = form.indented(), options = turning.indented();
         List<RowList.Line> rows = new ArrayList<RowList.Line>();

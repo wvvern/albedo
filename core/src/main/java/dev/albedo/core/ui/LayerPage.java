@@ -44,7 +44,7 @@ final class LayerPage {
         String title = Labels.layer(design, index) + " of " + design.layers().size();
         ui.textFit(title, x + 16, y + 3, w - tabW - 20, Ui.TEXT);
         ui.tip(x + 16, y, w - tabW - 20, Ui.H, Labels.kindTip(layer.kind()));
-        int cy = y + Ui.H + SkyLayersEditor.GAP;
+        int cy = y + Ui.H + Ui.GAP;
         if (withPreview && bottom - cy >= SkyPreview.height(w) + 4 * SkyLayersEditor.ROW) {
             Form form = new Form(ui, x, w, labelW);
             int sw = 0;
@@ -54,7 +54,7 @@ final class LayerPage {
                     Labels::source, Labels::sourceTip);
             if (s != page.source) return page.withSource(s);
             cy += Ui.H + 2;
-            cy += preview.draw(x, cy, w, design, index, page.source) + SkyLayersEditor.GAP;
+            cy += preview.draw(x, cy, w, design, index, page.source) + Ui.GAP;
         }
         List<RowList.Line> rows = page.tab == LayerTab.LOOK ? lookRows(x, w, labelW, design, index, set)
                 : placeRows(x, w, labelW, design, index, set);
