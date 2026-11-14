@@ -1,6 +1,5 @@
 package dev.albedo.legacy.mixin;
 
-import dev.albedo.legacy.Game;
 import dev.albedo.legacy.LegacyHooks;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.renderer.BlockModelRenderer;
@@ -22,14 +21,12 @@ public abstract class BlockModelRendererVanillaMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/color/BlockColors;colorMultiplier("
                     + "Lnet/minecraft/block/state/IBlockState;Lnet/minecraft/world/IBlockAccess;Lnet/minecraft/util/math/BlockPos;I)I"))
     private int albedo$tint(BlockColors colors, IBlockState state, IBlockAccess world, BlockPos pos, int tintIndex) {
-        LegacyHooks.TINT.run();
-        return LegacyHooks.blockTint(colors.colorMultiplier(state, world, pos, tintIndex));
+        return LegacyHooks.tintHook(colors.colorMultiplier(state, world, pos, tintIndex));
     }
 
     @Redirect(method = {"renderQuadsSmooth", "renderQuadsFlat"}, require = 0,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/BufferBuilder;addVertexData([I)V"))
     private void albedo$quad(BufferBuilder buffer, int[] vertexData) {
-        LegacyHooks.SHADE.run();
-        Game.addQuad(buffer, vertexData);
+        buffer.addVertexData(LegacyHooks.vanillaQuad(vertexData));
     }
 }

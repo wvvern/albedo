@@ -177,8 +177,18 @@ public final class LegacySky {
         GlStateManager.popMatrix();
     }
 
+    public static void afterSolid() {
+        LegacyHooks.AFTER_SOLID.run();
+        drawWaiting();
+    }
+
+    public static void beforeClouds() {
+        LegacyHooks.BEFORE_CLOUDS.run();
+        drawWaiting();
+    }
+
     /** Draws the sharp sky that waits, before the clouds or after the solid world, whose camera matrix is that of the sky. */
-    public static void drawWaiting() {
+    private static void drawWaiting() {
         Waiting waiting = DEFER.take();
         if (waiting == null) return;
         drawSharp(waiting);

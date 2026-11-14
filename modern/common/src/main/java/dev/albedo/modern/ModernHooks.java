@@ -18,8 +18,8 @@ import java.util.List;
 public final class ModernHooks {
     /** The afterSolid method of each sky family runs it. */
     static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
-    public static final HookCounter SODIUM_SHADE = new HookCounter("sodiumShade");
-    public static final HookCounter DRY_FOLIAGE = new HookCounter("dryFoliage");
+    private static final HookCounter SODIUM_SHADE = new HookCounter("sodiumShade");
+    private static final HookCounter DRY_FOLIAGE = new HookCounter("dryFoliage");
     private static final HookCounter TINT = new HookCounter("tint");
     private static final HookCounter SODIUM_TINT = new HookCounter("sodiumTint");
     private static final HookCounter SODIUM_WATER = new HookCounter("sodiumWater");
@@ -141,14 +141,33 @@ public final class ModernHooks {
 
     /** Sodium: a tint index of -1 means "no tint", so the renderer skips the block color provider. */
     public static int blockTintIndex(int tintIndex) {
-        SODIUM_TINT.run();
-        return Albedo.currentPolicy().removeTint(Category.BLOCKS) ? -1 : tintIndex;
+        return removeSodiumBlockTint() ? -1 : tintIndex;
     }
 
     /** Embeddium: false means "no tint", so the renderer skips the block color provider. */
     public static boolean blockTinted(boolean tinted) {
+        return !removeSodiumBlockTint() && tinted;
+    }
+
+    /** Sodium 0.5: the vertex colors of a quad become white in place where the tint is removed. */
+    public static void whiteVertexColors(int[] colors) {
+        if (removeSodiumBlockTint()) Arrays.fill(colors, -1);
+    }
+
+    /**
+     * Older Sodium: the blended colors of a quad, or a new array of white where the tint is removed, because the blenders
+     * can share their arrays and some renderers read the array with no null check.
+     */
+    public static int[] untintedColors(int[] colors) {
+        if (!removeSodiumBlockTint() || colors == null) return colors;
+        int[] white = new int[colors.length];
+        Arrays.fill(white, -1);
+        return white;
+    }
+
+    private static boolean removeSodiumBlockTint() {
         SODIUM_TINT.run();
-        return tinted && !Albedo.currentPolicy().removeTint(Category.BLOCKS);
+        return Albedo.currentPolicy().removeTint(Category.BLOCKS);
     }
 
     /** Sodium: true means the fluid quads of the water get no biome color, because its renderer does not ask BiomeColors. */
@@ -170,8 +189,20 @@ public final class ModernHooks {
         Albedo.processColormap(name, pixels);
     }
 
+    /** The dry foliage colormap, from 1.21.5. */
+    public static void dryFoliageColormap(int[] pixels) {
+        DRY_FOLIAGE.run();
+        colormap("dry_foliage", pixels);
+    }
+
     public static boolean shading() {
         return Albedo.currentPolicy().shading();
+    }
+
+    /** Shading in the level slice of Sodium 0.9 and later. */
+    public static boolean sodiumShading() {
+        SODIUM_SHADE.run();
+        return shading();
     }
 
     public static boolean overridesSky() {

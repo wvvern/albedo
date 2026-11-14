@@ -13,7 +13,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class DryFoliageColorMixin {
     @Inject(method = "init", at = @At("HEAD"), require = 0)
     private static void albedo$flatten(int[] pixels, CallbackInfo ci) {
-        ModernHooks.DRY_FOLIAGE.run();
-        ModernHooks.colormap("dry_foliage", pixels);
+        ModernHooks.dryFoliageColormap(pixels);
     }
 }

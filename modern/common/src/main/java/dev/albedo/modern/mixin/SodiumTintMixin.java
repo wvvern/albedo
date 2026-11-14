@@ -19,24 +19,15 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
         "org.embeddedt.embeddium.impl.render.chunk.compile.pipeline.BlockRenderer"
 }, remap = false)
 public abstract class SodiumTintMixin {
-    /** Sodium 0.8.14 to 0.9.2 (1.21.11, 26.x). */
-    @ModifyExpressionValue(method = "tintQuad", require = 0, at = @At(value = "INVOKE",
-            target = "Lnet/caffeinemc/mods/sodium/client/render/model/MutableQuadViewImpl;getTintIndex()I"))
+    @ModifyExpressionValue(method = "tintQuad", require = 0, at = {
+            // Sodium 0.8.14 to 0.9.2 (1.21.11, 26.x).
+            @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/model/MutableQuadViewImpl;getTintIndex()I"),
+            // Sodium 0.6.13 (1.21.4, 1.21.5) and 0.7 (1.21.8, 1.21.10).
+            @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/frapi/mesh/MutableQuadViewImpl;tintIndex()I"),
+            // Sodium 0.9.3 and later (26.x).
+            @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/model/MutableQuadViewImpl;sodium$getTintIndex()I")
+    })
     private int albedo$tintIndex(int tintIndex) {
-        return ModernHooks.blockTintIndex(tintIndex);
-    }
-
-    /** Sodium 0.6.13 (1.21.4, 1.21.5) and 0.7 (1.21.8, 1.21.10). */
-    @ModifyExpressionValue(method = "tintQuad", require = 0, at = @At(value = "INVOKE",
-            target = "Lnet/caffeinemc/mods/sodium/client/render/frapi/mesh/MutableQuadViewImpl;tintIndex()I"))
-    private int albedo$quadTintIndex(int tintIndex) {
-        return ModernHooks.blockTintIndex(tintIndex);
-    }
-
-    /** Sodium 0.9.3 and later (26.x). */
-    @ModifyExpressionValue(method = "tintQuad", require = 0, at = @At(value = "INVOKE",
-            target = "Lnet/caffeinemc/mods/sodium/client/render/model/MutableQuadViewImpl;sodium$getTintIndex()I"))
-    private int albedo$sodiumTintIndex(int tintIndex) {
         return ModernHooks.blockTintIndex(tintIndex);
     }
 

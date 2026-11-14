@@ -25,15 +25,12 @@ public abstract class RenderGlobalMixin {
     // The cutout layer is the last solid layer of the world.
     @Inject(method = "renderBlockLayer(Lnet/minecraft/util/BlockRenderLayer;DILnet/minecraft/entity/Entity;)I", at = @At("RETURN"), require = 0)
     private void albedo$skyAfterSolid(BlockRenderLayer layer, double partialTicks, int pass, Entity entity, CallbackInfoReturnable<Integer> cir) {
-        if (layer != BlockRenderLayer.CUTOUT) return;
-        LegacyHooks.AFTER_SOLID.run();
-        LegacySky.drawWaiting();
+        if (layer == BlockRenderLayer.CUTOUT) LegacySky.afterSolid();
     }
 
     // Below the cloud height the clouds draw before the world and blend with the sky, so the sky cannot wait longer.
     @Inject(method = "renderClouds(FIDDD)V", at = @At("HEAD"), require = 0)
     private void albedo$skyBeforeClouds(float partialTicks, int pass, double x, double y, double z, CallbackInfo ci) {
-        LegacyHooks.BEFORE_CLOUDS.run();
-        LegacySky.drawWaiting();
+        LegacySky.beforeClouds();
     }
 }

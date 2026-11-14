@@ -22,28 +22,20 @@ public abstract class SodiumTintRedirectMixin {
     /** Sodium 0.5 (1.20.1 to 1.20.6), Embeddium 0.3 and Rubidium 0.7: the vertex colors of a quad are white where the tint is removed. */
     @Inject(method = "getVertexColors", require = 0, at = @At("RETURN"))
     private void albedo$tint(CallbackInfoReturnable<int[]> cir) {
-        if (!ModernHooks.blockTinted(true)) java.util.Arrays.fill(cir.getReturnValue(), -1);
+        ModernHooks.whiteVertexColors(cir.getReturnValue());
     }
 
     /** Sodium 0.4 (1.18.2 to 1.19.4), Embeddium 0.3.18 and Rubidium 0.5 to 0.6: the blended colors of a quad are white where the tint is removed. */
     @ModifyVariable(method = {"renderQuad", "renderQuadList"}, require = 0, at = @At(value = "INVOKE_ASSIGN",
             target = "Lme/jellysquid/mods/sodium/client/model/quad/blender/ColorBlender;getColors"))
     private int[] albedo$blendedColors(int[] colors) {
-        return albedo$white(colors);
+        return ModernHooks.untintedColors(colors);
     }
 
     /** Sodium 0.2 and 0.3 (1.16.5, 1.17.1), Embeddium 0.3.18 and Rubidium 0.2 (1.16.5): same, with the older blender type. */
     @ModifyVariable(method = "renderQuad", require = 0, at = @At(value = "INVOKE_ASSIGN",
             target = "Lme/jellysquid/mods/sodium/client/model/quad/blender/BiomeColorBlender;getColors"))
     private int[] albedo$biomeColors(int[] colors) {
-        return albedo$white(colors);
-    }
-
-    /** A new array of white, because the blenders can share their arrays and some renderers read the array with no null check. */
-    private static int[] albedo$white(int[] colors) {
-        if (ModernHooks.blockTinted(true) || colors == null) return colors;
-        int[] white = new int[colors.length];
-        java.util.Arrays.fill(white, -1);
-        return white;
+        return ModernHooks.untintedColors(colors);
     }
 }

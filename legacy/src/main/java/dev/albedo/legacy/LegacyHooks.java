@@ -19,14 +19,15 @@ import java.util.Locale;
 
 /** What the mixins call: thin translations from the game types to the core. */
 public final class LegacyHooks {
-    public static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
-    public static final HookCounter BEFORE_CLOUDS = new HookCounter("beforeClouds");
+    /** LegacySky runs the sky counters. */
+    static final HookCounter AFTER_SOLID = new HookCounter("afterSolid");
+    static final HookCounter BEFORE_CLOUDS = new HookCounter("beforeClouds");
     /** The block tint hook of the light pipeline that draws the blocks: Forge or vanilla. */
-    public static final HookCounter TINT = new HookCounter("tint");
+    private static final HookCounter TINT = new HookCounter("tint");
     /** The face shade hook of the light pipeline that draws the blocks: Forge or vanilla. */
-    public static final HookCounter SHADE = new HookCounter("shade");
-    public static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
-    public static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
+    private static final HookCounter SHADE = new HookCounter("shade");
+    private static final HookCounter RELOAD_STEP = new HookCounter("reloadStep");
+    private static final HookCounter TEXTURE_UPLOAD = new HookCounter("textureUpload");
     /** The skipped LWJGL calls of the mouse grab and release, which only a harness game skips. */
     private static final HookCounter MOUSE_GRAB = new HookCounter("mouseGrab");
     /** The cape and elytra layers, which run only while a player or a mob with that layer is in view; 1.8.9 has no elytra. */
@@ -153,7 +154,13 @@ public final class LegacyHooks {
     }
 
     public static void reloadStep() {
+        RELOAD_STEP.run();
         ReloadScreen.step();
+    }
+
+    /** SimpleTexture uploads its image. */
+    public static void textureUpload() {
+        TEXTURE_UPLOAD.run();
     }
 
     /** Removes the face shade that every model has from a quad when shading is off, so that a shading change needs no model reload. */
@@ -161,9 +168,22 @@ public final class LegacyHooks {
         return shading() ? vertexData : FaceShade.remove(vertexData);
     }
 
+    /** A quad of the vanilla block renderer; Game.addQuad has no counter, because OptiFineRenderPatch also calls it. */
+    public static int[] vanillaQuad(int[] vertexData) {
+        SHADE.run();
+        return quad(vertexData);
+    }
+
     /** The same for Forge's block lighting pipeline: one vertex color, 0..1, before tint and smooth lighting. */
     public static void vertexColor(float[] rgba) {
+        SHADE.run();
         if (!shading()) FaceShade.remove(rgba);
+    }
+
+    /** The block tint of the Forge and vanilla light pipelines; OptiFineRenderPatch calls blockTint, which has no counter. */
+    public static int tintHook(int original) {
+        TINT.run();
+        return blockTint(original);
     }
 
     public static int blockTint(int original) {

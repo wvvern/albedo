@@ -16,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ForgeVertexLighterMixin {
     @Inject(method = "updateColor", at = @At("HEAD"))
     private void albedo$shade(float[] normal, float[] color, float x, float y, float z, float tint, int multiplier, CallbackInfo ci) {
-        LegacyHooks.SHADE.run();
         LegacyHooks.vertexColor(color);
     }
 }
