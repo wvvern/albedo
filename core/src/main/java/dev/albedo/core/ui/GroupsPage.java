@@ -132,8 +132,8 @@ final class GroupsPage {
         int nx = x + 20 + ui.width(crumb), nw = Math.min(140, x + w - dw - 6 - nx);
         if (!ui.isFocused("group.name")) groupName.set(rule.displayName());
         if (ui.textField("group.name", groupName, nx, y - 3, nw, Ui.H, "Group name", "The name of this group")
-                && !groupName.text.trim().isEmpty()) {
-            session.setRule(cs, index, rule.withName(groupName.text.trim()));
+                && !groupName.text().trim().isEmpty()) {
+            session.setRule(cs, index, rule.withName(groupName.text().trim()));
             return;
         }
         if (ui.confirmButton("group.delete", x + w - dw, y - 3, dw, Ui.H, "Delete", "Delete this group",
@@ -165,7 +165,7 @@ final class GroupsPage {
         }
         focused = ui.isFocused(ADD);
         // "/fla" is a regular expression still being typed: it means "/fla/".
-        String typed = add.text.trim();
+        String typed = add.text().trim();
         if (typed.startsWith("/") && !Glob.isRegex(typed)) typed += "/";
         String problem = Glob.problem(typed);
         List<GroupMatches.Suggestion> list = focused && problem == null
@@ -183,7 +183,7 @@ final class GroupsPage {
         if (rows > 0) ui.reserveOverlay(listArea);
         if (focused && problem != null) {
             listY += ui.paragraph("Not a valid regular expression: " + problem, fx, listY + 2, fw, Ui.DANGER) + 2;
-        } else if (focused && !add.text.trim().isEmpty() && list.isEmpty()) {
+        } else if (focused && !add.text().trim().isEmpty() && list.isEmpty()) {
             ui.textFit("No texture matches. Enter adds it as you typed it.", fx, listY + 2, fw, Ui.FAINT);
             listY += 12;
         }

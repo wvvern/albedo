@@ -53,7 +53,7 @@ final class ServersPage {
         boolean enter = ui.isFocused("server.name") && ui.takeKey(UiKey.ENTER);
         ui.textField("server.name", serverName, x, cy, w - bw - 4, Ui.H, "Server address, for example hypixel.net",
                 "An address also covers its subdomains: hypixel.net is also mc.hypixel.net");
-        String typed = ServerRule.host(serverName.text);
+        String typed = ServerRule.host(serverName.text());
         draft = session.draft();
         boolean listed = draft.servers().containsKey(typed), canAdd = !typed.isEmpty() && !listed;
         if (ui.button("server.add", x + w - bw, cy, bw, Ui.H, add, Ui.Style.NORMAL, canAdd,

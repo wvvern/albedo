@@ -72,7 +72,7 @@ final class ProfileHeader {
             picker = new ProfilePicker(ui, session, server, anchor, body);
         } else if (next == Mode.RENAME) {
             rename.set(session.draft().activeProfileName());
-            rename.selectAll = true;
+            rename.selectAll();
             ui.focus("rename");
         }
     }
@@ -117,7 +117,7 @@ final class ProfileHeader {
     private void finishRename() {
         setMode(Mode.BROWSE);
         Config draft = session.draft();
-        session.set(draft.withRenamedProfile(draft.activeProfileName(), rename.text));
+        session.set(draft.withRenamedProfile(draft.activeProfileName(), rename.text()));
     }
 
     private void profileBar(int px, int y, int pw, int right, int bw) {

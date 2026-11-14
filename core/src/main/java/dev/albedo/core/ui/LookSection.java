@@ -78,7 +78,8 @@ final class LookSection {
             int cy = Column.stack(x, y, w, items(category, cs, -1, w, bottom - y, 0));
             CategorySettings now = session.profile().get(category);
             if (now.appearance().mode() == Appearance.Mode.LAYERS) {
-                skyLayers.draw(x, cy, w, bottom, ui.c.height(), now.sky(), d -> session.setCategory(session.profile().get(Category.SKY).withSky(d)));
+                skyLayers.draw(x, cy, w, bottom, ui.screenHeight(), now.sky(),
+                        d -> session.setCategory(session.profile().get(Category.SKY).withSky(d)));
             }
             return;
         }

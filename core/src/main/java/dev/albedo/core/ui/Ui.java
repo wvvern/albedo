@@ -78,24 +78,9 @@ final class Ui {
         }
     }
 
-    /** The tooltip: the text a widget asks for in this frame and since when the pointer rests on it. */
-    private static final class Tip {
-        String wanted;
-        /** Show the text now, with no delay (an armed delete button explains its second click). */
-        boolean now;
-        /** The widget that asked for the text, which the tooltip does not cover. */
-        Rect control;
-        String shown;
-        long since;
-        /** After a click the result matters more than the explanation: no tooltip until the pointer moves. */
-        boolean hiddenByClick;
-    }
-
-    Canvas c;
-    /** Time in ms a pointer must rest on a widget before its tooltip shows. */
-    int tipDelay = 400;
+    private Canvas c;
     private final Pointer pointer = new Pointer();
-    private final Tip tip = new Tip();
+    private final Tooltip tooltip = new Tooltip();
     private Armed armed;
     private String focus;
     /** The focus at the start of the frame, which {@link #end} drops when no text field drew it. */
@@ -107,8 +92,6 @@ final class Ui {
     private boolean drawingOverlay;
     /** The last overlay area of this frame, kept after the overlay ends, so that later drawing can stay off it. */
     private Rect overlayDrawn;
-    /** The area that tooltips stay in: the screen, or the panel that the owner sets each frame. */
-    private Rect tipBounds;
     private final List<Input> inputs = new ArrayList<Input>();
     /** The cursor of the focused text field of this frame, or null when no field takes typing. */
     private Rect cursor;
@@ -148,17 +131,10 @@ final class Ui {
     void begin(Canvas canvas, int mouseX, int mouseY) {
         this.c = canvas;
         pointer.clickedThisFrame = pointer.click;
-        if (mouseX != pointer.x || mouseY != pointer.y) {
-            tip.since = now();
-            tip.hiddenByClick = false;
-        }
+        tooltip.begin(mouseX != pointer.x || mouseY != pointer.y, new Rect(0, 0, canvas.width(), canvas.height()));
         pointer.x = mouseX;
         pointer.y = mouseY;
-        tip.wanted = null;
-        tip.control = null;
-        tip.now = false;
         overlayDrawn = null;
-        tipBounds = new Rect(0, 0, canvas.width(), canvas.height());
         if (armed != null && now() - armed.at > CONFIRM_MS) armed = null;
         focusAtBegin = focus;
         focusDrawn = false;
@@ -189,7 +165,17 @@ final class Ui {
         if (focus == null) cursor = null;
         wheel = 0;
         inputs.clear();
-        tooltip();
+        tooltip.draw(this, pointer.x, pointer.y);
+    }
+
+    /** Sets the time in ms a pointer must rest on a widget before its tooltip shows. */
+    void tipDelay(int ms) { tooltip.delay = ms; }
+
+    int screenHeight() { return c.height(); }
+
+    /** Draws an image stretched into the rectangle, which the adapter keeps as one texture for each id. */
+    void image(String id, CanvasImage img, int x, int y, int w, int h) {
+        c.image(id, img, x, y, w, h);
     }
 
     /** The cursor of the text field that takes typing after this frame, or null when no field does. */
@@ -247,7 +233,7 @@ final class Ui {
     Rect overlayDrawn() { return overlayDrawn; }
 
     /** Keeps the tooltips of this frame inside {@code area}, which must be inside the screen. */
-    void tipBounds(Rect area) { tipBounds = area; }
+    void tipBounds(Rect area) { tooltip.bounds(area); }
 
     /** Widgets drawn from now on are the overlay itself. */
     void beginOverlay() {
@@ -264,7 +250,7 @@ final class Ui {
         if (!pointer.click || !hover(x, y, w, h)) return false;
         pointer.click = false;
         pointer.owner = id;
-        tip.hiddenByClick = true;
+        tooltip.hideUntilMove();
         if (!id.equals(focus)) focus = null;
         if (armed != null && !id.equals(armed.id)) armed = null;
         return true;
@@ -277,66 +263,10 @@ final class Ui {
 
     /** Sets the tooltip for this frame when the pointer is on the rectangle. */
     void tip(int x, int y, int w, int h, String text) {
-        if (text != null && hover(x, y, w, h)) {
-            tip.wanted = text;
-            tip.control = new Rect(x, y, w, h);
-        }
+        if (text != null && hover(x, y, w, h)) tooltip.tip(new Rect(x, y, w, h), text);
     }
 
-    /** A tooltip near the pointer, after the pointer rests for {@link #tipDelay} ms; wrapped, kept in the tip bounds and off its widget. */
-    private void tooltip() {
-        if (tip.wanted == null) {
-            tip.shown = null;
-            return;
-        }
-        if (!tip.wanted.equals(tip.shown)) {
-            tip.shown = tip.wanted;
-            tip.since = now();
-        }
-        if (!tip.now && (tip.hiddenByClick || now() - tip.since < tipDelay)) return;
-        Rect b = tipBounds;
-        Rect ctl = tip.control != null ? tip.control : new Rect(pointer.x, pointer.y, 1, 1);
-        // An armed button is clicked again, and the rows under it often hold more of the same buttons, so its tip goes beside it.
-        if (tip.now && tipBeside(b, ctl)) return;
-        List<String> lines = wrap(tip.wanted, Math.min(170, b.w - 8));
-        int bw = linesWidth(lines) + 8, bh = lines.size() * (LINE + 1) + 5;
-        int x = Math.max(b.x + 2, Math.min(pointer.x + 6, b.x + b.w - bw - 2));
-        // A small widget keeps its whole area free; a large one (a list, a picker) only the point under the pointer.
-        boolean small = ctl.h <= 2 * H;
-        int below = small ? Math.max(pointer.y + 12, ctl.bottom() + 2) : pointer.y + 12;
-        int above = (small ? Math.min(pointer.y, ctl.y) : pointer.y) - bh - 4;
-        int y = below + bh <= b.bottom() - 2 ? below : Math.max(b.y + 2, above);
-        tipBox(lines, x, y, bw, bh);
-    }
-
-    /** Draws the tooltip left or right of the control when it fits there, and returns whether it did. */
-    private boolean tipBeside(Rect b, Rect ctl) {
-        int leftRoom = ctl.x - 3 - (b.x + 2), rightRoom = b.x + b.w - 2 - (ctl.x + ctl.w + 3);
-        boolean left = leftRoom >= rightRoom;
-        int room = Math.min(170, Math.max(leftRoom, rightRoom));
-        if (room < 60) return false;
-        List<String> lines = wrap(tip.wanted, room - 8);
-        int bw = linesWidth(lines) + 8, bh = lines.size() * (LINE + 1) + 5;
-        if (bh > b.h - 4) return false;
-        int x = left ? ctl.x - 3 - bw : ctl.x + ctl.w + 3;
-        int y = Math.max(b.y + 2, Math.min(ctl.y + (ctl.h - bh) / 2, b.bottom() - bh - 2));
-        tipBox(lines, x, y, bw, bh);
-        return true;
-    }
-
-    private int linesWidth(List<String> lines) {
-        int w = 0;
-        for (String l : lines) w = Math.max(w, width(l));
-        return w;
-    }
-
-    private void tipBox(List<String> lines, int x, int y, int bw, int bh) {
-        round(x, y, bw, bh, BORDER);
-        round(x + 1, y + 1, bw - 2, bh - 2, TOOLTIP);
-        for (int i = 0; i < lines.size(); i++) text(lines.get(i), x + 4, y + 3 + i * (LINE + 1), TEXT);
-    }
-
-    private static long now() {
+    static long now() {
         return System.currentTimeMillis();
     }
 
@@ -488,11 +418,7 @@ final class Ui {
         boolean hovered = hover(x, y, w, h);
         round(x, y, w, h, hovered ? 0xFFF07C83 : DANGER);
         textCentered(ellipsize(label, w - 4), x + w / 2, y + (h - LINE) / 2 + 1, 0xFFFFFFFF);
-        if (hovered) {
-            tip.wanted = confirmTip;
-            tip.control = new Rect(x, y, w, h);
-            tip.now = true;
-        }
+        if (hovered) tooltip.tipNow(new Rect(x, y, w, h), confirmTip);
         if (!press(id, x, y, w, h)) return false;
         armed = null;
         return true;
@@ -729,25 +655,24 @@ final class Ui {
         if (press(id, x, y, w, h)) {
             focus = id;
             focused = true;
-            field.selectAll = false;
-            field.cursor = field.text.length();
+            field.focusAtEnd();
         }
         boolean changed = focused && edit(field);
-        fieldTexts.put(id, field.text);
+        String shown = field.text();
+        fieldTexts.put(id, shown);
         int tx = x + 4, ty = y + (h - LINE) / 2 + 1, room = w - 8;
-        if (field.text.isEmpty() && !focused) {
+        if (shown.isEmpty() && !focused) {
             text(ellipsize(placeholder, room), tx, ty, FAINT);
             return changed;
         }
-        String shown = field.text;
         int start = 0;
-        while (width(shown.substring(start)) > room && start < field.cursor) start++;
+        while (width(shown.substring(start)) > room && start < field.cursor()) start++;
         String visible = shown.substring(start);
         while (width(visible) > room && !visible.isEmpty()) visible = visible.substring(0, visible.length() - 1);
-        if (focused && field.selectAll && !visible.isEmpty()) fill(tx - 1, ty - 1, width(visible) + 2, LINE + 1, 0xFF2F5FB3);
+        if (focused && field.allSelected() && !visible.isEmpty()) fill(tx - 1, ty - 1, width(visible) + 2, LINE + 1, 0xFF2F5FB3);
         text(visible, tx, ty, TEXT);
         if (focused) {
-            int cx = tx + width(shown.substring(start, Math.max(start, field.cursor)));
+            int cx = tx + width(shown.substring(start, Math.max(start, field.cursor())));
             if (id.equals(focus)) cursor = new Rect(cx, ty - 1, 1, LINE + 1);
             if ((now() / 500) % 2 == 0) fill(cx, ty - 1, 1, LINE + 1, TEXT);
         }

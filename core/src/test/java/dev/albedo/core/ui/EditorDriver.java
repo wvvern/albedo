@@ -35,7 +35,7 @@ final class EditorDriver {
     /** Opens a new screen on the same canvas and draws its first frame. */
     void reopen() {
         editor = new SettingsEditor(CoreFixture.albedo());
-        if (tipDelay != null) editor.ui.tipDelay = tipDelay;
+        if (tipDelay != null) editor.ui.tipDelay(tipDelay);
         render();
     }
 

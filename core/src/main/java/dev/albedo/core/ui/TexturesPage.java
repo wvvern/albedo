@@ -43,7 +43,7 @@ final class TexturesPage {
     void draw(int x, int y, int w, int h, Category category, CategorySettings cs) {
         Map<String, Integer> catalog = albedo.catalog(category);
         List<String> ids = new ArrayList<String>();
-        String q = search.text.trim().toLowerCase(Locale.ROOT);
+        String q = search.text().trim().toLowerCase(Locale.ROOT);
         for (String id : catalog.keySet()) if (q.isEmpty() || id.contains(q)) ids.add(id);
         int sw = Math.min(150, w);
         if (ui.textField("search", search, x, y, sw, Ui.H, "Search textures", "Type a name, for example leaves or ore")) {

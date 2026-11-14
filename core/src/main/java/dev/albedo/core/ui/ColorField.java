@@ -19,7 +19,7 @@ final class ColorField {
         if (!ui.isFocused(id)) hex.set(Colors.format(argb));
         if (ui.textField(id, hex, x, y, w, Ui.H, "#RRGGBB", "Type a color: #RGB, #RRGGBB or #AARRGGBB")) {
             try {
-                return Colors.parse(hex.text);
+                return Colors.parse(hex.text());
             } catch (IllegalArgumentException ignored) {
                 // keep typing
             }

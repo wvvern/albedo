@@ -94,7 +94,7 @@ final class SkyPreview {
         } else {
             // A layer page shows the sky still, so that the place of the layer shows against the compass.
             showImage(img, drawn, index < 0 && drawn.turning().turns());
-            ui.c.image("sky.preview", shown, x, y, w, ph);
+            ui.image("sky.preview", shown, x, y, w, ph);
         }
         int horizon = SkyPreviewGeometry.y(strip, drawn, 0);
         ui.fill(x, horizon, w, 1, HORIZON);

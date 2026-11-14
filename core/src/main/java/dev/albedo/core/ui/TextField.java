@@ -7,10 +7,10 @@ final class TextField {
 
     static final Filter ANY = c -> true;
 
-    String text = "";
-    int cursor;
+    private String text = "";
+    private int cursor;
     /** After select-all the next edit replaces everything. */
-    boolean selectAll;
+    private boolean selectAll;
     private final int maxLength;
     private final Filter filter;
 
@@ -19,10 +19,24 @@ final class TextField {
         this.filter = filter;
     }
 
+    String text() { return text; }
+
+    int cursor() { return cursor; }
+
+    boolean allSelected() { return selectAll; }
+
+    /** Selects all text, so that the next edit replaces it. */
+    void selectAll() { selectAll = true; }
+
+    /** Clears the selection and puts the cursor at the end. */
+    void focusAtEnd() {
+        selectAll = false;
+        cursor = text.length();
+    }
+
     void set(String value) {
         text = value;
-        cursor = value.length();
-        selectAll = false;
+        focusAtEnd();
     }
 
     boolean insert(String s) {
@@ -41,7 +55,7 @@ final class TextField {
 
     boolean key(UiKey key) {
         if (key == UiKey.SELECT_ALL) {
-            selectAll = true;
+            selectAll();
             return false;
         }
         boolean wasAll = selectAll;

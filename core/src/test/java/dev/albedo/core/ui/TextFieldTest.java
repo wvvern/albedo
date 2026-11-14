@@ -29,8 +29,8 @@ class TextFieldTest {
         frame(true);
         type("ab1");
         assertTrue(frame(false));
-        assertEquals("ab1", field.text);
-        assertEquals(3, field.cursor);
+        assertEquals("ab1", field.text());
+        assertEquals(3, field.cursor());
     }
 
     @Test
@@ -43,7 +43,7 @@ class TextFieldTest {
         ui.key(UiKey.END);
         type("y");
         frame(false);
-        assertEquals("xaby", field.text);
+        assertEquals("xaby", field.text());
     }
 
     @Test
@@ -53,7 +53,7 @@ class TextFieldTest {
         ui.key(UiKey.ENTER);
         type("no");
         frame(false);
-        assertEquals("ok", field.text);
+        assertEquals("ok", field.text());
         assertFalse(ui.isFocused("f"));
         assertNull(ui.textCursor(), "no field takes typing");
     }
@@ -71,8 +71,8 @@ class TextFieldTest {
         ui.key(UiKey.RIGHT);
         ui.key(UiKey.RIGHT);
         frame(false);
-        assertEquals("bd", field.text);
-        assertEquals(2, field.cursor, "Right stops at the end");
+        assertEquals("bd", field.text());
+        assertEquals(2, field.cursor(), "Right stops at the end");
     }
 
     @Test
@@ -82,8 +82,8 @@ class TextFieldTest {
         ui.key(UiKey.SELECT_ALL);
         type("n");
         frame(false);
-        assertEquals("n", field.text);
-        assertFalse(field.selectAll);
+        assertEquals("n", field.text());
+        assertFalse(field.allSelected());
     }
 
     @Test
@@ -93,7 +93,7 @@ class TextFieldTest {
         ui.key(UiKey.SELECT_ALL);
         ui.key(UiKey.BACKSPACE);
         frame(false);
-        assertEquals("", field.text);
+        assertEquals("", field.text());
     }
 
     @Test
@@ -104,7 +104,7 @@ class TextFieldTest {
         ui.key(UiKey.LEFT);
         ui.key(UiKey.PASTE);
         frame(false);
-        assertEquals("abcd", field.text);
+        assertEquals("abcd", field.text());
     }
 
     @Test
@@ -112,14 +112,14 @@ class TextFieldTest {
         frame(true);
         type("123456789");
         frame(false);
-        assertEquals("12345678", field.text);
+        assertEquals("12345678", field.text());
     }
 
     @Test
     void theFilterDropsCharactersItDoesNotAccept() {
         TextField digits = new TextField(8, Character::isDigit);
         assertTrue(digits.insert("a1b2"));
-        assertEquals("12", digits.text);
+        assertEquals("12", digits.text());
         assertFalse(digits.insert("x"), "nothing changes");
     }
 
@@ -128,7 +128,7 @@ class TextFieldTest {
         frame(true);
         type("a\u0001\u0016\u007fb");
         frame(false);
-        assertEquals("ab", field.text);
+        assertEquals("ab", field.text());
     }
 
     @Test

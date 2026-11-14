@@ -68,6 +68,37 @@ public final class Colors {
         return String.format("#%08X", argb);
     }
 
+    /** The opaque color of hue, saturation and value in [0, 1], with a hue that wraps. */
+    public static int fromHsv(float h, float s, float v) {
+        float r, g, b;
+        float hh = (h - (float) Math.floor(h)) * 6f;
+        int i = (int) hh;
+        float f = hh - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+        switch (i) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            default: r = v; g = p; b = q;
+        }
+        return 0xFF000000 | (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
+    }
+
+    /** @return {hue, saturation, value} in [0, 1], from the RGB channels only */
+    public static float[] toHsv(int argb) {
+        float r = red(argb) / 255f, g = green(argb) / 255f, b = blue(argb) / 255f;
+        float max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b)), d = max - min;
+        float h = 0;
+        if (d > 0) {
+            if (max == r) h = ((g - b) / d) / 6f;
+            else if (max == g) h = ((b - r) / d + 2) / 6f;
+            else h = ((r - g) / d + 4) / 6f;
+            if (h < 0) h += 1;
+        }
+        return new float[]{h, max == 0 ? 0 : d / max, max};
+    }
+
     /** Converts between 0xAARRGGBB and the 0xAABBGGRR layout some image classes use (the swap is its own inverse). */
     public static int swapRedBlue(int color) {
         return (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);

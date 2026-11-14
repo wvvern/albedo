@@ -55,7 +55,7 @@ final class ProfilePicker {
 
     /** The names in the list that match the search, with {@link #OFF} first for a server. */
     private List<String> names() {
-        String q = search.text.trim().toLowerCase(Locale.ROOT);
+        String q = search.text().trim().toLowerCase(Locale.ROOT);
         List<String> names = new ArrayList<String>();
         if (server != null && OFF.toLowerCase(Locale.ROOT).contains(q)) names.add(OFF);
         for (String n : session.draft().profiles().keySet()) if (n.contains(q)) names.add(n);

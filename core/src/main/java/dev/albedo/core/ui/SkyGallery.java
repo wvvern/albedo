@@ -147,7 +147,7 @@ final class SkyGallery {
         }
         CanvasImage img = image(p);
         if (img == null) ui.fill(x + PAD, y + PAD, w - 2 * PAD, l.imageH, Ui.CARD);
-        else ui.c.image(id, img, x + PAD, y + PAD, w - 2 * PAD, l.imageH);
+        else ui.image(id, img, x + PAD, y + PAD, w - 2 * PAD, l.imageH);
         int ty = y + PAD + l.imageH + 3;
         ui.text(ui.ellipsize(name, tw), tx, ty, Ui.TEXT);
         List<String> text = ui.wrap(description, tw);
