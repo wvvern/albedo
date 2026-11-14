@@ -74,6 +74,8 @@ final class ModernPlatform implements Platform {
     @Override
     public boolean finishRepaint() {
         try {
+            // The new sprites go into the colors that Albedo painted, which the Chroma pass copies at the start of the next frame.
+            if (TextureUploads.pending()) ChromaAtlases.restore();
             TextureUploads.flush();
             return true;
         } catch (RuntimeException e) {

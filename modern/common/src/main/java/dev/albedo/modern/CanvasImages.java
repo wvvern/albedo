@@ -1,7 +1,6 @@
 package dev.albedo.modern;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.albedo.core.Albedo;
 import dev.albedo.core.ui.CanvasImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -25,15 +24,11 @@ final class CanvasImages {
 
     //? if >=1.21.11 {
     static Identifier id(String key) {
-        return Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "gui/" + key);
+        return ModIds.id("gui/" + key);
     }
-    //?} elif >=1.21 {
+    //?} else {
     /*static ResourceLocation id(String key) {
-        return ResourceLocation.fromNamespaceAndPath(Albedo.MOD_ID, "gui/" + key);
-    }
-    *///?} else {
-    /*static ResourceLocation id(String key) {
-        return new ResourceLocation(Albedo.MOD_ID, "gui/" + key);
+        return ModIds.id("gui/" + key);
     }
     *///?}
 

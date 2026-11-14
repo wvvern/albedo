@@ -30,7 +30,7 @@ final class DeviceAtlasUpload {
             IntStream.range(0, pending.size()).parallel().forEach(i -> {
                 TextureUploads.Pending p = pending.get(i);
                 p.repaint();
-                if (!p.sprite.contents().isAnimated()) padded[i] = padded(p.sprite.contents(), padding(p.atlas, p.sprite));
+                if (!p.sprite.contents().isAnimated()) padded[i] = padded(p.sprite.contents(), SpriteAccess.padding(p.sprite, p.atlas.getTexture().getWidth(0)));
             });
             var encoder = RenderSystem.getDevice().createCommandEncoder();
             Map<TextureAtlas, List<TextureAtlasSprite>> animated = new LinkedHashMap<>();
@@ -56,11 +56,6 @@ final class DeviceAtlasUpload {
                 if (images != null) for (NativeImage image : images) image.close();
             }
         }
-    }
-
-    /** The border of copied edge pixels around a sprite in its atlas at mip level 0, from u0 = (x + padding) / atlas width. */
-    private static int padding(TextureAtlas atlas, TextureAtlasSprite sprite) {
-        return Math.round(sprite.getU0() * atlas.getTexture().getWidth(0)) - sprite.getX();
     }
 
     /**

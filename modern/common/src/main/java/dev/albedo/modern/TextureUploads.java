@@ -74,10 +74,13 @@ final class TextureUploads {
         };
     }
 
+    /** True when repainted sprites wait for {@link #flush}. */
+    static boolean pending() {
+        return !PENDING.isEmpty();
+    }
+
     /** Puts the repainted sprites into their atlases, and must run after each repaint, also when an upload failed. */
     static void flush() {
-        // The new sprites go into the colors that Albedo painted, which the Chroma pass copies at the start of the next frame.
-        if (!PENDING.isEmpty()) ChromaAtlases.restore();
         try {
             //? if >=1.21.11 {
             DeviceAtlasUpload.upload(PENDING);

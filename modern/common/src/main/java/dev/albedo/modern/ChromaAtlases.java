@@ -178,14 +178,9 @@ final class ChromaAtlases {
         ChromaTexels.Atlas texels = new ChromaTexels.Atlas(width, height, Albedo::chromaTexels);
         String atlasName = String.valueOf(id);
         for (TextureAtlasSprite sprite : sprites.values()) {
-            //? if >=1.21.11 {
-            // u0 = (x + padding) / atlas width, and the padding repeats the edge pixels of the sprite.
-            int padding = Math.round(sprite.getU0() * width) - sprite.getX();
-            //?} else {
-            /*int padding = 0;
-            *///?}
             SpriteAccess access = SpriteAccess.of(sprite);
-            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(), padding);
+            texels.sprite(AtlasPaths.spriteLocation(atlasName, access.name()), SpriteAccess.x(sprite), SpriteAccess.y(sprite), access.width(), access.height(),
+                    SpriteAccess.padding(sprite, width));
         }
         if (!texels.moving()) return;
         if (BACKEND.compile().dead()) throw new IllegalStateException("the Chroma shader does not compile");

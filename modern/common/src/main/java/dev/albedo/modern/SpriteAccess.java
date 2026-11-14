@@ -33,6 +33,18 @@ public final class SpriteAccess {
         return sprite.getY();
     }
 
+    /**
+     * The border of repeated edge pixels around the sprite in its atlas at mip level 0, from u0 = (x + padding) / atlas
+     * width, which is 0 before 1.21.11.
+     */
+    static int padding(TextureAtlasSprite sprite, int atlasWidth) {
+        //? if >=1.21.11 {
+        return Math.round(sprite.getU0() * atlasWidth) - sprite.getX();
+        //?} else {
+        /*return 0;
+        *///?}
+    }
+
     /** The name of the sprite in its atlas, for example {@code minecraft:block/stone}. */
     String name() {
         return String.valueOf(contents.name());
@@ -108,6 +120,11 @@ public final class SpriteAccess {
     /^* The row of the first pixel of the sprite in its atlas. ^/
     static int y(TextureAtlasSprite sprite) {
         return ((SpriteMainImageAccessor) sprite).albedo$y();
+    }
+
+    /^* The border of repeated edge pixels around the sprite in its atlas, which is 0 before 1.21.11. ^/
+    static int padding(TextureAtlasSprite sprite, int atlasWidth) {
+        return 0;
     }
 
     /^* The name of the sprite in its atlas, for example {@code minecraft:block/stone}. ^/

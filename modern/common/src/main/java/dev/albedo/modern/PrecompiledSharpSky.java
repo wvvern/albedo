@@ -121,9 +121,9 @@ final class PrecompiledSharpSky {
         // The GL game warns about a sampler that the program does not use, but Vulkan needs each sampler that the shader text declares.
         if (!black && (terms || !DeviceApi.isGl())) b = DeviceApi.sampler(b, "AlbedoTerms");
         if (!black) b = DeviceApi.uniformBlock(b, "AlbedoSky");
-        return DeviceApi.triangles(b.withLocation(DeviceApi.id("pipeline/" + fragment.replace('/', '_') + "_" + n))
-                .withVertexShader(DeviceApi.id(name))
-                .withFragmentShader(DeviceApi.id(fragment + "/" + n))
+        return DeviceApi.triangles(b.withLocation(ModIds.id("pipeline/" + fragment.replace('/', '_') + "_" + n))
+                .withVertexShader(ModIds.id(name))
+                .withFragmentShader(ModIds.id(fragment + "/" + n))
                 .withCull(false), DefaultVertexFormat.POSITION_TEX);
     }
 

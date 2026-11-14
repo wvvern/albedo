@@ -17,12 +17,10 @@ import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.renderpearl.api.textures.GpuSampler;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
-import dev.albedo.core.Albedo;
 import dev.albedo.core.config.Chroma;
 import dev.albedo.core.shader.ShaderState;
 import dev.albedo.core.texture.ChromaTexels;
 import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
@@ -45,9 +43,9 @@ final class ChromaPass implements ChromaBackend {
     // compile on a worker thread can stop the JVM on Windows (see SkyShaderSource.inline).
     private static final PearlPipeline PIPELINE = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(LAYOUT)
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))
+            .withLocation(ModIds.id("pipeline/chroma"))
+            .withVertexShader(ModIds.id("core/chroma"))
+            .withFragmentShader(ModIds.id("core/chroma"))
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
@@ -61,9 +59,9 @@ final class ChromaPass implements ChromaBackend {
     // Copies mip levels above 0; see copy().
     private static final PearlPipeline COPY = new PearlPipeline(RenderPipeline.builder()
             .withBindGroupLayout(COPY_LAYOUT)
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/chroma_copy"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "core/chroma_copy"))
+            .withLocation(ModIds.id("pipeline/chroma_copy"))
+            .withVertexShader(ModIds.id("core/chroma"))
+            .withFragmentShader(ModIds.id("core/chroma_copy"))
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)

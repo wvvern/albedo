@@ -20,7 +20,6 @@ import dev.albedo.core.sky.SkyImage;
 import dev.albedo.core.sky.SkyMesh;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
 import org.joml.Vector4f;
 
 /**
@@ -39,7 +38,7 @@ public final class PearlSky {
             .withBindGroupLayout(BindGroupLayouts.PROJECTION)
             .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
             .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
-            .withLocation(Identifier.fromNamespaceAndPath(Albedo.MOD_ID, "pipeline/sky_layers"))
+            .withLocation(ModIds.id("pipeline/sky_layers"))
             .withVertexShader("core/position_tex")
             .withFragmentShader("core/position_tex")
             .withColorTargetState(ColorTargetState.DEFAULT)

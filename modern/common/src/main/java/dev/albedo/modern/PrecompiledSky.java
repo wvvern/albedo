@@ -25,7 +25,7 @@ public final class PrecompiledSky {
     // The texture with no blend, no depth test or write and no cull: the sky is the first thing in the frame.
     private static final RenderPipeline PIPELINE = DeviceApi.triangles(
             DeviceApi.sampler(DeviceApi.transformBlocks(DeviceApi.state(RenderPipeline.builder(), false, false)), "Sampler0")
-                    .withLocation(DeviceApi.id("pipeline/sky_layers"))
+                    .withLocation(ModIds.id("pipeline/sky_layers"))
                     .withVertexShader("core/position_tex")
                     .withFragmentShader("core/position_tex")
                     .withCull(false), DefaultVertexFormat.POSITION_TEX)

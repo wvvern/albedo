@@ -21,7 +21,6 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import dev.albedo.core.Albedo;
 import dev.albedo.core.sky.SkyShaderSource;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -46,11 +45,8 @@ import com.mojang.blaze3d.platform.CompareOp;
 //?} else {
 /^import com.mojang.blaze3d.platform.DepthTestFunction;
 ^///?}
-//? if >=1.21.11 {
-import net.minecraft.resources.Identifier;
-//?} else {
-/^import net.minecraft.resources.ResourceLocation;
-import org.lwjgl.opengl.GL11;
+//? if <1.21.11 {
+/^import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL33;
 ^///?}
@@ -65,16 +61,6 @@ import java.util.OptionalLong;
 // The calls of the GPU device that changed from 1.21.6 to 26.2, for the sky and the Chroma pass of these versions.
 final class DeviceApi {
     private DeviceApi() {}
-
-    //? if >=1.21.11 {
-    static Identifier id(String path) {
-        return Identifier.fromNamespaceAndPath(Albedo.MOD_ID, path);
-    }
-    //?} else {
-    /^static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Albedo.MOD_ID, path);
-    }
-    ^///?}
 
     // The blend and the depth test of a pipeline that never writes depth, which the builder takes in other calls from 26.1, and
     // with a reversed depth buffer from 26.2, where the test passes the far depth 0 of the sky.
