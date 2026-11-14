@@ -39,6 +39,9 @@ public final class SkyShaderSource {
         /** 1.8.9 with only OpenGL 2.0: GLSL 1.20 for the Chroma pass, which needs no integers of an extension. */
         FIXED_120("#version 120\n#define ALBEDO_PLAIN_UNIFORMS\n#define ALBEDO_FIXED_FUNCTION\n");
 
+        /** The log line when {@link #sharp} gives null. */
+        public static final String NO_SHARP_DIALECT = "The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image";
+
         private final String header;
 
         Dialect(String header) {
@@ -47,6 +50,20 @@ public final class SkyShaderSource {
 
         /** The lines that go before the text of each shader file. */
         public String header() { return header; }
+
+        /**
+         * The dialect of the fixed function sharp sky, or null when the GPU has no unsigned integers and half float textures.
+         */
+        public static Dialect sharp(boolean gl30, boolean gpuShader4, boolean textureFloat, boolean halfFloatPixel) {
+            if (gl30) return FIXED_130;
+            if (gpuShader4 && textureFloat && halfFloatPixel) return FIXED_120_EXT;
+            return null;
+        }
+
+        /** The dialect of the fixed function Chroma pass, which needs no integers of an extension. */
+        public static Dialect chroma(boolean gl30) {
+            return gl30 ? FIXED_130 : FIXED_120;
+        }
     }
 
     /** The vertex and fragment shaders of the sky sphere for the classic GL programs. */

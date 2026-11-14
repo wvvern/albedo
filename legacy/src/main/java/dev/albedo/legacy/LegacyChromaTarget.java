@@ -55,7 +55,7 @@ final class LegacyChromaTarget {
                 Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
                 return null;
             }
-            return caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
+            return SkyShaderSource.Dialect.chroma(caps.OpenGL30);
         }
     }
 

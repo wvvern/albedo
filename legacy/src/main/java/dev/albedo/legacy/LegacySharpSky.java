@@ -32,7 +32,7 @@ import javax.imageio.ImageIO;
 /**
  * Draws the custom sky with the sky shader for each screen pixel on 1.8.9 and 1.12.2, so that it is sharp at each resolution and
  * field of view, with an LWJGL 2 GL program: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4, else the
- * baked texture draws the sky.
+ * baked texture draws the sky; the twin of the modern FixedSharpSky.
  */
 final class LegacySharpSky {
     /** The block of a sky program as the four uniform arrays of the shader, which {@link #set} fills again for each draw. */
@@ -117,10 +117,10 @@ final class LegacySharpSky {
      */
     private static SkyShaderSource.Dialect dialect() {
         ContextCapabilities caps = GLContext.getCapabilities();
-        if (caps.OpenGL30) return SkyShaderSource.Dialect.FIXED_130;
-        if (caps.GL_EXT_gpu_shader4 && caps.GL_ARB_texture_float && caps.GL_ARB_half_float_pixel) return SkyShaderSource.Dialect.FIXED_120_EXT;
-        Albedo.get().platform().info("The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image");
-        return null;
+        SkyShaderSource.Dialect dialect = SkyShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float,
+                caps.GL_ARB_half_float_pixel);
+        if (dialect == null) Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
+        return dialect;
     }
 
     /**

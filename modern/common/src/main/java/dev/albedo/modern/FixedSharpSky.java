@@ -34,7 +34,7 @@ import javax.imageio.ImageIO;
 
 // Draws the custom sky with the sky shader for each screen pixel on the fixed function versions, so that it is sharp at each
 // resolution and field of view, with a GL program of its own: GLSL 1.30 with OpenGL 3.0, else GLSL 1.20 with EXT_gpu_shader4,
-// else the baked texture draws the sky.
+// else the baked texture draws the sky; the twin of LegacySharpSky.
 final class FixedSharpSky {
     private static final class Block {
         final FloatBuffer header = BufferUtils.createFloatBuffer(4);
@@ -88,7 +88,7 @@ final class FixedSharpSky {
             SkyShaderSource.Dialect dialect = dialect();
             if (dialect == null) {
                 state = state.to(ShaderState.FAILED);
-                Albedo.get().platform().info("The GPU has no OpenGL 3.0 or EXT_gpu_shader4, so the sky draws from the baked image");
+                Albedo.get().platform().info(SkyShaderSource.Dialect.NO_SHARP_DIALECT);
                 return;
             }
             int program = GL20.glCreateProgram();
@@ -194,9 +194,7 @@ final class FixedSharpSky {
     // The GLSL dialect that the GPU can compile, or null when it has none with unsigned integers and half float textures.
     private static SkyShaderSource.Dialect dialect() {
         GLCapabilities caps = GL.getCapabilities();
-        if (caps.OpenGL30) return SkyShaderSource.Dialect.FIXED_130;
-        if (caps.GL_EXT_gpu_shader4 && caps.GL_ARB_texture_float && caps.GL_ARB_half_float_pixel) return SkyShaderSource.Dialect.FIXED_120_EXT;
-        return null;
+        return SkyShaderSource.Dialect.sharp(caps.OpenGL30, caps.GL_EXT_gpu_shader4, caps.GL_ARB_texture_float, caps.GL_ARB_half_float_pixel);
     }
 
     // Compiles the program, sends the term images of a new image to the GPU and takes the block of this frame, in a sky with

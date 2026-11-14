@@ -113,6 +113,21 @@ class SkyShaderSourceTest {
     }
 
     @Test
+    void theSharpSkyTakesGlsl130ElseTheExtensionWithHalfFloatsElseNone() {
+        assertEquals(SkyShaderSource.Dialect.FIXED_130, SkyShaderSource.Dialect.sharp(true, false, false, false));
+        assertEquals(SkyShaderSource.Dialect.FIXED_120_EXT, SkyShaderSource.Dialect.sharp(false, true, true, true));
+        assertNull(SkyShaderSource.Dialect.sharp(false, false, true, true), "no EXT_gpu_shader4");
+        assertNull(SkyShaderSource.Dialect.sharp(false, true, false, true), "no float textures");
+        assertNull(SkyShaderSource.Dialect.sharp(false, true, true, false), "no half float pixels");
+    }
+
+    @Test
+    void theChromaPassTakesGlsl130ElseGlsl120() {
+        assertEquals(SkyShaderSource.Dialect.FIXED_130, SkyShaderSource.Dialect.chroma(true));
+        assertEquals(SkyShaderSource.Dialect.FIXED_120, SkyShaderSource.Dialect.chroma(false));
+    }
+
+    @Test
     void aMissingFileIsAnError() {
         assertThrows(IOException.class, () -> SkyShaderSource.read("core/none.fsh"));
         assertThrows(IOException.class, () -> SkyShaderSource.readInclude("minecraft:projection.glsl", ""));

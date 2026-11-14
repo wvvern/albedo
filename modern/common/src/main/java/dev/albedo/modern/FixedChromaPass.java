@@ -50,7 +50,7 @@ final class FixedChromaPass implements ChromaBackend {
             Albedo.get().platform().warn("The GPU has no OpenGL 2.0 or no framebuffers, so Chroma is off", null);
             return;
         }
-        SkyShaderSource.Dialect dialect = caps.OpenGL30 ? SkyShaderSource.Dialect.FIXED_130 : SkyShaderSource.Dialect.FIXED_120;
+        SkyShaderSource.Dialect dialect = SkyShaderSource.Dialect.chroma(caps.OpenGL30);
         int p = GL20.glCreateProgram();
         int vertex = 0;
         int fragment = 0;
