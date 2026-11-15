@@ -1,0 +1,33 @@
+# Sets the environment of each Modrinth version to client-only. Modrinth guesses the environment from the jar when
+# mc-publish uploads it, and it can mark the Forge and NeoForge jars "client and server". CI runs this after the uploads.
+# To run it by hand: gh workflow run modrinth-environment.yml
+name: Modrinth environment
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  environment:
+    if: vars.MODRINTH_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    env:
+      API: https://api.modrinth.com/v3
+      PROJECT: ${{ vars.MODRINTH_PROJECT_ID }}
+      TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      USER_AGENT: ${{ github.repository }} (GitHub Actions)
+    steps:
+      - name: Set the environment
+        run: |
+          modrinth() { curl -fsS -H "Authorization: $TOKEN" -H "User-Agent: $USER_AGENT" "$@"; }
+          wrong() { modrinth "$API/project/$PROJECT/version" | jq -r '.[] | select(.environment != "client_only") | "\(.id) \(.version_number)"'; }
+          wrong | while read -r id number; do
+            modrinth -X PATCH "$API/version/$id" -H "Content-Type: application/json" --data '{"environment":"client_only"}'
+            echo "Set $number to client_only"
+          done
+          # Modrinth can ignore a field that it does not know. Read the versions again to make sure that the change applied.
+          left=$(wrong)
+          if [ -n "$left" ]; then echo "Not client_only:"; echo "$left"; exit 1; fi

@@ -25,6 +25,7 @@ Pushing a tag such as `v1.2.0` makes CI build the jar of each target (39 now), c
 - `build` (one per node of both builds): runs `python -m tools build` for the targets of the node and `python -m tools check-jar`, and uploads `jars-<minecraft version>`. The jobs of the modern nodes only read the Gradle cache, because all nodes together exceed the repository's cache limit.
 - `release`: on a tag, checks that each target has its jar, adds a build attestation to each, creates the GitHub release.
 - `modrinth`: one job per jar. Each job calls `.github/workflows/modrinth.yml`, which uploads the jar from the GitHub release. The Fabric upload also lists `quilt` for the nodes with `modrinth_loaders_fabric=fabric quilt`. If an upload fails, delete the partial version on Modrinth and run `.github/workflows/modrinth.yml` by hand.
+- `modrinth-environment`: after the uploads, sets the environment of each Modrinth version to client-only. Modrinth guesses the environment from the jar and can mark the Forge and NeoForge jars "client and server". After an upload by hand, run `gh workflow run modrinth-environment.yml`.
 - `modrinth-page`: sets the Modrinth description to `modrinth/DESCRIPTION.md` and replaces the gallery with the images in `modrinth/gallery.txt`. The token needs the scope "Write projects". To run it without a release: `gh workflow run modrinth-page.yml`.
 
 Jar names are `albedo-<loader>-<version>+<minecraft version>.jar`; the `26.1` node builds `+26.1.2`.

@@ -159,6 +159,14 @@ jobs:
       game_versions: ${{ matrix.upload.game_versions }}
     secrets: inherit
 
+  modrinth-environment:
+    name: Modrinth environment
+    # Runs also when an upload failed, so that each upload that passed gets the correct environment.
+    if: ${{ !cancelled() && needs.modrinth.result != 'skipped' }}
+    needs: [modrinth]
+    uses: ./.github/workflows/modrinth-environment.yml
+    secrets: inherit
+
   modrinth-page:
     name: Modrinth page
     needs: [release]
